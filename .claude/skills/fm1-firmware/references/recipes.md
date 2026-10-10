@@ -59,10 +59,14 @@ listed in `NOT_DRAWN`. The enum `ICON_<NAME>` appears in `build/gen/ui_icons.h` 
 
 ## Persistence
 
-The flash map is full (hardware.md). Options: extend an existing record within its 4 KB sector (project, settings,
-autosave), or repurpose a region with an explicit migration. Writes go through `storage.c` (A/B copies, CRC, a
-sequence number) and happen only while the transport is stopped. Add a round-trip test in the style of
-`tests/project_test.c` and a torn-write test in the style of `tests/storage_test.c`.
+The flash map is full (hardware.md). Felucca's project fills its sector, so M-Vave-OP1 keeps what a project needs
+beyond it in `opstore.c`'s extras (`proj_xtra_t`): add a field at the end (its `size` tells a reader what is there),
+fill it in `xtra_capture`, apply it in `xtra_lanes` / `xtra_loaded`, hash it into `autosave_sig`. The extras carry the
+CRC of their project (`xtra_id`), so a project written another way never picks up stale extras. Writes go through
+`storage.c` (A/B copies, CRC, a sequence number) and happen only while the transport is stopped and nothing sounds
+(`autosave_quiet`): an erase silences the audio ~40 ms. Something bigger than a sector (the tape) writes its own
+commit record last over several sectors (`tape_store_write`) and freezes the ISR's side meanwhile (`tape.hold`).
+Test against a NOR image in the style of `tests/opstore_test.c` (round trip, power-on, torn write, damaged copy).
 
 ## Changing the panel graphics
 

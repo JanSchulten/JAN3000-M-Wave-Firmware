@@ -58,6 +58,14 @@
 #                   where played, playback, overdub, the gap buffer's order, STOP / PLAY from the head, LOOP (wrap, keys
 #                   held over it, RESTART), SPEED (rate, transposition, recorded at a SPEED), DIR REV (playback and
 #                   recording backwards, DIR turned with a key held), ERASE, a full tape keeps every on's off, the end.
+# STORES (tests/opstore_test.c, M-Vave-OP1): USR3's flash (opstore.c) on a NOR image: a slot's FX TRACKS saved and loaded
+#                   with its project (a power-on, a project without extras or written by the editor: empty, a rename keeps
+#                   them, a failed write), the autosave's, a song's slots; the tape kept when stopped and quiet, read back
+#                   as it was, copies taking turns, torn / damaged / unsound copies left, none after a crash, the ISR's
+#                   hold; USR3 reads as an empty sample slot.
+# SONG CHAIN (tests/songchain_test.c, M-Vave-OP1): SONG as the OP-Z's pattern chains: REC + A..D types a chain (a new
+#                   one, repeats, sections), LOOP / STOP (+ ADD's KNOB 4, kept with the project), a new chain at the end of
+#                   the loop playing, sections added and cells edited while it plays, a slot not saved silent, STOP.
 # FX TRACKS (tests/fxtrack_test.c, M-Vave-OP1): two lanes of punch-in effects (fxtrack.c): an effect from its step over its
 #                   TIEs, LEN and two lengths, step for step with a 1/16 track, a REPEAT on its step, mutes, STOP / PLAY;
 #                   recording only armed and playing, early / late presses, TIEs, overdub, a punch inside a take, FX LATCH,
@@ -246,6 +254,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/tape_test" tests/tape_test.c -lm
     run "TAPE: record, play, overdub, LOOP, SPEED, DIR REV, ERASE, a full tape, the end" "$OUT/tape_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/songchain_test" tests/songchain_test.c -lm
+    run "SONG as OP-Z pattern chains: typed with REC + A..D, LOOP / STOP, new chains and edits while it plays" "$OUT/songchain_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fxtrack_test" tests/fxtrack_test.c -lm
     run "FX TRACKS: lanes of punch-in effects (play, LEN, no drift, REPEAT on its step), recording (early / late, TIEs, overdub, punch, LATCH, mutes), pages" "$OUT/fxtrack_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/step15_test" tests/step15_test.c -lm
@@ -296,6 +306,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "metronome and count-in: beats sample for sample (internal and external clock), accent, level, MASTER, not in USB, count-in timing, notes onto step 1" "$OUT/click_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/persistence_test" tests/persistence_test.c -lm
     run "persistence: deferred settings, retry and failed-save rollback" "$OUT/persistence_test"
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/opstore_test" tests/opstore_test.c -lm
+    run "M-Vave-OP1 stores in USR3: FX TRACKS with projects and the autosave, the tape (kept, read back, torn, damaged), USR3 empty" "$OUT/opstore_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/backup_test" tests/backup_test.c -lm
     run "full backup: CRC before writes, stale runtime, USB reset / timeout, malformed objects, older projects" "$OUT/backup_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/fm6bank_test" tests/fm6bank_test.c -lm

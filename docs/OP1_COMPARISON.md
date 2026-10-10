@@ -117,6 +117,8 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | FINGER: zwei Spieler, Muster pro weißer Taste, JOIN/REPLACE/FILL IN | ❌ | Schritt 8 |
 | Transponieren einer Sequenz mit der Tastatur | 🟡 SCL > TRN, nicht per Taste | Schritt 8 |
 | – | ARP mit vielen Modi, Akkord-Tasten, SONG-Kette | Extras des FM-1 |
+| (OP-Z) Pattern-Ketten, nächstes Pattern vormerken | SONG: REC + A–D tippt eine Kette, LOOP, Änderungen im laufenden Song | ✅ seit M2b |
+| (OP-Z) FX-Spuren FX1/FX2 und aufgenommene Punch-in-FX | FX > FX TRACKS: zwei Effekt-Spuren, REC + FX halten + Tasten nimmt auf | ✅ seit M2b |
 
 ### Tape
 
@@ -138,7 +140,7 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | Takt-Markierungen (Beat Match) | Takt-Striche über den Spuren | ✅ |
 | Manuelles Bandziehen (SHIFT + REC, Blau) | ❌ | denkbar mit KNOB 1, später |
 | Bounce (Out-to-In) | 🟡 Spuren zusammenführen | Schritt 4 |
-| Tape bleibt nach dem Ausschalten | ❌ nur im RAM | Schritt 3 (Entscheidung nötig) |
+| Tape bleibt nach dem Ausschalten | ein Tape wie beim OP-1, im Flash des früheren Sample-Slots USR3 (zwei Kopien) | ✅ seit M2 |
 | Sounds als Daten aufs Tape (Lift/Drop eines Sounds) | ❌ | Schritt 5 |
 
 ### Mixer, Tempo, Sonstiges
@@ -167,7 +169,7 @@ Sequencer, zuletzt die Optik. Jeder Schritt kommt mit Host-Tests und einem neuen
 | --- | --- | --- | --- | --- |
 | 1 | **Modus-Zuordnung** | die vier Main Modes | HOME = Synth (Spur, Sound), GLO = Tape, HOME HOME = Mixer, SEQ = Sequencer; Seitentitel und Farben nach OP-1-Art | klein |
 | 2 | **Tape-Transport und Tricks** | ◀ ▶, STOP + ◀ ▶, Tape-Tricks 1–8 | auf der TAPE-Seite OCT− / OCT+ = REW / FF (halten spult), PLAY halten + OCT− = an den Anfang; FX halten auf der TAPE-Seite: LOOP IN, LOOP OUT, LOOP TOGGLE, BREAK, REVERSE, CHOP, M1, M2 auf den weißen Tasten | mittel |
-| 3 | **Tape speichern (M2)** | Tape bleibt beim Ausschalten | braucht eine Entscheidung (siehe unten) | mittel |
+| 3 | **Tape speichern (M2)** ✅ | Tape bleibt beim Ausschalten | erledigt: ein Tape im Flash von USR3, nach 3 s Ruhe gesichert | – |
 | 4 | **Tape-Schnitt** | LIFT, DROP, SPLIT, JOIN, Region-Lift | TAPE 2: LIFT (Loop-Bereich in die Zwischenablage), DROP (am Kopf einfügen), SPLIT/JOIN über Lücken; LIFT ALL | mittel |
 | 5 | **Tape nimmt Klang mit** | Audio enthält jeden Sound und jeden Sweep | Soundwechsel (PRESETS) und Knob-Bewegungen werden Tape-Events; beim Abspielen gesetzt | groß |
 | 6 | **Master wie beim OP-1** | EQ (T2), Master-FX (T3), Drive + Release (T4) | MIXER-Seiten 2–4: EQ LOW MID HIGH AMOUNT, MASTER FX, DRIVE RELEASE BALANCE | mittel, CPU prüfen |
@@ -176,14 +178,36 @@ Sequencer, zuletzt die Optik. Jeder Schritt kommt mit Host-Tests und einem neuen
 | 9 | **OP-1-Optik** | Engine-Grafiken, farbige Werte | pro Engine eine verspielte Grafik (FM-Sechsecke, Saiten-Kurven, Phase-Wellen), Werte in den Encoder-Farben | mittel |
 | 10 | **Kleinkram** | Signal Path, Hilfe, LFO-Arten | Signal-Path-Seite, RANDOM-LFO für ein ganzes Modul, „Kurbel“ auf SELECT | klein |
 
-Grenzen, die bei jedem Schritt mitgeprüft werden: Pool-RAM (zurzeit ~24 KB frei, davon 8 KB Pflichtreserve), statische
-ISR-Kosten (zurzeit 39 562 von erlaubten 41 252), Flash für Code (~78 KB frei).
+Grenzen, die bei jedem Schritt mitgeprüft werden: statisches RAM (zurzeit 56 152 von 73 728 Byte), Pool-RAM (~23 KB frei,
+davon 8 KB Pflichtreserve), statische ISR-Kosten (zurzeit 39 032 von erlaubten 41 252), Flash für Code (~71 KB frei).
 
 ## 6. Offene Entscheidungen
 
-1. **Wo wird das Tape gespeichert?** Der Flash ist voll belegt. Empfehlung: einen der drei Sample-Slots (80 KB) für bis
-   zu 5 Tapes opfern. Alternative: mit dem Projekt speichern, dann passen nur ~500 Noten.
+1. ~~**Wo wird das Tape gespeichert?**~~ Entschieden: Noten und Einstellungen statt eines dritten Sample-Slots. USR3 (80 KB)
+   hält das Tape (ein Tape, zwei Kopien) und die FX-Spuren jedes Projekts.
 2. **SHIFT-Taste ja oder nein?** Das OP-1 lebt von SHIFT. Felucca löst dasselbe mit gehaltenen Tasten, die nur auf
    bestimmten Seiten eine Ebene öffnen. Empfehlung: bei gehaltenen Tasten bleiben und auf der TAPE-Seite die
    FX-Ebene für die Tape-Tricks nutzen, statt eine Taste umzuwidmen.
 3. **Soll SPEED die Sequencer mitziehen?** Beim OP-1 nur mit Beat Match. Empfehlung: wie beim OP-1, Schritt 7.
+
+## 7. OP-Z-Anleihen (M2b)
+
+Gewünscht waren sechs gleichwertige Spuren. Gemessen: jede weitere Synth-Spur kostet ~23 KB RAM (Engine-Speicher,
+Stimmen, SLICER-Puffer), zwei zusammen ~52 KB, frei sind ~16 KB. Daher das OP-Z-Modell: **vier Instrument-Spuren** (jede
+mit jeder Engine, wie bisher) und **zwei FX-Spuren**, die nur Schritte speichern (66 Byte je Spur).
+
+| OP-Z | M-Vave-OP1 | Stand |
+| --- | --- | --- |
+| Spuren 1–8 (Drums, Synths) | vier Spuren, jede mit beliebiger Engine (DRUM, FM6, SAMPLE, SLICE …) | ✅ |
+| FX1 / FX2 (Send-Effekte mit Schritten) | FX TRACKS: zwei Spuren mit den Effekten der FX-Ebene, eigene Länge 1–64 | ✅ |
+| Punch-in-FX (SHIFT + Tasten) | FX halten + weiße Tasten (Effekte), schwarze 1–4 (Mutes) | ✅ (aus Felucca) |
+| Punch-in-FX mit REC aufnehmen | REC auf FX TRACKS armt eine Spur; quantisiert, gehalten = TIE, Overdub, Punch | ✅ |
+| Pattern-Ketten (Projekt-Taste + Pattern-Tasten) | SONG: REC, dann A3 B3 C4 D4 = Pattern A–D; gleiche Taste = noch einmal | ✅ |
+| Kette läuft in Schleife | LOOP (bei getippten Ketten an), END auf + ADD: LOOP / STOP | ✅ |
+| Pattern während des Spielens wechseln | neue Kette ab dem Ende des laufenden Patterns, Änderungen am Abschnittsende | ✅ |
+| 16 Patterns pro Projekt, sofort umschaltbar | 4 Patterns = Projekt-Slots A–D, Muster per SAVE > PROJECT | 🟡 M2c |
+| Weitere Punch-ins: Duck, Ramp, Randomize, Stereo | ❌ | M2c |
+
+Speicher: Projekte haben Felluccas Format (ein Sektor, voll). Die FX-Spuren liegen daneben im Flash von USR3, mit der
+Prüfsumme des Projekts, zu dem sie gehören. Ein Felucca-Projekt oder eines, das der Web-Editor geschrieben hat, lädt mit
+leeren FX-Spuren.

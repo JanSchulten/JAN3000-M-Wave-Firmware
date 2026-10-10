@@ -163,6 +163,7 @@ static struct {
     uint8_t song_row;            /* SONG: the section selected, count selects + ADD */
     uint8_t song_trk;            /* SONG: the lane (track) selected, 0..NTRK-1 */
     uint8_t fxt_sel, fxt_cur;    /* FX TRACKS (M-Vave-OP1, fxtrack.c): the lane selected (FX1, FX2), its step KNOB 3 sets */
+    uint8_t song_rec, song_new;  /* SONG (M-Vave-OP1): REC types a chain with A..D (on); the next key starts a new one */
     uint16_t ev_row;             /* SEQ > AUTOMATION (ui_events.c ev_*): the row selected (0 PLAY / CLEAR, 1 QUANTIZE, the
                                   * last + ADD; 1.2: up to EV_ROWS, past 255) */
     uint8_t ev_step, ev_id;      /* .. + ADD: the step and the parameter (or EV_CHANCE, EV_RATCH, EV_NUDGE, EV_VEL) it
@@ -446,6 +447,19 @@ static int transport_busy(void)
     fm1_irq_on();
     return busy;
 }
+/* M-Vave-OP1: the song playing takes chain_config as edited (CHN_EDIT) or as a new chain (CHN_NEW) where its section ends
+ * (song_chain.c chain_next_row); stopped there is nothing to hand over (PLAY copies it). A new chain waiting stays one */
+static void chain_live(uint32_t kind)
+{
+    if (!chain_busy() || !chain_valid(&chain_config))
+        return;
+    fm1_irq_off();                               /* (the ISR never sees half a chain) */
+    if (chain.req > kind)
+        kind = chain.req;
+    chain_next = chain_config;
+    chain.req = (uint8_t)kind;
+    fm1_irq_on();
+}
 static void chain_play_ui(void)
 {
     uint32_t rc = chain_prepare();
@@ -497,6 +511,7 @@ static void page_entered(void)
     ui.entry_open = 0;
     ui.hot_t = 0;                                /* clear the previous page's emphasis */
     ui.act = pg->graph == GR_USER ? 4u : 0u;     /* the save screen is ready for OCT+ */
+    ui.song_rec = 0;                             /* (SONG's chain typing ends with the page) */
     help_start();
     ui.force = 1;
 }
@@ -699,6 +714,7 @@ static void go_home(void)
     ui.entry_open = 0;
     ui.hot_t = 0;
     song.seq_mode = 0;
+    ui.song_rec = 0;
     ui.force = 1;
     help_start();
 }

@@ -390,8 +390,9 @@ static void ui_leds(void)
         led_put(nl, panel.btn[B_FX], 1);                /* FX LATCH: lit while an effect or a macro is on */
     if (ui.layer)                                       /* the layer's button breathes while its map is up */
         led_put(nb, panel.btn[layer_btn()], 1);
-    led_put(nl, panel.btn[B_REC], (tape_page() ? tape.arm : fxt_page() ? fxt.arm : song.rec) != 0u &&
-                                  ui.layer != LAYER_REC);   /* (its layer: it breathes; TAPE: the tape's, FX TRACKS the lanes') */
+    led_put(nl, panel.btn[B_REC], (tape_page() ? tape.arm : fxt_page() ? fxt.arm : song.rec | (song_keys_on() && ui.song_rec))
+                                  != 0u && ui.layer != LAYER_REC);   /* (its layer: it breathes; TAPE: the tape's, FX TRACKS
+                                                                      * the lanes', SONG typing a chain) */
     k = oct_leds();
     led_put(nl, panel.btn[B_OCTDN], (int)(k & 1u));
     led_put(nl, panel.btn[B_OCTUP], (int)((k >> 1) & 1u));
@@ -518,8 +519,51 @@ static void song_add(void)
     chain_config.count = (uint8_t)(n + 1u);
     ui.song_row = (uint8_t)n;
 }
+/* SONG, REC on (M-Vave-OP1, the OP-Z's pattern chain): key A..D (slot s) the chain's next pattern, every track on it.
+ * The first key after REC starts a new chain (LOOP on); the same key again counts the last section once more (up to 16),
+ * another one adds a section. Playing, the song takes it where its section ends (chain_live): a new chain at the end of
+ * the loop playing now, an added section after the ones before it */
+static int chain_all_on(const chain_row_t *r, uint32_t s)
+{
+    uint32_t k;
+    for (k = 0; k < NTRK; k++)
+        if (r->slot[k] != s)
+            return 0;
+    return 1;
+}
+static void song_chain_key(uint32_t s)
+{
+    uint32_t n = chain_config.count, kind = CHN_EDIT;
+    chain_row_t *r = n ? &chain_config.row[n - 1u] : 0;
+    char b[8] = "A x2";
+    if (ui.song_new || !n) {
+        chain_defaults(&chain_config);
+        chain_config.rsv[0] = CHAIN_LOOP;
+        chain_config.row[0] = chain_row_of(s, 1);
+        chain_config.count = 1;
+        ui.song_new = 0;
+        kind = CHN_NEW;
+        b[1] = 0;
+    } else if (chain_all_on(r, s) && r->repeat < 16u) {
+        r->repeat++;
+        fmt_int(b + 3, r->repeat);
+    } else if (n < CHAIN_ROWS) {
+        chain_config.row[n] = chain_row_of(s, 1);
+        chain_config.count = (uint8_t)(n + 1u);
+        b[1] = 0;
+    } else {
+        ui_message("SONG FULL");
+        return;
+    }
+    b[0] = (char)('A' + s);
+    ui.song_row = (uint8_t)(chain_config.count - 1u);
+    chain_live(kind);
+    ui_say(kind == CHN_NEW ? "NEW CHAIN: " : "CHAIN + ", b);
+    ui.force = 1;
+}
 /* SONG's keys (song.grid 3): a press of A3 B3 C4 D4 (seq.c song_key) sets the selected cell's slot A..D (on + ADD it
- * adds the section first: a copy of the one before, the first with every track on that slot) */
+ * adds the section first: a copy of the one before, the first with every track on that slot); REC on: the chain's next
+ * (song_chain_key). M-Vave-OP1: playing too, the song takes the edit where its section ends */
 static void song_keys(uint32_t notes)
 {
     uint32_t k;
@@ -527,7 +571,10 @@ static void song_keys(uint32_t notes)
         int32_t s = (notes >> k) & 1u ? song_key(k) : -1;
         if (s < 0)
             continue;
-        if (chain_busy()) { ui_message("STOP TO EDIT"); return; }
+        if (ui.song_rec) {
+            song_chain_key((uint32_t)s);
+            continue;
+        }
         if (ui.song_row >= chain_config.count) {
             if (ui.song_row >= CHAIN_ROWS)
                 return;
@@ -536,6 +583,7 @@ static void song_keys(uint32_t notes)
                 chain_config.row[0] = chain_row_of((uint32_t)s, 1);
         }
         chain_config.row[ui.song_row].slot[ui.song_trk % NTRK] = (uint8_t)s;
+        chain_live(CHN_EDIT);
         ui.force = 1;
     }
 }
@@ -568,6 +616,10 @@ static int rec_tap(void)                                /* 1: the arming changed
     }
     if (fxt_page()) {                                 /* FX TRACKS (fxtrack.c): the selected lane's ARM; as the tape's */
         uint8_t lb = (uint8_t)(1u << (ui.fxt_sel % FXT_N));
+        if (chain_busy() && !(fxt.arm & lb)) {
+            ui_message("STOP TO RECORD");
+            return 0;
+        }
         fxt.arm ^= lb;
         ui.force = 1;
         if ((fxt.arm & lb) && !song.playing && !seq_counting())
@@ -576,12 +628,15 @@ static int rec_tap(void)                                /* 1: the arming changed
                                 : (ui.fxt_sel ? "FX2 DISARMED" : "FX1 DISARMED"));
         return 1;
     }
+    if (!ui.home && cur_page()->graph == GR_SONG && !(song.rec & bit)) {   /* SONG (M-Vave-OP1): REC types a chain */
+        ui.song_rec ^= 1u;                            /* (song_chain_key), the first key a new one; not the pattern's */
+        ui.song_new = ui.song_rec;
+        ui.force = 1;
+        ui_message(ui.song_rec ? "NEW CHAIN: TAP A-D" : "CHAIN DONE");
+        return 1;
+    }
     if (chain_busy()) {
         ui_message("STOP TO RECORD");
-        return 0;
-    }
-    if (!ui.home && cur_page()->graph == GR_SONG && !(song.rec & bit)) {
-        ui_message("[SEQ] TO RECORD");
         return 0;
     }
     song.rec ^= bit;
@@ -953,10 +1008,12 @@ static void edit_param(uint32_t slot, int32_t steps)
         uint32_t len = FXT_LEN(ln);
         if (slot == 0u) {
             ui.fxt_sel = (uint8_t)clamp((int32_t)ui.fxt_sel + steps, 0, FXT_N - 1);
-            if (ui.fxt_cur >= FXT_LEN(&fxt_lane[ui.fxt_sel]))
-                ui.fxt_cur = (uint8_t)(FXT_LEN(&fxt_lane[ui.fxt_sel]) - 1u);
+            if (ui.fxt_cur >= FXT_LEN(fxt_src(ui.fxt_sel)))
+                ui.fxt_cur = (uint8_t)(FXT_LEN(fxt_src(ui.fxt_sel)) - 1u);
         } else if (slot == 1u) {
-            ui.fxt_cur = (uint8_t)clamp((int32_t)ui.fxt_cur + steps, 0, (int32_t)len - 1);
+            ui.fxt_cur = (uint8_t)clamp((int32_t)ui.fxt_cur + steps, 0, (int32_t)FXT_LEN(fxt_src(ui.fxt_sel)) - 1);
+        } else if (chain_busy()) {                    /* (a song plays its slots' lanes: they are its patterns') */
+            ui_message("STOP TO EDIT");
         } else if (slot == 2u) {                      /* (the list: OFF, TIE, the effects, the mutes; not round) */
             static const char *const MUTE_NAME[NTRK] = {"MUTE T1", "MUTE T2", "MUTE T3", "MUTE T4"};
             uint8_t *st = &ln->step[ui.fxt_cur % NSTEP];
@@ -983,9 +1040,18 @@ static void edit_param(uint32_t slot, int32_t steps)
             ui.song_trk = (uint8_t)clamp((int32_t)ui.song_trk + steps, 0, NTRK - 1);
             return;
         }
-        if (chain_busy()) { ui_message("STOP TO EDIT"); return; }
+        if (ui.song_row >= chain_config.count && slot == 3u) {   /* + ADD, KNOB 4 (M-Vave-OP1): the song's END, */
+            if (steps > 0)                           /* LOOP (right) or STOP (left) */
+                chain_config.rsv[0] |= CHAIN_LOOP;
+            else
+                chain_config.rsv[0] &= (uint8_t)~CHAIN_LOOP;
+            ui_message(chain_config.rsv[0] & CHAIN_LOOP ? "END: LOOP" : "END: STOP");
+            chain_live(CHN_EDIT);
+            return;
+        }
         if (ui.song_row >= chain_config.count) {     /* + ADD: a turn adds the section (KNOB 3: only that) */
             song_add();
+            chain_live(CHN_EDIT);
             if (slot == 2u) return;
         }
         r = &chain_config.row[ui.song_row];
@@ -993,6 +1059,7 @@ static void edit_param(uint32_t slot, int32_t steps)
             r->slot[ui.song_trk % NTRK] = (uint8_t)clamp((int32_t)r->slot[ui.song_trk % NTRK] + steps, 0, CHAIN_SILENT);
         else
             r->repeat = (uint8_t)clamp((int32_t)r->repeat + steps, 1, 16);
+        chain_live(CHN_EDIT);                         /* (playing: where its section ends) */
         return;
     }
     if (chain_busy() && (pg->scope == SC_STEP || pg->graph == GR_STEPS ||
@@ -1099,7 +1166,9 @@ static void act_do(void)
         return;
     }
     if (cur_page()->graph == GR_FXT2) {                   /* CLEAR: the selected lane (c 0) or both */
-        if (!act_ready())
+        if (chain_busy())
+            ui_message("STOP TO EDIT");
+        else if (!act_ready())
             ui_message("NOTHING TO CLEAR");
         else
             confirm_open(c == 0u ? CF_FXT_LANE : CF_FXT_ALL, ui.fxt_sel);

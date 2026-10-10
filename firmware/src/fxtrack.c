@@ -21,6 +21,8 @@
  * TIEs. Nothing held writes nothing: the lane plays on as recorded (overdub), and a punch that ends inside an older take
  * gives the step after it back its old effect (fxt.old), so the rest of that take plays as it did. What the lanes play is
  * never recorded again; neither are the GLO layer's solos or the knob macros.
+ * In a song each section plays the lanes saved with its slot (fxt_src; opstore.c keeps them with the project), from step 1
+ * with its tracks; nothing is recorded there.
  * Runs in the audio ISR (seq.c events_block after the tracks, perform.c's keys); the UI edits the steps and LEN and sets
  * ARM (bytes: a torn read plays one step of the old value, harmless). */
 #define FXT_TIE 0x80u                        /* a step: the effect of the step before goes on */
@@ -42,6 +44,19 @@ static struct {
     uint32_t pos;                            /* .. samples into the 1/16 (FXT_START: none yet) */
 } fxt = {.pos = FXT_START};
 static uint16_t fxt_ord[PF_N];               /* ISR: each effect's last press of the FX layer (fxt.seq) */
+static const fxt_lane_t fxt_empty;           /* (a section on no slot: nothing) */
+
+/* the lane l plays: the FX TRACKS page's; in a song the section's (song_chain.c: saved with the slot of its clock track) */
+static const fxt_lane_t *fxt_src(uint32_t l)
+{
+    uint32_t s;
+    if (!chain.running)
+        return &fxt_lane[l % FXT_N];
+    s = chain.lane[chain.clk % NTRK];
+    return s < 4u ? &chain.source[s].fx[l % FXT_N] : &fxt_empty;
+}
+/* song_chain.c chain_apply: a section starts, the lanes from their step 1 with its tracks (in this block) */
+static void fxt_section(void) { fxt.pos = FXT_START; }
 
 /* a step's code -> its effect (PF_*), PF_N none (a TIE: the step before's, fxt_steps) */
 static uint32_t fxt_eff(uint32_t c)
@@ -73,8 +88,8 @@ static void fxt_press(uint32_t e)
 {
     uint32_t l;
     fxt_ord[e] = ++fxt.seq;
-    if (!fxt.arm || !song.playing || fxt.pos == FXT_START)
-        return;
+    if (!fxt.arm || !song.playing || chain.running || fxt.pos == FXT_START)
+        return;                               /* (a song plays its slots' lanes: nothing recorded there) */
     for (l = 0; l < FXT_N; l++) {
         if (!((fxt.arm >> l) & 1u))
             continue;
@@ -120,21 +135,21 @@ static void fxt_record(uint32_t l, uint32_t i, uint32_t live)
  * noinline: once a 1/16, out of events_block's code (the audio ISR's static cost, tests/target_budget.py) */
 static __attribute__((noinline)) void fxt_steps(int first)
 {
-    uint32_t l, held = 0, live = fxt.arm ? fxt_live() : PF_N;
+    uint32_t l, held = 0, arm = chain.running ? 0u : fxt.arm, live = arm ? fxt_live() : PF_N;
     for (l = 0; l < FXT_N; l++) {
-        fxt_lane_t *ln = &fxt_lane[l];
+        const fxt_lane_t *ln = fxt_src(l);
         uint32_t i = first ? 0u : (fxt.idx[l] + 1u) % FXT_LEN(ln), was = fxt.cur[l], c, e;
         fxt.idx[l] = (uint8_t)i;
         if (first)
             fxt.old[l] = fxt.rec[l] = fxt.pend[l] = 0;
-        if ((fxt.arm >> l) & 1u)
+        if ((arm >> l) & 1u)
             fxt_record(l, i, live);
         else
             fxt.rec[l] = fxt.pend[l] = 0;
         c = ln->step[i];
         e = c == FXT_TIE ? (was ? was - 1u : PF_N) : fxt_eff(c);
         fxt.cur[l] = (uint8_t)(e < PF_N ? e + 1u : 0u);
-        if (!((fxt.arm >> l) & 1u))
+        if (!((arm >> l) & 1u))
             fxt.old[l] = fxt.cur[l];          /* (nothing recorded over: what played is the take) */
         if (e < PF_N) {
             held |= PF_BIT(e);
@@ -154,8 +169,8 @@ static void fxt_tick(uint32_t n)
     if (!song.playing)
         return;
     p = div_samples(2);
-    if (fxt.pos == FXT_START) {
-        fxt.pos = 0;
+    if (fxt.pos == FXT_START) {               /* (a song's section: from the time its tracks carry over) */
+        fxt.pos = chain.running ? chain.carry : 0u;
         fxt_steps(1);
         return;
     }
@@ -196,10 +211,10 @@ static uint32_t fxt_choice(uint32_t c)
     return c == FXT_TIE ? 1u : e < PF_N ? 2u + e : 0u;
 }
 static uint8_t fxt_of_choice(uint32_t i) { return (uint8_t)(i == 1u ? FXT_TIE : i >= 2u ? fxt_code(i - 2u) : 0u); }
-/* what step i of lane l plays (PF_*, PF_N none): a TIE the effect it continues */
+/* what step i of lane l plays (PF_*, PF_N none): a TIE the effect it continues; in a song the section's lane */
 static uint32_t fxt_plays(uint32_t l, uint32_t i)
 {
-    const fxt_lane_t *ln = &fxt_lane[l % FXT_N];
+    const fxt_lane_t *ln = fxt_src(l);
     uint32_t n = 0;
     while (ln->step[i] == FXT_TIE && n++ < NSTEP)
         i = i ? i - 1u : FXT_LEN(ln) - 1u;

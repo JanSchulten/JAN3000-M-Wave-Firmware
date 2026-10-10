@@ -24,7 +24,9 @@
  * let go, STOP, the end, a jump, DIR) matches its on. A note-on is only taken while the gap has room for it and for the
  * offs of every note held: an on is never left without its off.
  * Runs in the audio ISR (seq.c: events_block, the note inputs, the transport). The UI sets ARM, LOOP, SPEED and DIR and
- * asks for seeks and erasing through req_seek / req_clear, which the ISR takes at the start of a block. */
+ * asks for seeks and erasing through req_seek / req_clear, which the ISR takes at the start of a block.
+ * Kept in flash (opstore.c): one tape, as the OP-1's, written a while after it changed (gen) with the transport stopped
+ * (hold: meanwhile the ISR neither moves nor changes it), read back at power-on. */
 #define TAPE_PPQN 96u                        /* ticks a quarter note: 5.2 ms at 120 BPM */
 #define TAPE_BAR (4u * TAPE_PPQN)
 #define TAPE_BARS 128u                       /* the tape's length: 4:16 at 120 BPM */
@@ -70,6 +72,8 @@ static struct {
     uint8_t sn[NTRK], rn[NTRK];              /* notes sounding from the tape, notes being recorded, per track */
     uint8_t snd[NTRK][TAPE_POLY][2];         /* sounding: the note stored, the note it sounds as */
     uint8_t rec[NTRK][TAPE_POLY][3];         /* recording: the note played, the note stored, its velocity */
+    volatile uint16_t gen;                   /* + 1 each change of the events (opstore.c keeps the tape when it moved) */
+    volatile uint8_t hold;                   /* main: the tape is being written to flash: the ISR leaves it as it is */
 } tape;
 
 static uint32_t tape_beat(void) { return 4u * div_samples(2); }   /* a quarter as the 1/16 tracks count it */
@@ -80,7 +84,7 @@ static uint32_t tape_loop_out(void)
     return e < TAPE_END ? e : TAPE_END;
 }
 /* the head can move: the transport plays and the head is not at the end it runs to */
-static int tape_rolling(void) { return song.playing && (tape.dir ? tape.head > 0u : tape.head < TAPE_END); }
+static int tape_rolling(void) { return song.playing && !tape.hold && (tape.dir ? tape.head > 0u : tape.head < TAPE_END); }
 
 /* an event under the head: a note on or off (backwards, rev 1: the other way round) */
 static __attribute__((noinline)) void tape_play(uint32_t e, uint32_t rev)
@@ -139,6 +143,7 @@ static void tape_put(uint32_t e)
         tape_ev[TAPE_EV - ++tape.na] = e;
     else
         tape_ev[tape.g0++] = e;
+    tape.gen++;
 }
 
 static uint32_t tape_held(void)
@@ -265,6 +270,7 @@ static void tape_erase(uint32_t mask)
             tape_ev[--j] = tape_ev[i - 1u];
     tape.na = (uint16_t)(TAPE_EV - j);
     tape.full = 0;
+    tape.gen++;
 }
 
 /* the transport (seq.c seq_start / seq_stop): from the head; on STOP the held and sounding notes end where it stands */
@@ -341,6 +347,8 @@ static __attribute__((noinline)) void tape_run(uint32_t n)
 
 static void tape_tick(uint32_t n)
 {
+    if (tape.hold)
+        return;                                  /* (being written to flash: its requests wait) */
     if (tape.req_clear | tape.req_seek | (uint32_t)(tape.rev != tape.dir))
         tape_requests();
     if (tape_rolling())

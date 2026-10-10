@@ -1196,7 +1196,7 @@ static uint32_t graph_signature(void)
         h ^= (uint32_t)t->engine * 389u;             /* (MONO and kits follow the sounding engine) */
     }
     if (pg->graph == GR_SONG) {
-        h ^= ui.song_row * 40503u + chain_config.count * 7919u + ui.song_trk * 3571u;
+        h ^= ui.song_row * 40503u + chain_config.count * 7919u + ui.song_trk * 3571u + chain_config.rsv[0] * 611953u;
         h = fnv(h, chain_config.row, sizeof chain_config.row);
         h ^= chain.running ? (chain.row + 1u) * 104729u + chain.remaining * 1299709u : 0u;
         for (i = 0; i < 4u; i++) h ^= (uint32_t)graph_project_used(i) << (24u + i);
@@ -1219,9 +1219,10 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_FXT || pg->graph == GR_FXT2) {     /* the lanes, the cursor, the play heads (fxtrack.c) */
         uint32_t l;
         for (l = 0; l < FXT_N; l++) {
+            const fxt_lane_t *ln = fxt_src(l);       /* (in a song: the section's) */
             for (i = 0; i < NSTEP; i++)
-                h = (h ^ fxt_lane[l].step[i]) * 16777619u;
-            h = (h ^ (fxt_lane[l].len | (uint32_t)fxt.idx[l] << 8 | (uint32_t)fxt.cur[l] << 16)) * 16777619u;
+                h = (h ^ ln->step[i]) * 16777619u;
+            h = (h ^ (ln->len | (uint32_t)fxt.idx[l] << 8 | (uint32_t)fxt.cur[l] << 16)) * 16777619u;
         }
         h = (h ^ (fxt.arm | (uint32_t)ui.fxt_sel << 4 | (uint32_t)ui.fxt_cur << 8 | (uint32_t)song.playing << 16 |
                   (uint32_t)fxt_follow() << 17)) * 16777619u;
@@ -2214,7 +2215,10 @@ static void graph_song(void)
     /* one line: the song's length right (where it fits), the selected cell's project left */
     x0 = hi;
     if (L.n) {
-        fmt_int(b, (int32_t)bars);
+        b[0] = 0;
+        if (chain_config.rsv[0] & CHAIN_LOOP)        /* (M-Vave-OP1: it starts over at its end) */
+            str_cpy(b, "LOOP ", 6);
+        fmt_int(b + str_len(b), (int32_t)bars);
         str_cpy(b + str_len(b), bars == 1u ? " BAR" : " BARS", 6);
         x0 = hi - text_w(fl, b);
         cv_text_on(x0, ly, fl, b, T_MID, T_SURF);
@@ -2400,7 +2404,7 @@ static void graph_tape(void)
     cv_rect(TP_HX - 1, TP_LY - 6, 2, NTRK * (TP_LH + 1) + 5, rec ? T_REC : T_ACCENT);   /* the head */
 }
 
-/* FX > FX TRACKS (fxtrack.c): the two lanes, 16 steps of each at a time (the cursor's 16; playing, the selected lane's play
+/* FX > FX TRACKS (fxtrack.c): the two lanes (in a song: the section's), 16 steps of each at a time (the cursor's 16; playing, the selected lane's play
  * head's, unless STEP or EFFECT was just turned), an effect and its TIEs one bar with its name, a lane's 64 steps in the
  * strip under it (the 16 shown framed), the play head under its step. The selected lane's label lit, an armed one's red */
 #define FX_LY 4                                       /* the lanes: from y 4, FX_LP apart */
@@ -2418,7 +2422,7 @@ static void graph_fxt(void)
     uint32_t sel = ui.fxt_sel % FXT_N, l, i;
     uint32_t w0 = (fxt_follow() ? fxt.idx[sel] : ui.fxt_cur) / 16u * 16u;
     for (l = 0; l < FXT_N; l++) {
-        const fxt_lane_t *ln = &fxt_lane[l];
+        const fxt_lane_t *ln = fxt_src(l);
         uint32_t len = FXT_LEN(ln);
         int32_t y = FX_LY + (int32_t)l * FX_LP, x;
         uint16_t lc = (fxt.arm >> l) & 1u ? T_REC : l == sel ? T_ACCENT : T_RAISE, ink = l == sel || (fxt.arm >> l & 1u) ? T_INK : T_MID;

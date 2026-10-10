@@ -761,6 +761,7 @@ static union {                               /* serialized main-loop work; no re
 } proj_wire_u __attribute__((section(".pool")));
 #define proj_wire (proj_wire_u.s)
 static uint8_t proj_wire_gen;                /* +1 whenever proj_wire is rewritten (a backup's runtime copy lives there) */
+#include "opstore.c"                         /* M-Vave-OP1: the projects' extras (the FX TRACKS), the tape */
 
 static void proj_steps(step_t *s)            /* a loaded sequence stays inside its fixed fields */
 {
@@ -864,11 +865,16 @@ static int project_save_as(uint32_t slot, const char *name)
         proj_name_get(proj_name, (const uint8_t *)p->name);
         proj_cur = (uint8_t)(slot & 3u);
         pat_from_set((slot & 3u) + 1u);
+        if (xtra_saved(slot, xtra_id(&proj_wire, sizeof proj_wire))) {   /* (M-Vave-OP1: the FX TRACKS after it) */
+            ui_message("SAVE ERROR");
+            return 2;
+        }
         ui_message("SAVED");
         return 0;
     }
 #endif
     memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);
+    xtra_saved(slot, xtra_id(&proj_wire, sizeof proj_wire));
     proj_name_get(proj_name, (const uint8_t *)p->name);
     proj_cur = (uint8_t)(slot & 3u);
     pat_from_set((slot & 3u) + 1u);
@@ -936,6 +942,7 @@ static int project_info(uint32_t slot, char *b, uint16_t *len48, uint32_t *den, 
 static int project_rename(uint32_t slot, const char *name)
 {
     project_t *p = &proj_scratch;
+    uint32_t was;
     if (transport_busy()) {
         ui_message("STOP TO SAVE");
         return 1;
@@ -946,6 +953,7 @@ static int project_rename(uint32_t slot, const char *name)
     }
     memset(p->name, 0, sizeof p->name);
     memcpy(p->name, name, str_len(name) < PROJ_NAME_LEN ? str_len(name) : PROJ_NAME_LEN);
+    was = xtra_proj_id(slot);
     proj_wire_gen++;
     if (!proj_pack(&proj_wire, p)) { ui_message("SAVE FORMAT ERROR"); return 2; }
 #if FELUCCA_FLASH
@@ -955,6 +963,7 @@ static int project_rename(uint32_t slot, const char *name)
     }
 #endif
     memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);
+    xtra_renamed(slot, was, xtra_id(&proj_wire, sizeof proj_wire));   /* (M-Vave-OP1: its FX TRACKS stay its) */
     if (proj_cur == (slot & 3u))
         proj_name_get(proj_name, (const uint8_t *)p->name);
 #if FELUCCA_FLASH
@@ -1050,6 +1059,7 @@ static void project_load(uint32_t slot)
     if (!project_restore_runtime(&proj_scratch)) {
         proj_cur = (uint8_t)(slot & 3u);
         pat_from_set((slot & 3u) + 1u);
+        xtra_loaded(slot);                              /* (M-Vave-OP1: its FX TRACKS; none saved: empty) */
     }
 }
 
@@ -1095,6 +1105,7 @@ static void persist_boot(void)                    /* before settings_init / pane
             if (!proj_import(&proj_scratch, &proj_slot[i], sizeof(project_store_t)))
                 proj_fetch(i);
     }
+    xtra_boot();                                   /* (M-Vave-OP1: their extras, opstore.c) */
     up_boot();                                     /* user presets */
 #endif
 }
@@ -1119,8 +1130,18 @@ static uint32_t chain_prepare(void)
             used |= 1u << s;
         }
     chain.config = chain_config;
-    for (i = 0; i < 4u; i++)
-        if ((used >> i) & 1u) {
+    chain.req = 0;
+    for (i = 0; i < 4u; i++) {                         /* M-Vave-OP1: all four (a slot a live edit brings in plays at */
+        if (!((used >> i) & 1u) && !project_used(i)) {   /* once; one not saved: silent, its steps empty) */
+            memset(&chain.source[i], 0, sizeof chain.source[i]);
+            for (k = 0; k < NTRK; k++) {
+                for (j = 0; j < 4u; j++)
+                    chain.source[i].timing[k][j] = TP[P_SLEN + j].def;
+                chain.source[i].qnt[k] = 1;
+            }
+            continue;
+        }
+        {
             project_t *p = &proj_scratch;
             if (!proj_import(p, &proj_slot[i], sizeof(project_store_t))) return 3u + i;
             chain.source[i].motion = p->motion;
@@ -1135,6 +1156,7 @@ static uint32_t chain_prepare(void)
                 }
                 m->count = (uint8_t)n;
             }
+            xtra_lanes(chain.source[i].fx, &xtra_slot[i], xtra_proj_id(i));   /* (M-Vave-OP1: its FX TRACKS) */
             for (k = 0; k < NTRK; k++) {
                 memcpy(chain.source[i].step[k], p->t[k].step, sizeof p->t[k].step);
                 proj_steps(chain.source[i].step[k]);
@@ -1144,6 +1166,7 @@ static uint32_t chain_prepare(void)
                         TP[P_SLEN + j].min, TP[P_SLEN + j].max);
             }
         }
+    }
     RING_PUBLISH();
     chain.armed = 1;
     transport_req = 1;
@@ -1240,6 +1263,7 @@ static uint32_t autosave_sig(void)
             h = as_mix(h, &song.g[i], sizeof song.g[i]);
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
+    h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, kept as the autosave's extras) */
     return as_mix(h, proj_name, sizeof proj_name);
 }
 
@@ -1279,7 +1303,8 @@ static void autosave_poll(void)
     as.wrote = 1;
     project_capture(&proj_scratch);
     proj_wire_gen++;
-    as.err = !proj_pack(&proj_wire, &proj_scratch) || st_save(OBJ_AUTOSAVE, &proj_wire, sizeof proj_wire) != 0;
+    as.err = !proj_pack(&proj_wire, &proj_scratch) || st_save(OBJ_AUTOSAVE, &proj_wire, sizeof proj_wire) != 0 ||
+             xtra_autosaved(xtra_id(&proj_wire, sizeof proj_wire)) != 0;   /* (M-Vave-OP1: the FX TRACKS after it) */
     if (!as.err) {
         as.saved = sig;
         as.writes++;
@@ -1301,6 +1326,7 @@ static int autosave_boot(int allowed)
         if (n > 0 && proj_import(&proj_scratch, &proj_wire, n)) {
             proj_bound(&proj_scratch);
             if (!project_restore_runtime(&proj_scratch)) {
+                xtra_autoloaded(xtra_id(&proj_wire, (uint32_t)n));   /* (M-Vave-OP1: the FX TRACKS with it) */
                 ui_message("RESTORED");
                 rc = 1;
             }

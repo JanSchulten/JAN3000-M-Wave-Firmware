@@ -14,19 +14,31 @@
  * A silent track ("-", CHAIN_SILENT) plays nothing in that section: at its start the track's sequenced notes are
  * released (seq_release, as at every section) and its automation goes back to the sound's own values (motion_restore);
  * no step, automation or lock of any slot plays there. Live keys and the arp still play it (the sound stays). */
+/* M-Vave-OP1, the OP-Z's pattern chains: a song may LOOP (CHAIN_LOOP: from its first section again at its end, not
+ * STOP) and changes while it plays. The UI edits chain_config as always and hands a copy over (chain_live: chain_next,
+ * chain.req); the ISR takes it where a section ends: an edit (CHN_EDIT) goes on from the section after the one that
+ * played, as edited; a new chain (CHN_NEW, typed with REC on SONG) starts from its first section at the end of the loop
+ * playing now (its repeats not waited for), as the OP-Z's next pattern. All four slots are copied before PLAY
+ * (chain_prepare): a slot a live edit brings in plays at once (one not saved: silent). The FX TRACKS of a section are
+ * those saved with the slot its clock track plays (fxtrack.c fxt_src; a section of all four on one slot, as the chains
+ * typed: that pattern's), from their step 1 with it */
+enum { CHN_EDIT = 1, CHN_NEW };
 typedef struct {
     step_t step[NTRK][NSTEP];
     int16_t timing[NTRK][4];
     uint8_t qnt[NTRK];                       /* each track's QUANTIZE (P_SQNT) as saved */
     motion_store_t motion;
+    fxt_lane_t fx[FXT_N];                    /* M-Vave-OP1: its FX TRACKS as saved (opstore.c; none: empty) */
 } chain_pattern_t;
 static chain_config_t chain_config;
+static chain_config_t chain_next;            /* main (M-Vave-OP1): the chain the playing song takes next (chain_live) */
 static struct {
     chain_pattern_t source[4];
     chain_config_t config;
     int16_t timing[NTRK][4];                 /* the editable LEN DIV SWING GATE and QUANTIZE, back on STOP */
     uint8_t qnt[NTRK];
     volatile uint8_t armed, running, row, remaining;
+    volatile uint8_t req;                    /* main: chain_next waits (CHN_EDIT, CHN_NEW), 0 none */
     uint8_t lane[NTRK];                      /* the slot each track plays in this section, CHAIN_SILENT none */
     uint8_t clk;                             /* the track whose loop counts the section (chain_clock) */
     uint8_t rec;
@@ -107,6 +119,7 @@ static const step_t *seq_steps(const track_t *t)
     return s < 4u ? chain.source[s].step[k] : chain_silent;
 }
 static void motion_restore(track_t *t);
+static void fxt_section(void);               /* (fxtrack.c: the FX TRACKS from their step 1 with the section) */
 /* a section starts (chain_start, chain_tick: once a section, not per block; not inlined: off the audio ISR's loop) */
 static __attribute__((noinline)) void chain_apply(void)
 {
@@ -132,6 +145,7 @@ static __attribute__((noinline)) void chain_apply(void)
         t->seq_pos = 0x7FFFFFFFu;
         t->rh_n = t->rskip_n = 0;
     }
+    fxt_section();
 }
 static void chain_start(void)
 {
@@ -155,6 +169,7 @@ static void chain_stop(void)
 {
     uint32_t i;
     chain.armed = 0;
+    chain.req = 0;
     if (!chain.running)
         return;
     for (i = 0; i < NTRK; i++) {
@@ -164,25 +179,49 @@ static void chain_stop(void)
     song.rec = chain.rec;
     chain.running = 0;
 }
+/* a section's loop ends (chain_tick): the next section, or the chain handed over (noinline: once a loop, out of the
+ * audio ISR's events_block). 0: the song is over */
+static __attribute__((noinline)) int chain_next_row(void)
+{
+    uint32_t req = chain.req;
+    if (req == CHN_NEW || (req && chain.remaining <= 1u)) {
+        chain.config = chain_next;
+        chain.req = 0;
+    }
+    if (req == CHN_NEW) {
+        chain.row = 0;
+    } else if (chain.remaining > 1u) {
+        chain.remaining--;
+        return 2;
+    } else if (chain.row + 1u < chain.config.count) {
+        chain.row++;
+    } else if ((chain.config.rsv[0] & CHAIN_LOOP) && chain.config.count) {
+        chain.row = 0;
+    } else {
+        return 0;
+    }
+    if (chain.row >= chain.config.count)
+        return 0;
+    chain.remaining = chain.config.row[chain.row].repeat;
+    return 1;
+}
 static void chain_tick(uint32_t n)
 {
     const track_t *t = &trk[chain.clk % NTRK];
     uint32_t length;
+    int r;
     if (!chain.running || t->seq_pos >= 0x7FFFFFFFu || t->seq_idx + 1u != (uint32_t)t->p[P_SLEN])
         return;
     length = step_samples(t, div_samples((uint32_t)t->p[P_SDIV]), t->seq_idx);
     if (t->seq_pos + n < length)
         return;
-    if (chain.remaining > 1u) {
-        chain.remaining--;
-        return;
-    }
-    if (chain.row + 1u >= chain.config.count) {
+    r = chain_next_row();
+    if (r == 2)
+        return;                                       /* (the same section again) */
+    if (!r) {
         seq_stop();
         return;
     }
     chain.carry = t->seq_pos + n - length;
-    chain.row++;
-    chain.remaining = chain.config.row[chain.row].repeat;
     chain_apply();
 }

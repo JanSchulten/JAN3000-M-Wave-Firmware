@@ -68,3 +68,15 @@ Everything is `static`. Names are short and prefixed by subsystem (`tape_`, `seq
 recording and playback in the ISR, `noinline` slow paths, requests from the UI, and the hooks in seq.c
 (`input_on` / `input_off`, the arp, `seq_start` / `seq_stop`, `events_block`). The UI side is spread over
 params.c, ui.c, ui_input.c, ui_draw.c, ui_graph.c, ui_help.c and icons.c; recipes.md lists each touch point.
+
+## M2b: FX TRACKS, live song chains, the stores
+
+- `fxtrack.c` (included by seq.c after tape.c): two effect lanes. The ISR side holds effects through perform.c's
+  `perf_fxt` (as keys would) and `perf_fxt_now` (a REPEAT starts on its step). Recording hooks `perf_press` via
+  `fxt_press`. Its clock mirrors `click_tick`; in a song `fxt_src()` reads the section's slot's lanes and
+  `fxt_section()` restarts them with `chain_apply`.
+- song_chain.c: the UI never writes `chain.config`. It edits `chain_config`, then `chain_live(kind)` copies it to
+  `chain_next` with IRQs off and sets `chain.req`; `chain_next_row()` (noinline, once a section) takes it.
+- opstore.c (included by project.c after `proj_wire`): extras and the tape store, hooks in `project_save_as`,
+  `project_load`, `project_rename`, `persist_boot`, the autosave, `chain_prepare`, and main.c
+  (`tape_store_boot`, `tape_store_poll`). web/emu/felucca_web.c calls the same two.

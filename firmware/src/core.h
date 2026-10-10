@@ -289,9 +289,10 @@ _Static_assert(sizeof(motion_store_t) == 388u, "motion disk layout (FUN10)");
 #define CHAIN_SILENT 4u
 typedef struct { uint8_t slot[NTRK], repeat; } chain_row_t;
 typedef struct {
-    uint8_t count, rsv[3];
+    uint8_t count, rsv[3];       /* rsv[0]: CHAIN_LOOP (M-Vave-OP1; every older song 0: it stops at its end) */
     chain_row_t row[CHAIN_ROWS];
 } chain_config_t;
+#define CHAIN_LOOP 1u            /* the song starts over at its end, as the OP-Z's pattern chains */
 typedef struct { uint8_t slot, repeat; } chain_row_v9_t;   /* frozen: the rows of FUN6..FUN9 */
 typedef struct {
     uint8_t count, rsv[3];

@@ -27,15 +27,18 @@ AL-255/FM-1-RE (reverse engineering of the stock firmware), measurements from bu
 
 The RAM / POOL split is only a budget line in the linker script; both are the same SRAM.
 
-### Budgets at the TAPE milestone (M1)
+### Budgets after M2b (FX TRACKS, SONG chains, the stores)
 
 | | Used | Limit | Note |
 | --- | --- | --- | --- |
-| RAM `.data`+`.bss` | 55 332 B | 73 728 B | |
-| Pool | 344 184 B | 368 640 B | build.py demands ≥ 8 192 B free |
-| App image (XIP) | 501 756 B | 581 564 B | `0x8DFBC` from 0x02000120 |
-| Audio ISR static cost `fm1_alnk0_irq` | 39 562 | 41 252 | 37 502 + 10 % (tests/target_budget.py) |
-| Key-scan ISR `fm1_timer5_irq` | 35 056 | 36 725 | |
+| RAM `.data`+`.bss` | 56 152 B | 73 728 B | M1: 55 332 |
+| Pool | 344 796 B | 368 640 B | build.py demands ≥ 8 192 B free |
+| App image (XIP) | 509 164 B | 581 564 B | `0x8DFBC` from 0x02000120 |
+| Audio ISR static cost `fm1_alnk0_irq` | 39 032 | 41 252 | 37 502 + 10 % (tests/target_budget.py) |
+| Key-scan ISR `fm1_timer5_irq` | 35 326 | 36 725 | |
+
+What things cost (measured with `nm` on the target build): a synth track ~23 KB (its `trk[]` entry 1 824 B, engine
+memory 12 888 B, SLICER buffer 8 KB), an FX TRACK lane 66 B, a song pattern in RAM (`chain_pattern_t`) ~3.6 KB.
 
 Run `scripts/budget_report.sh` to get the current numbers.
 
@@ -46,7 +49,10 @@ Run `scripts/budget_report.sh` to get the current numbers.
 | 0x00000 .. ~0x96FFF | boot code, app image |
 | 0x97000 .. 0x9EFFF | projects A–D (two 4 KB copies each) |
 | 0x9F000 | FM6 patches of the user presets, copy A |
-| 0xA0000 .. 0xDBFFF | user sample slots USR1..3 (80 KB each, ADPCM, ~7 s at 22.05 kHz) |
+| 0xA0000 .. 0xC7FFF | user sample slots USR1, USR2 (80 KB each, ADPCM, ~7 s at 22.05 kHz) |
+| 0xC8000 .. 0xCFFFF | M-Vave-OP1 (opstore.c): the projects' extras A/B (`OBJ_XPROJ0 + slot`: the FX TRACKS) |
+| 0xD0000 .. 0xD1FFF | the autosave's extras A/B (`OBJ_XAUTO`) |
+| 0xD2000 .. 0xDBFFF | the tape, copies A (0xD2000) and B (0xD7000), five sectors each, commit record `OBJ_TAPE` |
 | 0xDC000 .. 0xDFFFF | user preset banks |
 | 0xE0000 .. 0xE4FFF | OTA staging (the update loader) |
 | 0xE5000 .. 0xE6FFF | autosave A/B (RESTORE LAST) |
@@ -54,8 +60,9 @@ Run `scripts/budget_report.sh` to get the current numbers.
 | 0xE8000 | the stock OTA's VM backup: never written |
 | 0xFC000 .. 0xFFFFF | settings, FM6 patches copy B (0xFE000) |
 
-Every sector is spoken for. New persistent data means giving something up (a sample slot is the obvious candidate)
-or packing it into an existing record. Flash is erased and written only while the transport is stopped: an erase
+Every sector is spoken for. USR3 (the third sample slot) was given up for notes and settings: the editor uploads into
+USR1 and USR2 only (`SMP_USER_WRITABLE`), USR3 reads empty. New persistent data means packing it into the extras
+(`proj_xtra_t`, append-only by its `size` field) or giving up USR2 too. Flash is erased and written only while the transport is stopped: an erase
 stalls XIP.
 
 ## Panel

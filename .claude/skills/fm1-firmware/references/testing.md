@@ -20,6 +20,12 @@ mkdir -p build/host
 cc -O1 -w -Ibuild/gen -Ifirmware/src -o build/host/tape_test tests/tape_test.c -lm && build/host/tape_test
 ```
 
+M-Vave-OP1's own tests, good templates: `tape_test.c` (an ISR feature driven block by block), `fxtrack_test.c` (an
+ISR feature plus its pages, through `mix_block`), `songchain_test.c` (UI gestures while the transport runs: space REC
+taps 400 ms apart, two quick taps lock a layer), `opstore_test.c` (flash stores on a NOR image: round trip, power-on,
+torn and damaged copies). A test that presses keys in a layer needs a `frame()` after the button goes down, so the
+UI hands the keys to the layer (`kb_mask`), as on the unit.
+
 Register a new test in `tests/run_tests.sh` next to a similar one (a `$CC … -o "$OUT/x" tests/x.c -lm` line and a
 `run "description" "$OUT/x"` line) and describe it in the comment block at the top.
 

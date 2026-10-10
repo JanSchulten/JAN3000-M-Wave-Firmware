@@ -402,6 +402,15 @@ static int samples(void)
     bad += check("END cannot change published sample zones without BEGIN",
                  request(ED_SMP_END, a, n) == 8u && host_wire[6] == 2 && host_writes == 2 &&
                  usr_zone[0][0].rate == 65536u);
+    {   /* M-Vave-OP1: USR3's flash holds the projects' FX TRACKS and the tape (opstore.c): no sample goes there */
+        uint32_t e0 = host_erases, w0 = host_writes;
+        a[0] = 2; a[1] = 0; a[2] = 4; a[3] = 0;
+        n = pack7(data, 256, a + 4) + 4u;
+        bad += check("USR3 (slot 2): BEGIN, ERASE, WRITE get no reply and touch no flash; SMP_INFO lists 2 slots",
+                     request(ED_SMP_BEGIN, a, 1) == 0u && request(ED_SMP_ERASE, a, 1) == 0u &&
+                     request(ED_SMP_WRITE, a, n) == 0u && host_erases == e0 && host_writes == w0 &&
+                     request(ED_SMP_INFO, a, 0) > 7u && host_wire[5] == 2u && host_wire[6] == 80u);
+    }
     song.playing = 1; host_progress = 0; a[0] = 0; a[1] = 0;
     bad += check("user-preset STORE does not mutate RAM when audio cannot stop",
                  request(ED_UP_STORE, a, 2) == 8u && host_wire[6] == 2 && !up_used(0));

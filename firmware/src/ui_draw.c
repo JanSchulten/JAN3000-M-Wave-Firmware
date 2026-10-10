@@ -894,9 +894,12 @@ static void draw_columns(void)
         if (used) { val[0] = sl < 4u ? (char)('A' + sl) : '-'; val[1] = 0; }
         else str_cpy(val, "--", sizeof val);
         draw_column(2, "PAT", val, "", used ? VAL(2u) : T_DIM, -1, ICON_X_PATTERN);
-        if (used) fmt_int(val, chain_config.row[row].repeat);
-        else str_cpy(val, "--", sizeof val);
-        draw_column(3, "REPS", val, "", used ? VAL(3u) : T_DIM, -1, ICON_AUTO);
+        if (!used) {                                 /* + ADD (M-Vave-OP1): the song's END, LOOP or STOP */
+            draw_column(3, "END", chain_config.rsv[0] & CHAIN_LOOP ? "LOOP" : "STOP", "", VAL(3u), -1, ICON_LOOP);
+            return;
+        }
+        fmt_int(val, chain_config.row[row].repeat);
+        draw_column(3, "REPS", val, "", VAL(3u), -1, ICON_AUTO);
         return;
     }
     if (cur_page()->graph == GR_EVENTS) {              /* AUTOMATION (ui_events.c): ROW STEP PARAM VALUE */
@@ -1019,7 +1022,7 @@ static void draw_columns(void)
         return;
     }
     if (cur_page()->graph == GR_FXT) {                /* the lane, STEP, its EFFECT, LEN (fxtrack.c) */
-        uint32_t l = ui.fxt_sel % FXT_N, len = FXT_LEN(&fxt_lane[l]), c = fxt_lane[l].step[ui.fxt_cur % NSTEP];
+        uint32_t l = ui.fxt_sel % FXT_N, len = FXT_LEN(fxt_src(l)), c = fxt_src(l)->step[ui.fxt_cur % NSTEP];
         uint32_t e = fxt_eff(c);
         const char *unit = "";
         draw_column(0, "LANE", l ? "FX2" : "FX1", "", (fxt.arm >> l) & 1u ? T_REC : VAL(0u), -1, ICON_X_REPEAT);

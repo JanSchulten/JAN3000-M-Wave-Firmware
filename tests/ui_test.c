@@ -2825,7 +2825,7 @@ static int test_product_ux(void)
             continue;
         press(B_REC);
         if (PAGES[i].graph == GR_SONG)
-            ok &= song.rec == 0 && !transport_req && msg_is("[SEQ] TO RECORD");
+            ok &= song.rec == 0 && !transport_req && msg_is("NEW CHAIN: TAP A-D") && ui.song_rec;   /* (M-Vave-OP1) */
         else if (PAGES[i].graph == GR_TAPE || PAGES[i].graph == GR_TAPE2)   /* (M-Vave-OP1: the tape's ARM) */
             ok &= song.rec == 0 && tape.arm == 1u && transport_req == 1 && ui.page == i && msg_is("TAPE ARMED");
         else if (PAGES[i].graph == GR_FXT || PAGES[i].graph == GR_FXT2)     /* (.. the FX track's) */
@@ -2834,7 +2834,7 @@ static int test_product_ux(void)
             ok &= song.rec == 1 && !transport_req && ui.page == i && !ui.home;
         else ok &= song.rec == 1 && transport_req == 1 && ui.page == i && !ui.home;
     }
-    bad += check("REC stays on every page, SONG stopped asks for pattern recording (STEP: step recording, stopped; "
+    bad += check("REC stays on every page, SONG types a chain (STEP: step recording, stopped; "
                  "TAPE: the tape; FX TRACKS: the lane)", ok);
     ui_power_on(); hold(B_HOME); press(B_REC);
     bad += check("REC in the MENU does nothing (the menu stays, no arm, no transport start)",
