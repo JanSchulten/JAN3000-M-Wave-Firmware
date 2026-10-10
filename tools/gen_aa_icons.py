@@ -108,8 +108,9 @@ FIT_TO = {"system_battery_0": "system_battery_4"}
 SMALL_EXTRA = ["x_star", "x_lock", "x_cog", "x_usb", "x_warn", "x_folder", "x_left", "x_right",
                "x_mixer", "x_pattern", "x_song", "x_motion", "x_motion_rec", "x_motion_del",
                "x_hpf", "x_repeat", "x_reverse", "x_tstop", "x_freeze"]
-# legacy names no screen draws (1.1): kept in the enum (assets/icons.json's order), not rasterised (no cell)
-NOT_DRAWN = ["tape"]
+# legacy names no screen draws (1.1): kept in the enum (assets/icons.json's order), not rasterised (no cell).
+# (M-Vave-OP1: "tape" is drawn again, the TAPE pages' icon)
+NOT_DRAWN = []
 
 # the 24 px set: the header battery (Fukiai's battery is a wide, short glyph: at 16 px its body was 12 x 6)
 # (up to 1.1.5 also the FX map's effect cells; 1.2's map names the 16 keys' effects instead, ui_layer.c layer_fx)

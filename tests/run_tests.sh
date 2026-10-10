@@ -54,6 +54,10 @@
 #                   with live notes, RATCH on its start, nudges 0 play the same either way, a tempo change of the external
 #                   clock, SEQ > AUTOMATION's QUANTIZE and NUDGE rows, STEP steps held + PRESETS), 128 motion records, FUN10 round trip, FUN9 /
 #                   FUN8 / FUN7 as 1.1 / 1.0 wrote them (tests/old_pack.h) loading exactly, user presets of 99 / 103.
+# TAPE (tests/tape_test.c, M-Vave-OP1): the four-track note tape (tape.c): recording only armed and rolling, on / off
+#                   where played, playback, overdub, the gap buffer's order, STOP / PLAY from the head, LOOP (wrap, keys
+#                   held over it, RESTART), SPEED (rate, transposition, recorded at a SPEED), DIR REV (playback and
+#                   recording backwards, DIR turned with a key held), ERASE, a full tape keeps every on's off, the end.
 # RATCH (tests/ratchet_test.c): a step's ratchet (x1..x4): its parts in the sequencer (equal, gated, chords and drum
 #                   hits whole, one chance roll, swing, no slide or tie out, STOP), FUN8 round trip and older projects x1,
 #                   user preset patterns, SEQ > AUTOMATION's RATCH rows and the roll / grid drawing.
@@ -236,6 +240,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "motion, whole-step chance, FUN7 migration, song restore, ARP repeat and the 1.2 ARP modes" "$OUT/motion_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ratchet_test" tests/ratchet_test.c -lm
     run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/tape_test" tests/tape_test.c -lm
+    run "TAPE: record, play, overdub, LOOP, SPEED, DIR REV, ERASE, a full tape, the end" "$OUT/tape_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/step15_test" tests/step15_test.c -lm
     run "1.5 STEP: a note's LEN (TIEs on KNOB 3), a step's VEL (playback, AUTOMATION's VEL rows)" "$OUT/step15_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/detail_test" tests/detail_test.c -lm

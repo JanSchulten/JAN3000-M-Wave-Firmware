@@ -208,6 +208,7 @@ static void rec_note(track_t *t, uint32_t note, uint32_t vel);
 static void rec_release(track_t *t, uint32_t note);
 static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) && song.playing && !chain.running; }
 
+#include "tape.c"                                /* TAPE (M-Vave-OP1): the notes played, on a four-track tape */
 #include "motion.c"
 
 /* the ARP's modes (P_AMODE). Append-only: a stored value keeps its meaning. ORD (1.2, it played as UP before) plays
@@ -234,6 +235,7 @@ static __attribute__((noinline)) void arp_chord_off(track_t *t, int rec)   /* th
         if (t->arp_ch[i]) {
             if (rec)
                 rec_release(t, t->arp_ch[i]);
+            tape_in(t, t->arp_ch[i], 0);
             trk_note_off(t, t->arp_ch[i]);
             t->arp_ch[i] = 0;
         }
@@ -254,6 +256,7 @@ static __attribute__((noinline)) void arp_chord(track_t *t, const uint32_t *list
             t->arp_ch[i - 1u] = (uint8_t)nt;
         if (rec_on(t))
             rec_note(t, nt, 100);
+        tape_in(t, nt, 100);
         trk_note_on(t, nt, 100);
     }
 }
@@ -262,6 +265,7 @@ static void arp_silence(track_t *t)              /* the sounding arp note(s) end
 {
     if (t->arp_ch[0] | t->arp_ch[1] | t->arp_ch[2])
         arp_chord_off(t, 0);
+    tape_in(t, t->arp_note, 0);
     trk_note_off(t, t->arp_note);
     t->arp_note = 0;
 }
@@ -271,6 +275,7 @@ static void arp_off(track_t *t)                  /* the sounding arp note(s) end
     if (t->arp_ch[0] | t->arp_ch[1] | t->arp_ch[2])
         arp_chord_off(t, rec_on(t));
     trk_note_off(t, t->arp_note);
+    tape_in(t, t->arp_note, 0);
     if (rec_on(t))
         rec_release(t, t->arp_note);
     t->arp_note = 0;
@@ -409,6 +414,7 @@ static __attribute__((noinline)) void arp_fire(track_t *t, uint32_t period)
         t->arp_note = (uint8_t)list[j];
         if (rec_on(t))
             rec_note(t, t->arp_note, 100);           /* recording: what the arp plays */
+        tape_in(t, t->arp_note, 100);
         trk_note_on(t, t->arp_note, 100);
     }
 }
@@ -615,6 +621,8 @@ static void input_on(track_t *t, uint32_t note, uint32_t vel)
         cin_keep(t, note, vel);
     if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes) */
         rec_note(t, note, vel);
+    if (!t->p[P_AMODE])                            /* .. the tape's too */
+        tape_in(t, note, vel);
     if (t->p[P_AMODE])
         arp_add(t, note);
     else
@@ -634,6 +642,7 @@ static void input_off(track_t *t, uint32_t note)
                 cin_up[i] |= (uint8_t)(1u << k);
     }
     rec_release(t, note);
+    tape_in(t, note, 0);
     arp_remove(t, note);                            /* both: the note may have started in the */
     trk_note_off(t, note);                          /* other mode (ARP switched while held) */
 }
@@ -828,6 +837,7 @@ static void seq_start(void)
     beat_pos = 0; beat_n = 0;                      /* the ARP LED's beat from the top too */
     clk_pos = CLK_START;                           /* the metronome's first beat with step 0 */
     song.playing = 1;
+    tape_start();                                  /* tape.c: from where its head stands */
     slicer_start();                                /* slicer.c: its step 0 with the sequencer's */
     perf_start();                                  /* perform.c: its 1/16 grid too */
 }
@@ -862,6 +872,7 @@ static void seq_stop(void)
     }
     chain_stop();
     motion_end();
+    tape_stop();
 }
 
 /* play one step: TIE extends, REST releases, NOTE (re)triggers its notes, then its lane hits (their GM
@@ -1216,7 +1227,7 @@ static void events_block(uint32_t n)
             midi_clock_transport(0xFAu, fm1_ms);
         else if (cin_left)
             ;                                       /* counting in already (the UI's PLAY stops it: seq_counting) */
-        else if (cin_bars && song.rec && !song.playing && !chain.armed)
+        else if (cin_bars && (song.rec || tape.arm) && !song.playing && !chain.armed)
             cin_begin();                            /* recording from stop: the count-in first */
         else
             seq_start();
@@ -1227,6 +1238,7 @@ static void events_block(uint32_t n)
     } else if (transport_req == 3u) {                 /* GLO + PLAY: from the top without stopping (INT clock) */
         if (!clock_mode) {
             seq_stop();
+            tape_seek(tape_top());                  /* the tape from its top too */
             seq_start();
         }
         transport_req = 0;
@@ -1307,6 +1319,7 @@ static void events_block(uint32_t n)
     chain_tick(seq_n);
     for (i = 0; i < NTRK; i++)
         seq_tick(&trk[i], seq_n);
+    tape_tick(seq_n);
     if (cin_flush)
         cin_record();
     if (song.playing)

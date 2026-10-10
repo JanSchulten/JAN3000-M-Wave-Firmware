@@ -270,6 +270,8 @@ static uint32_t page_icon(const page_t *pg)
     case GR_TRK: return ICON_X_MIXER;         /* MIXER (HOME): vertical faders */
     case GR_PATS: return ICON_X_PATTERN;      /* SAVE > PHRASES: the pattern loader */
     case GR_SONG: return ICON_X_SONG;         /* SONG: the disc */
+    case GR_TAPE:
+    case GR_TAPE2: return ICON_TAPE;          /* TAPE (M-Vave-OP1): the cassette */
     case GR_EVENTS: return motion_icon();     /* AUTOMATION */
     default: return ICON_NONE;
     }

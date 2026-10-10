@@ -82,7 +82,8 @@ static int mom_turn(uint32_t k, int32_t s)
     } else {
         if (act_cols() || lock_held() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
             pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
-            pg->graph == GR_PATS || (pg->graph == GR_SLICES && k < 2u) || (pg->graph == GR_MOD && k == 0u))
+            pg->graph == GR_PATS || (pg->graph == GR_SLICES && k < 2u) || (pg->graph == GR_MOD && k == 0u) ||
+            pg->graph == GR_TAPE)
             return 0;
         d = page_desc(pg, k, &vp);
     }
@@ -389,7 +390,8 @@ static void ui_leds(void)
         led_put(nl, panel.btn[B_FX], 1);                /* FX LATCH: lit while an effect or a macro is on */
     if (ui.layer)                                       /* the layer's button breathes while its map is up */
         led_put(nb, panel.btn[layer_btn()], 1);
-    led_put(nl, panel.btn[B_REC], song.rec != 0u && ui.layer != LAYER_REC);   /* (its layer: it breathes) */
+    led_put(nl, panel.btn[B_REC], (tape_page() ? tape.arm : song.rec) != 0u && ui.layer != LAYER_REC);   /* (its layer:
+                                                                                         * it breathes; TAPE: the tape's) */
     k = oct_leds();
     led_put(nl, panel.btn[B_OCTDN], (int)(k & 1u));
     led_put(nl, panel.btn[B_OCTUP], (int)((k >> 1) & 1u));
@@ -556,6 +558,14 @@ static uint32_t song_leds(void)
 static int rec_tap(void)                                /* 1: the arming changed */
 {
     uint8_t bit = (uint8_t)(1u << song.sel);
+    if (tape_page()) {                                /* TAPE (tape.c): the tape's ARM, not the pattern's; arming */
+        tape.arm ^= bit;                              /* while stopped starts PLAY (the count-in first, if set) */
+        ui.force = 1;
+        if ((tape.arm & bit) && !song.playing && !seq_counting())
+            transport_req = 1;
+        ui_message(tape.arm & bit ? "TAPE ARMED" : "TAPE DISARMED");
+        return 1;
+    }
     if (chain_busy()) {
         ui_message("STOP TO RECORD");
         return 0;
@@ -917,6 +927,17 @@ static void edit_param(uint32_t slot, int32_t steps)
         ev_knob(slot, steps);
         return;
     }
+    if (pg->graph == GR_TAPE) {                       /* KNOB 1 POS (a beat a detent, a bar turned fast), 2 LOOP, */
+        if (slot == 0u)                               /* 3 SPEED, 4 DIR (tape.c) */
+            tape_seek_ui(steps * (int32_t)(steps > 2 || steps < -2 ? TAPE_BAR : TAPE_PPQN));
+        else if (slot == 1u)
+            tape_loop_ui((uint32_t)clamp((int32_t)tape.loop + steps, 0, (int32_t)TAPE_NLOOP - 1));
+        else if (slot == 2u)
+            tape.speed = (int8_t)clamp(tape.speed + steps, -TAPE_SPEED_MAX, TAPE_SPEED_MAX);
+        else
+            tape.rev = steps > 0;
+        return;
+    }
     if (pg->graph == GR_SONG) {                       /* KNOB 1 SECTION, 2 TRACK, 3 PAT (A..D, -), 4 REPS */
         chain_row_t *r;
         if (slot == 0u) {
@@ -1034,6 +1055,13 @@ static void act_do(void)
     if (cur_page()->graph == GR_SONG) {
         if (song.playing || chain_busy() || seq_counting()) transport_req = 2;
         else chain_play_ui();
+        return;
+    }
+    if (cur_page()->graph == GR_TAPE2) {                  /* ERASE: the track's notes (c 0) or the whole tape */
+        if (!act_ready())
+            ui_message("NOTHING TO ERASE");
+        else
+            confirm_open(c == 0u ? CF_TAPE_TRK : CF_TAPE_ALL, song.sel);
         return;
     }
     if (cur_page()->graph == GR_PATS) {
@@ -1527,6 +1555,10 @@ static void ui_input(void)
                     if (ui.song_row > chain_config.count) ui.song_row = chain_config.count;
                     ui_message("SECTION DELETED");
                 }
+            } else if (kind == CF_TAPE_TRK || kind == CF_TAPE_ALL) {   /* (the ISR erases at its next block) */
+                tape.req_clear = (uint8_t)(kind == CF_TAPE_ALL ? (1u << NTRK) - 1u : 1u << (ui.confirm_trk % NTRK));
+                ui_message(kind == CF_TAPE_ALL ? "TAPE ERASED" : "TRACK ERASED");
+                ui.act = 0;
             } else if (kind == CF_CLEAR_SONG) {
                 if (!chain_busy()) { chain_defaults(&chain_config); ui.song_row = 0; ui_message("SONG CLEARED"); }
             } else if (kind == CF_INIT_SOUND) {
@@ -1676,7 +1708,7 @@ static void ui_input(void)
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
-            || pg->graph == GR_SONG || (pg->graph == GR_SLICES && k < 2u) || fop_page(pg->graph)) {   /* (not an empty
+            || pg->graph == GR_SONG || pg->graph == GR_TAPE || (pg->graph == GR_SLICES && k < 2u) || fop_page(pg->graph)) {   /* (not an empty
                                                                                                           * column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;
