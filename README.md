@@ -32,9 +32,19 @@ Change a track's sound later and the take plays with the new sound.
 - Length: 128 bars (4:16 at 120 BPM), about 2000 notes over all four tracks.
 - The tape is not saved yet: it is lost when the FM-1 is switched off (see the roadmap, M2).
 
+## Try it in the browser
+
+`web/lab` is an emulator page with guided workflows (in German): the whole firmware as WebAssembly, with a
+JavaScript fallback. Build it with `sh web/lab/build.sh` (after `./build.sh`, with the emsdk), then
+`cd build/lab && python3 -m http.server 8000` and open `http://localhost:8000/local.html`.
+
 ## Documents
 
 - Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
+- OP-1 and FM-1 compared, with the step-by-step plan (German): [docs/OP1_COMPARISON.md](docs/OP1_COMPARISON.md)
+- The OP-1 manual 1.2 as Markdown (personal reference, © Teenage Engineering, do not redistribute):
+  [docs/reference/op1-manual.md](docs/reference/op1-manual.md)
+- Claude Code skill for FM-1 firmware work: [.claude/skills/fm1-firmware](.claude/skills/fm1-firmware/SKILL.md)
 - Build: [BUILDING.md](BUILDING.md) (inherited from Felucca)
 - Felucca's own README (feature list, controls, history): [docs/FELUCCA_README.md](docs/FELUCCA_README.md)
 
