@@ -83,7 +83,7 @@ static int mom_turn(uint32_t k, int32_t s)
         if (act_cols() || lock_held() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
             pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
             pg->graph == GR_PATS || (pg->graph == GR_SLICES && k < 2u) || (pg->graph == GR_MOD && k == 0u) ||
-            pg->graph == GR_TAPE)
+            pg->graph == GR_TAPE || pg->graph == GR_FXT)
             return 0;
         d = page_desc(pg, k, &vp);
     }
@@ -390,8 +390,8 @@ static void ui_leds(void)
         led_put(nl, panel.btn[B_FX], 1);                /* FX LATCH: lit while an effect or a macro is on */
     if (ui.layer)                                       /* the layer's button breathes while its map is up */
         led_put(nb, panel.btn[layer_btn()], 1);
-    led_put(nl, panel.btn[B_REC], (tape_page() ? tape.arm : song.rec) != 0u && ui.layer != LAYER_REC);   /* (its layer:
-                                                                                         * it breathes; TAPE: the tape's) */
+    led_put(nl, panel.btn[B_REC], (tape_page() ? tape.arm : fxt_page() ? fxt.arm : song.rec) != 0u &&
+                                  ui.layer != LAYER_REC);   /* (its layer: it breathes; TAPE: the tape's, FX TRACKS the lanes') */
     k = oct_leds();
     led_put(nl, panel.btn[B_OCTDN], (int)(k & 1u));
     led_put(nl, panel.btn[B_OCTUP], (int)((k >> 1) & 1u));
@@ -564,6 +564,16 @@ static int rec_tap(void)                                /* 1: the arming changed
         if ((tape.arm & bit) && !song.playing && !seq_counting())
             transport_req = 1;
         ui_message(tape.arm & bit ? "TAPE ARMED" : "TAPE DISARMED");
+        return 1;
+    }
+    if (fxt_page()) {                                 /* FX TRACKS (fxtrack.c): the selected lane's ARM; as the tape's */
+        uint8_t lb = (uint8_t)(1u << (ui.fxt_sel % FXT_N));
+        fxt.arm ^= lb;
+        ui.force = 1;
+        if ((fxt.arm & lb) && !song.playing && !seq_counting())
+            transport_req = 1;
+        ui_message(fxt.arm & lb ? (ui.fxt_sel ? "FX2 ARMED: HOLD [FX]" : "FX1 ARMED: HOLD [FX]")
+                                : (ui.fxt_sel ? "FX2 DISARMED" : "FX1 DISARMED"));
         return 1;
     }
     if (chain_busy()) {
@@ -938,6 +948,30 @@ static void edit_param(uint32_t slot, int32_t steps)
             tape.rev = steps > 0;
         return;
     }
+    if (pg->graph == GR_FXT) {                        /* KNOB 1 the lane, 2 STEP, 3 its EFFECT, 4 LEN (fxtrack.c) */
+        fxt_lane_t *ln = &fxt_lane[ui.fxt_sel % FXT_N];
+        uint32_t len = FXT_LEN(ln);
+        if (slot == 0u) {
+            ui.fxt_sel = (uint8_t)clamp((int32_t)ui.fxt_sel + steps, 0, FXT_N - 1);
+            if (ui.fxt_cur >= FXT_LEN(&fxt_lane[ui.fxt_sel]))
+                ui.fxt_cur = (uint8_t)(FXT_LEN(&fxt_lane[ui.fxt_sel]) - 1u);
+        } else if (slot == 1u) {
+            ui.fxt_cur = (uint8_t)clamp((int32_t)ui.fxt_cur + steps, 0, (int32_t)len - 1);
+        } else if (slot == 2u) {                      /* (the list: OFF, TIE, the effects, the mutes; not round) */
+            static const char *const MUTE_NAME[NTRK] = {"MUTE T1", "MUTE T2", "MUTE T3", "MUTE T4"};
+            uint8_t *st = &ln->step[ui.fxt_cur % NSTEP];
+            uint32_t e;
+            *st = fxt_of_choice((uint32_t)clamp((int32_t)fxt_choice(*st) + steps, 0, FXT_CHOICES - 1u));
+            e = fxt_eff(*st);
+            ui_message(*st == FXT_TIE ? "TIE: THE EFFECT GOES ON" : e >= PF_N ? "OFF" : e >= PF_M1 ? MUTE_NAME[e - PF_M1]
+                                                                                                 : PF_NAME[e]);
+        } else {
+            ln->len = (uint8_t)clamp((int32_t)len + steps, 1, NSTEP);
+            if (ui.fxt_cur >= ln->len)
+                ui.fxt_cur = (uint8_t)(ln->len - 1u);
+        }
+        return;
+    }
     if (pg->graph == GR_SONG) {                       /* KNOB 1 SECTION, 2 TRACK, 3 PAT (A..D, -), 4 REPS */
         chain_row_t *r;
         if (slot == 0u) {
@@ -1062,6 +1096,13 @@ static void act_do(void)
             ui_message("NOTHING TO ERASE");
         else
             confirm_open(c == 0u ? CF_TAPE_TRK : CF_TAPE_ALL, song.sel);
+        return;
+    }
+    if (cur_page()->graph == GR_FXT2) {                   /* CLEAR: the selected lane (c 0) or both */
+        if (!act_ready())
+            ui_message("NOTHING TO CLEAR");
+        else
+            confirm_open(c == 0u ? CF_FXT_LANE : CF_FXT_ALL, ui.fxt_sel);
         return;
     }
     if (cur_page()->graph == GR_PATS) {
@@ -1555,6 +1596,12 @@ static void ui_input(void)
                     if (ui.song_row > chain_config.count) ui.song_row = chain_config.count;
                     ui_message("SECTION DELETED");
                 }
+            } else if (kind == CF_FXT_LANE || kind == CF_FXT_ALL) {   /* (what a lane holds ends at its next step) */
+                if (kind == CF_FXT_ALL)
+                    fxt_clear(1);
+                fxt_clear(kind == CF_FXT_ALL ? 0u : ui.confirm_trk % FXT_N);
+                ui_message(kind == CF_FXT_ALL ? "FX TRACKS CLEARED" : ui.confirm_trk % FXT_N ? "FX2 CLEARED" : "FX1 CLEARED");
+                ui.act = 0;
             } else if (kind == CF_TAPE_TRK || kind == CF_TAPE_ALL) {   /* (the ISR erases at its next block) */
                 tape.req_clear = (uint8_t)(kind == CF_TAPE_ALL ? (1u << NTRK) - 1u : 1u << (ui.confirm_trk % NTRK));
                 ui_message(kind == CF_TAPE_ALL ? "TAPE ERASED" : "TRACK ERASED");
@@ -1708,7 +1755,8 @@ static void ui_input(void)
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
-            || pg->graph == GR_SONG || pg->graph == GR_TAPE || (pg->graph == GR_SLICES && k < 2u) || fop_page(pg->graph)) {   /* (not an empty
+            || pg->graph == GR_SONG || pg->graph == GR_TAPE || pg->graph == GR_FXT || (pg->graph == GR_SLICES && k < 2u) ||
+            fop_page(pg->graph)) {   /* (not an empty
                                                                                                           * column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;

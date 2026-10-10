@@ -209,6 +209,7 @@ static void rec_release(track_t *t, uint32_t note);
 static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) && song.playing && !chain.running; }
 
 #include "tape.c"                                /* TAPE (M-Vave-OP1): the notes played, on a four-track tape */
+#include "fxtrack.c"                             /* FX TRACKS (M-Vave-OP1): two lanes of punch-in effects */
 #include "motion.c"
 
 /* the ARP's modes (P_AMODE). Append-only: a stored value keeps its meaning. ORD (1.2, it played as UP before) plays
@@ -840,6 +841,7 @@ static void seq_start(void)
     tape_start();                                  /* tape.c: from where its head stands */
     slicer_start();                                /* slicer.c: its step 0 with the sequencer's */
     perf_start();                                  /* perform.c: its 1/16 grid too */
+    fxt_stop();                                    /* fxtrack.c: the FX tracks' step 1 with the first block */
 }
 
 static void seq_release(track_t *t)
@@ -873,6 +875,7 @@ static void seq_stop(void)
     chain_stop();
     motion_end();
     tape_stop();
+    fxt_stop();
 }
 
 /* play one step: TIE extends, REST releases, NOTE (re)triggers its notes, then its lane hits (their GM
@@ -1227,7 +1230,7 @@ static void events_block(uint32_t n)
             midi_clock_transport(0xFAu, fm1_ms);
         else if (cin_left)
             ;                                       /* counting in already (the UI's PLAY stops it: seq_counting) */
-        else if (cin_bars && (song.rec || tape.arm) && !song.playing && !chain.armed)
+        else if (cin_bars && (song.rec || tape.arm || fxt.arm) && !song.playing && !chain.armed)
             cin_begin();                            /* recording from stop: the count-in first */
         else
             seq_start();
@@ -1320,6 +1323,7 @@ static void events_block(uint32_t n)
     for (i = 0; i < NTRK; i++)
         seq_tick(&trk[i], seq_n);
     tape_tick(seq_n);
+    fxt_tick(seq_n);
     if (cin_flush)
         cin_record();
     if (song.playing)

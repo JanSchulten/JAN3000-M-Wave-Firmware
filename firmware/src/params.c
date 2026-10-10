@@ -432,7 +432,8 @@ enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };   /* SC_TRK: the TRACK
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
        GR_SLCR, GR_MOD, GR_PATS, GR_SONG, GR_TOOLS, GR_CHORD, GR_SLICES, GR_EVENTS,
        GR_FMOP, GR_FMOP2, GR_FMENV, GR_INS,     /* (GR_STEPS: SEQ TOOLS' knobs; GR_FMOP..: FM6's operator pages, ui_fm6op.c) */
-       GR_TAPE, GR_TAPE2 };                     /* M-Vave-OP1: GLO > TAPE, TAPE 2 (tape.c, ui_graph.c graph_tape) */
+       GR_TAPE, GR_TAPE2,                       /* M-Vave-OP1: GLO > TAPE, TAPE 2 (tape.c, ui_graph.c graph_tape) */
+       GR_FXT, GR_FXT2 };                       /* .. FX > FX TRACKS, FX TRACKS 2 (fxtrack.c, ui_graph.c graph_fxt) */
 
 typedef struct {
     const char *title;
@@ -449,6 +450,10 @@ static const page_t PAGES[] = {
     {"LFO DEST", FAM_LFO, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},
     {"MOD", FAM_LFO, SC_TRACK, GR_MOD, {0xFF, P_M1SRC, P_M1DST, P_M1AMT}},   /* KNOB 1: the slot (mod_ui_slot) */
     {"FX", FAM_FX, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},
+    /* M-Vave-OP1: FX's second page the FX TRACKS (fxtrack.c): KNOB 1 the lane (FX1, FX2), 2 STEP, 3 its EFFECT, 4 LEN; REC
+     * arms the lane, the FX layer's effects record onto it. FX TRACKS 2 its actions (CLEAR the lane, or both) */
+    {"FX TRACKS", FAM_FX, SC_GLOBAL, GR_FXT, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"FX TRACKS 2", FAM_FX, SC_GLOBAL, GR_FXT2, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},
     {"INSERT", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},   /* 1.5: the track's INSERT (fx.c) */
     {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_IMIX, 0xFF, 0xFF, 0xFF}},  /* .. its dry / wet */

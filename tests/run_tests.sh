@@ -58,6 +58,10 @@
 #                   where played, playback, overdub, the gap buffer's order, STOP / PLAY from the head, LOOP (wrap, keys
 #                   held over it, RESTART), SPEED (rate, transposition, recorded at a SPEED), DIR REV (playback and
 #                   recording backwards, DIR turned with a key held), ERASE, a full tape keeps every on's off, the end.
+# FX TRACKS (tests/fxtrack_test.c, M-Vave-OP1): two lanes of punch-in effects (fxtrack.c): an effect from its step over its
+#                   TIEs, LEN and two lengths, step for step with a 1/16 track, a REPEAT on its step, mutes, STOP / PLAY;
+#                   recording only armed and playing, early / late presses, TIEs, overdub, a punch inside a take, FX LATCH,
+#                   the black keys; FX's pages, KNOB 1..4, REC arming, FX held + a key end to end, CLEAR.
 # RATCH (tests/ratchet_test.c): a step's ratchet (x1..x4): its parts in the sequencer (equal, gated, chords and drum
 #                   hits whole, one chance roll, swing, no slide or tie out, STOP), FUN8 round trip and older projects x1,
 #                   user preset patterns, SEQ > AUTOMATION's RATCH rows and the roll / grid drawing.
@@ -242,6 +246,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/tape_test" tests/tape_test.c -lm
     run "TAPE: record, play, overdub, LOOP, SPEED, DIR REV, ERASE, a full tape, the end" "$OUT/tape_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fxtrack_test" tests/fxtrack_test.c -lm
+    run "FX TRACKS: lanes of punch-in effects (play, LEN, no drift, REPEAT on its step), recording (early / late, TIEs, overdub, punch, LATCH, mutes), pages" "$OUT/fxtrack_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/step15_test" tests/step15_test.c -lm
     run "1.5 STEP: a note's LEN (TIEs on KNOB 3), a step's VEL (playback, AUTOMATION's VEL rows)" "$OUT/step15_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/detail_test" tests/detail_test.c -lm

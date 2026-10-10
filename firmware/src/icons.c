@@ -272,6 +272,8 @@ static uint32_t page_icon(const page_t *pg)
     case GR_SONG: return ICON_X_SONG;         /* SONG: the disc */
     case GR_TAPE:
     case GR_TAPE2: return ICON_TAPE;          /* TAPE (M-Vave-OP1): the cassette */
+    case GR_FXT:
+    case GR_FXT2: return ICON_X_REPEAT;       /* FX TRACKS (M-Vave-OP1): a punch-in's */
     case GR_EVENTS: return motion_icon();     /* AUTOMATION */
     default: return ICON_NONE;
     }

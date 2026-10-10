@@ -239,6 +239,11 @@ static void ui_power_on(void)
     memset(&scrn, 0, sizeof scrn);                        /* MENU > SCREEN OFF: on, idle from now (main.c) */
     memset(&tape, 0, sizeof tape);                        /* (M-Vave-OP1: the tape empty, as the .bss and the pool) */
     memset(tape_ev, 0, sizeof tape_ev);
+    memset(&fxt, 0, sizeof fxt);                          /* (the FX tracks empty and stopped, as at boot) */
+    fxt.pos = FXT_START;
+    memset(fxt_lane, 0, sizeof fxt_lane);
+    memset(fxt_ord, 0, sizeof fxt_ord);
+    perf_fxt = perf_fxt_now = 0;
     scrn.idle = fm1_ms;
     kb_asleep = 0;
     panel_moved = 0;
@@ -2823,12 +2828,14 @@ static int test_product_ux(void)
             ok &= song.rec == 0 && !transport_req && msg_is("[SEQ] TO RECORD");
         else if (PAGES[i].graph == GR_TAPE || PAGES[i].graph == GR_TAPE2)   /* (M-Vave-OP1: the tape's ARM) */
             ok &= song.rec == 0 && tape.arm == 1u && transport_req == 1 && ui.page == i && msg_is("TAPE ARMED");
+        else if (PAGES[i].graph == GR_FXT || PAGES[i].graph == GR_FXT2)     /* (.. the FX track's) */
+            ok &= song.rec == 0 && fxt.arm == 1u && transport_req == 1 && ui.page == i && msg_is("FX1 ARMED: HOLD [FX]");
         else if (PAGES[i].graph == GR_ROLL)            /* #133: STEP's roll arms step recording, stopped */
             ok &= song.rec == 1 && !transport_req && ui.page == i && !ui.home;
         else ok &= song.rec == 1 && transport_req == 1 && ui.page == i && !ui.home;
     }
     bad += check("REC stays on every page, SONG stopped asks for pattern recording (STEP: step recording, stopped; "
-                 "TAPE: the tape)", ok);
+                 "TAPE: the tape; FX TRACKS: the lane)", ok);
     ui_power_on(); hold(B_HOME); press(B_REC);
     bad += check("REC in the MENU does nothing (the menu stays, no arm, no transport start)",
                  ui.menu == 1 && song.rec == 0 && !transport_req);
@@ -3079,7 +3086,7 @@ static int test_layer(void)
     bad += check("FX tap: nothing on press, the FX page when let go", ok && !ui.home && cur_page()->fam == FAM_FX);
     frames(320);                                       /* (not a double tap: #83) */
     press(B_FX);
-    bad += check("  a second tap: the next page of the family (SLICER)", str_eq(cur_page()->title, "SLICER"));
+    bad += check("  a second tap: the next page of the family (FX TRACKS)", str_eq(cur_page()->title, "FX TRACKS"));
     ui_power_on();
     btn_down(B_FX);
     for (flash = 0, i = 0; i < 22u; i++) { frame(); flash |= ui.layer; }      /* 0.35 s */

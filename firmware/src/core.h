@@ -298,6 +298,11 @@ typedef struct {
     chain_row_v9_t row[CHAIN_ROWS];
 } chain_v9_t;
 _Static_assert(sizeof(chain_config_t) == 84u && sizeof(chain_v9_t) == 36u, "song chain layouts (FUN10 / FUN6..FUN9)");
+/* M-Vave-OP1: an FX track (fxtrack.c), OP-Z's FX tracks on the FM-1's punch-in effects: a byte a 1/16 step (FXT_TIE,
+ * FXT_MUTE, an effect + 1, 0 nothing) and the lane's length in steps (0: 16, the default; all zero is an empty lane) */
+#define FXT_N 2u                 /* FX TRACKS: FX1, FX2 */
+typedef struct { uint8_t step[NSTEP]; uint8_t len, rsv; } fxt_lane_t;
+_Static_assert(sizeof(fxt_lane_t) == NSTEP + 2u, "FX track layout (stored)");
 
 typedef struct track {
     int16_t p[P_COUNT];

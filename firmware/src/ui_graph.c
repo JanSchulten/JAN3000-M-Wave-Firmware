@@ -1216,6 +1216,16 @@ static uint32_t graph_signature(void)
             16777619u;
         h = (h ^ (tape.loop_in + ((uint32_t)tape.full << 20) + ((uint32_t)song.playing << 21))) * 16777619u;
     }
+    if (pg->graph == GR_FXT || pg->graph == GR_FXT2) {     /* the lanes, the cursor, the play heads (fxtrack.c) */
+        uint32_t l;
+        for (l = 0; l < FXT_N; l++) {
+            for (i = 0; i < NSTEP; i++)
+                h = (h ^ fxt_lane[l].step[i]) * 16777619u;
+            h = (h ^ (fxt_lane[l].len | (uint32_t)fxt.idx[l] << 8 | (uint32_t)fxt.cur[l] << 16)) * 16777619u;
+        }
+        h = (h ^ (fxt.arm | (uint32_t)ui.fxt_sel << 4 | (uint32_t)ui.fxt_cur << 8 | (uint32_t)song.playing << 16 |
+                  (uint32_t)fxt_follow() << 17)) * 16777619u;
+    }
     if (pg->graph == GR_MOD)
         h ^= (mod_ui_slot + 1u) * 40503u;
     if (pg->graph == GR_SLCR && t->p[P_SLCR])        /* the SLICER's step playing */
@@ -2389,6 +2399,77 @@ static void graph_tape(void)
     }
     cv_rect(TP_HX - 1, TP_LY - 6, 2, NTRK * (TP_LH + 1) + 5, rec ? T_REC : T_ACCENT);   /* the head */
 }
+
+/* FX > FX TRACKS (fxtrack.c): the two lanes, 16 steps of each at a time (the cursor's 16; playing, the selected lane's play
+ * head's, unless STEP or EFFECT was just turned), an effect and its TIEs one bar with its name, a lane's 64 steps in the
+ * strip under it (the 16 shown framed), the play head under its step. The selected lane's label lit, an armed one's red */
+#define FX_LY 4                                       /* the lanes: from y 4, FX_LP apart */
+#define FX_LP 58
+#define FX_CH 30                                      /* .. a step: FX_CP wide (1 px apart), FX_CH high, from FX_X0 */
+#define FX_CP 12
+#define FX_X0 40
+static uint16_t fxt_colour(uint32_t e)                /* an effect's bar: by its kind */
+{
+    return e <= PF_REV ? T_ACCENT : e <= PF_HPF ? T_THEME : e <= PF_ODN ? ux_mix(T_ACCENT, T_THEME, 50)
+         : e <= PF_PHS ? ux_mix(T_THEME, T_TEXT, 40) : e < PF_M1 ? ux_mix(T_THEME, T_RAISE, 45) : T_MID;
+}
+static void graph_fxt(void)
+{
+    uint32_t sel = ui.fxt_sel % FXT_N, l, i;
+    uint32_t w0 = (fxt_follow() ? fxt.idx[sel] : ui.fxt_cur) / 16u * 16u;
+    for (l = 0; l < FXT_N; l++) {
+        const fxt_lane_t *ln = &fxt_lane[l];
+        uint32_t len = FXT_LEN(ln);
+        int32_t y = FX_LY + (int32_t)l * FX_LP, x;
+        uint16_t lc = (fxt.arm >> l) & 1u ? T_REC : l == sel ? T_ACCENT : T_RAISE, ink = l == sel || (fxt.arm >> l & 1u) ? T_INK : T_MID;
+        cv_rrect(4, y + (FX_CH - 18) / 2, 30, 18, 4, lc, T_SURF);   /* the lane's name */
+        GFX_HOOK_ALIGN(4, y + (FX_CH - 18) / 2, 34, y + (FX_CH - 18) / 2 + 18, AL_HV, "fx track lane name centred");
+        cv_text_in(4, y + (FX_CH - 18) / 2 + CAP_IN(S, 18), 30, &AF_S, l ? "FX2" : "FX1", ink, lc);
+        for (i = 0; i < 16u; i++) {                   /* the steps: empty ones, the beats a shade lighter */
+            uint32_t st = w0 + i;
+            x = FX_X0 + (int32_t)i * FX_CP;
+            if (st < len)
+                cv_rect(x, y, FX_CP - 1, FX_CH, i % 4u ? T_RAISE : ux_mix(T_RAISE, T_TEXT, 12));
+        }
+        for (i = 0; i < 16u;) {                       /* the effects: a bar from a step over its TIEs */
+            uint32_t st = w0 + i, e, n = 1;
+            if (st >= len) break;
+            e = fxt_plays(l, st);
+            if (e >= PF_N) { i++; continue; }
+            while (i + n < 16u && st + n < len && ln->step[st + n] == FXT_TIE)
+                n++;
+            x = FX_X0 + (int32_t)i * FX_CP;
+            {
+                int32_t bw = (int32_t)n * FX_CP - 1;
+                uint16_t bc = fxt_colour(e);
+                const char *nm = e < PF_NFX ? PF_CELL[e] : 0;
+                char mt[3] = {'T', (char)('1' + (e - PF_M1) % NTRK), 0};
+                cv_rect(x, y + 4, bw, FX_CH - 8, bc);
+                if (ln->step[st] != FXT_TIE)          /* its start: a mark at the left */
+                    cv_rect(x, y, 2, FX_CH, bc);
+                if (!nm) nm = mt;
+                if (text_w(&AF_S, nm) + 4 <= bw) {
+                    GFX_HOOK_ALIGN(x, y + 4, x + bw, y + FX_CH - 4, AL_HV, "fx track effect name centred");
+                    cv_text_in(x, y + 4 + CAP_IN(S, FX_CH - 8), bw, &AF_S, nm, T_INK, bc);
+                }
+            }
+            i += n;
+        }
+        if (l == sel && ui.fxt_cur >= w0 && ui.fxt_cur < w0 + 16u) {   /* the cursor */
+            x = FX_X0 + (int32_t)(ui.fxt_cur - w0) * FX_CP;
+            cv_frame(x - 1, y - 1, FX_CP + 1, FX_CH + 2, T_TEXT);
+        }
+        if (song.playing && fxt.pos != FXT_START && fxt.idx[l] >= w0 && fxt.idx[l] < w0 + 16u)   /* the play head */
+            cv_rect(FX_X0 + (int32_t)(fxt.idx[l] - w0) * FX_CP, y + FX_CH + 2, FX_CP - 1, 3, T_ACCENT);
+        for (i = 0; i < len; i++) {                   /* the lane's 64 steps, 3 px each; the 16 shown framed */
+            uint32_t e = fxt_plays(l, i);
+            cv_rect(FX_X0 + (int32_t)i * 3, y + FX_CH + 9, 2, 6, e < PF_N ? fxt_colour(e) : T_RAISE);
+        }
+        cv_rect(FX_X0 + (int32_t)w0 * 3, y + FX_CH + 16, 47, 1, T_MID);
+        if (song.playing && fxt.pos != FXT_START)
+            cv_rect(FX_X0 + (int32_t)fxt.idx[l] * 3, y + FX_CH + 7, 2, 1, T_ACCENT);
+    }
+}
 static void draw_graph(void)
 {
     const page_t *pg = cur_page();
@@ -2481,6 +2562,11 @@ static void draw_graph(void)
         case GR_TAPE2:
             cv_oy = 0;
             graph_tape();
+            break;
+        case GR_FXT:
+        case GR_FXT2:
+            cv_oy = 0;
+            graph_fxt();
             break;
         case GR_PATS:
             cv_oy = 0;

@@ -454,11 +454,7 @@ static void rec_key(uint32_t p)
     ui_say(r == 2u ? "CLICK LEVEL " : r ? "COUNT-IN " : "CLICK ", rl_name(r, v));
 }
 
-/* FX: the effects' names (the message; NONE: PF_N) and the map's cells' */
-static const char *const PF_NAME[PF_NFX + 1] = {"REPEAT 1/8", "REPEAT 1/16", "REPEAT 1/32", "REVERSE", "LPF", "HPF",
-    "TAPE STOP", "FREEZE", "OCT UP", "OCT DN", "FLANGER", "PHASER", "REV THROW", "ECHO THROW", "NONE"};
-static const char *const PF_CELL[PF_NFX] = {"1/8", "1/16", "1/32", "REV", "LPF", "HPF", "STOP", "FRZ", "OCT+", "OCT-",
-    "FLNG", "PHSR", "VERB", "ECHO"};
+/* FX: the effects' names, PF_NAME and PF_CELL (ui.c: M-Vave-OP1's FX TRACKS pages draw them too) */
 static const char W_NOTE[16] = {'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};
 /* each pass: the map from the settings to the ISR (a change: seq.c makes a key held take its new effect) */
 static void fx_map_sync(void)
@@ -938,7 +934,7 @@ static void bnote(char *n, uint32_t t) { n[0] = B_NOTE[t]; n[1] = '#'; n[2] = 0;
 
 static void layer_fx(void)
 {
-    uint32_t held = perf_kill ? 0u : perf_held | perf_latched, act = perf_act, ok = perf_avail(), p, e, st;
+    uint32_t held = perf_kill ? 0u : perf_held | perf_latched | perf_fxt, act = perf_act, ok = perf_avail(), p, e, st;
     uint32_t ed = fx_key_held() ? key_place(fx_key_held() - 1u) : PF_KEYS;
     char n[3] = {0, 0, 0};
     for (p = 0; p < PF_KEYS; p++) {                     /* the white keys F3 .. G5, 4 a row: the effect each holds */
@@ -1153,7 +1149,7 @@ static void draw_layer(void)
     if (l == LAYER_FX)
     {
         uint32_t p;
-        sig += (perf_kill ? 0u : perf_held | perf_latched) * 31u + perf_latch_on * 11u + perf_act * 131u + perf_avail() * 7u + (uint32_t)perf_harm_on() * 3u +
+        sig += (perf_kill ? 0u : perf_held | perf_latched | perf_fxt) * 31u + perf_latch_on * 11u + perf_act * 131u + perf_avail() * 7u + (uint32_t)perf_harm_on() * 3u +
                fx_key_held() * 4099u;
         for (p = 0; p < PF_KEYS; p++)                   /* (the key map) */
             sig = sig * 33u + perf_map[p];

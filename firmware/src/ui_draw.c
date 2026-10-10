@@ -1018,6 +1018,40 @@ static void draw_columns(void)
         draw_column(3, "USED", val, "%", tape.full ? T_ACCENT : T_THEME, (int32_t)(used * 1000u / TAPE_EV), ICON_NONE);
         return;
     }
+    if (cur_page()->graph == GR_FXT) {                /* the lane, STEP, its EFFECT, LEN (fxtrack.c) */
+        uint32_t l = ui.fxt_sel % FXT_N, len = FXT_LEN(&fxt_lane[l]), c = fxt_lane[l].step[ui.fxt_cur % NSTEP];
+        uint32_t e = fxt_eff(c);
+        const char *unit = "";
+        draw_column(0, "LANE", l ? "FX2" : "FX1", "", (fxt.arm >> l) & 1u ? T_REC : VAL(0u), -1, ICON_X_REPEAT);
+        fmt_int(val, (int32_t)ui.fxt_cur + 1);
+        draw_column(1, "STEP", val, "", VAL(1u), (int32_t)(ui.fxt_cur * 1000u / (len > 1u ? len - 1u : 1u)), ICON_STEPS);
+        if (c == FXT_TIE) {
+            str_cpy(val, "TIE", sizeof val);
+        } else if (e >= PF_N) {
+            str_cpy(val, "OFF", sizeof val);
+        } else if (e >= PF_M1) {
+            str_cpy(val, "T1", sizeof val);
+            val[1] = (char)('1' + e - PF_M1);
+            unit = "MUTE";
+        } else {
+            str_cpy(val, PF_CELL[e], sizeof val);
+            unit = e <= PF_R32 ? "RPT" : e == PF_RTHR || e == PF_ETHR ? "THROW" : "";
+        }
+        draw_column(2, "EFFECT", val, unit, e < PF_N || c == FXT_TIE ? VAL(2u) : T_DIM, -1, ICON_SWEEP);
+        fmt_int(val, (int32_t)len);
+        draw_column(3, "LEN", val, "", VAL(3u), (int32_t)(len * 1000u / NSTEP), ICON_LENGTH);
+        return;
+    }
+    if (cur_page()->graph == GR_FXT2) {               /* CLEAR the lane, CLEAR both; the steps each holds */
+        uint32_t l = ui.fxt_sel % FXT_N, n0 = fxt_used(0), n1 = fxt_used(1);
+        draw_act_column(0, l ? "FX2" : "FX1", (l ? n1 : n0) ? T_THEME : T_DIM, ICON_CLEAR);
+        draw_act_column(1, "BOTH", n0 | n1 ? T_THEME : T_DIM, ICON_CLEAR);
+        fmt_int(val, (int32_t)n0);
+        draw_column(2, "FX1", val, "STEPS", n0 ? T_THEME : T_DIM, -1, ICON_NONE);
+        fmt_int(val, (int32_t)n1);
+        draw_column(3, "FX2", val, "STEPS", n1 ? T_THEME : T_DIM, -1, ICON_NONE);
+        return;
+    }
     if (cur_page()->graph == GR_TOOLS) {
         static const char *const labels[] = {"PAT", "SOUND", "SEC", "SONG"};
         static const uint8_t icons[] = {ICON_AUTO, ICON_AUTO, ICON_X_SONG, ICON_X_SONG};   /* ROW, SONG: the song's */
@@ -1393,6 +1427,15 @@ static void confirm_text(char *a, char *b)
     case CF_TAPE_ALL:
         str_cpy(a, "ERASE THE TAPE?", 24);
         str_cpy(b, "ALL FOUR TRACKS", 24);
+        break;
+    case CF_FXT_LANE:                                /* FX TRACKS 2 (fxtrack.c) */
+        str_cpy(a, "CLEAR FX1?", 24);
+        a[8] = (char)('1' + k % FXT_N);
+        fmt_int(b, (int32_t)fxt_used(k % FXT_N));
+        str_cpy(b + str_len(b), " STEPS", 8);
+        break;
+    case CF_FXT_ALL:
+        str_cpy(a, "CLEAR BOTH FX TRACKS?", 24);
         break;
     case CF_CLEAR_SONG:
         str_cpy(a, "CLEAR SONG ORDER?", 24);

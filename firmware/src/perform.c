@@ -42,7 +42,9 @@
  * their values when FX is let go, FX + OCT- turns everything off (ui_layer.c), so does the menu or a dialog.
  * Chain: [REPEAT / REVERSE / TAPE / FREEZE] -> LPF -> HPF -> CRUSH -> FLANGER -> PHASER, after the master level and
  * before master_out (the limiter); THROW and the mutes act before the buses (fx.c mix_block / mix_part).
- * Idle (no key, no knob, no ramp left) every stage is skipped: the output is bit-identical. */
+ * Idle (no key, no knob, no ramp left) every stage is skipped: the output is bit-identical.
+ * M-Vave-OP1: the FX TRACKS (fxtrack.c) hold effects as the keys do (perf_fxt), a REPEAT / REVERSE of theirs at once
+ * (their steps are 1/16s); a press of the layer is also recorded onto an armed FX track (fxt_press). */
 /* the effects (their numbers are stored: the key map in the settings, ui_layer.c perf_map_put; append-only, before
  * PF_M1), then the mutes of the black keys */
 enum { PF_R8, PF_R16, PF_R32, PF_REV, PF_LPF, PF_HPF, PF_TAPE, PF_FRZ, PF_OUP, PF_ODN, PF_FLG, PF_PHS,
@@ -99,6 +101,9 @@ static volatile uint8_t perf_latch_on;   /* main: MENU > FX LATCH ON (#40): a ke
 static volatile uint32_t perf_latched;   /* ISR: the effects latched (FX LATCH; main clears it: OCT-, the menu) */
 static volatile uint32_t perf_act;    /* ISR: .. running (a 1/16 one from its start on) */
 static uint32_t perf_ord[PF_N], perf_seq;   /* press order: the last pressed buffer effect plays */
+static uint32_t perf_fxt;             /* ISR (M-Vave-OP1): the effects the FX TRACKS hold (fxtrack.c), as keys held them */
+static uint32_t perf_fxt_now;         /* ISR: .. those started this block: at once (on their step), not on the next 1/16 */
+static void fxt_press(uint32_t e);    /* (fxtrack.c: a press of the layer, recorded onto an armed FX track) */
 
 /* the ZDF state-variable filter at cutoff index i (30 Hz * 2^(i / 7), 0..63: up to 15.4 kHz), k = 1:
  * a1 a2 a3 in Q14 (tools: g = tan(pi fc / fs), a1 = 1 / (1 + g (g + k)), a2 = g a1, a3 = g a2) */
@@ -192,12 +197,15 @@ static void perf_press(uint32_t e, int down)
         if (down) {
             perf_latched ^= PF_BIT(e);
             perf_ord[e] = ++perf_seq;
+            if ((perf_latched >> e) & 1u)
+                fxt_press(e);
         }
         return;
     }
     if (down) {
         perf_held |= PF_BIT(e);
         perf_ord[e] = ++perf_seq;
+        fxt_press(e);
     } else {
         perf_held &= ~PF_BIT(e);
     }
@@ -298,13 +306,15 @@ static void perf_buf_select(uint32_t e)
  * Returns 1 when a stage has something to do */
 static __attribute__((noinline)) int perf_begin(uint32_t n)
 {
-    uint32_t held = perf_kill ? 0u : (perf_held | perf_latched | (perf_solo ? (~(uint32_t)perf_solo & 15u) << PF_M1 : 0u)) & perf_avail();
+    uint32_t held = perf_kill ? 0u : (perf_held | perf_latched | perf_fxt |
+                                      (perf_solo ? (~(uint32_t)perf_solo & 15u) << PF_M1 : 0u)) & perf_avail();
     uint32_t q, k, ph0, bnd;
     int32_t m;
     if (!held && !pf.busy && !(perf_k[0] | perf_k[1] | perf_k[2])) {   /* idle: the clock only */
         pf.ph += n;
         pf.sync = 0;
         perf_act = 0;
+        perf_fxt_now = 0;
         return 0;
     }
     pf.P = beat_samples() >> 2;
@@ -317,6 +327,8 @@ static __attribute__((noinline)) int perf_begin(uint32_t n)
     pf.ph += n;
     pf.act &= held;                                 /* let go: at once */
     pf.act |= held & ~PF_Q;
+    pf.act |= held & perf_fxt_now;                  /* an FX track's REPEAT / REVERSE: its step is the 1/16 */
+    perf_fxt_now = 0;
     pf.act0 = pf.act;
     q = held & PF_Q & ~pf.act;
     pf.split = n;
