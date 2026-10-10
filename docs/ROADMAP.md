@@ -95,6 +95,12 @@ project slot, A..D). Needs ~3.5 KiB of flash per pattern (USR2 or a second extra
 double buffer for the pattern that comes next. More punch-in effects of the OP-Z's: DUCK, RAMP UP, RANDOMIZE,
 STEREO.
 
+### E1..E5: effects (planned)
+
+Granular CLOUD and more types for the delay bus (OP-Z FX1-style), OP-Z punch-ins (DUCK, STEREO, PITCH, RAMP UP,
+GLITCH), new track INSERTs (RING, SHIFT, COMB, VOWEL, WOW). All on buffers that exist already. The plan, in German:
+[EFFEKTE_PLAN.md](EFFEKTE_PLAN.md).
+
 ### M3: tape editing
 
 LIFT (cut the loop region to a clipboard), DROP (paste it at the head), a tape track's mute and level,

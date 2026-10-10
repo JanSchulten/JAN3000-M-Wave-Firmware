@@ -80,6 +80,7 @@ load as before (with empty FX TRACKS).
 
 - Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 - OP-1 and FM-1 compared, with the step-by-step plan (German): [docs/OP1_COMPARISON.md](docs/OP1_COMPARISON.md)
+- The plan for new effects (granular CLOUD, OP-Z punch-ins, track inserts; German): [docs/EFFEKTE_PLAN.md](docs/EFFEKTE_PLAN.md)
 - The OP-1 manual 1.2 as Markdown (personal reference, © Teenage Engineering, do not redistribute):
   [docs/reference/op1-manual.md](docs/reference/op1-manual.md)
 - Claude Code skill for FM-1 firmware work: [.claude/skills/fm1-firmware](.claude/skills/fm1-firmware/SKILL.md)
