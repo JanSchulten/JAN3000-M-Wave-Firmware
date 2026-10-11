@@ -358,7 +358,8 @@ static uint32_t large_kind(void)
         return home_tracks() ? LK_LABEL : LK_TALL;      /* a list page; the rows' names in M: draw_home_tracks) */
     g = cur_page()->graph;
     return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_PATS || g == GR_SONG || g == GR_ROLL ||
-           g == GR_SLICES || g == GR_EVENTS || g == GR_TAPE || g == GR_TAPE2 || g == GR_FXT || g == GR_FXT2 ? LK_LABEL
+           g == GR_SLICES || g == GR_EVENTS || g == GR_TAPE || g == GR_TAPE2 || g == GR_FXT || g == GR_FXT2 ||
+           g == GR_FX1 || g == GR_CLOUD ? LK_LABEL
                                                                                                           : LK_TALL;
 }
 /* the geometry of the page shown: the cards' height, the panel's top and height */
@@ -392,6 +393,10 @@ static uint32_t layer_btn(void);
  * track's (its patch's operators, ui_fm6op.c) */
 static int page_visible(uint32_t i)
 {
+    if (PAGES[i].graph == GR_CLOUD)                   /* M-Vave-OP1: FX1's own page by its TYPE (fx1.c) */
+        return fx1s.type == FX1_CLOUD;
+    if (PAGES[i].scope == SC_GLOBAL && PAGES[i].id[0] == G_DTIME)
+        return fx1s.type != FX1_CLOUD;
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
     if (PAGES[i].id[0] == P_FTYPE)                    /* FILTER (1.5, #104): ANALOG's */
@@ -585,9 +590,9 @@ static int fxt_follow(void) { return song.playing && !(ui.hot_t && (ui.hot_col =
 /* the FX layer's effects (perform.c PF_*): their names (the messages, FX TRACKS' EFFECT; NONE: PF_N) and the map's cells'
  * (FX TRACKS' bars; M-Vave-OP1: here from ui_layer.c, the pages draw them too) */
 static const char *const PF_NAME[PF_NFX + 1] = {"REPEAT 1/8", "REPEAT 1/16", "REPEAT 1/32", "REVERSE", "LPF", "HPF",
-    "TAPE STOP", "FREEZE", "OCT UP", "OCT DN", "FLANGER", "PHASER", "REV THROW", "ECHO THROW", "NONE"};
+    "TAPE STOP", "FREEZE", "OCT UP", "OCT DN", "FLANGER", "PHASER", "REV THROW", "ECHO THROW", "CLOUD FREEZE", "NONE"};
 static const char *const PF_CELL[PF_NFX] = {"1/8", "1/16", "1/32", "REV", "LPF", "HPF", "STOP", "FRZ", "OCT+", "OCT-",
-    "FLNG", "PHSR", "VERB", "ECHO"};
+    "FLNG", "PHSR", "VERB", "ECHO", "CFRZ"};
 
 /* black key place p (seq.c key_place) held, 0 = not */
 static int black_held(uint32_t p)

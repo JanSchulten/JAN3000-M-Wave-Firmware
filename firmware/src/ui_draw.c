@@ -1021,6 +1021,43 @@ static void draw_columns(void)
         draw_column(3, "USED", val, "%", tape.full ? T_ACCENT : T_THEME, (int32_t)(used * 1000u / TAPE_EV), ICON_NONE);
         return;
     }
+    if (cur_page()->graph == GR_FX1) {                /* TYPE; CLOUD: RAND FDBK MIX (fx1.c) */
+        int cloud = fx1s.type == FX1_CLOUD;
+        static const char *const LB[3] = {"RAND", "FDBK", "MIX"};
+        const volatile uint8_t *v[3] = {&fx1s.rnd, &fx1s.fdbk, &fx1s.mix};
+        draw_column(0, "TYPE", cloud ? "CLOUD" : "DELAY", "", VAL(0u), -1, cloud ? ICON_GRAIN : ICON_DELAY);
+        for (c = 0; c < 3u; c++) {
+            if (cloud)
+                fmt_int(val, *v[c]);
+            else
+                str_cpy(val, "--", sizeof val);
+            draw_column(c + 1u, LB[c], val, cloud ? "%" : "", cloud ? VAL(c + 1u) : T_DIM, cloud ? (int32_t)*v[c] * 10 : -1,
+                        c == 0u ? ICON_PROB : c == 1u ? ICON_FEEDBACK : ICON_MIX);
+        }
+        return;
+    }
+    if (cur_page()->graph == GR_CLOUD) {              /* SIZE DENS PITCH SPREAD (fx1.c) */
+        uint32_t ms = cl_size(fx1s.size) * 1000u / 44100u, d10 = 441000u / cl_gap(fx1s.dens);
+        if (ms >= 1000u)
+            str_cpy(val, "1.0", sizeof val);
+        else
+            fmt_int(val, (int32_t)ms);
+        draw_column(0, "SIZE", val, ms >= 1000u ? "S" : "MS", VAL(0u), fx1s.size * 10, ICON_SIZE);
+        fmt_int(val, (int32_t)(d10 >= 100u ? d10 / 10u : d10 / 10u));
+        if (d10 < 100u) {                             /* "5.7" */
+            uint32_t l = str_len(val);
+            val[l] = '.';
+            val[l + 1u] = (char)('0' + d10 % 10u);
+            val[l + 2u] = 0;
+        }
+        draw_column(1, "DENS", val, "/S", VAL(1u), fx1s.dens * 10, ICON_DIVISION);
+        val[0] = '+';
+        fmt_int(val + (fx1s.pitch > 0), fx1s.pitch);
+        draw_column(2, "PITCH", val, "ST", VAL(2u), (fx1s.pitch + 24) * 1000 / 48, ICON_PITCH);
+        fmt_int(val, fx1s.spread);
+        draw_column(3, "SPREAD", val, "%", VAL(3u), fx1s.spread * 10, ICON_PAN);
+        return;
+    }
     if (cur_page()->graph == GR_FXT) {                /* the lane, STEP, its EFFECT, LEN (fxtrack.c) */
         uint32_t l = ui.fxt_sel % FXT_N, len = FXT_LEN(fxt_src(l)), c = fxt_src(l)->step[ui.fxt_cur % NSTEP];
         uint32_t e = fxt_eff(c);

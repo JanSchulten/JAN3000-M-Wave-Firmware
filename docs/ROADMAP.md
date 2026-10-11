@@ -95,11 +95,14 @@ project slot, A..D). Needs ~3.5 KiB of flash per pattern (USR2 or a second extra
 double buffer for the pattern that comes next. More punch-in effects of the OP-Z's: DUCK, RAMP UP, RANDOMIZE,
 STEREO.
 
-### E1..E5: effects (planned)
+### E1..E5: effects (E1 done)
 
-Granular CLOUD and more types for the delay bus (OP-Z FX1-style), OP-Z punch-ins (DUCK, STEREO, PITCH, RAMP UP,
-GLITCH), new track INSERTs (RING, SHIFT, COMB, VOWEL, WOW). All on buffers that exist already. The plan, in German:
-[EFFEKTE_PLAN.md](EFFEKTE_PLAN.md).
+- **E1 (done):** FX1 (the delay bus) gets a TYPE: DELAY or **CLOUD**, a granular cloud in the delay's own line
+  (`firmware/src/fx1.c`): up to 8 grains, SIZE DENS PITCH SPREAD, RAND FDBK MIX, CLOUD FREEZE on the FX layer's F5,
+  kept in the project extras. `tests/cloud_test.c` with WAV demos.
+- Next: OP-Z punch-ins (DUCK, STEREO, PITCH, RAMP UP, GLITCH), new track INSERTs (RING, SHIFT, COMB, VOWEL, WOW), more
+  FX1 types (SHIMMER, REVERSE, TAPE ECHO). All on buffers that exist already. The plan, in German:
+  [EFFEKTE_PLAN.md](EFFEKTE_PLAN.md).
 
 ### M3: tape editing
 

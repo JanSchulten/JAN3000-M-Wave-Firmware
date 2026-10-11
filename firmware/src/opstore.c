@@ -3,7 +3,8 @@
 /* M-Vave-OP1's stores: what Felucca's project format has no room for (a project fills its sector, ST_PAYLOAD_MAX), in the
  * flash of the third user sample slot (USR3, 0xC8000..0xDBFFF, 80 KiB): notes and settings were chosen over a third
  * sample slot (eng_sample.c SMP_USER_WRITABLE: the editor uploads into USR1 and USR2 only). Its map:
- *   0xC8000..0xCFFFF  each project slot's extras, A/B (OBJ_XPROJ0 + slot, storage.c): the FX TRACKS' lanes (fxtrack.c)
+ *   0xC8000..0xCFFFF  each project slot's extras, A/B (OBJ_XPROJ0 + slot, storage.c): the FX TRACKS' lanes (fxtrack.c),
+ *                     FX1's TYPE and the CLOUD's settings (fx1.c)
  *   0xD0000..0xD1FFF  the autosave's extras, A/B (OBJ_XAUTO)
  *   0xD2000..0xDBFFF  the tape (tape.c): copy A at 0xD2000, B at 0xD7000, five sectors each
  * Extras (proj_xtra_t): written after their project, with the id of the project as written (xtra_id: the CRC its commit
@@ -21,8 +22,10 @@ typedef struct {
     uint16_t size, ver;                          /* sizeof (a later firmware's may be longer: what is known is read), 1 */
     uint32_t proj;                               /* the project it belongs to (xtra_id of its store as written) */
     fxt_lane_t fx[FXT_N];                        /* the FX TRACKS */
+    uint8_t fx1[8];                              /* (E1) FX1 (fx1.c fx1s): TYPE SIZE DENS SPREAD PITCH RAND FDBK MIX */
 } proj_xtra_t;
-_Static_assert(sizeof(proj_xtra_t) == 12u + FXT_N * sizeof(fxt_lane_t), "project extras layout (stored)");
+#define XTRA_V1 (12u + FXT_N * (uint32_t)sizeof(fxt_lane_t))   /* the first extras: the FX TRACKS only */
+_Static_assert(sizeof(proj_xtra_t) == XTRA_V1 + 8u, "project extras layout (stored, append-only)");
 static proj_xtra_t xtra_slot[4] __attribute__((section(".pool")));   /* each project slot's (magic 0: none) */
 
 /* a project store's id: the CRC its commit record holds (storage.c st_save) */
@@ -52,10 +55,18 @@ static void xtra_capture(proj_xtra_t *x, uint32_t proj)
     x->ver = 1;
     x->proj = proj;
     memcpy(x->fx, fxt_lane, sizeof x->fx);
+    x->fx1[0] = fx1s.type;
+    x->fx1[1] = fx1s.size;
+    x->fx1[2] = fx1s.dens;
+    x->fx1[3] = fx1s.spread;
+    x->fx1[4] = (uint8_t)fx1s.pitch;
+    x->fx1[5] = fx1s.rnd;
+    x->fx1[6] = fx1s.fdbk;
+    x->fx1[7] = fx1s.mix;
 }
 static int xtra_ok(const proj_xtra_t *x, uint32_t proj)
 {
-    return x->magic == XTRA_MAGIC && x->size >= sizeof *x && proj && x->proj == proj;
+    return x->magic == XTRA_MAGIC && x->size >= XTRA_V1 && proj && x->proj == proj;
 }
 /* the lanes x holds into dst; x of another project, or none: empty lanes */
 static void xtra_lanes(fxt_lane_t *dst, const proj_xtra_t *x, uint32_t proj)
@@ -70,15 +81,30 @@ static void xtra_lanes(fxt_lane_t *dst, const proj_xtra_t *x, uint32_t proj)
         if (dst[l].len > NSTEP)
             dst[l].len = 0;
 }
+/* FX1's settings x holds (fx1s); x of another project, an older one without them, or none: Felucca's DELAY, the CLOUD's
+ * defaults */
+static void xtra_fx1(const proj_xtra_t *x, uint32_t proj)
+{
+    static const uint8_t DEF[8] = {FX1_DELAY, 50, 50, 30, 0, 10, 0, 80};
+    const uint8_t *v = xtra_ok(x, proj) && x->size >= sizeof *x ? x->fx1 : DEF;
+    fx1s.type = v[0] < FX1_NTYPE ? v[0] : FX1_DELAY;
+    fx1s.size = v[1] > 100u ? 100u : v[1];
+    fx1s.dens = v[2] > 100u ? 100u : v[2];
+    fx1s.spread = v[3] > 100u ? 100u : v[3];
+    fx1s.pitch = (int8_t)clamp((int8_t)v[4], -24, 24);
+    fx1s.rnd = v[5] > 100u ? 100u : v[5];
+    fx1s.fdbk = v[6] > 100u ? 100u : v[6];
+    fx1s.mix = v[7] > 100u ? 100u : v[7];
+}
 #if FELUCCA_FLASH
 /* object obj's newest copy into x (as much as it knows); 0: there is none */
 static int xtra_read(uint32_t obj, proj_xtra_t *x)
 {
     st_hdr_t h;
     memset(x, 0, sizeof *x);
-    if (!flash_ok || st_current(obj, &h) < 0 || h.len < sizeof *x)
+    if (!flash_ok || st_current(obj, &h) < 0 || h.len < XTRA_V1)
         return 0;
-    memcpy(x, st_buf, sizeof *x);
+    memcpy(x, st_buf, h.len < sizeof *x ? h.len : sizeof *x);   /* (an older one: what it has, its size says so) */
     return x->magic == XTRA_MAGIC;
 }
 #endif
@@ -103,7 +129,12 @@ static int xtra_saved(uint32_t s, uint32_t id)
     return 0;
 }
 /* project_load: slot s's lanes (none, or another project's: empty) */
-static void xtra_loaded(uint32_t s) { xtra_lanes(fxt_lane, &xtra_slot[s & 3u], xtra_proj_id(s)); }
+static void xtra_loaded(uint32_t s)
+{
+    uint32_t id = xtra_proj_id(s);
+    xtra_lanes(fxt_lane, &xtra_slot[s & 3u], id);
+    xtra_fx1(&xtra_slot[s & 3u], id);
+}
 /* project_rename: slot s was written again as id; its extras (if they were its project's: was) follow it */
 static void xtra_renamed(uint32_t s, uint32_t was, uint32_t id)
 {
@@ -134,6 +165,7 @@ static void xtra_autoloaded(uint32_t id)
     proj_xtra_t x;
     xtra_read(OBJ_XAUTO, &x);
     xtra_lanes(fxt_lane, &x, id);
+    xtra_fx1(&x, id);
 #else
     (void)id;
 #endif

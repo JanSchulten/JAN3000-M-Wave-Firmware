@@ -3,6 +3,15 @@
 /* Effects: per-track DIST and INSERT (1.5), then sends into three
  * shared buses (chorus, tempo delay, reverb). Mono buses, stereo dry mix. */
 #define DLY_LEN 65536u           /* 1.49 s: 1/4 fits from 41 BPM, 1/4D from 61, 1/2 from 81 */
+/* M-Vave-OP1: the delay bus is FX1, of a TYPE (fx1.c): DELAY, or CLOUD (granular, in the delay's line). Its settings:
+ * the main loop's (FX1 and CLOUD pages), kept with the project's extras (opstore.c); bytes the ISR reads a block at a time */
+enum { FX1_DELAY, FX1_CLOUD, FX1_NTYPE };
+static volatile struct {
+    uint8_t type;                        /* FX1_* */
+    uint8_t size, dens, spread;          /* CLOUD: the grains' length, rate and spread, 0..100 */
+    int8_t pitch;                        /* .. their pitch, -24..+24 semitones */
+    uint8_t rnd, fdbk, mix;              /* .. RAND (detune, reversed), FDBK, MIX, 0..100 */
+} fx1s = {FX1_DELAY, 50, 50, 30, 0, 10, 0, 80};
 #define CHO_LEN 2048u
 static int16_t dly_buf[DLY_LEN] __attribute__((section(".pool")));
 static int16_t cho_buf[CHO_LEN] __attribute__((section(".pool")));
@@ -228,6 +237,8 @@ static uint32_t div_samples(uint32_t div)
 
 #include "perform.c"                                 /* the FX hold layer's effects (the master) */
 #include "click.c"                                   /* the metronome's click (after the master: audio.c) */
+static uint32_t delay_samples(void);
+#include "fx1.c"                                     /* M-Vave-OP1: FX1's CLOUD, the TYPE switch (the delay's line) */
 
 /* the delay's TIME (params.c N_DTIME): N_DIV's ten (div_samples), then 1.5.1's dotted 1/8D 1/16D 1/4D (10, 11, 12: 3/4,
  * 3/8, 3/2 of a quarter); at most DLY_LEN - 1 samples (1.486 s): 1/4D clamps at 60 BPM and below (1/2 below 81) */
@@ -540,6 +551,9 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
     if (pf.ew1 && fb < THR_FB)
         fb += mulq16(THR_FB - fb, (uint32_t)pf.ew1 << 1);   /* ECHO THROW (perform.c): more feedback while held, 0.7
                                                              * at most (the loop's gain below 1: it never runs away) */
+    if (fx1s.type | cld.type | cld.busy)
+        fx1_block(cho_in, dly_in, wet, n, fb);          /* M-Vave-OP1: FX1 not the DELAY, or changing (fx1.c) */
+    else
     for (i = 0; i < n; i++) {
         int32_t y = 0, x, r;
         /* chorus: modulated short delay, 5..15 ms */
@@ -573,6 +587,8 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
         rev_spring(rev_in, wet, n);
     else
         rev_room(rev_in, wet, n);
+    if (cld.side)
+        cloud_side(n);                                  /* (fx1.c: the CLOUD's stereo, with HALL's or alone) */
 }
 
 /* after the buses: HALL's stereo difference to the left and from the right of the dry mix (the wet bus adds the

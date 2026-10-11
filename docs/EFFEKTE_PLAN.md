@@ -114,7 +114,7 @@ schon haben.
 
 | # | Schritt | Warum zuerst | Aufwand |
 | --- | --- | --- | --- |
-| E1 | **FX1-Typen mit CLOUD** (+ FREEZE CLOUD, THROW in die Wolke) | der größte „Wow“-Effekt, kein neuer Speicher, OP-Z-Prinzip FX1 | mittel |
+| E1 ✅ | **FX1-Typen mit CLOUD** (+ FREEZE CLOUD, THROW in die Wolke) | der größte „Wow“-Effekt, kein neuer Speicher, OP-Z-Prinzip FX1 | erledigt |
 | E2 | **OP-Z-Punch-ins** DUCK, STEREO, PITCH, RAMP UP, GLITCH | machen die FX-Spuren sofort lebendiger, klein und sicher | klein bis mittel |
 | E3 | **INSERT** RING, COMB, VOWEL, WOW, SHIFT | Charakter pro Spur | mittel |
 | E4 | **FX1-Typen** SHIMMER, REVERSE, TAPE ECHO; SCATTER, SHORT / LONG | Ausbau | mittel |
@@ -128,10 +128,23 @@ Jeder Schritt bringt mit:
   wie es klingt.
 - einen Workflow auf der Emulator-Seite, Budgets (RAM, Pool, ISR) vorher und nachher.
 
-## 6. Offene Fragen
+## 6. Stand E1 (CLOUD)
 
-1. **Womit anfangen?** Vorschlag: E1 (CLOUD), weil es das ist, was der FM-1 noch gar nicht kann.
-2. **FX1: ein Typ zur Zeit oder Delay und Wolke gleichzeitig?** Ein Typ zur Zeit hat 1,5 s Puffer (wie OP-Z: eine
-   Engine pro FX-Spur). Beide gleichzeitig ginge mit je 0,74 s (Delay: ein Viertel erst ab 81 BPM).
-3. **Wie viele Regler pro Effekt?** OP-Z: zwei. Der FM-1 hat vier Knobs; Vorschlag: vier, die ersten zwei wie
-   beim OP-Z die wichtigsten.
+Umgesetzt in `firmware/src/fx1.c`, entschieden: ein Typ zur Zeit (volle 1,5 s), vier Knobs.
+
+- Seite **FX1**: KNOB 1 TYPE (DELAY / CLOUD), mit CLOUD KNOB 2 RAND, 3 FDBK, 4 MIX. Seite **CLOUD** (statt DLY): SIZE
+  (10 ms – 1 s), DENS (0,5 – 64 Grains/s), PITCH (±24 Halbtöne), SPREAD (wie weit zurück, wie breit im Stereobild).
+- Bis zu 8 Grains, Hann-Fenster, Zufallsverstimmung und Rückwärts-Grains (RAND), Stereo über das Seitensignal des HALL.
+- **CLOUD FREEZE** auf F5 der FX-Ebene (auch auf den FX-Spuren aufnehmbar); ECHO THROW wirft in die Wolke.
+- Typwechsel: der alte Typ blendet aus, der Puffer wird in 23 ms geleert, der neue beginnt leer.
+- Gespeichert in den Projekt-Extras und im Autosave; ein Felucca-Projekt lädt mit DELAY.
+- Kosten: statischer Audio-ISR-Wert 39 169 von 41 252 (vorher 39 032); RAM +32 Byte, Pool +380 Byte.
+- Tests: `tests/cloud_test.c` (Grains lesen nie, wo geschrieben wird, Tonhöhe, Pegel, Rückkopplung, FREEZE, Seiten,
+  Speichern) und Hörbeispiele: `build/cloud_demo/*.wav` (trocken, Wash, Shimmer, Down, Glitch, Freeze).
+
+## 7. Offene Fragen
+
+1. ~~Womit anfangen?~~ E1 (CLOUD), erledigt.
+2. ~~FX1: ein Typ zur Zeit oder beides?~~ Ein Typ zur Zeit (volle 1,5 s).
+3. ~~Wie viele Regler?~~ Vier.
+4. **Als Nächstes:** E2 (OP-Z-Punch-ins DUCK, STEREO, PITCH, RAMP UP, GLITCH) oder E3 (Spur-Effekte)?

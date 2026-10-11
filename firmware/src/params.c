@@ -433,7 +433,8 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_SLCR, GR_MOD, GR_PATS, GR_SONG, GR_TOOLS, GR_CHORD, GR_SLICES, GR_EVENTS,
        GR_FMOP, GR_FMOP2, GR_FMENV, GR_INS,     /* (GR_STEPS: SEQ TOOLS' knobs; GR_FMOP..: FM6's operator pages, ui_fm6op.c) */
        GR_TAPE, GR_TAPE2,                       /* M-Vave-OP1: GLO > TAPE, TAPE 2 (tape.c, ui_graph.c graph_tape) */
-       GR_FXT, GR_FXT2 };                       /* .. FX > FX TRACKS, FX TRACKS 2 (fxtrack.c, ui_graph.c graph_fxt) */
+       GR_FXT, GR_FXT2,                         /* .. FX > FX TRACKS, FX TRACKS 2 (fxtrack.c, ui_graph.c graph_fxt) */
+       GR_FX1, GR_CLOUD };                      /* .. FX > FX1 (the delay bus's TYPE), CLOUD (fx1.c, ui_graph.c graph_fx1) */
 
 typedef struct {
     const char *title;
@@ -457,7 +458,11 @@ static const page_t PAGES[] = {
     {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},
     {"INSERT", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},   /* 1.5: the track's INSERT (fx.c) */
     {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_IMIX, 0xFF, 0xFF, 0xFF}},  /* .. its dry / wet */
+    /* M-Vave-OP1: FX1 (fx1.c), the delay bus as the OP-Z's FX1: KNOB 1 its TYPE (DELAY, CLOUD), with CLOUD 2..4 RAND FDBK
+     * MIX; then DLY (the DELAY's, as Felucca's) or CLOUD (SIZE DENS PITCH SPREAD), the one of the TYPE */
+    {"FX1", FAM_FX, SC_GLOBAL, GR_FX1, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},
+    {"CLOUD", FAM_FX, SC_GLOBAL, GR_CLOUD, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, 0xFF}},   /* TYPE: ROOM / SPRING / HALL */
     {"CHORUS", FAM_FX, SC_GLOBAL, GR_NONE, {G_CRATE, G_CDEPTH, 0xFF, 0xFF}},
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_TRANS}},

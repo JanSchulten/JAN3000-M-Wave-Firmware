@@ -83,7 +83,7 @@ static int mom_turn(uint32_t k, int32_t s)
         if (act_cols() || lock_held() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
             pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
             pg->graph == GR_PATS || (pg->graph == GR_SLICES && k < 2u) || (pg->graph == GR_MOD && k == 0u) ||
-            pg->graph == GR_TAPE || pg->graph == GR_FXT)
+            pg->graph == GR_TAPE || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
             return 0;
         d = page_desc(pg, k, &vp);
     }
@@ -1003,6 +1003,29 @@ static void edit_param(uint32_t slot, int32_t steps)
             tape.rev = steps > 0;
         return;
     }
+    if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* FX1 (fx1.c): TYPE, RAND FDBK MIX; CLOUD: SIZE DENS PITCH SPREAD */
+        volatile uint8_t *v;
+        if (pg->graph == GR_FX1 && slot == 0u) {
+            uint32_t t = (uint32_t)clamp((int32_t)fx1s.type + (steps > 0 ? 1 : -1), 0, FX1_NTYPE - 1);
+            if (t != fx1s.type) {
+                fx1s.type = (uint8_t)t;
+                ui_message(t == FX1_CLOUD ? "FX1: CLOUD (GRANULAR)" : "FX1: DELAY");
+            }
+            return;
+        }
+        if (pg->graph == GR_FX1 && fx1s.type != FX1_CLOUD) {
+            ui_message("[FX] AGAIN: DLY");          /* (the DELAY's own are on DLY) */
+            return;
+        }
+        if (pg->graph == GR_CLOUD && slot == 2u) {
+            fx1s.pitch = (int8_t)clamp(fx1s.pitch + steps, -24, 24);
+            return;
+        }
+        v = pg->graph == GR_CLOUD ? (slot == 0u ? &fx1s.size : slot == 1u ? &fx1s.dens : &fx1s.spread)
+                                  : (slot == 1u ? &fx1s.rnd : slot == 2u ? &fx1s.fdbk : &fx1s.mix);
+        *v = (uint8_t)clamp((int32_t)*v + accel(EN_K1 + slot, steps, 100), 0, 100);
+        return;
+    }
     if (pg->graph == GR_FXT) {                        /* KNOB 1 the lane, 2 STEP, 3 its EFFECT, 4 LEN (fxtrack.c) */
         fxt_lane_t *ln = &fxt_lane[ui.fxt_sel % FXT_N];
         uint32_t len = FXT_LEN(ln);
@@ -1824,7 +1847,8 @@ static void ui_input(void)
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
-            || pg->graph == GR_SONG || pg->graph == GR_TAPE || pg->graph == GR_FXT || (pg->graph == GR_SLICES && k < 2u) ||
+            || pg->graph == GR_SONG || pg->graph == GR_TAPE || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
+            pg->graph == GR_CLOUD || (pg->graph == GR_SLICES && k < 2u) ||
             fop_page(pg->graph)) {   /* (not an empty
                                                                                                           * column) */
             ui.hot_col = (uint8_t)k;

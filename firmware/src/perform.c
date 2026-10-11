@@ -43,12 +43,15 @@
  * Chain: [REPEAT / REVERSE / TAPE / FREEZE] -> LPF -> HPF -> CRUSH -> FLANGER -> PHASER, after the master level and
  * before master_out (the limiter); THROW and the mutes act before the buses (fx.c mix_block / mix_part).
  * Idle (no key, no knob, no ramp left) every stage is skipped: the output is bit-identical.
+ * M-Vave-OP1: CLOUD FREEZE (F5 by default) holds FX1's CLOUD as it is (fx1.c: nothing new goes in while held); it does
+ * nothing, dimmed on the map, while FX1 is the DELAY.
  * M-Vave-OP1: the FX TRACKS (fxtrack.c) hold effects as the keys do (perf_fxt), a REPEAT / REVERSE of theirs at once
  * (their steps are 1/16s); a press of the layer is also recorded onto an armed FX track (fxt_press). */
 /* the effects (their numbers are stored: the key map in the settings, ui_layer.c perf_map_put; append-only, before
  * PF_M1), then the mutes of the black keys */
 enum { PF_R8, PF_R16, PF_R32, PF_REV, PF_LPF, PF_HPF, PF_TAPE, PF_FRZ, PF_OUP, PF_ODN, PF_FLG, PF_PHS,
        PF_RTHR, PF_ETHR,                      /* 1.5.1: REV THROW, ECHO THROW */
+       PF_CFRZ,                               /* M-Vave-OP1: CLOUD FREEZE (fx1.c: the cloud stops taking sound in) */
        PF_M1, PF_N = PF_M1 + NTRK };
 #define PF_NFX PF_M1                          /* the effects a white key can hold */
 #define PF_KEYS 16u                           /* the white keys F3 .. G5 */
@@ -82,9 +85,9 @@ enum { BM_NONE, BM_LOOP, BM_TAPE, BM_FRZ, BM_HARM };
 /* the white keys' effects by default (1.1.5's ten, then FLANGER and PHASER, 1.5.1's REV THROW and ECHO THROW on D5
  * and E5; PF_N: none) */
 static const uint8_t PF_DEF[PF_KEYS] = {PF_R8, PF_R16, PF_R32, PF_REV, PF_LPF, PF_HPF, PF_TAPE, PF_FRZ, PF_OUP, PF_ODN,
-                                        PF_FLG, PF_PHS, PF_RTHR, PF_ETHR, PF_N, PF_N};
+                                        PF_FLG, PF_PHS, PF_RTHR, PF_ETHR, PF_CFRZ, PF_N};   /* (M-Vave-OP1: F5) */
 static volatile uint8_t perf_map[PF_KEYS] = {PF_R8, PF_R16, PF_R32, PF_REV, PF_LPF, PF_HPF, PF_TAPE, PF_FRZ, PF_OUP,
-                                             PF_ODN, PF_FLG, PF_PHS, PF_RTHR, PF_ETHR, PF_N, PF_N};
+                                             PF_ODN, PF_FLG, PF_PHS, PF_RTHR, PF_ETHR, PF_CFRZ, PF_N};
                                       /* main: white key p's effect (PF_N none), from the settings (ui_layer.c) */
 static volatile uint8_t perf_remap;   /* main: perf_map changed (seq.c: a key held takes its new effect) */
 
@@ -178,13 +181,16 @@ static void perf_map_put(uint8_t *b, uint32_t p, uint32_t e)
 /* the loop length of a REPEAT / REVERSE (1/8) at the tempo, 44.1 kHz samples; 0 = not one */
 static const uint8_t PF_DEN[PF_REV + 1] = {2, 4, 8, 2};
 static uint32_t perf_len(uint32_t e) { return e <= PF_REV ? beat_samples() / PF_DEN[e] : 0u; }
-/* the effects that can run at the tempo: a REPEAT / REVERSE longer than the loop cannot */
+/* the effects that can run at the tempo: a REPEAT / REVERSE longer than the loop cannot; CLOUD FREEZE only with FX1's
+ * CLOUD (fx1.c) */
 static uint32_t perf_avail(void)
 {
     uint32_t e, m = ~0u, b = beat_samples();
     for (e = PF_R8; e <= PF_REV; e++)
         if (b > PB_MAX * PF_DEN[e])
             m &= ~PF_BIT(e);
+    if (fx1s.type != FX1_CLOUD)
+        m &= ~PF_BIT(PF_CFRZ);
     return m;
 }
 

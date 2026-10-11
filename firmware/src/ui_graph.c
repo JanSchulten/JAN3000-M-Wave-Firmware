@@ -1227,6 +1227,17 @@ static uint32_t graph_signature(void)
         h = (h ^ (fxt.arm | (uint32_t)ui.fxt_sel << 4 | (uint32_t)ui.fxt_cur << 8 | (uint32_t)song.playing << 16 |
                   (uint32_t)fxt_follow() << 17)) * 16777619u;
     }
+    if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* the line as it moves, the grains, the settings (fx1.c) */
+        uint32_t k;
+        h = (h ^ (fx1s.type | (uint32_t)fx1s.size << 8 | (uint32_t)fx1s.dens << 16 | (uint32_t)fx1s.spread << 24)) * 16777619u;
+        h = (h ^ ((uint32_t)(uint8_t)fx1s.pitch | (uint32_t)fx1s.rnd << 8 | (uint32_t)fx1s.fdbk << 16 |
+                  (uint32_t)fx1s.mix << 24)) * 16777619u;
+        h = (h ^ ((fx.dly_w >> 9) | (cld.fill >> 9) << 8 | (uint32_t)cld.type << 16 | (uint32_t)cld.busy << 18 |
+                  ((perf_act >> PF_CFRZ) & 1u) << 24)) * 16777619u;
+        for (k = 0; k < CL_NG; k++)
+            h = (h ^ (cld.g[k].on ? (cld.g[k].pos >> 12) ^ (cld.g[k].ph >> 27) : 0u)) * 16777619u;
+        h ^= (uint32_t)song.g[G_DTIME] * 7u + (uint32_t)song.g[G_DFDBK] * 131u;
+    }
     if (pg->graph == GR_MOD)
         h ^= (mod_ui_slot + 1u) * 40503u;
     if (pg->graph == GR_SLCR && t->p[P_SLCR])        /* the SLICER's step playing */
@@ -2404,6 +2415,70 @@ static void graph_tape(void)
     cv_rect(TP_HX - 1, TP_LY - 6, 2, NTRK * (TP_LH + 1) + 5, rec ? T_REC : T_ACCENT);   /* the head */
 }
 
+/* FX > FX1, CLOUD (fx1.c): the line, 1.49 s of what went into FX1, oldest left, the write head at the right edge (its
+ * level a column a 290 samples: the loudest of every 16th); DELAY: where it reads (the echo) and its next two; CLOUD: each
+ * grain where it reads, its height its window now (backwards ones in the theme colour), FROZEN when CLOUD FREEZE holds it
+ * (the head and the line in the accent). What was not written since the line was cleared stays empty */
+#define F1_X0 8                                       /* the line: x 8 .. 232, around y F1_YM */
+#define F1_W 224
+#define F1_YM 62
+#define F1_H 34                                       /* .. its half height */
+static int32_t f1_x(uint32_t lag) { return F1_X0 + F1_W - 1 - (int32_t)((uint64_t)lag * F1_W / DLY_LEN); }
+static void graph_fx1(void)
+{
+    uint32_t c, k, w = fx.dly_w, cloud = cld.type == FX1_CLOUD && !cld.busy, frz = cloud && ((perf_act >> PF_CFRZ) & 1u);
+    uint32_t fill = cloud ? cld.fill : DLY_LEN, n = 0;
+    uint16_t lc = frz ? ux_mix(T_ACCENT, T_SURF, 45) : T_MID;
+    char b[16];
+    cv_text(F1_X0, 4, &AF_S, fx1s.type == FX1_CLOUD ? "CLOUD" : "DELAY", T_TEXT);
+    if (cld.busy)
+        cv_text_r(F1_X0 + F1_W, 4, &AF_S, "CLEARING", T_DIM, T_SURF);
+    else if (frz)
+        cv_text_r(F1_X0 + F1_W, 4, &AF_S, "FROZEN", T_ACCENT, T_SURF);
+    else if (cloud) {
+        fmt_int(b, cld.live);
+        str_cpy(b + str_len(b), cld.live == 1u ? " GRAIN" : " GRAINS", 8);
+        cv_text_r(F1_X0 + F1_W, 4, &AF_S, b, T_MID, T_SURF);
+    }
+    cv_rect(F1_X0, F1_YM, F1_W, 1, T_LINE);
+    for (c = 0; c < (uint32_t)F1_W; c++) {            /* the line's level, column by column */
+        uint32_t lag0 = (uint32_t)(F1_W - 1 - (int32_t)c) * DLY_LEN / F1_W, j, m = 0;
+        if (lag0 >= fill)
+            continue;
+        for (j = 0; j < DLY_LEN / F1_W; j += 16u) {
+            int32_t v = dly_buf[(w - 1u - lag0 - j) & (DLY_LEN - 1u)];
+            v = v < 0 ? -v : v;
+            m = (uint32_t)v > m ? (uint32_t)v : m;
+        }
+        m = m * F1_H / 16384u;
+        m = m > (uint32_t)F1_H ? (uint32_t)F1_H : m;
+        if (m)
+            cv_rect(F1_X0 + (int32_t)c, F1_YM - (int32_t)m, 1, 2 * (int32_t)m + 1, lc);
+    }
+    if (!cloud && !cld.busy) {                        /* DELAY: the read, and the echoes after it */
+        uint32_t dl = delay_samples();
+        for (k = 1; k <= 3u && k * dl < DLY_LEN; k++)
+            cv_rect(f1_x(k * dl), F1_YM - F1_H - 2, k == 1u ? 2 : 1, 2 * F1_H + 5, k == 1u ? T_ACCENT : T_THEME);
+    }
+    if (cloud)
+        for (k = 0; k < CL_NG; k++) {                 /* the grains */
+            const cl_grain_t *g = &cld.g[k];
+            uint32_t lag;
+            int32_t hgt, x;
+            if (!g->on)
+                continue;
+            n++;
+            lag = (w - (g->pos >> 16)) & (DLY_LEN - 1u);
+            hgt = 3 + (((32768 - osc_sine(g->ph + 0x40000000u)) >> 1) * (F1_H - 3) >> 15);
+            x = f1_x(lag);
+            cv_rect(x - 1, F1_YM - hgt, 3, 2 * hgt + 1, g->inc < 0 ? T_THEME : T_ACCENT);
+        }
+    cv_rect(F1_X0 + F1_W - 1, F1_YM - F1_H - 4, 2, 2 * F1_H + 9, frz ? T_ACCENT : T_TEXT);   /* the write head */
+    cv_text(F1_X0, F1_YM + F1_H + 8, &AF_S, "1.5 S AGO", T_DIM);
+    cv_text_r(F1_X0 + F1_W, F1_YM + F1_H + 8, &AF_S, "NOW", T_DIM, T_SURF);
+    (void)n;
+}
+
 /* FX > FX TRACKS (fxtrack.c): the two lanes (in a song: the section's), 16 steps of each at a time (the cursor's 16; playing, the selected lane's play
  * head's, unless STEP or EFFECT was just turned), an effect and its TIEs one bar with its name, a lane's 64 steps in the
  * strip under it (the 16 shown framed), the play head under its step. The selected lane's label lit, an armed one's red */
@@ -2571,6 +2646,11 @@ static void draw_graph(void)
         case GR_FXT2:
             cv_oy = 0;
             graph_fxt();
+            break;
+        case GR_FX1:
+        case GR_CLOUD:
+            cv_oy = 0;
+            graph_fx1();
             break;
         case GR_PATS:
             cv_oy = 0;

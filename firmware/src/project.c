@@ -1263,7 +1263,11 @@ static uint32_t autosave_sig(void)
             h = as_mix(h, &song.g[i], sizeof song.g[i]);
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
-    h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, kept as the autosave's extras) */
+    h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras) */
+    {
+        uint8_t f1[8] = {fx1s.type, fx1s.size, fx1s.dens, fx1s.spread, (uint8_t)fx1s.pitch, fx1s.rnd, fx1s.fdbk, fx1s.mix};
+        h = as_mix(h, f1, sizeof f1);
+    }
     return as_mix(h, proj_name, sizeof proj_name);
 }
 

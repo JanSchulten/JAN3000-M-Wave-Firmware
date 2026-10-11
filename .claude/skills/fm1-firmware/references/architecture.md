@@ -80,3 +80,14 @@ params.c, ui.c, ui_input.c, ui_draw.c, ui_graph.c, ui_help.c and icons.c; recipe
 - opstore.c (included by project.c after `proj_wire`): extras and the tape store, hooks in `project_save_as`,
   `project_load`, `project_rename`, `persist_boot`, the autosave, `chain_prepare`, and main.c
   (`tape_store_boot`, `tape_store_poll`). web/emu/felucca_web.c calls the same two.
+
+## E1: FX1 CLOUD
+
+- `fx1.c` (included by fx.c after perform.c): the delay bus's TYPE (`fx1s`, defined at the top of fx.c so perform.c's
+  `perf_avail` can read it). `fx_buses` keeps Felucca's chorus + delay loop for the DELAY and branches once to
+  `fx1_block` (noinline) otherwise: the chorus copy, the CLOUD (`cloud_render`) or a TYPE change (fade, clear 2048
+  samples a block, start empty). The cloud's stereo goes into HALL's side buffer after the reverb (`cloud_side`).
+- A grain's start is bounded so it never reads at the write head or what was not written (`cl_spawn`); the cloud has
+  its own random numbers (`cl_rng`), so drums' noise renders the same with or without it.
+- New settings that do not fit `song.g` (fixed by the formats) go into the project extras (`opstore.c proj_xtra_t`,
+  append-only by `size`, older ones read as far as they go).

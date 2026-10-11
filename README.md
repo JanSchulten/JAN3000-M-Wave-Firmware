@@ -5,7 +5,7 @@ OP-1-inspired custom firmware for the **M-VAVE FM-1** pocket synthesizer.
 This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita
 (Hügelton Instruments). It keeps Felucca's hardware layer, USB, update loader, web installer,
 storage, engines and tests, and builds an OP-1-style workflow on top: a four-track tape, and from the
-OP-Z two FX tracks with recordable punch-in effects and pattern chains. What is planned next is in the
+OP-Z two FX tracks with recordable punch-in effects, pattern chains and a switchable FX1 with a granular CLOUD. What is planned next is in the
 [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development. Nothing here has been flashed to hardware yet.
@@ -51,6 +51,21 @@ the mutes of tracks 1 to 4).
   back. FX LATCH records too.
 - **FX TRACKS 2:** KNOB 1 CLEAR the selected lane, KNOB 2 both; OCT+ asks, OCT+ again clears.
 - The lanes are saved with the project (SAVE > PROJECT) and with the autosave.
+
+## FX1: CLOUD (granular)
+
+The delay bus is FX1, as on the OP-Z: FX > **FX1**, KNOB 1 picks its TYPE: **DELAY** (as before) or **CLOUD**, a granular
+cloud after Mutable Instruments' Clouds. It lives in the delay's own 1.5 s line, so it needs no extra RAM. Tracks send
+into it with their **DLY** (FX page, KNOB 3).
+
+- **FX1**: KNOB 1 TYPE; with CLOUD KNOB 2 **RAND** (grains detuned at random, up to half of them backwards), KNOB 3
+  **FDBK** (the cloud back into itself: with PITCH every pass climbs, a shimmer), KNOB 4 **MIX**.
+- **CLOUD** (the page after FX1, in place of DLY): KNOB 1 **SIZE** (10 ms to 1 s), KNOB 2 **DENS** (0.5 to 64 grains a
+  second), KNOB 3 **PITCH** (-24 to +24 semitones), KNOB 4 **SPREAD** (how far back the grains come from, how wide).
+- **CLOUD FREEZE**: hold FX and press **F5**: nothing new goes in, the cloud plays on in what it holds. It records onto
+  the FX TRACKS like every effect of the layer. ECHO THROW throws into the cloud.
+- The panel shows the line (1.5 s, now at the right) and each grain where it reads.
+- Kept with the project and the autosave. Changing the TYPE fades the old one out and starts the new one empty.
 
 ## SONG: pattern chains
 

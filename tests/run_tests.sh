@@ -63,6 +63,10 @@
 #                   them, a failed write), the autosave's, a song's slots; the tape kept when stopped and quiet, read back
 #                   as it was, copies taking turns, torn / damaged / unsound copies left, none after a crash, the ISR's
 #                   hold; USR3 reads as an empty sample slot.
+# CLOUD (tests/cloud_test.c, M-Vave-OP1): FX1's TYPE (fx1.c): the DELAY untouched, a change fades, clears, starts empty;
+#                   CLOUD's grains always inside what was written (30 s of random settings), DENS, PITCH +-12 / +7, the
+#                   level, FDBK bounded and dying away, CLOUD FREEZE; the FX1 / CLOUD pages, F5, kept with the project;
+#                   screens into build/cloud_shots, WAV demos into build/cloud_demo.
 # SONG CHAIN (tests/songchain_test.c, M-Vave-OP1): SONG as the OP-Z's pattern chains: REC + A..D types a chain (a new
 #                   one, repeats, sections), LOOP / STOP (+ ADD's KNOB 4, kept with the project), a new chain at the end of
 #                   the loop playing, sections added and cells edited while it plays, a slot not saved silent, STOP.
@@ -254,6 +258,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/tape_test" tests/tape_test.c -lm
     run "TAPE: record, play, overdub, LOOP, SPEED, DIR REV, ERASE, a full tape, the end" "$OUT/tape_test"
+    mkdir -p build/cloud_shots build/cloud_demo
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
+    run "FX1 CLOUD: granular in the delay's line (TYPE change, grains inside the line, DENS, PITCH, level, FDBK, FREEZE), pages, F5, kept" "$OUT/cloud_test" build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/songchain_test" tests/songchain_test.c -lm
     run "SONG as OP-Z pattern chains: typed with REC + A..D, LOOP / STOP, new chains and edits while it plays" "$OUT/songchain_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fxtrack_test" tests/fxtrack_test.c -lm

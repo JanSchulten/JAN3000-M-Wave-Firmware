@@ -424,8 +424,9 @@ static int test_keys(void)
             ok &= !kb_layer && !perf_held && mo_w == mo0;
         }
         fm1_in.buttons = 0;
-        bad += check("the keys without an effect (F5 G5, 8 black from D#4): silent, nothing held",
-                     ok && assigned == 0xAD5BFFu);  /* F3 .. C5 but D#4 F#4 G#4 A#4, D5, E5 (1.5.1's throws) */
+        bad += check("the keys without an effect (G5, 8 black from D#4): silent, nothing held",
+                     ok && assigned == 0x1AD5BFFu); /* F3 .. C5 but D#4 F#4 G#4 A#4, D5, E5 (1.5.1's throws), F5
+                                                     * (M-Vave-OP1: CLOUD FREEZE) */
         kb_mask = perf_mask = 0;
     }
     usb.config = 0;
@@ -914,9 +915,10 @@ static int test_map(void)
     memset(b, 0, sizeof b);
     for (p = 0; p < PF_KEYS; p++)                       /* all 0 (every setting before 1.2): the default */
         ok &= perf_map_of(b, p) == PF_DEF[p];
-    bad += check("map: settings of 0 (before 1.2) read as the default (1.1.5's ten, FLANGER, PHASER, the throws, 2 none)",
+    bad += check("map: settings of 0 (before 1.2) read as the default (1.1.5's ten, FLANGER, PHASER, the throws, CLOUD "
+                 "FREEZE, 1 none)",
                  ok && PF_DEF[10] == PF_FLG && PF_DEF[11] == PF_PHS && PF_DEF[12] == PF_RTHR && PF_DEF[13] == PF_ETHR &&
-                 PF_DEF[14] == PF_N && PF_DEF[0] == PF_R8);
+                 PF_DEF[14] == PF_CFRZ && PF_DEF[15] == PF_N && PF_DEF[0] == PF_R8);
     ok = 1;
     for (p = 0; p < PF_KEYS; p++)                       /* any effect (or none) on any key, the others untouched */
         for (e = 0; e <= PF_NFX; e++) {
@@ -1022,7 +1024,7 @@ static int test_map(void)
             if (!key_black(k))
                 ok &= perf_key(k) == (key_place(k) < PF_KEYS ? PF_DEF[key_place(k)] : PF_N);
         ok &= perf_key(18) == PF_FLG && perf_key(19) == PF_PHS && perf_key(16) == PF_ODN && perf_key(21) == PF_RTHR &&
-              perf_key(23) == PF_ETHR && perf_key(24) == PF_N;
+              perf_key(23) == PF_ETHR && perf_key(24) == PF_CFRZ && perf_key(26) == PF_N;   /* (M-Vave-OP1: F5) */
     }
     bad += check(what, ok);
     return bad;
@@ -1357,8 +1359,9 @@ static int test_throw(void)
         perf_map_put(m, 0, PF_RTHR);
         perf_map_put(m, 1, PF_ETHR);
         ok = (m[0] & 31u) == 14u && ((m[0] >> 5 | m[1] << 3) & 31u) == 15u && perf_map_of(m, 0) == PF_RTHR &&
-             perf_map_of(m, 1) == PF_ETHR && PF_NFX == 14 && PF_DEF[12] == PF_RTHR && PF_DEF[13] == PF_ETHR;
-        m[0] = (uint8_t)((m[0] & ~31u) | 16u);         /* code 16: a later firmware's effect -> the key's default */
+             perf_map_of(m, 1) == PF_ETHR && PF_NFX == 15 && PF_DEF[12] == PF_RTHR && PF_DEF[13] == PF_ETHR;
+        m[0] = (uint8_t)((m[0] & ~31u) | 17u);         /* code 17: a later firmware's effect -> the key's default (M-Vave-OP1:
+                                                         * 16 is CLOUD FREEZE now) */
         ok &= perf_map_of(m, 0) == PF_DEF[0];
         perf_map_put(m, 12, PF_RTHR);                   /* D5's default: code 0 */
         ok &= perf_map_of(m, 12) == PF_RTHR && !(m[7] & 0xF0u) && !(m[8] & 1u);
