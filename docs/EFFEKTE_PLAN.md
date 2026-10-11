@@ -1,8 +1,8 @@
 # Abgefahrene Effekte: Plan
 
 Ziel: Effekte, die über Filter und Hall hinausgehen (Granular, Glitch, Shimmer, Ringmodulation …), angelehnt an
-das OP-Z, ohne den FM-1 zu überfordern. Dieses Dokument ist der Plan; umgesetzt ist davon noch nichts
-(Stand nach M2b, siehe [ROADMAP.md](ROADMAP.md)).
+das OP-Z, ohne den FM-1 zu überfordern. Dieses Dokument ist der Plan. Umgesetzt sind E1 (CLOUD, Abschnitt 6) und
+E2 (die OP-Z-Punch-ins auf MAP B, Abschnitt 7); siehe auch [ROADMAP.md](ROADMAP.md).
 
 ## 1. Was es heute schon gibt
 
@@ -38,11 +38,11 @@ Felucca bringt mehr mit, als man denkt. Vieles davon ist schon „abgefahren“:
 | Filter Sweep | LPF, HPF | ✅ |
 | Follow / Echo | ECHO THROW | ✅ |
 | Ramp Down / Fill 2 | TAPE STOP | ✅ |
-| Duck | – | **neu: DUCK** (Pumpen im Viertel) |
-| Stereo | – | **neu: STEREO** (schnelles Auto-Pan) |
-| Pitch | OCT UP / DN | **neu: PITCH** (±5 / ±7 Halbtöne, ohne trockenes Signal) |
-| Ramp Up / Fill 1 | – | **neu: RAMP UP** (Band läuft an, Gegenstück zu TAPE STOP) |
-| Random | – | **neu: GLITCH** (jedes Sechzehntel ein Zufallseffekt) |
+| Duck | – | ✅ **DUCK** (Pumpen im Viertel) |
+| Stereo | – | ✅ **STEREO** (schnelles Auto-Pan) |
+| Pitch | OCT UP / DN | ✅ **PITCH 5TH UP / 4TH DN** (+7 / −5 Halbtöne, ohne trockenes Signal) |
+| Ramp Up / Fill 1 | – | ✅ **RAMP UP** (Band läuft an, Gegenstück zu TAPE STOP) |
+| Random | – | ✅ **GLITCH** (jedes Sechzehntel ein Zufallseffekt) |
 | Short / Long | – | **neu: SHORT / LONG** (Gate der Sequencer-Noten kurz / lang) |
 
 Das OP-Z hat **keinen** Granular-Effekt. Hier gehen wir darüber hinaus.
@@ -115,7 +115,7 @@ schon haben.
 | # | Schritt | Warum zuerst | Aufwand |
 | --- | --- | --- | --- |
 | E1 ✅ | **FX1-Typen mit CLOUD** (+ FREEZE CLOUD, THROW in die Wolke) | der größte „Wow“-Effekt, kein neuer Speicher, OP-Z-Prinzip FX1 | erledigt |
-| E2 | **OP-Z-Punch-ins** DUCK, STEREO, PITCH, RAMP UP, GLITCH | machen die FX-Spuren sofort lebendiger, klein und sicher | klein bis mittel |
+| E2 ✅ | **OP-Z-Punch-ins** DUCK, STEREO, PITCH, RAMP UP, GLITCH (auf MAP B) | machen die FX-Spuren sofort lebendiger, klein und sicher | erledigt |
 | E3 | **INSERT** RING, COMB, VOWEL, WOW, SHIFT | Charakter pro Spur | mittel |
 | E4 | **FX1-Typen** SHIMMER, REVERSE, TAPE ECHO; SCATTER, SHORT / LONG | Ausbau | mittel |
 | E5 | **FX-Spuren steuern Parameter** (wie die Schritte der OP-Z-FX-Spuren): z. B. CLOUD SIZE pro Schritt | OP-Z-Feeling | mittel |
@@ -142,9 +142,53 @@ Umgesetzt in `firmware/src/fx1.c`, entschieden: ein Typ zur Zeit (volle 1,5 s), 
 - Tests: `tests/cloud_test.c` (Grains lesen nie, wo geschrieben wird, Tonhöhe, Pegel, Rückkopplung, FREEZE, Seiten,
   Speichern) und Hörbeispiele: `build/cloud_demo/*.wav` (trocken, Wash, Shimmer, Down, Glitch, Freeze).
 
-## 7. Offene Fragen
+## 7. Stand E2 (OP-Z-Punch-ins)
+
+Umgesetzt in `firmware/src/perform.c`. Weil die 16 weißen Tasten der FX-Ebene schon belegt waren, gibt es eine
+**zweite Belegung, MAP B**: FX halten und **ALGORITHM** nach rechts drehen (links: zurück zu MAP A). Die Kopfzeile zeigt
+„HOLD B“, die Fußzeile, wohin ALGORITHM dreht. Eine gehaltene Taste wechselt beim Umschalten sofort auf den Effekt der
+neuen Belegung.
+
+| Taste | MAP B (Reihenfolge wie beim OP-Z) | OP-Z |
+| --- | --- | --- |
+| F3 | **DUCK** | Duck |
+| G3 | LPF | Filter Sweep |
+| A3 | REPEAT 1/16 | Loop 1 |
+| B3 | **STEREO** | Stereo |
+| C4 | REPEAT 1/32 | Loop 2 |
+| D4 | **PITCH 5TH UP** (+7) | Pitch |
+| E4 | ECHO THROW | Follow / Echo |
+| F4 | **RAMP UP** | Ramp Up / Fill 1 |
+| G4 | **PITCH 4TH DN** (−5) | (Short, kommt mit E4) |
+| A4 | REVERSE | (Long, kommt mit E4) |
+| B4 | TAPE STOP | Ramp Down / Fill 2 |
+| C5 | **GLITCH** | Random |
+| D5 E5 F5 G5 | HPF, REV THROW, CLOUD FREEZE, FREEZE | – |
+
+- **DUCK:** auf jedem Schlag in 2,2 ms auf −20 dB, über drei Viertel des Schlags zurück (im Takt der Transport-Uhr,
+  auch gestoppt). KNOB 4 DEPTH regelt die Tiefe.
+- **STEREO:** die Mitte des Mixes mit gleicher Leistung hin- und hergepannt, ein Sechzehntel rechts, eins links.
+- **PITCH 5TH UP / 4TH DN:** der rotierende Delay des Harmonizers (OCT UP / DN) mit 2^(7/12) bzw. 2^(−5/12), nur das
+  verschobene Signal, ohne Shimmer; KNOB 4 ist hier DEPTH.
+- **RAMP UP:** das Band steht, läuft über einen Schlag an und landet im Takt: die Geschwindigkeit steigt über 1 hinaus
+  (4/3 bei zwei Dritteln), damit es den Rückstand aufholt, und endet ohne Sprung bei 1. Danach der Live-Mix.
+- **GLITCH:** ab dem nächsten Sechzehntel jedes Sechzehntel zufällig eins von: live (4 von 16), das letzte 1/32 oder
+  1/64 wiederholt, das letzte 1/16 noch einmal, rückwärts, halb so schnell (Oktave tiefer), doppelt so schnell
+  (Oktave höher), Stille. Jedes Stück an seinen Enden geblendet (keine Klicks).
+- Jede Taste beider Belegungen lässt sich frei belegen (FX + Taste halten, PRESETS; EDIT: Standard). MAP B liegt in
+  10 freien Bytes der Einstellungen; ältere Einstellungen laden mit der Standardbelegung.
+- Alle sechs lassen sich auf die FX-Spuren aufnehmen und dort per Schritt setzen.
+- Kosten: statischer Audio-ISR-Wert 39 599 von 41 252 (vorher 39 169); `perf_block` 835 (vorher 836), DUCK und
+  STEREO je eine eigene Stufe (32 bzw. 65), nur wenn gehalten. RAM +96 Byte, Pool unverändert, Image +2,6 KB.
+- Tests: `tests/punch_test.c` (DUCK-Kurve, STEREO-Panorama mit gleicher Leistung, PITCH-Tonhöhe, RAMP UP bis zum
+  Gleichlauf, GLITCH-Stücke mit ihren Quellen und ohne Klick, jeder Effekt losgelassen bitgenau; MAP B, Speichern) und
+  Hörbeispiele: `build/punch_demo/*.wav`.
+
+## 8. Offene Fragen
 
 1. ~~Womit anfangen?~~ E1 (CLOUD), erledigt.
 2. ~~FX1: ein Typ zur Zeit oder beides?~~ Ein Typ zur Zeit (volle 1,5 s).
 3. ~~Wie viele Regler?~~ Vier.
-4. **Als Nächstes:** E2 (OP-Z-Punch-ins DUCK, STEREO, PITCH, RAMP UP, GLITCH) oder E3 (Spur-Effekte)?
+4. ~~E2 oder E3?~~ E2, erledigt.
+5. **Als Nächstes:** E3 (Spur-Effekte RING, COMB, VOWEL, WOW, SHIFT) oder E4 (FX1-Typen SHIMMER, REVERSE, TAPE ECHO;
+   SCATTER, SHORT / LONG)?

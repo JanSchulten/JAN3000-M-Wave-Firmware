@@ -5,7 +5,8 @@ OP-1-inspired custom firmware for the **M-VAVE FM-1** pocket synthesizer.
 This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita
 (Hügelton Instruments). It keeps Felucca's hardware layer, USB, update loader, web installer,
 storage, engines and tests, and builds an OP-1-style workflow on top: a four-track tape, and from the
-OP-Z two FX tracks with recordable punch-in effects, pattern chains and a switchable FX1 with a granular CLOUD. What is planned next is in the
+OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, pattern chains and a
+switchable FX1 with a granular CLOUD. What is planned next is in the
 [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development. Nothing here has been flashed to hardware yet.
@@ -38,8 +39,8 @@ Change a track's sound later and the take plays with the new sound.
 
 Two lanes of effects next to the four instrument tracks, after the OP-Z's FX tracks. Two more synth tracks do not
 fit the FM-1's RAM; an effect lane costs 66 bytes. The lanes play the FX layer's effects on the master (REPEAT
-1/8 1/16 1/32, REVERSE, LPF, HPF, TAPE STOP, FREEZE, OCT UP, OCT DN, FLANGER, PHASER, REV THROW, ECHO THROW, and
-the mutes of tracks 1 to 4).
+1/8 1/16 1/32, REVERSE, LPF, HPF, TAPE STOP, FREEZE, OCT UP, OCT DN, FLANGER, PHASER, REV THROW, ECHO THROW, CLOUD
+FREEZE, the OP-Z punch-ins below, and the mutes of tracks 1 to 4).
 
 - **FX** opens FX; tap again for **FX TRACKS**, again for **FX TRACKS 2**.
 - **KNOB 1** picks the lane (FX1, FX2), **KNOB 2** the step, **KNOB 3** the step's effect (OFF, TIE to hold the effect
@@ -66,6 +67,33 @@ into it with their **DLY** (FX page, KNOB 3).
   the FX TRACKS like every effect of the layer. ECHO THROW throws into the cloud.
 - The panel shows the line (1.5 s, now at the right) and each grain where it reads.
 - Kept with the project and the autosave. Changing the TYPE fades the old one out and starts the new one empty.
+
+## OP-Z punch-ins: FX MAP B
+
+Hold **FX** and turn **ALGORITHM** right: the white keys play **MAP B**, the OP-Z's punch-ins in the OP-Z's order
+(the header says HOLD B; left: MAP A again). A key held while you turn takes the new map's effect at once.
+
+| Key | MAP B | What it does |
+| --- | --- | --- |
+| F3 | **DUCK** | the master pumps in quarters, as under a kick's sidechain (-20 dB on the beat, back over three quarters) |
+| G3 | LPF | filter sweep |
+| A3 | REPEAT 1/16 | loop 1 |
+| B3 | **STEREO** | the mix panned left and right, a 1/16 each side |
+| C4 | REPEAT 1/32 | loop 2 |
+| D4 | **PITCH 5TH UP** | the whole mix a fifth higher (the shifted sound alone) |
+| E4 | ECHO THROW | follow / echo |
+| F4 | **RAMP UP** | the tape stops dead, spins up over a beat and lands in time |
+| G4 | **PITCH 4TH DN** | a fourth lower |
+| A4 | REVERSE | |
+| B4 | TAPE STOP | ramp down |
+| C5 | **GLITCH** | from the next 1/16, each 1/16 a random slice: the last 1/32 or 1/64 repeated, the last 1/16 again, backwards, an octave down or up, silence, or the live mix |
+| D5 E5 F5 G5 | HPF, REV THROW, CLOUD FREEZE, FREEZE | |
+
+- Any effect on any key, in either map: hold FX and the key, turn PRESETS (EDIT: the key's default). Both maps are
+  kept with the settings.
+- **KNOB 4 DEPTH** sets how deep DUCK, STEREO and PITCH go, as for the buffer effects.
+- PITCH, RAMP UP and GLITCH are buffer effects like REPEAT: the last pressed plays. They all record onto the FX
+  TRACKS.
 
 ## SONG: pattern chains
 
@@ -95,7 +123,8 @@ load as before (with empty FX TRACKS).
 
 - Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 - OP-1 and FM-1 compared, with the step-by-step plan (German): [docs/OP1_COMPARISON.md](docs/OP1_COMPARISON.md)
-- The plan for new effects (granular CLOUD, OP-Z punch-ins, track inserts; German): [docs/EFFEKTE_PLAN.md](docs/EFFEKTE_PLAN.md)
+- The plan for new effects (granular CLOUD and the OP-Z punch-ins done, track inserts next; German):
+  [docs/EFFEKTE_PLAN.md](docs/EFFEKTE_PLAN.md)
 - The OP-1 manual 1.2 as Markdown (personal reference, © Teenage Engineering, do not redistribute):
   [docs/reference/op1-manual.md](docs/reference/op1-manual.md)
 - Claude Code skill for FM-1 firmware work: [.claude/skills/fm1-firmware](.claude/skills/fm1-firmware/SKILL.md)

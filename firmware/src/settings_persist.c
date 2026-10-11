@@ -12,7 +12,8 @@
  * [15][10]: MENU > ANIM IDLE (1.2, Discussion #135, ui.c ui_idle: bit 0; 0 = off, ANIM as its bit in MENU's flags says);
  * [15][11]: PRESETS > LIST's category (1.2, Discussion #90, ui.c ui_lcat: 0 none = ALL / FAV as favorites.filter says);
  * [15][14..23]: the FX layer's key map (1.2, ui_layer.c fx_keys: 16 white keys x 5 bits, perform.c perf_map_of; 0 = the
- * key's default, an unknown code too: kept as saved, a later firmware's effect survives a round trip here).
+ * key's default, an unknown code too: kept as saved, a later firmware's effect survives a round trip here);
+ * [15][0..9] (M-Vave-OP1 E2): the FX layer's MAP B, as [14..23] (ui_layer.c fx_keys_b).
  * MENU's flags (ui.c PREF_*) are append-only bits whose 0 is the default: BPM LOCK (16) is clear in every older setting
  * = unlocked, LARGE (32) = OFF, RESTORE LAST OFF (128, 1.2) = ON, read as saved (nothing to migrate, so importing twice changes nothing). */
 typedef struct {

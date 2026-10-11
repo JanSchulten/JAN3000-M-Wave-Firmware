@@ -82,6 +82,10 @@ static const khint_t GLO_LOCK_FOOT[3] = {{KC_OCTDN, "UNDO"}, {KC_GLO, "DONE"}, {
 /* the FX layer's key map (perform.c perf_map_of / perf_map_put: 16 x 5 bits; all 0, every older setting: the default
  * map) in 10 bytes no engine uses, kept with the settings */
 #define fx_keys (&favorites.factory[15][14])
+#define fx_keys_b (&favorites.factory[15][0])  /* M-Vave-OP1 E2: MAP B's, the same 16 x 5 bits (0: its default) */
+/* E2: the footer names the map ALGORITHM turns to (three hints do not fit: the knob cards above name the macros) */
+static const khint_t FX_FOOT[2][3] = {{{KC_KEYS, "EFFECTS"}, {KC_ALGO, "MAP B"}, {0, 0}},
+                                      {{KC_KEYS, "EFFECTS"}, {KC_ALGO, "MAP A"}, {0, 0}}};
 
 static struct {
     uint8_t l, trk, loaded, oct;       /* SET: the layer and the track of the snapshot; EDIT: a sound loaded since
@@ -118,7 +122,12 @@ static uint32_t layer_bits(void)
     return m;
 }
 static uint32_t layer_btn(void) { return LAYERS[ui.layer % LAYER_N].btn; }
-static const char *layer_head(void) { return ui.layer == LAYER_FX && perf_latch_on ? "[FX] LATCH" : LAYERS[ui.layer % LAYER_N].head; }
+static const char *layer_head(void)
+{
+    if (ui.layer == LAYER_FX)                           /* (E2: MAP B says so) */
+        return perf_latch_on ? perf_bank ? "[FX] LATCH B" : "[FX] LATCH" : perf_bank ? "[FX] HOLD B" : LAYERS[LAYER_FX].head;
+    return LAYERS[ui.layer % LAYER_N].head;
+}
 static uint32_t layer_open(void) { return ui.ly && (ui.ly_t0 & LY_OPEN) && ly_down(ui.ly) && layer_allowed() ? ui.ly : 0u; }
 static int layer_set_open(void)                 /* (FX LATCH: FX is one too, OCT- turns all off) */
 {
@@ -460,11 +469,25 @@ static const char W_NOTE[16] = {'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'A'
 static void fx_map_sync(void)
 {
     uint32_t p, e;
-    for (p = 0; p < PF_KEYS; p++)
-        if (perf_map[p] != (e = perf_map_of(fx_keys, p))) {
+    for (p = 0; p < 2u * PF_KEYS; p++)                  /* (MAP A, MAP B) */
+        if (perf_map[p] != (e = perf_map_of(p < PF_KEYS ? fx_keys : fx_keys_b, p))) {
             perf_map[p] = (uint8_t)e;
             perf_remap = 1;
         }
+}
+/* E2: the map the white keys play, its first entry in perf_map / PF_DEF (MAP B: PF_KEYS) and its bytes */
+static uint32_t fx_off(void) { return perf_bank ? PF_KEYS : 0u; }
+static uint8_t *fx_bytes(void) { return perf_bank ? fx_keys_b : fx_keys; }
+/* ALGORITHM turned (s) in the FX layer: right MAP B, left MAP A; a key held takes the effect of the map turned to */
+static void fx_bank(int32_t s)
+{
+    uint8_t b = s > 0;
+    if (b != perf_bank) {
+        perf_bank = b;
+        perf_remap = 1;
+        ui.force = 1;
+    }
+    ui_message(b ? "FX MAP B: OP-Z" : "FX MAP A");
 }
 /* the white key PRESETS assigns: the last pressed in the FX layer, while still held (+ 1; 0 none) */
 static uint32_t fx_key_held(void)
@@ -487,11 +510,11 @@ static void fx_assign(int32_t s)
         ui_message("HOLD A KEY: ASSIGN");
         return;
     }
-    p = key_place(--k);
-    i = perf_map_of(fx_keys, p);                        /* (the list: NONE, then the effects in order) */
+    p = key_place(--k) + fx_off();
+    i = perf_map_of(fx_bytes(), p);                     /* (the list: NONE, then the effects in order) */
     i = i < PF_NFX ? i + 1u : 0u;
     i = (i + (s > 0 ? 1u : n - 1u)) % n;
-    perf_map_put(fx_keys, p, i ? i - 1u : PF_N);
+    perf_map_put(fx_bytes(), p, i ? i - 1u : PF_N);
     lys.rp_dirty = 1;
     fx_map_sync();
     fx_say(k, i ? i - 1u : PF_N, "");
@@ -503,8 +526,8 @@ static void fx_default(void)
     uint32_t k = fx_key_held(), p;
     if (!k)
         return;
-    p = key_place(--k);
-    perf_map_put(fx_keys, p, PF_DEF[p]);
+    p = key_place(--k) + fx_off();
+    perf_map_put(fx_bytes(), p, PF_DEF[p]);
     lys.rp_dirty = 1;
     fx_map_sync();
     fx_say(k, PF_DEF[p], " (DEF)");
@@ -938,7 +961,7 @@ static void layer_fx(void)
     uint32_t ed = fx_key_held() ? key_place(fx_key_held() - 1u) : PF_KEYS;
     char n[3] = {0, 0, 0};
     for (p = 0; p < PF_KEYS; p++) {                     /* the white keys F3 .. G5, 4 a row: the effect each holds */
-        e = perf_map[p];
+        e = perf_map[p + fx_off()];                     /* (E2: in the map they play) */
         st = p == ed ? LS_SEL : e >= PF_NFX || !((ok >> e) & 1u) ? LS_DIM : !((held >> e) & 1u) ? LS_OFF
            : (act >> e) & 1u ? LS_HELD : LS_WAIT;       /* (the key PRESETS assigns: the selection's fill) */
         n[0] = W_NOTE[p];
@@ -1150,9 +1173,9 @@ static void draw_layer(void)
     {
         uint32_t p;
         sig += (perf_kill ? 0u : perf_held | perf_latched | perf_fxt) * 31u + perf_latch_on * 11u + perf_act * 131u + perf_avail() * 7u + (uint32_t)perf_harm_on() * 3u +
-               fx_key_held() * 4099u;
+               fx_key_held() * 4099u + perf_bank * 65537u;
         for (p = 0; p < PF_KEYS; p++)                   /* (the key map) */
-            sig = sig * 33u + perf_map[p];
+            sig = sig * 33u + perf_map[p + fx_off()];
     }
     else if (l == LAYER_GLO)
         sig += perf_solo * 31u + (uint32_t)song.g[G_CLOCK] * 5u + ui.ml.on * 7u +
@@ -1188,6 +1211,7 @@ static void draw_layer(void)
     if (ui.force) {                                     /* the footer: what the keys, knobs and buttons do */
         cv_begin(240, H_FOOT, T_BG);
         const khint_t *ft = l == LAYER_FX && fx_key_held() ? FX_KEY_FOOT : l == LAYER_FX && perf_latch_on ? FX_LATCH_FOOT :
+                            l == LAYER_FX ? FX_FOOT[perf_bank & 1u] :
                             l == LAYER_GLO && ui.lock == LAYER_GLO ? GLO_LOCK_FOOT : LAYERS[l].foot;
         int h = help_on() && help_row(HELP_LAYER[l], 21);   /* 1.5, HELP ON: a second row, what this one does not say */
         cv_key_row(8, 232, h ? 2 : 9, ft, ft[2].act ? 3u : 2u, 7u, T_BG);

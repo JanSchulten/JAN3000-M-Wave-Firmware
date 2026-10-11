@@ -46,7 +46,7 @@ And from the OP-Z (M2b):
 | Punch-in FX, recorded with REC | REC arms a lane, FX held + keys record (quantised, held on, overdub, punch) | **done (M2b)** |
 | Pattern chains, cue the next pattern | SONG: REC + A..D types a chain, LOOP, changes while it plays | **done (M2b)** |
 | 16 patterns a project, switched with a key | 4 patterns (the project slots A..D) | planned (M2c) |
-| Punch-ins DUCK, RAMP, RANDOMIZE, STEREO .. | not yet | planned (M2c) |
+| Punch-ins DUCK, STEREO, PITCH, RAMP UP, RANDOM .. | **MAP B** of the FX layer (FX + ALGORITHM): DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH, in the OP-Z's order | **done (E2)** |
 
 ## Milestones
 
@@ -92,17 +92,20 @@ sample slot (USR3, 0xC8000..0xDBFFF, 80 KiB):
 
 16 patterns in a project, switched with a key and edited while they play, as the OP-Z's (today a pattern is a
 project slot, A..D). Needs ~3.5 KiB of flash per pattern (USR2 or a second extras sector per slot) and a RAM
-double buffer for the pattern that comes next. More punch-in effects of the OP-Z's: DUCK, RAMP UP, RANDOMIZE,
-STEREO.
+double buffer for the pattern that comes next.
 
-### E1..E5: effects (E1 done)
+### E1..E5: effects (E1, E2 done)
 
 - **E1 (done):** FX1 (the delay bus) gets a TYPE: DELAY or **CLOUD**, a granular cloud in the delay's own line
   (`firmware/src/fx1.c`): up to 8 grains, SIZE DENS PITCH SPREAD, RAND FDBK MIX, CLOUD FREEZE on the FX layer's F5,
   kept in the project extras. `tests/cloud_test.c` with WAV demos.
-- Next: OP-Z punch-ins (DUCK, STEREO, PITCH, RAMP UP, GLITCH), new track INSERTs (RING, SHIFT, COMB, VOWEL, WOW), more
-  FX1 types (SHIMMER, REVERSE, TAPE ECHO). All on buffers that exist already. The plan, in German:
-  [EFFEKTE_PLAN.md](EFFEKTE_PLAN.md).
+- **E2 (done):** the OP-Z's punch-ins on the FX layer (`firmware/src/perform.c`): DUCK and STEREO as stages of their
+  own after PHASER, PITCH 5TH UP / 4TH DN on the harmonizer's rotating delay (the shifted sound alone), RAMP UP (TAPE
+  STOP backwards, ending in time) and GLITCH (a random slice each 1/16) on the loop's buffer. A second key map, MAP B
+  (FX + ALGORITHM), holds them in the OP-Z's order, kept in 10 spare bytes of the settings. `tests/punch_test.c` with
+  WAV demos.
+- Next: new track INSERTs (RING, SHIFT, COMB, VOWEL, WOW), more FX1 types (SHIMMER, REVERSE, TAPE ECHO), SCATTER,
+  SHORT / LONG. All on buffers that exist already. The plan, in German: [EFFEKTE_PLAN.md](EFFEKTE_PLAN.md).
 
 ### M3: tape editing
 

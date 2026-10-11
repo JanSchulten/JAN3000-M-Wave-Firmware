@@ -590,9 +590,10 @@ static int fxt_follow(void) { return song.playing && !(ui.hot_t && (ui.hot_col =
 /* the FX layer's effects (perform.c PF_*): their names (the messages, FX TRACKS' EFFECT; NONE: PF_N) and the map's cells'
  * (FX TRACKS' bars; M-Vave-OP1: here from ui_layer.c, the pages draw them too) */
 static const char *const PF_NAME[PF_NFX + 1] = {"REPEAT 1/8", "REPEAT 1/16", "REPEAT 1/32", "REVERSE", "LPF", "HPF",
-    "TAPE STOP", "FREEZE", "OCT UP", "OCT DN", "FLANGER", "PHASER", "REV THROW", "ECHO THROW", "CLOUD FREEZE", "NONE"};
+    "TAPE STOP", "FREEZE", "OCT UP", "OCT DN", "FLANGER", "PHASER", "REV THROW", "ECHO THROW", "CLOUD FREEZE",
+    "DUCK", "STEREO", "PITCH 5TH UP", "PITCH 4TH DN", "RAMP UP", "GLITCH", "NONE"};   /* (E2: DUCK .. GLITCH) */
 static const char *const PF_CELL[PF_NFX] = {"1/8", "1/16", "1/32", "REV", "LPF", "HPF", "STOP", "FRZ", "OCT+", "OCT-",
-    "FLNG", "PHSR", "VERB", "ECHO", "CFRZ"};
+    "FLNG", "PHSR", "VERB", "ECHO", "CFRZ", "DUCK", "STER", "5TH+", "4TH-", "RAMP", "GLCH"};
 
 /* black key place p (seq.c key_place) held, 0 = not */
 static int black_held(uint32_t p)

@@ -190,6 +190,7 @@ static void ui_power_on(void)
         memset(&x, 0, sizeof x);
         xtra_fx1(&x, 0);
     }
+    perf_bank = 0;                                /* (M-Vave-OP1 E2: the FX layer's MAP A, as at power-on) */
     for (i = 0; i < G_COUNT; i++)
         song.g[i] = GP[i].def;
     undo_depth++;

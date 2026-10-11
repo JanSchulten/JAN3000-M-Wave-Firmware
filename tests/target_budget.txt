@@ -52,6 +52,8 @@ perf_master 31
 perf_flanger 368
 perf_phaser 448
 perf_throw 52
+perf_duck 32
+perf_stereo 65
 rev_room 218
 rev_spring 126
 rev_hall 1995

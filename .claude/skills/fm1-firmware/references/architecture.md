@@ -91,3 +91,20 @@ params.c, ui.c, ui_input.c, ui_draw.c, ui_graph.c, ui_help.c and icons.c; recipe
   its own random numbers (`cl_rng`), so drums' noise renders the same with or without it.
 - New settings that do not fit `song.g` (fixed by the formats) go into the project extras (`opstore.c proj_xtra_t`,
   append-only by `size`, older ones read as far as they go).
+
+## E2: the OP-Z punch-ins, MAP B
+
+- perform.c: `PF_DUCK .. PF_GLT` appended before `PF_M1` (stored codes: append-only; `PF_NFX` at most 29 for the
+  5-bit key-map code, a `_Static_assert` says so). DUCK and STEREO are stages of their own after PHASER
+  (`perf_duck`, `perf_stereo`, noinline, own budget lines). PITCH is the harmonizer with another `hinc` and `hwet`;
+  RAMP UP and GLITCH are buffer modes (`BM_RAMP`, `BM_GLT`) on `sl_buf`.
+- Trap: a new `else if` branch in `perf_buf` (inlined into `perf_block`'s per-sample loop) made the compiler move a
+  block before the loop head, and `target_budget.py` counted it as a nested loop (814 -> 2904). The new modes go
+  through the existing `perf_harm` call instead (`perf_harm` dispatches to `perf_buf_e2` when the mode is not
+  `BM_HARM`): `perf_block` back to 835. Check the budget after any change to that loop's branches.
+- Trap: `mulq16(a, k)` takes k up to 65536 (Q16 1.0); a gain above 1 (STEREO's sqrt 2) overflows its low half. Use
+  `mulq16(a, k / 2) << 1`.
+- MAP B: `perf_map[2 * PF_KEYS]` (MAP B from `PF_KEYS`), `perf_bank` (main), seq.c `perf_key` reads the bank;
+  `perf_remap` makes held keys take the new map's effect. The bytes: `favorites.factory[15][0..9]` (`fx_keys_b`,
+  ui_layer.c), the same 16 x 5 bits as MAP A's [14..23]. FX + ALGORITHM switches (ui_input.c, ALGORITHM was unused
+  in a layer).
