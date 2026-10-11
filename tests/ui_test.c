@@ -7270,15 +7270,22 @@ static int test_fx_map(void)
     ok &= perf_map[10] == PF_ETHR && perf_held == PF_BIT(PF_ETHR) && msg_is("B4 ECHO THROW");
     turn(EN_PRESET, 1); keyboard_block();               /* (M-Vave-OP1) CLOUD FREEZE, after the throws */
     ok &= perf_map[10] == PF_CFRZ && perf_held == PF_BIT(PF_CFRZ) && msg_is("B4 CLOUD FREEZE");
+    turn(EN_PRESET, 1); keyboard_block();               /* (M-Vave-OP1 E2) DUCK .. GLITCH */
+    ok &= perf_map[10] == PF_DUCK && perf_held == PF_BIT(PF_DUCK) && msg_is("B4 DUCK");
+    for (p = 0; p < 5u; p++) {
+        turn(EN_PRESET, 1); keyboard_block();
+    }
+    ok &= perf_map[10] == PF_GLT && perf_held == PF_BIT(PF_GLT) && msg_is("B4 GLITCH");
     turn(EN_PRESET, 1); keyboard_block();               /* past the last: NONE */
     ok &= perf_map[10] == PF_N && !perf_held && msg_is("B4 NONE") && (kb_layer >> b4) & 1u;
     turn(EN_PRESET, 1); keyboard_block();               /* round: the first */
     ok &= perf_map[10] == PF_R8 && perf_held == PF_BIT(PF_R8);
-    turn(EN_PRESET, -1); turn(EN_PRESET, -1); turn(EN_PRESET, -1); turn(EN_PRESET, -1); turn(EN_PRESET, -1);
+    for (p = 0; p < 11u; p++)                           /* back: NONE, GLITCH .. DUCK, CLOUD FREEZE, the throws */
+        turn(EN_PRESET, -1);
     keyboard_block();
     ok &= perf_map[10] == PF_PHS && perf_held == PF_BIT(PF_PHS) && lys.rp_dirty;
     ok &= (TSEL->preset | (uint32_t)TSEL->eng_req << 8) == snd && !gates();
-    bad += check("  FX + B4 held + PRESETS: PHASER, REV THROW, ECHO THROW, CLOUD FREEZE, NONE, round to REPEAT 1/8 and back, each held at once; no sound load", ok);
+    bad += check("  FX + B4 held + PRESETS: PHASER, REV THROW, ECHO THROW, CLOUD FREEZE, DUCK .. GLITCH, NONE, round to REPEAT 1/8 and back, each held at once; no sound load", ok);
     btn_down(B_EDIT); frame(); btn_up(B_EDIT); frame(); keyboard_block();
     ok = perf_map[10] == PF_FLG && perf_held == PF_BIT(PF_FLG) && msg_is("B4 FLANGER (DEF)") && ui.layer == LAYER_FX;
     bad += check("  EDIT with the key held: its default (FLANGER) back, the layer open", ok);

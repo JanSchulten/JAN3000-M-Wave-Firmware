@@ -1359,9 +1359,9 @@ static int test_throw(void)
         perf_map_put(m, 0, PF_RTHR);
         perf_map_put(m, 1, PF_ETHR);
         ok = (m[0] & 31u) == 14u && ((m[0] >> 5 | m[1] << 3) & 31u) == 15u && perf_map_of(m, 0) == PF_RTHR &&
-             perf_map_of(m, 1) == PF_ETHR && PF_NFX == 15 && PF_DEF[12] == PF_RTHR && PF_DEF[13] == PF_ETHR;
-        m[0] = (uint8_t)((m[0] & ~31u) | 17u);         /* code 17: a later firmware's effect -> the key's default (M-Vave-OP1:
-                                                         * 16 is CLOUD FREEZE now) */
+             perf_map_of(m, 1) == PF_ETHR && PF_NFX == 21 && PF_DEF[12] == PF_RTHR && PF_DEF[13] == PF_ETHR;
+        m[0] = (uint8_t)((m[0] & ~31u) | 23u);         /* code 23: a later firmware's effect -> the key's default (M-Vave-OP1:
+                                                         * 16 is CLOUD FREEZE now, 17 .. 22 E2's punch-ins) */
         ok &= perf_map_of(m, 0) == PF_DEF[0];
         perf_map_put(m, 12, PF_RTHR);                   /* D5's default: code 0 */
         ok &= perf_map_of(m, 12) == PF_RTHR && !(m[7] & 0xF0u) && !(m[8] & 1u);
