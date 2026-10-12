@@ -170,7 +170,7 @@ static void fxt_tick(uint32_t n)
         return;
     p = div_samples(2);
     if (fxt.pos == FXT_START) {               /* (a song's section: from the time its tracks carry over) */
-        fxt.pos = chain.running ? chain.carry : 0u;
+        fxt.pos = chain.carry;                /* (0 from PLAY: seq_start; a section's, a scene's) */
         fxt_steps(1);
         return;
     }

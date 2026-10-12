@@ -112,8 +112,9 @@ static uint32_t oct_leds(void)
 {
     if (name_on() && !ui.confirm && !ui.menu)           /* NAME: OCT- cancels, OCT+ (breathing) writes */
         return 1u | OCT_BREATH;
-    if (layer_set_open())                               /* a SET layer: OCT- puts back (UNDO), OCT+ nothing */
-        return 1u;
+    if (layer_set_open())                               /* a SET layer: OCT- puts back (UNDO), OCT+ nothing; M-Vave-OP1 */
+        return ui.ly != LAYER_SEQ ? 1u :                /* SEQ: the scene before / after, lit where there is one */
+               (scene_target() > 0u ? 1u : 0u) | (scene_target() + 1u < SCN_N ? 2u : 0u);
     if (ui.menu && !ui.confirm)
         return ui.menu >= 2u ? 1u :                    /* (INFO, ABOUT: OCT- back, lit) */
                ui.menu_sel == MI_LCLEAR ? (ml_count() ? OCT_BREATH : 0u) :   /* LEARN CLEAR: while CCs are learned */
@@ -1434,6 +1435,9 @@ static void fx_map_sync(void);
 static void fx_assign(int32_t s);
 static void fx_default(void);
 static void fx_bank(int32_t s);                 /* (M-Vave-OP1 E2: MAP A / MAP B) */
+static void seq_lane(int32_t s);                /* (M-Vave-OP1 scenes: SEQ + PRESETS, the DRUM lane) */
+static void seq_put_back(void);                 /* (.. SEQ + EDIT) */
+static void scene_switched_ui(void);
 static int layer_play(void);
 static int layer_set_open(void);
 static uint32_t layer_oct(uint32_t pressed, uint32_t oct);
@@ -1546,6 +1550,19 @@ static void ui_input(void)
     fx_usb_fixed = (ui_prefs & PREF_USB_FIXED) != 0u;   /* (MENU > USB LEVEL: fx.c, audio.c) */
     scope_mix = (ui_prefs2 & (PREF_SCOPE_MIX >> 16)) != 0u;   /* (MENU > SCOPE: fx.c, audio.c) */
     rp_apply();                                         /* (MENU > CLICK, CLICK LEVEL, COUNT-IN: click.c, seq.c) */
+    {   /* M-Vave-OP1: a scene the ISR switched to (scene.c): packed away, said; a pick dropped (memory) said */
+        uint32_t r = scene_poll();
+        if (scn.moved) {
+            char n[4];
+            scene_switched_ui();
+            if (r & SP_SWITCHED) {
+                fmt_int(n, (int32_t)scn.cur + 1);
+                ui_say("SCENE ", n);
+            }
+        }
+        if (r & SP_FULL)
+            ui_message("SCENE MEMORY FULL");
+    }
     if (!ui.menu)
         usb_serial_apply();                             /* (MENU > USB SERIAL: when the menu has closed) */
     settings_later_poll();                              /* (#197: LIST / FAV written once the view is left or idle) */
@@ -1603,9 +1620,15 @@ static void ui_input(void)
         if ((s = panel_enc(EN_PRESET)) != 0 && ui.ly == LAYER_FX) {   /* (a stray turn would load another sound) */
             fx_assign(s);                               /* FX: the white key held takes the next effect */
             combo = 1;
+        } else if (s && ui.ly == LAYER_SEQ) {           /* M-Vave-OP1, SEQ: a DRUM track's lane (its tools' lane; the */
+            seq_lane(s);                                /* black keys that picked it hold the tools now) */
+            combo = 1;
         }
         if (ui.ly == LAYER_FX && ((pressed >> panel.btn[B_EDIT]) & 1u))
             fx_default();                               /* .. EDIT: its default back */
+        if (ui.ly == LAYER_SEQ && ((pressed >> panel.btn[B_EDIT]) & 1u))
+            seq_put_back();                             /* M-Vave-OP1, SEQ + EDIT: the track as the layer opened (OCT-:
+                                                         * the scene before now) */
         if ((s = panel_enc(EN_ALGO)) != 0 && ui.ly == LAYER_FX) {   /* E2: FX + ALGORITHM: MAP A / MAP B */
             fx_bank(s);
             combo = 1;

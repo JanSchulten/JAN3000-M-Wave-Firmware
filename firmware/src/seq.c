@@ -211,6 +211,7 @@ static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) &
 #include "tape.c"                                /* TAPE (M-Vave-OP1): the notes played, on a four-track tape */
 #include "fxtrack.c"                             /* FX TRACKS (M-Vave-OP1): two lanes of punch-in effects */
 #include "motion.c"
+#include "scene.c"                               /* SCENES (M-Vave-OP1): 16 patterns a project, picked while playing */
 
 /* the ARP's modes (P_AMODE). Append-only: a stored value keeps its meaning. ORD (1.2, it played as UP before) plays
  * the held notes in the order they were pressed, whatever ARP 2's ORD switch says (that switch orders the list of the
@@ -821,6 +822,7 @@ static void seq_start(void)
 {
     uint32_t i;
     motion_begin();
+    chain.carry = 0;                               /* (from step 1 sharp: a SONG section or a scene sets a carry) */
     chain_start();
     for (i = 0; i < NTRK; i++) {                   /* every track from its step 0, together */
         track_t *t = &trk[i];
@@ -1086,7 +1088,8 @@ static __attribute__((noinline)) void seq_nd_start(track_t *t, uint32_t period, 
     else
         seq_play(t, t->seq_idx, period);
     t->nd_fired = 0;
-    if ((!chain.running || nx) && (d = seq_nudge(t, &seq_steps(t)[nx])) < 0) {
+    if (((!chain.running && scn.req != SCN_END) || nx) && (d = seq_nudge(t, &seq_steps(t)[nx])) < 0) {   /* (a song's
+                                                     * section, or a scene waiting: step 1 is the next one's) */
         uint32_t at = step_samples(t, period, t->seq_idx), back = (uint32_t)-d * period / NUDGE_DIV;
         at = (at > back ? at - back : 0u) + 1u;
         t->nd_early = at < t->nd_late ? t->nd_late : at;   /* (never before this step's own late play) */
@@ -1114,7 +1117,7 @@ static void seq_tick(track_t *t, uint32_t n)
             seq_nd_due(t, period, len, cur_len, n);
         if (t->seq_pos < cur_len && t->seq_pos != 0x7FFFFFFFu + n)
             break;
-        t->seq_pos = t->seq_pos >= 0x7FFFFFFFu ? (chain.running ? chain.carry : 0u) : t->seq_pos - cur_len;
+        t->seq_pos = t->seq_pos >= 0x7FFFFFFFu ? chain.carry : t->seq_pos - cur_len;   /* (0 from PLAY: seq_start) */
         t->seq_idx = (uint16_t)((t->seq_idx + 1u) % len);
         rec_hold(t, t->seq_idx, len);
         if (t->p[P_SQNT] && !t->nd_fired)
@@ -1319,6 +1322,8 @@ static void events_block(uint32_t n)
     }
     if (aud_req)
         seq_audition();                               /* (STEP PREVIEW: a step sounds, stopped) */
+    if (scn.req)
+        scene_due(seq_n);                             /* (M-Vave-OP1: a scene waits for the pattern's end, scene.c) */
     chain_tick(seq_n);
     for (i = 0; i < NTRK; i++)
         seq_tick(&trk[i], seq_n);

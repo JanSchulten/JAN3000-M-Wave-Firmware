@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
 /* M-Vave-OP1's stores: what Felucca's project format has no room for (a project fills its sector, ST_PAYLOAD_MAX), in the
- * flash of the third user sample slot (USR3, 0xC8000..0xDBFFF, 80 KiB): notes and settings were chosen over a third
- * sample slot (eng_sample.c SMP_USER_WRITABLE: the editor uploads into USR1 and USR2 only). Its map:
+ * flash of the second and the third user sample slot (USR2 0xB4000..0xC7FFF, USR3 0xC8000..0xDBFFF, 80 KiB each): notes
+ * and settings were chosen over two of the three sample slots (eng_sample.c SMP_USER_WRITABLE: the editor uploads into
+ * USR1 only). Its map:
+ *   0xB4000..0xC7FFF  the scenes (scene.c): each project slot's bank and the autosave's, two copies of 8 KiB each
+ *                     (OBJ_SCENES, below)
  *   0xC8000..0xCFFFF  each project slot's extras, A/B (OBJ_XPROJ0 + slot, storage.c): the FX TRACKS' lanes (fxtrack.c),
  *                     FX1's TYPE and the CLOUD's settings (fx1.c)
  *   0xD0000..0xD1FFF  the autosave's extras, A/B (OBJ_XAUTO)
@@ -357,3 +360,246 @@ static int tape_store_boot(int allowed)
 #endif
     return rc;
 }
+
+/* ----------------------------------------------------------- scenes --- */
+/* SCENES (scene.c): each project slot's bank of scenes and the autosave's, in USR2's flash (0xB4000..0xC7FFF, 80 KiB:
+ * the second user sample slot given up for them, as USR3 for the tape; eng_sample.c SMP_USER_WRITABLE). Set s (0..3 the
+ * slots A..D, 4 the autosave) has two copies of two sectors each that take turns: the commit record (st_hdr_t, type
+ * OBJ_SCENES, rsv[0] the project's id) at a copy's start, written last; from its +256 the bank's header (scb_hdr_t) and
+ * its bytes, CRC-checked as a whole. The newest whole copy is the set's; it is a project's only while its id is that of
+ * the project as written (xtra_id, as the extras): a project written another way (a rename re-tags it: scene_renamed;
+ * the editor's backups: none) loads with only its scene 1, the one in the project itself. Main loop, stopped (as every
+ * flash write here). A RAM store stands in for the flash in the host builds without it (FELUCCA_FLASH 0). */
+#define OBJ_SCENES 34u
+#define SCB_MAGIC 0x314E4353u                    /* "SCN1" */
+#define SCB_SETS 5u
+#define SCB_BASE(s, c) (0xB4000u + ((s) * 2u + (c)) * 0x2000u)
+#define SCB_ROOM (0x2000u - 256u)                /* a copy's payload (two sectors less the commit page): header and bytes */
+typedef struct {
+    uint32_t magic;
+    uint16_t size, ver;                          /* sizeof, 1 */
+    uint32_t proj;                               /* the project the scenes belong to */
+    uint8_t cur, rsv[3];                         /* the scene the project holds (its own steps: not in the bank) */
+    uint16_t len[SCN_N];
+    uint16_t used, rsv2;
+} scb_hdr_t;
+_Static_assert(sizeof(scb_hdr_t) == 52u && sizeof(scb_hdr_t) + SCN_CAP <= SCB_ROOM && SCB_BASE(SCB_SETS, 0) <= 0xC8000u,
+               "scene bank layout: five sets of two 8 KiB copies in USR2");
+#if FELUCCA_FLASH
+_Static_assert(SCB_ROOM == 2u * ST_SECTOR - ST_PAYLOAD_OFF, "a scene bank's copy: two sectors, the commit page first");
+#endif
+static void scb_hdr_make(scb_hdr_t *h, uint32_t proj)
+{
+    memset(h, 0, sizeof *h);
+    h->magic = SCB_MAGIC;
+    h->size = sizeof *h;
+    h->ver = 1;
+    h->proj = proj;
+    h->cur = scn.cur;
+    memcpy(h->len, scb.len, sizeof h->len);
+    h->used = scb.used;
+}
+/* a header read back: the bank it describes is one scene.c can take (scene_bank_check looks at the bytes) */
+static int scb_hdr_ok(const scb_hdr_t *h, uint32_t proj)
+{
+    uint32_t k, sum = 0;
+    if (h->magic != SCB_MAGIC || h->size != sizeof *h || h->ver != 1u || h->proj != proj || !proj || h->cur >= SCN_N ||
+        h->used > SCN_CAP)
+        return 0;
+    for (k = 0; k < SCN_N; k++)
+        sum += h->len[k];
+    return sum == h->used;
+}
+/* the bank read back from h's bytes (src: the bytes after the header); 0 not taken (the bank emptied) */
+static int scb_take(const scb_hdr_t *h)
+{
+    memcpy(scb.len, h->len, sizeof scb.len);
+    scb.used = h->used;
+    scb.gen++;
+    if (!scene_bank_check(h->cur)) {
+        scene_reset();
+        return 0;
+    }
+    scn.cur = h->cur;
+    return 1;
+}
+#if FELUCCA_FLASH
+static int scb_head(uint32_t s, uint32_t c, st_hdr_t *h)   /* copy c of set s: a whole commit record: 0 */
+{
+    if (st_read(SCB_BASE(s, c), h, sizeof *h))
+        return -1;
+    return h->magic == ST_MAGIC && h->type == OBJ_SCENES && h->slot == c && h->len >= sizeof(scb_hdr_t) &&
+           h->len <= SCB_ROOM && h->hcrc == st_crc32(h, sizeof *h - 4u) ? 0 : -1;
+}
+static uint32_t scb_crc(uint32_t s, uint32_t c, uint32_t len)   /* the payload's CRC as it is in flash */
+{
+    uint8_t b[256];
+    uint32_t off, crc = 0xFFFFFFFFu, n;
+    for (off = 0; off < len; off += n) {
+        n = len - off < sizeof b ? len - off : sizeof b;
+        st_read(SCB_BASE(s, c) + ST_PAYLOAD_OFF + off, b, n);
+        crc = st_crc32_add(crc, b, n);
+    }
+    return ~crc;
+}
+/* set s's newest whole copy (its CRC checked): 0 or 1, -1 none */
+static int scb_newest(uint32_t s, st_hdr_t *out, uint32_t *seq)
+{
+    st_hdr_t h[2];
+    uint32_t c, v = 0;
+    int best = -1;
+    *seq = 0;
+    for (c = 0; c < 2u; c++)
+        if (flash_ok && scb_head(s, c, &h[c]) == 0) {
+            if (!*seq || h[c].seq - *seq < 0x80000000u)
+                *seq = h[c].seq;                 /* (the next write numbers after both) */
+            if (scb_crc(s, c, h[c].len) == h[c].crc)
+                v |= 1u << c;
+        }
+    if ((v & 3u) == 3u)
+        best = h[1].seq != h[0].seq && h[1].seq - h[0].seq < 0x80000000u ? 1 : 0;   /* (A on a tie) */
+    else if (v)
+        best = (v & 1u) ? 0 : 1;
+    if (best >= 0)
+        *out = h[best];
+    return best;
+}
+/* the payload (n bytes of the header h, then from) into copy c of set s, page by page from RAM, and its commit record
+ * last (rsv[0]: proj). 0 written and read back */
+static int scb_prog(uint32_t s, uint32_t c, uint32_t seq, const scb_hdr_t *hd, const uint8_t *from, uint32_t n,
+                    uint32_t proj)
+{
+    uint8_t pg[256];
+    uint32_t base = SCB_BASE(s, c), len = (uint32_t)sizeof *hd + n, off, i, crc = 0xFFFFFFFFu;
+    st_hdr_t h, chk;
+    int rc = st_erase(base);
+    if (!rc)
+        rc = st_erase(base + ST_SECTOR);
+    for (off = 0; off < len && !rc; off += sizeof pg) {
+        uint32_t m = len - off < sizeof pg ? len - off : sizeof pg;
+        for (i = 0; i < m; i++)
+            pg[i] = off + i < sizeof *hd ? ((const uint8_t *)hd)[off + i] : from[off + i - sizeof *hd];
+        crc = st_crc32_add(crc, pg, m);
+        rc = st_prog(base + ST_PAYLOAD_OFF + off, pg, m);
+    }
+    if (!rc) {
+        h.magic = ST_MAGIC;
+        h.type = OBJ_SCENES;
+        h.slot = (uint16_t)c;
+        h.seq = seq + 1u;
+        h.len = len;
+        h.crc = ~crc;
+        h.rsv[0] = proj;
+        h.rsv[1] = 0xFFFFFFFFu;
+        h.hcrc = st_crc32(&h, sizeof h - 4u);
+        rc = st_prog(base, &h, sizeof h);        /* the commit record, last */
+    }
+    if (!rc && (scb_head(s, c, &chk) || chk.seq != h.seq || scb_crc(s, c, len) != h.crc))
+        rc = -7;                                 /* (read back: a failing part must not count as kept) */
+    return rc;
+}
+/* the bank as it is now -> set s, the project id proj; 0 written */
+static int scb_write(uint32_t s, uint32_t proj)
+{
+    st_hdr_t h;
+    scb_hdr_t hd;
+    uint32_t seq;
+    int c;
+    if (!flash_ok)
+        return -1;
+    c = scb_newest(s, &h, &seq);
+    scb_hdr_make(&hd, proj);
+    return scb_prog(s, c == 0 ? 1u : 0u, seq, &hd, scb.data, scb.used, proj);
+}
+/* set s's bank, if it is project proj's, into the bank (the scene it holds playing: scene.c); 0 none */
+static int scb_load(uint32_t s, uint32_t proj)
+{
+    st_hdr_t h;
+    scb_hdr_t hd;
+    uint32_t seq;
+    int c = scb_newest(s, &h, &seq);
+    scene_reset();
+    if (c < 0 || h.rsv[0] != proj || h.len < sizeof hd)
+        return 0;
+    st_read(SCB_BASE(s, (uint32_t)c) + ST_PAYLOAD_OFF, &hd, sizeof hd);
+    if (!scb_hdr_ok(&hd, proj) || h.len != sizeof hd + hd.used)
+        return 0;
+    st_read(SCB_BASE(s, (uint32_t)c) + ST_PAYLOAD_OFF + sizeof hd, scb.data, hd.used);
+    return scb_take(&hd);
+}
+/* set s's newest copy, if it is project was's, copied to the other copy as project id's (a rename: the bank in RAM may
+ * be another project's); 0 done or nothing to do */
+static int scb_retag(uint32_t s, uint32_t was, uint32_t id)
+{
+    st_hdr_t h, n, chk;
+    uint8_t pg[256];
+    uint32_t seq, off, crc = 0xFFFFFFFFu, base;
+    int c = scb_newest(s, &h, &seq), rc;
+    if (c < 0 || h.rsv[0] != was || !id)
+        return 0;
+    base = SCB_BASE(s, c == 0 ? 1u : 0u);
+    rc = st_erase(base);
+    if (!rc)
+        rc = st_erase(base + ST_SECTOR);
+    for (off = 0; off < h.len && !rc; off += sizeof pg) {
+        uint32_t m = h.len - off < sizeof pg ? h.len - off : sizeof pg;
+        st_read(SCB_BASE(s, (uint32_t)c) + ST_PAYLOAD_OFF + off, pg, m);
+        if (!off)                                /* (the header's id: in the first page; pg need not be aligned) */
+            memcpy(pg + __builtin_offsetof(scb_hdr_t, proj), &id, sizeof id);
+        crc = st_crc32_add(crc, pg, m);
+        rc = st_prog(base + ST_PAYLOAD_OFF + off, pg, m);
+    }
+    if (!rc) {
+        n = h;
+        n.slot = (uint16_t)(c == 0 ? 1u : 0u);
+        n.seq = seq + 1u;
+        n.crc = ~crc;
+        n.rsv[0] = id;
+        n.hcrc = st_crc32(&n, sizeof n - 4u);
+        rc = st_prog(base, &n, sizeof n);
+    }
+    if (!rc && (scb_head(s, n.slot, &chk) || chk.seq != n.seq || scb_crc(s, n.slot, h.len) != n.crc))
+        rc = -7;
+    return rc;
+}
+#else
+static struct {                                  /* (host builds without the flash: the sets in RAM) */
+    scb_hdr_t h;
+    uint8_t data[SCN_CAP];
+} scb_ram[SCB_SETS];
+static int scb_write(uint32_t s, uint32_t proj)
+{
+    scb_hdr_make(&scb_ram[s].h, proj);
+    memcpy(scb_ram[s].data, scb.data, scb.used);
+    return 0;
+}
+static int scb_load(uint32_t s, uint32_t proj)
+{
+    scene_reset();
+    if (!scb_hdr_ok(&scb_ram[s].h, proj))
+        return 0;
+    memcpy(scb.data, scb_ram[s].data, scb_ram[s].h.used);
+    return scb_take(&scb_ram[s].h);
+}
+static int scb_retag(uint32_t s, uint32_t was, uint32_t id)
+{
+    if (scb_ram[s].h.magic == SCB_MAGIC && scb_ram[s].h.proj == was && id)
+        scb_ram[s].h.proj = id;
+    return 0;
+}
+#endif
+/* project_save_as: the project went into slot s as id; its scenes after it (and its extras). 0 kept */
+static int scene_saved(uint32_t s, uint32_t id)
+{
+    scene_settle();
+    return scb_write(s & 3u, id);
+}
+/* project_load: slot s's scenes, if they are its project's (the scene playing: the one the project held) */
+static void scene_loaded(uint32_t s) { scb_load(s & 3u, xtra_proj_id(s)); }
+static void scene_renamed(uint32_t s, uint32_t was, uint32_t id) { scb_retag(s & 3u, was, id); }
+static int scene_autosaved(uint32_t id)
+{
+    scene_settle();
+    return scb_write(4u, id);
+}
+static void scene_autoloaded(uint32_t id) { scb_load(4u, id); }

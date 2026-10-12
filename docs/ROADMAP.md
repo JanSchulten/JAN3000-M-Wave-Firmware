@@ -8,8 +8,8 @@ how OP-1 ideas map onto it, and the order of work.
 | | FM-1 | Used by Felucca 1.5.1 |
 | --- | --- | --- |
 | CPU | JieLi AC791N / WL82, pi32v2 | the audio ISR renders 4 tracks, 8 voices, FX |
-| RAM | ~512 KiB SRAM | 72 KiB static (55 KiB used; M-Vave-OP1 56 KiB) + 360 KiB pool (336 KiB used) |
-| Flash | 1 MiB SPI NOR | ~570 KiB firmware, the rest: projects, presets, user sample slots (M-Vave-OP1: 2 of 3; the third holds the tape and the FX TRACKS), OTA staging |
+| RAM | ~512 KiB SRAM | 72 KiB static (55 KiB used; M-Vave-OP1 56 KiB) + 360 KiB pool (336 KiB used; M-Vave-OP1 345 KiB) |
+| Flash | 1 MiB SPI NOR | ~570 KiB firmware, the rest: projects, presets, user sample slots (M-Vave-OP1: 1 of 3; the second holds the scenes, the third the tape and the FX TRACKS), OTA staging |
 | Display | 240 x 240 ST7789, SPI | |
 | Controls | 27 keys, 14 buttons, 7 encoders | |
 | I/O | stereo out, speaker, USB-C (MIDI, audio in to the host), TRS MIDI in | |
@@ -45,7 +45,7 @@ And from the OP-Z (M2b):
 | FX1 / FX2 tracks | **FX TRACKS**: two lanes of the FX layer's effects, 64 steps of a 1/16, own lengths | **done (M2b)** |
 | Punch-in FX, recorded with REC | REC arms a lane, FX held + keys record (quantised, held on, overdub, punch) | **done (M2b)** |
 | Pattern chains, cue the next pattern | SONG: REC + A..D types a chain, LOOP, changes while it plays | **done (M2b)** |
-| 16 patterns a project, switched with a key | 4 patterns (the project slots A..D) | planned (M2c) |
+| 16 patterns a project, switched with a key | **SCENES**: 16 a project, SEQ + a white key (OCT+ / OCT- the next / the one before), at the pattern's end while playing | **done (M2c)** |
 | Punch-ins DUCK, STEREO, PITCH, RAMP UP, RANDOM .. | **MAP B** of the FX layer (FX + ALGORITHM): DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH, in the OP-Z's order | **done (E2)** |
 
 ## Milestones
@@ -73,7 +73,8 @@ sample slot (USR3, 0xC8000..0xDBFFF, 80 KiB):
   a crash. While it is written the audio ISR leaves the tape alone (`tape.hold`).
 - 0xC8000..0xD1FFF: each project slot's **extras** and the autosave's (the FX TRACKS, see M2b), A/B, tagged with
   the CRC of the project they belong to: a project written another way (the editor's backups) gets empty lanes.
-- The web editor uploads samples into USR1 and USR2 only; USR3 reads as an empty slot.
+- The web editor uploads samples into USR1 and USR2 only; USR3 reads as an empty slot (since M2c USR1 only: USR2
+  holds the scenes).
 
 ### M2b: OP-Z: FX TRACKS, punch-ins, pattern chains (done)
 
@@ -88,11 +89,27 @@ sample slot (USR3, 0xC8000..0xDBFFF, 80 KiB):
 - Tests: `tests/fxtrack_test.c`, `tests/songchain_test.c`, `tests/opstore_test.c`; `editor_test.c`,
   `storage_test.c`, `ui_test.c` follow.
 
-### M2c: OP-Z patterns (next)
+### M2c: OP-Z patterns: SCENES (done)
 
-16 patterns in a project, switched with a key and edited while they play, as the OP-Z's (today a pattern is a
-project slot, A..D). Needs ~3.5 KiB of flash per pattern (USR2 or a second extras sector per slot) and a RAM
-double buffer for the pattern that comes next.
+16 scenes in a project, picked while they play, as the OP-Z's patterns (`firmware/src/scene.c`). A scene is what a
+SONG section plays: the four tracks' steps, timing and QUANTIZE, the automation and the locks, the FX TRACKS.
+
+- The scene playing stays where the music always was (the tracks, `motion`, `fxt_lane`): every page, tool, undo,
+  recording and save works on it as before. The other 15 wait packed in a bank of 7880 bytes in the pool (a step
+  only where it differs from an empty one, and of it only the bytes that do; an empty scene takes no byte).
+- A pick: the main loop unpacks the scene into the SONG chain's first source (free while no song plays) and swaps
+  it in at once when stopped; playing, the audio ISR swaps it at the end of the loop of the longest track that
+  plays something, the remainder carried so the grid does not drift (`scene_due`, O(1) a block while one waits).
+  The swap first measures the scene that leaves; one that grew past what the bank has for it is dropped there
+  (SCENE MEMORY FULL), nothing lost.
+- The SEQ layer: white keys the scenes, OCT+ / OCT- the next / the one before, the SEQ TOOLS on the black keys,
+  SEQ + EDIT puts the track back, PRESETS picks a DRUM lane. A punch-in held after FX is let go stays on while SEQ
+  picks (the KO-II's flow).
+- Kept in USR2's flash (`opstore.c`): each slot's bank and the autosave's, two copies of 8 KiB that take turns, tagged
+  with the project's CRC as the extras are. The autosave writes the bank when its bytes or the scene playing changed.
+- Tests: `tests/scene_test.c` (the packed form, switching, memory, kept, the layer, KO-II), `tests/opstore_test.c`
+  (flash: copies, a write cut short, damage, another project's, rename, autosave); `ui_test.c` follows the tools'
+  new keys.
 
 ### E1..E5: effects (E1, E2 done)
 

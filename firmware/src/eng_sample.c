@@ -43,9 +43,10 @@ static uint32_t pow2_q16(int32_t d16)
  * smp_zone_t layout (off relative to the slot's data at +512) + IMA ADPCM data. */
 #include "../hal/fm1_xip.h"   /* relative: hostsim includes this file too */
 #define SMP_USER_SLOTS 3
-#define SMP_USER_WRITABLE 2                         /* M-Vave-OP1: USR3's flash holds the projects' extras and the tape
-                                                    * (opstore.c), never a sample: it reads empty, the editor uploads into
-                                                    * USR1 and USR2 only (the sounds' choices keep USR3, as numbers) */
+#define SMP_USER_WRITABLE 1                         /* M-Vave-OP1: USR3's flash holds the projects' extras and the tape,
+                                                    * USR2's the projects' scenes (opstore.c), never a sample: they read
+                                                    * empty, the editor uploads into USR1 only (the sounds' choices keep
+                                                    * USR2 and USR3, as numbers) */
 #define SMP_USER_BASE 0xA0000u
 #define SMP_USER_SIZE 0x14000u
 #define SMP_USER_DATA 512u

@@ -19,11 +19,13 @@
  *              stay, SAVE held undoes, the editor gets RELOAD; they apply while playing too. 1.4.1: the black keys
  *              the selected track's engine's quick actions (EQA below: DRUM 1..8 its lanes' MUTE; other engines
  *              none yet, the keys dark)
- *   SEQ  SET   (1.2, on every page; up to 1.1.5 SEQ held opened SONG) TOOLS: the white keys from F3 the sequence tools
- *              (ui_tools.c: CLEAR, REVERSE, SHIFT < >, RANDOM, COOK; on a DRUM track BEAT and the lane's CLEAR REVERSE
- *              FILL RANDOM), black keys 1..8 the lane (DRUM); KNOB 1..4 LEN DIV SWING GATE (the PATTERN page's up to
- *              1.1.5: the page is gone, they are here). Each action one undo (SAVE held), OCT- the track as the layer
- *              opened (tl_open)
+ *   SEQ  SET   (1.2, on every page; up to 1.1.5 SEQ held opened SONG) M-Vave-OP1: SCENES (scene.c): the white keys
+ *              from F3 scenes 1..16 (stopped at once, playing at the pattern's end), OCT+ / OCT- the next / the one
+ *              before; the black keys from F#3 the sequence tools in Felucca's order (ui_tools.c: CLEAR, REVERSE,
+ *              SHIFT < >, RANDOM, COOK; on a DRUM track BEAT and the lane's CLEAR REVERSE FILL RANDOM; Felucca: the
+ *              white keys, the lane on black keys 1..8), PRESETS the lane (DRUM); KNOB 1..4 LEN DIV SWING GATE (the
+ *              PATTERN page's up to 1.1.5: the page is gone, they are here). Each action one undo (SAVE held), EDIT
+ *              the track as the layer opened (tl_open; Felucca: OCT-)
  *   REC  SET   (1.1.5, on every page; REC's tap still arms / disarms) the white keys from F3: CLEAR (the selected
  *              track's steps and automation, no dialog: one undo, SAVE held), CLICK (OFF REC ON), COUNT-IN (OFF 1 BAR
  *              2 BARS), CLICK LEVEL (LOW MID HIGH), each press the next value; KNOB 1..3 the same three. The settings
@@ -36,9 +38,10 @@
  * MIDI, never recorded; keys held before stay notes. Only one layer at a time: a second layer button is ignored.
  * PLAY and REC work in every layer (GLO held + PLAY: RESTART; GLO's lock: PLAY as always, #183); SAVE, HOME, SEQ and
  * the other page buttons are swallowed. In SET layers OCT± do not shift the octave: OCT- (on release, not with OCT+)
- * puts back what the layer changed since it opened. A HOLD key's effect lasts until the key is let go, the map with
- * it. No layer in the menu, a dialog, NAME or the UPDATE MODE countdown. After a tap, until the layer has been opened
- * once: "HOLD [GLO] QUICK" (the seen bits are kept with the settings, favorites.c spare byte).
+ * puts back what the layer changed since it opened (SEQ: OCT± step the scenes, EDIT puts back). A HOLD key's effect
+ * lasts until the key is let go, the map with it. No layer in the menu, a dialog, NAME or the UPDATE MODE countdown.
+ * After a tap, until the layer has been opened once: "HOLD [GLO] QUICK" (the seen bits are kept with the settings,
+ * favorites.c spare byte).
  * The lock (Discussion #83): a double tap (the second press within LY_DTAP_MS of the first tap, both let go before
  * HOLD, nothing else touched) opens the map and keeps it open with no button held (ui.lock): ly_down() counts the lock
  * as the button held, so the keys (seq.c keyboard_block: kb_lock), KNOB 1..4, OCT- act exactly as held (PLAY starts
@@ -61,7 +64,8 @@ static const layer_t LAYERS[LAYER_N] = {
     {B_GLO, LK_SET, FAM_HOME, "[GLO] SET", {{KC_PLAY, "RESTART"}, {KC_OCTDN, "UNDO"}, {KC_GLO, "DONE"}}},
     {B_SCL, LK_SET, FAM_SCL, "[SCL] SET", {{KC_KEYS, "ROOT"}, {KC_OCTDN, "UNDO"}, {KC_SCL, "DONE"}}},
     {B_EDIT, LK_SET, FAM_HOME, "[EDIT] SET", {{KC_KEYS, "ENGINE"}, {KC_OCTDN, "UNDO"}, {KC_EDIT, "DONE"}}},
-    {B_SEQ, LK_SET, FAM_SEQ, "[SEQ] TOOLS", {{KC_KEYS, "TOOLS"}, {KC_OCTDN, "UNDO"}, {KC_SEQ, "DONE"}}},
+    {B_SEQ, LK_SET, FAM_SEQ, "[SEQ] SCENES", {{KC_KEYS, "SCENE"}, {KC_OCTPM, "PREV NEXT"}, {KC_SEQ, "DONE"}}},   /* (M-Vave-OP1:
+                                                     * the scenes on the white keys, the tools on the black) */
     {B_REC, LK_SET, FAM_HOME, "[REC] SET", {{KC_KEYS, "RECORDING"}, {KC_OCTDN, "UNDO"}, {KC_REC, "DONE"}}},
 };
 static const uint8_t LY_KC[LAYER_N] = {0, KC_FX, KC_GLO, KC_SCL, KC_EDIT, KC_SEQ, KC_REC};
@@ -300,10 +304,12 @@ static int layer_knobs_quiet(void)
     return layer_allowed() && (ui.ly || ui.layer || lys.quiet);
 }
 
-/* the map shows while the button is held open, and after it while its keys are still held */
+/* the map shows while the button is held open, and after it while its keys are still held (M-Vave-OP1: a punch-in
+ * still held there, FX's: the KO-II's flow, SEQ held over a punch-in to pick a scene and let go, shows FX again) */
 static void layer_show(void)
 {
-    uint32_t show = layer_allowed() ? (layer_open() ? layer_open() : kb_layer ? ui.layer : 0u) : 0u;
+    uint32_t show = layer_allowed() ? (layer_open() ? layer_open() : kb_layer ? (perf_held ? LAYER_FX : ui.layer) : 0u)
+                                    : 0u;
     if (show != ui.layer) {
         ui.layer = (uint8_t)show;
         ui.force = 1;
@@ -409,6 +415,99 @@ static void tools_key(uint32_t p)
         str_cpy(ui.msg2, "[SAVE] HOLD TO UNDO", sizeof ui.msg2);
     lys.loaded = 1;
     ui.force = 1;
+}
+
+/* M-Vave-OP1: the SEQ layer's black keys (F#3 .. F#5): the tools in Felucca's order, the whole sequence's, then the
+ * DRUM lane's (the lane: the grid's, or PRESETS turned in the layer) */
+static const uint8_t SEQ_TOOL[] = {TL_CLEAR, TL_REV, TL_LEFT, TL_RIGHT, TL_RANDOM, TL_COOK, TL_BEAT, TL_LCLR, TL_LREV,
+                                   TL_LFILL, TL_LRND};
+#define SEQ_NTOOL ((uint32_t)sizeof SEQ_TOOL)
+/* the SEQ / REC layer's track as it is now: what SEQ + EDIT (REC: OCT-) puts back (a scene switch takes it anew) */
+static void layer_snap(void)
+{
+    uint32_t k;
+    memcpy(tl_open.step, TSEL->step, sizeof tl_open.step);
+    motion_snapshot_track(TSEL, &tl_open.mo);
+    lys.trk = song.sel;
+    lys.loaded = 0;
+    lys.cook = 0;
+    if (lys.l == LAYER_SEQ)
+        for (k = 0; k < 4u; k++)
+            lys.v[k] = TSEL->p[P_SLEN + k];
+}
+/* SEQ + EDIT, REC + OCT-: the track as the layer opened (steps, automation; SEQ: LEN DIV SWING GATE; REC: its settings) */
+static void seq_put_back(void)
+{
+    track_t *t = &trk[lys.trk % NTRK];
+    uint32_t k;
+    if (lys.loaded && chain_busy()) {
+        ui_message("STOP TO EDIT");
+        return;
+    }
+    if (lys.loaded) {                                   /* (SAVE held then: the tools / the clear again) */
+        tl_undo_take(t);
+        memcpy(t->step, tl_open.step, sizeof t->step);
+        if (motion_replace_track(t, &tl_open.mo))
+            motion_full = 1;
+    }
+    if (lys.l == LAYER_REC) {                           /* REC: the settings as it opened */
+        lys.rp_dirty |= (uint8_t)(ui_rec_prefs != (uint8_t)lys.v[0]);
+        ui_rec_prefs = (uint8_t)lys.v[0];
+        rp_apply();
+    } else {
+        for (k = 0; k < 4u; k++)
+            t->p[P_SLEN + k] = lys.v[k];
+    }
+    lys.loaded = 0;
+    lys.cook = 0;
+    ui_message(lys.l == LAYER_REC ? "REC PUT BACK" : "SEQUENCE PUT BACK");
+}
+/* a scene switch done (scene.c scn.moved): what the UI kept of the scene left goes (the undo copy: SAVE held would put
+ * it into this one; the layer's put back) */
+static void scene_switched_ui(void)
+{
+    scn.moved = 0;
+    undo.trk = 0;
+    if (ui.layer == LAYER_SEQ || ui.layer == LAYER_REC || lys.l == LAYER_SEQ || lys.l == LAYER_REC)
+        layer_snap();
+    ui.force = 1;
+}
+/* SEQ + white key p: scene p + 1 (stopped now, playing at the pattern's end; the one playing again: the pick waiting
+ * taken back) */
+static void scene_key(uint32_t p)
+{
+    char b[24], n[4];
+    uint32_t r = scene_queue(p);
+    if (scn.moved)
+        scene_switched_ui();
+    fmt_int(n, (int32_t)(p % SCN_N) + 1);
+    str_cpy(b, r == SQ_END ? "NEXT: SCENE " : "SCENE ", sizeof b);
+    str_cpy(b + str_len(b), n, sizeof b - str_len(b));
+    if (r == SQ_SAME)
+        str_cpy(b + str_len(b), " PLAYS", sizeof b - str_len(b));
+    else if (r == SQ_CANCEL)
+        str_cpy(b + str_len(b), " STAYS", sizeof b - str_len(b));
+    ui_message(r == SQ_FULL ? "SCENE MEMORY FULL" : r == SQ_SONG ? "STOP THE SONG FIRST" : r == SQ_BAD ? "SCENE DAMAGED" : b);
+    ui.force = 1;
+}
+/* SEQ + PRESETS on a DRUM track: the lane the lane tools work on (as the grid's KNOB 2) */
+static void seq_lane(int32_t s)
+{
+    if (!drum_track(TSEL))
+        return;
+    ui.lane = (uint8_t)clamp((int32_t)ui.lane + (s > 0 ? 1 : -1), 0, NLANE - 1);
+    ui_say("LANE ", drum_lane_abbr(TSEL, ui.lane));
+    ui.force = 1;
+}
+/* SEQ + OCT+ / OCT-: the scene after / before the one picked last (waiting, else playing); none past 16 or before 1 */
+static void scene_step(int32_t d)
+{
+    int32_t t = (int32_t)scene_target() + d;
+    if (t < 0 || t >= (int32_t)SCN_N) {
+        ui_message(t < 0 ? "SCENE 1 IS THE FIRST" : "SCENE 16 IS THE LAST");
+        return;
+    }
+    scene_key((uint32_t)t);
 }
 
 /* REC: CLEAR, the selected track's steps and automation (and ARP's latched chord): one undo (SAVE held), no dialog,
@@ -662,9 +761,9 @@ static void layer_key(uint32_t l, uint32_t k)
             rec_key(p);
     } else if (l == LAYER_SEQ) {
         if (!key_black(k))
-            tools_key(p);
-        else if (p < NLANE && drum_track(TSEL))
-            ui.lane = (uint8_t)p;                       /* (black keys 1..8: the lane, as on the grid) */
+            scene_key(p);                               /* (M-Vave-OP1: the white keys pick scenes 1..16, scene.c) */
+        else if (p < SEQ_NTOOL)
+            tools_key(SEQ_TOOL[p]);                     /* (.. the black keys the tools; the lane: PRESETS) */
     }
 }
 /* each pass: the keys the layer got now; then GLO's solo: the tracks of its keys still held (perform.c) */
@@ -752,7 +851,9 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
     if (layer_set_open())
         lys.oct |= (uint8_t)(((pressed >> dn) & 1u) | ((pressed >> up) & 1u) << 1);
     mine = oct & lys.oct;
-    if (mine & 1u) {                                    /* OCT-: back to when it opened */
+    if (lys.l == LAYER_SEQ && (mine & 3u)) {            /* M-Vave-OP1: SEQ's OCT- / OCT+ the scene before / after */
+        scene_step((mine & 1u) ? -1 : 1);
+    } else if (mine & 1u) {                             /* OCT-: back to when it opened */
         if (lys.l == LAYER_FX) {                        /* (FX LATCH) every effect and macro off */
             perf_latched = 0;
             perf_k[0] = perf_k[1] = perf_k[2] = perf_k[3] = 0;
@@ -764,29 +865,8 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
             lys.loaded = 0;
             if (eqa_put_back() && !ld)                  /* (the quick actions: the lanes' mutes) */
                 ui_message("MUTES PUT BACK");
-        } else if (lys.l == LAYER_SEQ || lys.l == LAYER_REC) {
-            track_t *t = &trk[lys.trk % NTRK];
-            if (lys.loaded && chain_busy()) {
-                ui_message("STOP TO EDIT");
-            } else {
-                if (lys.loaded) {                       /* (SAVE held then: the tools / the clear again) */
-                    tl_undo_take(t);
-                    memcpy(t->step, tl_open.step, sizeof t->step);
-                    if (motion_replace_track(t, &tl_open.mo))
-                        motion_full = 1;
-                }
-                if (lys.l == LAYER_REC) {               /* REC: the settings as it opened */
-                    lys.rp_dirty |= (uint8_t)(ui_rec_prefs != (uint8_t)lys.v[0]);
-                    ui_rec_prefs = (uint8_t)lys.v[0];
-                    rp_apply();
-                } else {
-                    for (k = 0; k < 4u; k++)
-                        t->p[P_SLEN + k] = lys.v[k];
-                }
-                lys.loaded = 0;
-                lys.cook = 0;
-                ui_message(lys.l == LAYER_REC ? "REC PUT BACK" : "SEQUENCE PUT BACK");
-            }
+        } else if (lys.l == LAYER_REC) {
+            seq_put_back();
         } else if (lys.l == LAYER_GLO) {
             for (k = 0; k < NTRK; k++) {
                 trk[k].p[P_MUTE] = lys.v[k];
@@ -835,9 +915,10 @@ static uint32_t layer_leds(uint32_t *br)
         } else if (l == LAYER_EDIT && (a = eqa_of(TSEL, p)) != 0) {   /* the quick actions: on lit (DRUM: sounding), */
             on = a->on(TSEL, a->arg) != 0u;             /* a HOLD one off breathes, none dark */
             can = a->kind == LK_HOLD;
-        } else if (l == LAYER_SEQ) {                    /* the tools breathe (not while a song plays); DRUM: the lane */
-            on = b && p < NLANE && drum_track(TSEL) && p == ui.lane;   /* lit, the other lanes breathe */
-            can = b ? p < NLANE && drum_track(TSEL) : tl_cell(TSEL, p) && !chain_busy();
+        } else if (l == LAYER_SEQ) {                    /* M-Vave-OP1: the scene playing lit, one waiting breathes; */
+            on = !b && p == scn.cur;                    /* the black keys' tools breathe (not while a song plays) */
+            can = b ? p < SEQ_NTOOL && tl_cell(TSEL, SEQ_TOOL[p]) && !chain_busy()
+                    : scn.req == SCN_END && p == scn.next && p != scn.cur;
         } else if (l == LAYER_REC && !b && p < 4u) {    /* a setting on (LEVEL: the click on) lit, the rest breathe; */
             on = p == 1u ? rp_get(RP_CLICK) != 0u : p == 2u ? rp_get(RP_COUNTIN) != 0u :   /* CLEAR: something to */
                  p == 3u && rp_get(RP_CLICK) != 0u;    /* clear, not while a song plays */
@@ -1040,33 +1121,48 @@ static void layer_edit(void)                            /* the engines from F3, 
         engine_sound_row(104);
 }
 
-/* SEQ TOOLS: the white keys' tools, 4 a row from F3 (the whole sequence; RANDOM COOK BEAT; the lane's), on a DRUM
- * track the lanes of black keys 1..8 under them (the selected one: the selection's fill). A melodic track: the two
- * rows of the sequence's tools only */
-static const uint8_t TL_ICON[TL_N] = {ICON_CLEAR, ICON_X_REVERSE, ICON_X_LEFT, ICON_X_RIGHT, ICON_PROB, ICON_W_SH,
-    ICON_DRUM, 0, ICON_CLEAR, ICON_X_REVERSE, ICON_STEPS, ICON_PROB};
-static const char *const TL_NAME[TL_N] = {"CLEAR", "REVERSE", "SHIFT", "SHIFT", "RANDOM", "COOK", "BEAT", 0,
+/* SEQ (M-Vave-OP1): the scenes of the white keys, 8 a row (the one playing: the selection's fill, one waiting: a ring
+ * of the theme's colour, as a GREY palette's ACCENT and THEME are alike; one that holds something raised, an empty one
+ * dimmed; a song playing: all dimmed), then the black keys' tools, 4 a row in the keys' order, each by its name (the
+ * whole sequence's; on a DRUM track BEAT and the lane's, named with the lane). A cell of 54 px has no room for the
+ * key's note beside a name (F# 15 px; the names up to 50: the lint) */
+static const char *const TL_NAME[TL_N] = {"CLEAR", "REVERSE", "SHIFT <", "SHIFT >", "RANDOM", "COOK", "BEAT", 0,
     "CLR", "REV", "FILL", "RND"};
+#define LS_SC_W 25                                       /* a scene's cell: 25 px, 4 px apart, 8 a row (x 6 .. 234) */
+#define LS_SC_H 18
+#define LS_TL_Y 50                                       /* the tools' rows: from y 50, 18 px, 4 apart (.. 112) */
 static void layer_seq(void)
 {
-    uint32_t p, st = chain_busy() ? LS_DIM : LS_OFF, drum = (uint32_t)drum_track(TSEL);
-    char n[3] = {0, 0, 0}, nm[8];
-    for (p = 0; p < TL_N; p++) {
-        if (!tl_cell(TSEL, p))
+    uint32_t p, st = chain_busy() ? LS_DIM : LS_OFF, c = 0;
+    char n[4] = {0, 0, 0, 0}, nm[12];
+    for (p = 0; p < SCN_N; p++) {                       /* the scenes 1..16 */
+        int32_t x = 6 + (LS_SC_W + 4) * (int32_t)(p % 8u), y = 4 + (LS_SC_H + 4) * (int32_t)(p / 8u);
+        uint32_t sst = chain_busy() ? LS_DIM : p == scn.cur ? LS_SEL : scene_used(p) ? LS_OFF : LS_DIM;
+        uint16_t ink, fill = lc_box(x, y, LS_SC_W, LS_SC_H, lc_fill(sst, &ink));
+        if (!chain_busy() && scn.req == SCN_END && p == scn.next && p != scn.cur) {   /* the one waiting: a ring */
+            cv_rrect(x, y, LS_SC_W, LS_SC_H, 4, T_THEME, T_SURF);
+            cv_rrect(x + 2, y + 2, LS_SC_W - 4, LS_SC_H - 4, 2, fill, T_THEME);
+            ink = T_THEME;
+        }
+        fmt_int(n, (int32_t)p + 1);
+        GFX_HOOK_ALIGN(x, y, x + LS_SC_W, y + LS_SC_H, AL_HV, "seq layer scene cell number centred");
+        cv_text_in(x, y + CAP_IN(S, LS_SC_H), LS_SC_W, &AF_S, n, ink, fill);
+    }
+    for (p = 0; p < SEQ_NTOOL; p++) {                   /* the black keys' tools, the ones of this track */
+        uint32_t t = SEQ_TOOL[p];
+        int32_t x = LC_X(c % 4u), y = LS_TL_Y + (LS_SC_H + 4) * (int32_t)(c / 4u);
+        uint16_t ink, fill;
+        if (!tl_cell(TSEL, t))
             continue;
-        n[0] = W_NOTE[p];
-        str_cpy(nm, TL_NAME[p], sizeof nm);
-        if (p >= TL_LCLR) {                             /* the lane's: "CLR BD" */
+        str_cpy(nm, TL_NAME[t], sizeof nm);
+        if (t >= TL_LCLR) {                             /* the lane's: "CLR BD" */
             str_cpy(nm + str_len(nm), " ", 2);
             str_cpy(nm + str_len(nm), drum_lane_abbr(TSEL, ui.lane), sizeof nm - str_len(nm));
         }
-        lcell(LC_X(p % 4u), 4 + 32 * (int32_t)(p / 4u), 28, n, TL_ICON[p], 0, nm, st, 0);
-    }
-    for (p = 0; drum && p < NLANE; p++) {               /* the lanes (black keys 1..8): 8 cells of 25 px, 4 px apart */
-        int32_t x = 6 + 29 * (int32_t)p;
-        uint16_t ink, fill = lc_box(x, 100, 25, 18, lc_fill(p == ui.lane % NLANE ? LS_SEL : LS_OFF, &ink));
-        GFX_HOOK_ALIGN(x, 100, x + 25, 118, AL_HV, "tools lane cell name centred");
-        cv_text_in(x, 100 + CAP_IN(S, 18), 25, &AF_S, drum_lane_abbr(TSEL, p), ink, fill);
+        fill = lc_box(x, y, LC_W, LS_SC_H, lc_fill(st, &ink));
+        GFX_HOOK_ALIGN(x, y, x + LC_W, y + LS_SC_H, AL_HV, "seq layer tool cell name centred");
+        cv_text_in(x, y + CAP_IN(S, LS_SC_H), LC_W, &AF_S, nm, ink, fill);
+        c++;
     }
 }
 
@@ -1184,8 +1280,13 @@ static void draw_layer(void)
         sig += (uint32_t)TSEL->p[P_SCALE] * 31u;
     else if (l == LAYER_REC)
         sig += (uint32_t)ui_rec_prefs * 31u + (uint32_t)chain_busy() * 3u + (uint32_t)rec_clearable() * 5u + song.sel * 977u;
-    else if (l == LAYER_SEQ)
+    else if (l == LAYER_SEQ) {
+        uint32_t p;
         sig += (uint32_t)drum_track(TSEL) * 31u + ui.lane * 5u + (uint32_t)chain_busy() * 3u + (uint32_t)TSEL->p[P_E0] * 131u + song.sel * 977u;
+        sig += scn.cur * 7919u + (scn.req == SCN_END ? scn.next + 1u : 0u) * 104729u + scb.gen * 13u;   /* (M-Vave-OP1) */
+        for (p = 0; p < SCN_N; p++)
+            sig = sig * 3u + (uint32_t)scene_used(p);
+    }
     else
         sig += snd_id() * 31u + (uint32_t)preset_favorite() * 5u + (uint32_t)chain_busy() * 3u + up_gen * 101u +
                eqa_sig() * 2654435761u;

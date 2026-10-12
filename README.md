@@ -5,8 +5,8 @@ OP-1-inspired custom firmware for the **M-VAVE FM-1** pocket synthesizer.
 This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita
 (Hügelton Instruments). It keeps Felucca's hardware layer, USB, update loader, web installer,
 storage, engines and tests, and builds an OP-1-style workflow on top: a four-track tape, and from the
-OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, pattern chains and a
-switchable FX1 with a granular CLOUD. What is planned next is in the
+OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
+switched while they play, pattern chains and a switchable FX1 with a granular CLOUD. What is planned next is in the
 [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development. Nothing here has been flashed to hardware yet.
@@ -107,17 +107,43 @@ current sounds), as the OP-Z chains its patterns.
   ones before it; a cell changed with the knobs plays when its section comes. Nothing has to stop first.
 - Each section plays the FX TRACKS saved with its slot, from their first step.
 
+## SCENES
+
+16 scenes in a project, as the OP-Z's 16 patterns. A scene is the four tracks' sequences: their steps, LEN DIV SWING
+GATE and QUANTIZE, the automation and the locks, and the two FX TRACKS. The sounds, the mixer, ARP, SCL, FX1 and the
+song stay the project's.
+
+- Hold **SEQ**: the layer says **[SEQ] SCENES**. The **white keys F3 .. G5 are scenes 1 .. 16**; **OCT+ / OCT-** pick the
+  next / the one before (from the scene waiting, else the one playing).
+- Stopped, a scene comes at once. **Playing, it comes at the end of the pattern**: the end of the loop of the longest
+  track that plays something, on the grid, as a SONG section ends. The scene playing picked again takes the pick
+  back (SCENE n STAYS). STOP with one waiting: it comes at once.
+- An empty scene starts with the LEN DIV SWING GATE of the scene it is reached from. The cells: the scene playing
+  filled (its key lit), one waiting ringed (its key breathing), one that holds something raised, an empty one
+  dimmed.
+- The **tools are on the black keys** now, F#3 .. F#5 in Felucca's order: CLEAR, REVERSE, SHIFT < >, RANDOM, COOK, on
+  a DRUM track BEAT and the lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane). **SEQ + EDIT** puts the
+  track back as the layer opened (it was OCT-). KNOB 1..4 are LEN DIV SWING GATE as before.
+- **As on the KO-II:** a punch-in stays on while its key is held, also after FX is let go. Hold SEQ meanwhile and
+  pick the next scene; let go of the key and the effect stops.
+- The 15 scenes not playing wait packed in 7.7 KB (a scene of four 16-step parts takes about 250 to 900 bytes, the
+  densest possible 3.9 KB). A pick that would not fit says **SCENE MEMORY FULL** and nothing changes.
+- Kept with the project (SAVE > PROJECT, the one playing too) and with the autosave. A project of Felucca's or of an
+  older M-Vave-OP1 loads as scene 1. While a song plays (GLO > SONG) scenes are not picked (STOP THE SONG FIRST); a
+  song plays each slot as it was saved.
+
 ## Try it in the browser
 
 `web/lab` is an emulator page with guided workflows (in German): the whole firmware as WebAssembly, with a
 JavaScript fallback. Build it with `sh web/lab/build.sh` (after `./build.sh`, with the emsdk), then
 `cd build/lab && python3 -m http.server 8000` and open `http://localhost:8000/local.html`.
 
-## Flash: one sample slot less
+## Flash: two sample slots less
 
-The tape and the FX TRACKS need flash that Felucca's project format does not have. They live in the flash of the
-third user sample slot (USR3, 80 KiB): the web editor uploads samples into USR1 and USR2 only. Felucca projects
-load as before (with empty FX TRACKS).
+The tape, the FX TRACKS and the scenes need flash that Felucca's project format does not have. The tape and the FX
+TRACKS live in the flash of the third user sample slot (USR3, 80 KiB), the scenes in the second's (USR2, 80 KiB):
+the web editor uploads samples into USR1 only (a sample uploaded into USR2 by an older version is not played any
+more). Felucca projects load as before (with empty FX TRACKS, as scene 1).
 
 ## Documents
 

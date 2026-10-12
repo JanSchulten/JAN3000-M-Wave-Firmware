@@ -23,7 +23,8 @@ cc -O1 -w -Ibuild/gen -Ifirmware/src -o build/host/tape_test tests/tape_test.c -
 M-Vave-OP1's own tests, good templates: `tape_test.c` (an ISR feature driven block by block), `fxtrack_test.c` (an
 ISR feature plus its pages, through `mix_block`), `songchain_test.c` (UI gestures while the transport runs: space REC
 taps 400 ms apart, two quick taps lock a layer), `opstore_test.c` (flash stores on a NOR image: round trip, power-on,
-torn and damaged copies). A test that presses keys in a layer needs a `frame()` after the button goes down, so the
+torn and damaged copies), `scene_test.c` (a codec fuzzed with random and damaged input, an ISR switch timed to the
+block from the track's own state, mutations of the code proving the checks fail). A test that presses keys in a layer needs a `frame()` after the button goes down, so the
 UI hands the keys to the layer (`kb_mask`), as on the unit.
 
 Register a new test in `tests/run_tests.sh` next to a similar one (a `$CC … -o "$OUT/x" tests/x.c -lm` line and a

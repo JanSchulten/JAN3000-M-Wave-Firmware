@@ -25,8 +25,9 @@ anything about time and pitch (loops, varispeed, reverse, cut and paste) works o
 ## Status and plan
 
 Done: M1 TAPE (record, overdub, loop, speed, reverse, erase), M2 the tape kept in flash (USR3 given up), M2b from the
-OP-Z: FX TRACKS (two effect lanes, punch-ins recorded with REC) and SONG as pattern chains (REC + A..D, LOOP, live).
-The user asked for 6 equal tracks; RAM allows 4 instrument tracks + 2 FX tracks (a synth track costs ~23 KB).
-Next: M2c OP-Z patterns (16 a project, switched while playing) and more punch-ins (DUCK, RAMP, RANDOMIZE, STEREO),
-then mode mapping, tape transport and tricks, lift / drop / split, sound changes on the tape, master EQ / FX /
-drive, beat match, ENDLESS / TOMBOLA / FINGER, OP-1-style engine graphics. Check `docs/ROADMAP.md`.
+OP-Z: FX TRACKS (two effect lanes, punch-ins recorded with REC) and SONG as pattern chains (REC + A..D, LOOP, live),
+E1 FX1 CLOUD, E2 the OP-Z punch-ins on MAP B, M2c SCENES (16 a project, SEQ + a white key, at the pattern's end while
+playing, the KO-II's flow; USR2 given up). The user asked for 6 equal tracks; RAM allows 4 instrument tracks + 2 FX
+tracks (a synth track costs ~23 KB). Next: more effects (E4: SHIMMER, REVERSE, TAPE ECHO, SCATTER, SHORT / LONG), then
+mode mapping, tape transport and tricks, lift / drop / split, sound changes on the tape, master EQ / FX / drive, beat
+match, ENDLESS / TOMBOLA / FINGER, OP-1-style engine graphics. Check `docs/ROADMAP.md`.

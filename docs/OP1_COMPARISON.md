@@ -118,6 +118,7 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | Transponieren einer Sequenz mit der Tastatur | 🟡 SCL > TRN, nicht per Taste | Schritt 8 |
 | – | ARP mit vielen Modi, Akkord-Tasten, SONG-Kette | Extras des FM-1 |
 | (OP-Z) Pattern-Ketten, nächstes Pattern vormerken | SONG: REC + A–D tippt eine Kette, LOOP, Änderungen im laufenden Song | ✅ seit M2b |
+| (OP-Z) 16 Patterns pro Projekt | SZENEN: SEQ halten + weiße Taste, OCT+ / OCT− die nächste / vorige; im Spiel am Ende des Patterns | ✅ seit M2c |
 | (OP-Z) FX-Spuren FX1/FX2 und aufgenommene Punch-in-FX | FX > FX TRACKS: zwei Effekt-Spuren, REC + FX halten + Tasten nimmt auf | ✅ seit M2b |
 
 ### Tape
@@ -205,9 +206,10 @@ mit jeder Engine, wie bisher) und **zwei FX-Spuren**, die nur Schritte speichern
 | Pattern-Ketten (Projekt-Taste + Pattern-Tasten) | SONG: REC, dann A3 B3 C4 D4 = Pattern A–D; gleiche Taste = noch einmal | ✅ |
 | Kette läuft in Schleife | LOOP (bei getippten Ketten an), END auf + ADD: LOOP / STOP | ✅ |
 | Pattern während des Spielens wechseln | neue Kette ab dem Ende des laufenden Patterns, Änderungen am Abschnittsende | ✅ |
-| 16 Patterns pro Projekt, sofort umschaltbar | 4 Patterns = Projekt-Slots A–D, Muster per SAVE > PROJECT | 🟡 M2c |
-| Weitere Punch-ins: Duck, Ramp, Randomize, Stereo | ❌ | M2c |
+| 16 Patterns pro Projekt, sofort umschaltbar | SZENEN: 16 pro Projekt (Schritte, Timing, Automation, FX-Spuren), SEQ + weiße Taste; gestoppt sofort, im Spiel am Ende des Patterns | ✅ seit M2c |
+| (KO-II) Punch-in halten und dabei die Sequenz wechseln | FX + Effekt-Taste, FX loslassen (der Effekt bleibt), SEQ + weiße Taste | ✅ seit M2c |
+| Weitere Punch-ins: Duck, Ramp, Randomize, Stereo | FX MAP B (FX + ALGORITHM): DUCK, STEREO, PITCH, RAMP UP, GLITCH | ✅ seit E2 |
 
-Speicher: Projekte haben Felluccas Format (ein Sektor, voll). Die FX-Spuren liegen daneben im Flash von USR3, mit der
-Prüfsumme des Projekts, zu dem sie gehören. Ein Felucca-Projekt oder eines, das der Web-Editor geschrieben hat, lädt mit
-leeren FX-Spuren.
+Speicher: Projekte haben Felluccas Format (ein Sektor, voll). Die FX-Spuren liegen daneben im Flash von USR3, die Szenen
+im Flash von USR2, beide mit der Prüfsumme des Projekts, zu dem sie gehören. Ein Felucca-Projekt oder eines, das der
+Web-Editor geschrieben hat, lädt mit leeren FX-Spuren und nur seiner eigenen Szene (als Szene 1).

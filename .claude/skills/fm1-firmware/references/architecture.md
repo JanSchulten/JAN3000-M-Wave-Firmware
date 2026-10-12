@@ -81,6 +81,22 @@ params.c, ui.c, ui_input.c, ui_draw.c, ui_graph.c, ui_help.c and icons.c; recipe
   `project_load`, `project_rename`, `persist_boot`, the autosave, `chain_prepare`, and main.c
   (`tape_store_boot`, `tape_store_poll`). web/emu/felucca_web.c calls the same two.
 
+## M2c: SCENES
+
+- `scene.c` (included by seq.c after motion.c): 16 scenes a project. The scene playing stays in the tracks
+  (`trk[].step`, `p[P_SLEN..P_SGATE]`, `P_SQNT`), `motion` and `fxt_lane`; the other 15 wait packed in `scb` (pool,
+  7880 B, `scn_encode` / `scn_decode`: a step only where it differs from `SCN_REST`, only the bytes that do). Never
+  trust a bank from flash: `scn_decode` checks every field the project format would (`scene_bank_check`).
+- A pick: the main loop unpacks into `SCN_BUF` (`chain.source[0]`: songs and scene picks exclude each other) and sets
+  `scn.req = SCN_END`; the ISR's `events_block` calls `scene_due` (noinline, only while one waits) at the clock track's
+  last step and `scene_swap`s with the carry, as `chain_tick` does. Stopped, the main loop swaps with the interrupts
+  off. The swap measures the leaving scene against `scn.room` first and drops the pick if it does not fit.
+- `scene_poll` (ui_input.c, every pass) packs the scene left into the bank, recomputes the clock track while one waits
+  and reports `SP_SWITCHED` / `SP_FULL`; `scn.moved` tells the UI to drop the undo copy and re-snap the layer's put back
+  (`scene_switched_ui`). `scene_settle` before a song starts (`chain_prepare`) and before a save.
+- opstore.c: the banks in USR2 (`scb_write`, `scb_load`, `scb_retag`), tagged with `xtra_id` like the extras; the
+  autosave's signature hashes the bank's bytes, so a pick and back again writes nothing.
+
 ## E1: FX1 CLOUD
 
 - `fx1.c` (included by fx.c after perform.c): the delay bus's TYPE (`fx1s`, defined at the top of fx.c so perform.c's

@@ -847,6 +847,7 @@ static int project_save_as(uint32_t slot, const char *name)
         ui_message("STOP TO SAVE");                     /* sequencer (storage_hw.c): only while stopped */
         return 1;
     }
+    scene_settle();                                     /* (M-Vave-OP1: the scene playing in the tracks, the bank whole) */
     project_capture(p);
     if (name) {
         memset(p->name, 0, sizeof p->name);
@@ -865,7 +866,8 @@ static int project_save_as(uint32_t slot, const char *name)
         proj_name_get(proj_name, (const uint8_t *)p->name);
         proj_cur = (uint8_t)(slot & 3u);
         pat_from_set((slot & 3u) + 1u);
-        if (xtra_saved(slot, xtra_id(&proj_wire, sizeof proj_wire))) {   /* (M-Vave-OP1: the FX TRACKS after it) */
+        if (xtra_saved(slot, xtra_id(&proj_wire, sizeof proj_wire)) ||   /* (M-Vave-OP1: the FX TRACKS after it, */
+            scene_saved(slot, xtra_id(&proj_wire, sizeof proj_wire))) {   /* and the other scenes) */
             ui_message("SAVE ERROR");
             return 2;
         }
@@ -875,6 +877,7 @@ static int project_save_as(uint32_t slot, const char *name)
 #endif
     memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);
     xtra_saved(slot, xtra_id(&proj_wire, sizeof proj_wire));
+    scene_saved(slot, xtra_id(&proj_wire, sizeof proj_wire));
     proj_name_get(proj_name, (const uint8_t *)p->name);
     proj_cur = (uint8_t)(slot & 3u);
     pat_from_set((slot & 3u) + 1u);
@@ -963,7 +966,8 @@ static int project_rename(uint32_t slot, const char *name)
     }
 #endif
     memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);
-    xtra_renamed(slot, was, xtra_id(&proj_wire, sizeof proj_wire));   /* (M-Vave-OP1: its FX TRACKS stay its) */
+    xtra_renamed(slot, was, xtra_id(&proj_wire, sizeof proj_wire));   /* (M-Vave-OP1: its FX TRACKS stay its, */
+    scene_renamed(slot, was, xtra_id(&proj_wire, sizeof proj_wire));   /* its scenes too) */
     if (proj_cur == (slot & 3u))
         proj_name_get(proj_name, (const uint8_t *)p->name);
 #if FELUCCA_FLASH
@@ -990,6 +994,8 @@ static int project_restore_runtime(const project_t *input)
     fm1_irq_off();                                      /* the audio ISR must not see half a project */
     seq_stop();
     transport_req = 0;
+    scene_reset();                                      /* (M-Vave-OP1: one scene, the project's; project_load and the
+                                                         * autosave bring its others) */
     chain_config = p->chain;
     motion = p->motion;
     memset(motion_active, 0, sizeof motion_active);
@@ -1060,6 +1066,7 @@ static void project_load(uint32_t slot)
         proj_cur = (uint8_t)(slot & 3u);
         pat_from_set((slot & 3u) + 1u);
         xtra_loaded(slot);                              /* (M-Vave-OP1: its FX TRACKS; none saved: empty) */
+        scene_loaded(slot);                             /* (.. its other scenes; none: only the one it holds) */
     }
 }
 
@@ -1118,6 +1125,7 @@ static uint32_t chain_prepare(void)
     uint32_t i, k, j, used = 0;
     if (transport_busy())
         return 2;
+    scene_settle();                                     /* (M-Vave-OP1: the scene buffer is source 0, below) */
     if (!chain_valid(&chain_config) || !chain_config.count)
         return 1;
     for (i = 0; i < chain_config.count; i++)            /* the slots the lanes play (not the silent ones) */
@@ -1263,7 +1271,13 @@ static uint32_t autosave_sig(void)
             h = as_mix(h, &song.g[i], sizeof song.g[i]);
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
-    h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras) */
+    h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
+    {                                               /* the scenes: the bank's bytes and the one playing, so a pick and */
+        uint8_t c = scn.cur;                        /* back again writes nothing) */
+        h = as_mix(h, scb.len, sizeof scb.len);
+        h = as_mix(h, scb.data, scb.used <= SCN_CAP ? scb.used : SCN_CAP);
+        h = as_mix(h, &c, 1);
+    }
     {
         uint8_t f1[8] = {fx1s.type, fx1s.size, fx1s.dens, fx1s.spread, (uint8_t)fx1s.pitch, fx1s.rnd, fx1s.fdbk, fx1s.mix};
         h = as_mix(h, f1, sizeof f1);
@@ -1308,7 +1322,8 @@ static void autosave_poll(void)
     project_capture(&proj_scratch);
     proj_wire_gen++;
     as.err = !proj_pack(&proj_wire, &proj_scratch) || st_save(OBJ_AUTOSAVE, &proj_wire, sizeof proj_wire) != 0 ||
-             xtra_autosaved(xtra_id(&proj_wire, sizeof proj_wire)) != 0;   /* (M-Vave-OP1: the FX TRACKS after it) */
+             xtra_autosaved(xtra_id(&proj_wire, sizeof proj_wire)) != 0 ||   /* (M-Vave-OP1: the FX TRACKS after it, */
+             scene_autosaved(xtra_id(&proj_wire, sizeof proj_wire)) != 0;   /* the other scenes) */
     if (!as.err) {
         as.saved = sig;
         as.writes++;
@@ -1330,7 +1345,8 @@ static int autosave_boot(int allowed)
         if (n > 0 && proj_import(&proj_scratch, &proj_wire, n)) {
             proj_bound(&proj_scratch);
             if (!project_restore_runtime(&proj_scratch)) {
-                xtra_autoloaded(xtra_id(&proj_wire, (uint32_t)n));   /* (M-Vave-OP1: the FX TRACKS with it) */
+                xtra_autoloaded(xtra_id(&proj_wire, (uint32_t)n));   /* (M-Vave-OP1: the FX TRACKS with it, */
+                scene_autoloaded(xtra_id(&proj_wire, (uint32_t)n));   /* the other scenes) */
                 ui_message("RESTORED");
                 rc = 1;
             }

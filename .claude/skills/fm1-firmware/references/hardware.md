@@ -38,7 +38,8 @@ The RAM / POOL split is only a budget line in the linker script; both are the sa
 | Key-scan ISR `fm1_timer5_irq` | 35 326 | 36 725 | |
 
 What things cost (measured with `nm` on the target build): a synth track ~23 KB (its `trk[]` entry 1 824 B, engine
-memory 12 888 B, SLICER buffer 8 KB), an FX TRACK lane 66 B, a song pattern in RAM (`chain_pattern_t`) ~3.6 KB.
+memory 12 888 B, SLICER buffer 8 KB), an FX TRACK lane 66 B, a song pattern in RAM (`chain_pattern_t`) ~3.4 KB, the
+scene bank (15 scenes packed, scene.c `scb`) 7.9 KB of pool.
 
 Run `scripts/budget_report.sh` to get the current numbers.
 
@@ -49,7 +50,8 @@ Run `scripts/budget_report.sh` to get the current numbers.
 | 0x00000 .. ~0x96FFF | boot code, app image |
 | 0x97000 .. 0x9EFFF | projects A–D (two 4 KB copies each) |
 | 0x9F000 | FM6 patches of the user presets, copy A |
-| 0xA0000 .. 0xC7FFF | user sample slots USR1, USR2 (80 KB each, ADPCM, ~7 s at 22.05 kHz) |
+| 0xA0000 .. 0xB3FFF | user sample slot USR1 (80 KB, ADPCM, ~7 s at 22.05 kHz) |
+| 0xB4000 .. 0xC7FFF | M-Vave-OP1 (opstore.c): the scenes, set A..D + autosave, two 8 KB copies each (commit record `OBJ_SCENES`) |
 | 0xC8000 .. 0xCFFFF | M-Vave-OP1 (opstore.c): the projects' extras A/B (`OBJ_XPROJ0 + slot`: the FX TRACKS) |
 | 0xD0000 .. 0xD1FFF | the autosave's extras A/B (`OBJ_XAUTO`) |
 | 0xD2000 .. 0xDBFFF | the tape, copies A (0xD2000) and B (0xD7000), five sectors each, commit record `OBJ_TAPE` |
@@ -60,10 +62,10 @@ Run `scripts/budget_report.sh` to get the current numbers.
 | 0xE8000 | the stock OTA's VM backup: never written |
 | 0xFC000 .. 0xFFFFF | settings, FM6 patches copy B (0xFE000) |
 
-Every sector is spoken for. USR3 (the third sample slot) was given up for notes and settings: the editor uploads into
-USR1 and USR2 only (`SMP_USER_WRITABLE`), USR3 reads empty. New persistent data means packing it into the extras
-(`proj_xtra_t`, append-only by its `size` field) or giving up USR2 too. Flash is erased and written only while the transport is stopped: an erase
-stalls XIP.
+Every sector is spoken for. USR3 and USR2 (the third and second sample slots) were given up for notes and settings:
+the editor uploads into USR1 only (`SMP_USER_WRITABLE` 1), USR2 and USR3 read empty. New persistent data means packing
+it into the extras (`proj_xtra_t`, append-only by its `size` field) or the scene sets' spare bytes, or giving up USR1
+too. Flash is erased and written only while the transport is stopped: an erase stalls XIP.
 
 ## Panel
 

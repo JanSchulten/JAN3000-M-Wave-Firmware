@@ -1,20 +1,22 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* Felucca 1.2: the SEQ TOOLS layer's actions (ui_layer.c: SEQ held, on every page). Included by ui_layer.c. The white
- * keys from F3 (TL_*):
- *   F3 CLEAR  G3 REVERSE  A3 SHIFT <  B3 SHIFT >       the whole sequence
- *   C4 RANDOM D4 COOK     E4 BEAT (DRUM)                 new / a little changed
- *   G4 CLEAR  A4 REVERSE  B4 FILL  C5 RANDOM             the selected lane (DRUM: ui.lane, black keys 1..8 pick it)
+/* Felucca 1.2: the SEQ TOOLS layer's actions (ui_layer.c: SEQ held, on every page). Included by ui_layer.c. Felucca
+ * put them on the white keys from F3; M-Vave-OP1 on the black keys from F#3, in the same order (ui_layer.c SEQ_TOOL:
+ * the white keys pick the scenes, scene.c):
+ *   F#3 CLEAR   G#3 REVERSE  A#3 SHIFT <  C#4 SHIFT >     the whole sequence
+ *   D#4 RANDOM  F#4 COOK     G#4 BEAT (DRUM)               new / a little changed
+ *   A#4 CLEAR   C#5 REVERSE  D#5 FILL     F#5 RANDOM      the selected lane (DRUM: ui.lane, PRESETS picks it)
  * Each works on the selected track's steps 1..LEN (the steps past LEN stay) and is one undo: SAVE held swaps back
  * the copy taken just before it (ui.c undo, UNDO_PAT; unlike a load the track's automation stays), so after a few
- * COOKs SAVE held takes back the last one only; the layer's OCT- puts back the track as the layer opened (tl_open).
+ * COOKs SAVE held takes back the last one only; SEQ + EDIT puts back the track as the layer opened (tl_open; Felucca:
+ * OCT-, which steps the scenes now).
  * A step that held something and is empty after loses its locks (as EDIT's step clear); REVERSE and SHIFT move the
  * steps' automation and locks with them. RANDOM and COOK draw from libc.c rng(): no seed is kept, each press
  * differs. A sequence of ties reversed keeps its note first: N T T -> N T T at the mirrored place */
 enum { TL_CLEAR, TL_REV, TL_LEFT, TL_RIGHT, TL_RANDOM, TL_COOK, TL_BEAT, TL_GAP, TL_LCLR, TL_LREV, TL_LFILL, TL_LRND,
        TL_N };
 
-/* the track as the layer opened (OCT-): in the pool (RAM's .bss is tight), taken by layer_opened */
+/* the track as the layer opened (SEQ + EDIT): in the pool (RAM's .bss is tight), taken by layer_opened */
 static struct { step_t step[NSTEP]; motion_store_t mo; } tl_open __attribute__((section(".pool")));
 
 static uint32_t tl_len(const track_t *t) { return (uint32_t)clamp(t->p[P_SLEN], 1, NSTEP); }

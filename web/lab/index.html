@@ -281,7 +281,7 @@ button { font: inherit; color: inherit; }
 
   <p class="foot">Inoffiziell, kein Produkt von M-VAVE. M-Vave-OP1 ist ein Fork von Felucca (Leo Kuroshita, Hügelton
      Instruments), GPL-3.0; der Browser-Aufbau folgt Felluccas und X0X' Emulator. Projekte, die du auf dem virtuellen Gerät
-     speicherst, bleiben nur in diesem Browser. Das TAPE wird noch nicht gespeichert (Roadmap M2).</p>
+     speicherst (mit ihren Szenen), und das TAPE bleiben nur in diesem Browser.</p>
 </main>
 
 <script>
@@ -656,8 +656,20 @@ const FLOWS = [
       ["<b>ALGORITHM</b> nach links: zurück zu MAP A. Auf FX TRACKS mit <b>REC</b> lassen sich alle aufnehmen.", ["ALGORITHM", "REC"]],
     ],
     op1: "<b>OP-Z:</b> SHIFT + Taste der unteren Reihe (Duck, Filter Sweep, Loop, Stereo, Pitch, Echo, Ramp, Random …), hier in derselben Reihenfolge. <b>OP-1:</b> am ehesten die Tape-Tricks." },
+  { id: "scenes", tab: "Szenen", title: "16 Szenen, gewechselt wie beim KO-II",
+    why: "Jedes Projekt hat 16 Szenen: eigene Sequenzen, LEN DIV SWING GATE, Automation und FX-Spuren. Sounds, Mixer und Effekte bleiben. Im Spiel kommt die neue Szene am Ende des Patterns, im Takt.",
+    steps: [
+      ["Ein Pattern bauen (Seite <b>SEQ</b>) und <b>PLAY</b> drücken. Das ist Szene 1.", ["SEQ", "PLAY"]],
+      ["<b>SEQ</b> halten (Tastatur <kbd>0</kbd>, Maus: <kbd>Shift</kbd>-Klick): oben steht [SEQ] SCENES, darunter die 16 Szenen.", ["SEQ"]],
+      ["Mit gehaltenem SEQ eine weiße Taste: <b>G3</b> (<kbd>X</kbd>) ist Szene 2. NEXT: SCENE 2, ihre Zelle hat einen Rahmen und ihre Taste blinkt; am Ende des Patterns ist sie da. Eine leere Szene übernimmt LEN, DIV, SWING und GATE.", ["SEQ", "KEYS"]],
+      ["<b>OCT+</b> / <b>OCT−</b> (<kbd>]</kbd> <kbd>[</kbd>) mit gehaltenem SEQ: die nächste / die vorige Szene. Die laufende Szene noch einmal gewählt: der Wechsel ist abgesagt.", ["SEQ", "OCT+", "OCT-"]],
+      ["KO-II-Griff: <b>FX</b> halten (<kbd>1</kbd>), eine Effekt-Taste halten (z. B. <kbd>X</kbd>, REPEAT 1/16), FX loslassen: der Effekt bleibt, solange die Taste gehalten ist. Jetzt <b>SEQ</b> halten und die nächste Szene wählen. Taste los, Effekt aus.", ["FX", "KEYS", "SEQ"]],
+      ["Die Werkzeuge liegen auf den schwarzen Tasten: CLEAR, REVERSE, SHIFT &lt; &gt;, RANDOM, COOK, auf einer Drum-Spur BEAT und die Spur-Werkzeuge (<b>PRESETS</b> wählt die Spur). <b>SEQ + EDIT</b> holt die Spur zurück, wie sie beim Öffnen war.", ["KEYS", "PRESETS", "EDIT"]],
+      ["<b>SAVE</b> bis PROJECT: das Projekt wird mit allen Szenen gesichert, auch mit der, die gerade läuft.", ["SAVE"]],
+    ],
+    op1: "<b>OP-Z:</b> 16 Patterns pro Projekt, Pattern-Taste halten und eine der 16 Tasten. <b>KO-II:</b> einen Punch-in halten und dabei die nächste Sequenz wählen. <b>OP-1:</b> keine Patterns, die Sequencer gehören zum Synth." },
   { id: "song", tab: "Song-Kette", title: "Patterns zu einer Kette verbinden",
-    why: "Wie beim OP-Z: Patterns per Taste aneinanderreihen; die Kette läuft in Schleife und lässt sich im Spiel ändern. Ein Pattern ist ein Projekt-Slot A–D.",
+    why: "Wie beim OP-Z: Patterns per Taste aneinanderreihen; die Kette läuft in Schleife und lässt sich im Spiel ändern. Ein Pattern ist hier ein Projekt-Slot A–D, mit der Szene, die beim Sichern lief.",
     steps: [
       ["Ein Pattern bauen (Sequencer, FX-Spuren) und sichern: <b>SAVE</b> tippen bis PROJECT, <b>KNOB 1</b> Slot A, <b>KNOB 4</b> SAVE, <b>OCT+</b>, den Namen mit <b>OCT+</b> bestätigen. Ein zweites Pattern in Slot B.", ["SAVE", "KNOB 1", "KNOB 4", "OCT+"]],
       ["<b>GLO</b> dreimal: die SONG-Seite.", ["GLO"]],

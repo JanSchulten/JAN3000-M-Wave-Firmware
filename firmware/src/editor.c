@@ -593,7 +593,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         break;
     case ED_SMP_BEGIN:                                     /* slot -> slot, rc */
     case ED_SMP_ERASE:
-        if (na < 1u || a[0] >= SMP_USER_WRITABLE || !flash_ok)   /* (M-Vave-OP1: not USR3, eng_sample.c) */
+        if (na < 1u || a[0] >= SMP_USER_WRITABLE || !flash_ok)   /* (M-Vave-OP1: USR1 only, eng_sample.c) */
             return;
         ed_b(a[0]);
         ed_b(ed_flash_stop() || ed_smp_erase(a[0], cmd == ED_SMP_ERASE) ? 1u : 0u);
@@ -632,7 +632,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         ed_b((uint32_t)ed_smp_end(a[0], a + 1, na - 1u));
         break;
     case ED_SMP_INFO:                                      /* -> per slot: zones (0 = empty), name, data KiB */
-        ed_b(SMP_USER_WRITABLE);                          /* (M-Vave-OP1: USR1 and USR2; USR3 holds its stores) */
+        ed_b(SMP_USER_WRITABLE);                          /* (M-Vave-OP1: USR1; USR2 and USR3 hold its stores) */
         ed_b(SMP_USER_SIZE / 1024u);
         for (i = 0; i < SMP_USER_WRITABLE; i++) {
             const smp_user_hdr_t *h = (const smp_user_hdr_t *)smp_user_xip(i);

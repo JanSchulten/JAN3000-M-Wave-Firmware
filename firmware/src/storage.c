@@ -30,7 +30,8 @@
  * kind (type OBJ_FM6VB, not an st_load object); a new bank is first staged in the autosave's older copy (fm6_vbank.c).
  * M-Vave-OP1 (opstore.c): the third user sample slot's 80 KiB (0xC8000..0xDBFFF) hold the projects' extras (OBJ_XPROJ0 +
  * slot, A/B from 0xC8000), the autosave's (OBJ_XAUTO, 0xD0000 / 0xD1000) and the tape (0xD2000..0xDBFFF, its own commit
- * records); the editor uploads samples into USR1 and USR2 only (eng_sample.c SMP_USER_WRITABLE). */
+ * records); the second's (0xB4000..0xC7FFF) the projects' scenes (scene.c, their own commit records, OBJ_SCENES); the
+ * editor uploads samples into USR1 only (eng_sample.c SMP_USER_WRITABLE). */
 enum { OBJ_SETTINGS, OBJ_PROJECT0, OBJ_UPRESET0 = OBJ_PROJECT0 + 4, OBJ_FM6BANK = OBJ_UPRESET0 + 2, OBJ_UPFM6,
        OBJ_AUTOSAVE,
        OBJ_XPROJ0, OBJ_XAUTO = OBJ_XPROJ0 + 4,   /* M-Vave-OP1 (opstore.c): the projects' and the autosave's extras */
