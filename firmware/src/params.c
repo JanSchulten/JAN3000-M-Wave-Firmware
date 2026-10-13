@@ -10,6 +10,8 @@ static const char *const N_LTRIG[] = {"NOTE", "FREE"};
 static const char *const N_LPOL[] = {"BI", "UNI"};
 static const char *const N_AMODE[] = {"OFF", "UP", "DN", "UPDN", "RND", "ORD", "REPEAT",   /* (append-only: seq.c AM_*) */
                                        "DNUP", "UP+8", "CONV", "DIVG", "PINKY", "THUMB", "WALK", "CHORD"};
+#define PM_CHORD 14                              /* M-Vave-OP1: PLAY MODE (P_AMODE) CHORD, the Orchid's keyboard (seq.c
+                                                  * AM_CHORD, orchid.c); Felucca's ARP CHORD before */
 static const char *const N_DIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1/1", "2BAR", "4BAR"};
 /* the delay's TIME (G_DTIME): N_DIV's ten (their values kept), then 1.5.1's dotted ones appended (stored values:
  * append-only). A list of its own: ARP RATE, SEQ DIV and LFO SYNC keep N_DIV's ten (fx.c delay_samples) */
@@ -498,8 +500,11 @@ static const page_t PAGES[] = {
                                                                              * the tap after PRESETS (up to 1.1.5 SEQ's) */
     {"PROJECT", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {G_SLOT, 0xFF, G_LOAD, G_SAVE}},
     {"TOOLS", FAM_SAVE, SC_GLOBAL, GR_TOOLS, {G_CLRSEQ, G_INITSND, 0xFF, 0xFF}},
-    {"ARP", FAM_ARP, SC_TRACK, GR_ARP, {P_AMODE, P_ARATE, P_AOCT, P_AGATE}},
-    {"ARP 2", FAM_ARP, SC_TRACK, GR_NONE, {P_ASWING, P_APROB, P_AHOLD, P_AORDER}},
+    /* M-Vave-OP1: PLAY MODE (Felucca's ARP): KNOB 1 the MODE, the ARP's or CHORD (orchid.c), then the ARP's RATE OCT
+     * GATE, with CHORD VOICE and LOCK (page_desc: none; ui_input.c orc_knob, ui_draw.c); PLAY MODE 2 the ARP's, not
+     * with CHORD (ui.c page_visible) */
+    {"PLAY MODE", FAM_ARP, SC_TRACK, GR_ARP, {P_AMODE, P_ARATE, P_AOCT, P_AGATE}},
+    {"PLAY MODE 2", FAM_ARP, SC_TRACK, GR_NONE, {P_ASWING, P_APROB, P_AHOLD, P_AORDER}},
     {"STEP", FAM_SEQ, SC_STEP, GR_ROLL, {0, 1, 2, 3}},
     {"DETAIL", FAM_SEQ, SC_STEP, GR_ROLL, {0, 1, 2, 3}},   /* 1.5.1 (#199): the cursor step's CHANCE RATCH NUDGE VEL
                                                              * (ui.c detail_on, ui_input.c sd_turn) */
@@ -530,6 +535,10 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
     }
     if (pg->graph == GR_MOD)                          /* SRC DST AMT of the slot shown */
         id += 3u * mod_ui_slot;
+    if (pg->graph == GR_ARP && slot && TSEL->p[P_AMODE] == PM_CHORD) {   /* M-Vave-OP1, PLAY MODE CHORD: VOICE and LOCK, */
+        *valp = 0;                                    /* no parameters (ui_input.c orc_knob) */
+        return 0;
+    }
     *valp = &TSEL->p[id];
     return track_desc(TSEL, id);
 }

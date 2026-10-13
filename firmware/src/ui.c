@@ -395,6 +395,8 @@ static int page_visible(uint32_t i)
 {
     if (PAGES[i].graph == GR_CLOUD)                   /* M-Vave-OP1: FX1's own page by its TYPE (fx1.c) */
         return fx1s.type == FX1_CLOUD;
+    if (PAGES[i].fam == FAM_ARP && PAGES[i].graph != GR_ARP)   /* M-Vave-OP1: PLAY MODE 2, the ARP's, not with CHORD */
+        return TSEL->p[P_AMODE] != PM_CHORD;
     if (PAGES[i].scope == SC_GLOBAL && PAGES[i].id[0] == G_DTIME)
         return fx1s.type != FX1_CLOUD;
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)

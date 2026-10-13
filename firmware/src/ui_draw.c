@@ -1082,6 +1082,20 @@ static void draw_columns(void)
         draw_column(3, "LEN", val, "", VAL(3u), (int32_t)(len * 1000u / NSTEP), ICON_LENGTH);
         return;
     }
+    if (cur_page()->graph == GR_ARP && TSEL->p[P_AMODE] == AM_CHORD) {   /* M-Vave-OP1, PLAY MODE CHORD: MODE, VOICE, */
+        const param_desc_t *d = track_desc(TSEL, P_AMODE);              /* LOCK (orchid.c; ui_input.c orc_knob) */
+        int32_t v = orc_voice[song.sel];
+        param_format(d, TSEL->p[P_AMODE], val, &unit);
+        card_mot_of(&TSEL->p[P_AMODE]);
+        draw_column(0, d->label, val, unit, VAL(0u), RATIO(d, enum_rank(d, TSEL->p[P_AMODE])),
+                    param_icon(d, TSEL->p[P_AMODE]));
+        val[0] = '+';
+        fmt_int(val + (v > 0), v);
+        draw_column(1, "VOICE", val, "", VAL(1u), (v + 12) * 1000 / 24, ICON_VOICE);
+        draw_column(2, "LOCK", orc.lock ? "ON" : "OFF", "", orc.lock ? T_ACCENT : VAL(2u), -1, ICON_X_LOCK);
+        draw_column(3, "", "", "", T_THEME, -1, ICON_NONE);
+        return;
+    }
     if (cur_page()->graph == GR_FXT2) {               /* CLEAR the lane, CLEAR both; the steps each holds */
         uint32_t l = ui.fxt_sel % FXT_N, n0 = fxt_used(0), n1 = fxt_used(1);
         draw_act_column(0, l ? "FX2" : "FX1", (l ? n1 : n0) ? T_THEME : T_DIM, ICON_CLEAR);

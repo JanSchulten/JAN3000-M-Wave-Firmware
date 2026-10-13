@@ -668,6 +668,18 @@ const FLOWS = [
       ["<b>SAVE</b> bis PROJECT: das Projekt wird mit allen Szenen gesichert, auch mit der, die gerade läuft.", ["SAVE"]],
     ],
     op1: "<b>OP-Z:</b> 16 Patterns pro Projekt, Pattern-Taste halten und eine der 16 Tasten. <b>KO-II:</b> einen Punch-in halten und dabei die nächste Sequenz wählen. <b>OP-1:</b> keine Patterns, die Sequencer gehören zum Synth." },
+  { id: "orchid", tab: "Orchid-Akkorde", title: "PLAY MODE CHORD: Akkorde wie beim Orchid",
+    why: "Die Tastatur des Orchid von Telepathic Instruments, nach ChoralRoot FM-1 von Quixotic7: links der Akkordblock (Typ und Erweiterungen), rechts die Grundtöne. Jede Spur hat ihren eigenen PLAY MODE.",
+    steps: [
+      ["<b>ALGORITHM</b> eine Stufe nach rechts: Spur 2, sie spielt mehrstimmig. (Spur 1 ist LEGATO: dort klingt nur der Grundton, die Seite sagt ROOT ONLY.)", ["ALGORITHM"]],
+      ["<b>ARP</b> drücken (Tastatur <kbd>9</kbd>): die Seite PLAY MODE. <b>KNOB 1</b> ganz nach rechts: CHORD.", ["ARP", "KNOB 1"]],
+      ["<b>G#3</b> halten (<kbd>D</kbd>, MIN) und <b>D4</b> spielen (<kbd>N</kbd>): Dm. Die Grundtöne gehen von D4 bis G5 (<kbd>M</kbd> <kbd>,</kbd> <kbd>.</kbd> …, oben <kbd>Q</kbd>…<kbd>O</kbd>).", ["KEYS"]],
+      ["Typen auf den schwarzen Tasten: F#3 DIM (<kbd>S</kbd>), G#3 MIN (<kbd>D</kbd>), A#3 MAJ (<kbd>F</kbd>), C#4 SUS (<kbd>H</kbd>). Dazu die Erweiterungen auf den weißen: F3 6 (<kbd>Z</kbd>), G3 m7 (<kbd>X</kbd>), A3 M7 (<kbd>C</kbd>), C4 9 (<kbd>B</kbd>). Oben steht der Name, z. B. Dm 7 9.", ["KEYS"]],
+      ["<b>KNOB 2</b> VOICE: jede Stufe nach rechts legt den tiefsten Ton eine Oktave höher, nach links den höchsten eine Oktave tiefer.", ["KNOB 2"]],
+      ["<b>B3</b> (<kbd>V</kbd>) oder <b>KNOB 3</b>: LOCK. Akkordtasten bleiben jetzt nach dem Loslassen gedrückt: MIN tippen, 6 tippen (m6), 9 tippen (m6/9), 9 noch einmal (wieder m6). Ein Typ allein setzt auf diesen Typ zurück.", ["KEYS", "KNOB 3"]],
+      ["Auf der Seite <b>SEQ</b> mit <b>REC</b> (scharf, gestoppt): ein Grundton schreibt den Akkord in den Schritt am Cursor (bis 4 Töne).", ["SEQ", "REC", "KEYS"]],
+    ],
+    op1: "<b>Orchid:</b> dieselbe Aufteilung, Voicing und Akkordnamen; Bass, Strum und der Arp des Orchid fehlen hier. <b>OP-1:</b> keine Akkord-Tastatur." },
   { id: "song", tab: "Song-Kette", title: "Patterns zu einer Kette verbinden",
     why: "Wie beim OP-Z: Patterns per Taste aneinanderreihen; die Kette läuft in Schleife und lässt sich im Spiel ändern. Ein Pattern ist hier ein Projekt-Slot A–D, mit der Szene, die beim Sichern lief.",
     steps: [

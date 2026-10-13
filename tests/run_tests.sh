@@ -71,6 +71,12 @@
 #                   or dropped at the end: nothing lost), kept with the project, the SEQ layer (white keys scenes, OCT+ /
 #                   OCT- next / before, black keys the tools, EDIT put back, PRESETS the lane, LEDs, no song), the KO-II
 #                   flow (a punch-in held while SEQ picks); screens into build/scene_shots.
+# PLAY MODE CHORD (tests/orchid_test.c, M-Vave-OP1): the Orchid's chord block after ChoralRoot FM-1 (orchid.c): the
+#                   types, extensions, VOICE and names; through the real key input (F3 .. C#4 the block, silent; the roots
+#                   with their chord; a release ends its own notes; not in CHORD, a kit, a one-voice part as before; no
+#                   ARP); LOCK as ChoralRoot's (latch, toggles, resets, the lone repeat); the PLAY MODE page (KNOB 2 VOICE,
+#                   KNOB 3 LOCK, PLAY MODE 2 hidden), LEDs, STEP entry, VOICE kept with the project; screens into
+#                   build/orchid_shots.
 # CLOUD (tests/cloud_test.c, M-Vave-OP1): FX1's TYPE (fx1.c): the DELAY untouched, a change fades, clears, starts empty;
 #                   CLOUD's grains always inside what was written (30 s of random settings), DENS, PITCH +-12 / +7, the
 #                   level, FDBK bounded and dying away, CLOUD FREEZE; the FX1 / CLOUD pages, F5, kept with the project;
@@ -280,6 +286,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     mkdir -p build/scene_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/scene_test" tests/scene_test.c -lm
     run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
+    mkdir -p build/orchid_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/orchid_test" tests/orchid_test.c -lm
+    run "PLAY MODE CHORD (the Orchid's): types, extensions, VOICE, names, the key input, LOCK, the page, LEDs, STEP entry, kept" "$OUT/orchid_test" build/orchid_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/songchain_test" tests/songchain_test.c -lm
     run "SONG as OP-Z pattern chains: typed with REC + A..D, LOOP / STOP, new chains and edits while it plays" "$OUT/songchain_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fxtrack_test" tests/fxtrack_test.c -lm

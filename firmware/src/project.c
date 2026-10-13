@@ -996,6 +996,7 @@ static int project_restore_runtime(const project_t *input)
     transport_req = 0;
     scene_reset();                                      /* (M-Vave-OP1: one scene, the project's; project_load and the
                                                          * autosave bring its others) */
+    orc_reset();                                        /* (.. PLAY MODE CHORD's block: nothing held or latched) */
     chain_config = p->chain;
     motion = p->motion;
     memset(motion_active, 0, sizeof motion_active);
@@ -1272,6 +1273,7 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
+    h = as_mix(h, orc_voice, sizeof orc_voice);     /* PLAY MODE CHORD's VOICE too; */
     {                                               /* the scenes: the bank's bytes and the one playing, so a pick and */
         uint8_t c = scn.cur;                        /* back again writes nothing) */
         h = as_mix(h, scb.len, sizeof scb.len);

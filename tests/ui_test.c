@@ -191,6 +191,10 @@ static void ui_power_on(void)
         xtra_fx1(&x, 0);
     }
     perf_bank = 0;                                /* (M-Vave-OP1 E2: the FX layer's MAP A, as at power-on) */
+    orc_reset();                                  /* (M-Vave-OP1 PLAY MODE CHORD: nothing held or latched, VOICE 0) */
+    memset(orc_voice, 0, sizeof orc_voice);
+    kb_orc = 0;
+    orc_lock_req = 0;
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
     memset(&chain.source, 0, sizeof chain.source);
     for (i = 0; i < G_COUNT; i++)
@@ -6349,14 +6353,14 @@ static int test_layer_knob_leak(void)
         btn_down(B_FX); frame(); turn(EN_K1, 4); btn_up(B_FX); frame();
         frames(320);
         turn(EN_K1, 1);
-        ok = TSEL->p[P_AMODE] == m + 1 && !perf_k[0] && str_eq(cur_page()->title, "ARP");
+        ok = TSEL->p[P_AMODE] == m + 1 && !perf_k[0] && str_eq(cur_page()->title, "PLAY MODE");
     }
     bad += check("  0.3 s after FX is let go KNOB 1 is ARP MODE again; a knob turned with FX opened no FX page", ok);
     /* a tap of FX with a knob turned in that frame: a combo, no FX page */
     ui_power_on();
     go_page(GR_ARP);
     btn_down(B_FX); frame(); lk_turn(1); btn_up(B_FX); frame(); frames(100);
-    bad += check("  FX tapped while a knob turns: no FX page, no ARP change", str_eq(cur_page()->title, "ARP") &&
+    bad += check("  FX tapped while a knob turns: no FX page, no ARP change", str_eq(cur_page()->title, "PLAY MODE") &&
                  TSEL->p[P_AMODE] == 0);
     return bad;
 }

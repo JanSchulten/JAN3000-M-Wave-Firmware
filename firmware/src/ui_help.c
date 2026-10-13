@@ -53,8 +53,8 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"PHRASES", "[K1]PHRASE[OCT+]LOAD[SAVE]PROJECT"},
     {"PROJECT", "[K1]SLOT[K4]SAVE[EDIT]NAME"},
     {"TOOLS", "[K1]CLEAR[K2]INIT SOUND[OCT+]DO"},
-    {"ARP", "[K1]MODE[KEYS]CHORD[ARP]ARP 2"},
-    {"ARP 2", "[K3]LATCH[K4]ORDER[ARP]ARP"},
+    {"PLAY MODE", "[K1]MODE: ARP, CHORD[ARP]PAGE 2"},   /* (M-Vave-OP1: Felucca's ARP; CHORD: orchid.c) */
+    {"PLAY MODE 2", "[K3]LATCH[K4]ORDER[ARP]PAGE 1"},
     {"STEP", "[KEYS]WRITE[K1]STEP[SEQ]RATCH"},   /* (1.5.1: SEQ to DETAIL) */
     {"DETAIL", "[PRESETS]STEP[K1]CHANCE[K2]RATCH"},
     {"AUTOMATION", "[K1]ROW[OCT+]DO[EDIT]DELETE"},

@@ -6,8 +6,8 @@ This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo 
 (Hügelton Instruments). It keeps Felucca's hardware layer, USB, update loader, web installer,
 storage, engines and tests, and builds an OP-1-style workflow on top: a four-track tape, and from the
 OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
-switched while they play, pattern chains and a switchable FX1 with a granular CLOUD. What is planned next is in the
-[roadmap](docs/ROADMAP.md).
+switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and, after ChoralRoot FM-1, the
+Orchid's chord keyboard as PLAY MODE CHORD. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development. Nothing here has been flashed to hardware yet.
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
@@ -131,6 +131,29 @@ song stay the project's.
 - Kept with the project (SAVE > PROJECT, the one playing too) and with the autosave. A project of Felucca's or of an
   older M-Vave-OP1 loads as scene 1. While a song plays (GLO > SONG) scenes are not picked (STOP THE SONG FIRST); a
   song plays each slot as it was saved.
+
+## PLAY MODE: CHORD (the Orchid's keyboard)
+
+Felucca's ARP page is **PLAY MODE** now (its second page PLAY MODE 2). KNOB 1 MODE still picks OFF or an ARP pattern;
+**CHORD** turns the keyboard into the Telepathic Instruments Orchid's, as
+[ChoralRoot FM-1](https://github.com/Quixotic7/ChoralRootFM1) by Quixotic7 does (GPL-3.0; its chord block, tables,
+voicing and LOCK are rewritten in `firmware/src/orchid.c`). It replaces Felucca's ARP CHORD mode. Per track: each
+track has its own MODE and VOICE.
+
+- **F3 .. C#4 are the chord block** and play nothing themselves. Black keys: **F#3 DIM, G#3 MIN, A#3 MAJ, C#4 SUS**.
+  White keys: **F3 6, G3 m7, A3 M7, C4 9** (added to the type), **B3 LOCK**.
+- **D4 .. G5 are the roots.** A root plays its chord with the block's keys held now (the type pressed last counts);
+  with no type the root alone. The chord is fixed when the root goes down; letting go of the root ends it.
+- **KNOB 2 VOICE** (-12 .. +12): each step up moves the lowest note an octave up, each step down the highest an octave
+  down. **KNOB 3 LOCK** (or B3): chord keys let go stay latched (lit). With LOCK on, a type pressed alone resets the
+  latch to that type; the only latched type pressed again alone turns it off (the extensions wait for the next
+  type); an extension pressed alone toggles. LOCK off clears the latch.
+- The page shows the last chord as the Orchid names it (DM, Dm, D 7 9, Dsus m7; three extensions JAZZ, four WTF),
+  the block (held or latched keys lit, LOCK in the accent) and the notes. The block's LEDs show the same.
+- **One voice:** a track on VOICE MONO, LEGATO or UNISON plays the root alone (the page says ROOT ONLY; track 1 is
+  LEGATO by default). A DRUM or other kit track has no chord block.
+- STEP entry writes the chord (up to four notes a step, as the keys' chords); live recording and the TAPE take the
+  notes as played. VOICE is kept with the project; LOCK and the latch start off after a load.
 
 ## Try it in the browser
 

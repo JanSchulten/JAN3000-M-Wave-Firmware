@@ -189,7 +189,7 @@ static uint32_t arp_led(void)
 {
     uint32_t k, on = 0, b = beat_samples();
     for (k = 0; k < NPART; k++)
-        on |= trk[k].p[P_AMODE] && trk[k].nheld;
+        on |= arp_on(&trk[k]) && trk[k].nheld;
     return !on ? 2u : beat_pos < (beat_n ? b / 6u : b / 2u);
 }
 
@@ -215,7 +215,7 @@ static uint32_t midi_leds(const track_t *t)
 /* the keys of the notes the selected track's sequencer and ARP sound now (#38), bit k = key k: where the keys
  * play that note (kb_map: the octave, TRN, QNT, an engine's own map), the lowest key that gives it (QNT SNAP
  * rounds the keys above down onto it); a note no key plays is not shown. A snapshot of the ISR's seq_notes /
- * arp_note (arp_ch): no state of its own, nothing to do while nothing sounds */
+ * arp_note: no state of its own, nothing to do while nothing sounds */
 static uint32_t play_leds(void)
 {
     const track_t *t = TSEL;
@@ -225,9 +225,6 @@ static uint32_t play_leds(void)
         s[i] = t->seq_notes[i];
     if (t->arp_note)
         s[n++] = t->arp_note;
-    for (i = 0; i < 3u; i++)                            /* (the ARP's CHORD) */
-        if (t->arp_ch[i])
-            s[n++] = t->arp_ch[i];
     for (k = 0; n && k < 27u; k++) {
         note = kb_map(t, k);
         for (i = 0, hit = 0; i < n; i++)
@@ -333,6 +330,28 @@ static int idle_leds(void)
         fm1_led_idle_start(settings_leds == LEDS_DIM || settings_leds == LEDS_DIM_LO);
     return fm1_led_idle_on();
 }
+/* M-Vave-OP1, PLAY MODE CHORD (orchid.c): the selected track plays the Orchid's keyboard here (no layer, no grid, no
+ * NAME, not SONG's keys) */
+static int orc_ui(void) { return orc_on(TSEL) && !song.grid; }
+/* .. the chord block's LEDs: a key down or latched lit, B3 lit while LOCK is on */
+static uint32_t orc_leds(void)
+{
+    uint32_t k, m = 0, down = orc.down;
+    for (k = 0; k < ORC_KEYS; k++)
+        m |= (ORC_KEY[k] == ORC_LOCK ? (uint32_t)orc.lock : (down >> ORC_KEY[k]) & 1u) << k;
+    return m;
+}
+/* .. PLAY MODE's KNOB 2 the track's VOICE (-12..+12), KNOB 3 LOCK (the ISR takes it: orc_lock_req) */
+static void orc_knob(uint32_t slot, int32_t steps)
+{
+    if (slot == 1u) {
+        int32_t v = clamp((int32_t)orc_voice[song.sel] + (steps > 0 ? 1 : -1), -12, 12);
+        orc_voice[song.sel] = (int8_t)v;
+    } else if (slot == 2u) {
+        orc_lock_req = (uint8_t)(steps > 0 ? 2u : 1u);
+    }
+}
+
 /* the key LEDs, bit k = key k: NAME's keys, the layer's map, the DRUM grid, else the keys held and the notes
  * the selected track's sequencer, ARP and MIDI IN play, on STEP while stopped the cursor step's notes (#89; and
  * on SLICES the keys of the selected slice; on SONG the key of the cell's slot, 1.2) */
@@ -342,6 +361,7 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
     if (br)
         *br = 0;
     c = name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds(br) : grid_on() ? grid_leds() :
+        orc_ui() ? (((fm1_in.notes & ~kb_layer) | play_leds() | step_leds()) & ~ORC_BLOCK) | orc_leds() :
                  (fm1_in.notes & ~kb_layer) | play_leds() | step_leds() | (song_keys_on() ? song_leds() : 0u);
 #if FELUCCA_SLICE
     if (!ui.layer && !ui.menu && !name_on() && slice_page_on())
@@ -993,6 +1013,10 @@ static void edit_param(uint32_t slot, int32_t steps)
         ev_knob(slot, steps);
         return;
     }
+    if (pg->graph == GR_ARP && slot && TSEL->p[P_AMODE] == AM_CHORD) {   /* M-Vave-OP1, PLAY MODE CHORD: 2 VOICE, 3 LOCK */
+        orc_knob(slot, steps);
+        return;
+    }
     if (pg->graph == GR_TAPE) {                       /* KNOB 1 POS (a beat a detent, a bar turned fast), 2 LOOP, */
         if (slot == 0u)                               /* 3 SPEED, 4 DIR (tape.c) */
             tape_seek_ui(steps * (int32_t)(steps > 2 || steps < -2 ? TAPE_BAR : TAPE_PPQN));
@@ -1324,13 +1348,13 @@ static void seq_entry(uint32_t pressed)
 {
     track_t *t = TSEL;
     step_t *st = &t->step[ui.cursor];
-    uint32_t k, add = (ui_prefs2 & (PREF_CHORD_ADD >> 16)) != 0u;
+    uint32_t k, add = (ui_prefs2 & (PREF_CHORD_ADD >> 16)) != 0u, orc_k = orc_ui() ? ORC_BLOCK : 0u;
     for (k = 0; k < 27u; k++) {
-        uint8_t ch[CHORD_MAX];
+        uint8_t ch[ORC_MAX];
         int32_t r;
         uint16_t mask;
         uint32_t note, n, i, j;
-        if (!((pressed >> k) & 1u))
+        if (!((pressed >> k) & 1u) || ((orc_k >> k) & 1u))   /* (PLAY MODE CHORD: the chord block enters nothing) */
             continue;
         note = kb_map(t, k);
         if (note == KB_SILENT)
@@ -1342,7 +1366,10 @@ static void seq_entry(uint32_t pressed)
                 st->time = ST_NOTE;
             }
         }
-        n = chord_make(t, note, ch, &r, &mask);        /* (CHRD OFF, a kit: the note alone; MONO: the root) */
+        if (orc_k)                                     /* M-Vave-OP1, PLAY MODE CHORD: the Orchid's chord (orchid.c) */
+            n = orc_chord(note, orc_type(), (orc.down >> ORC_X6) & 15u, orc_voice[song.sel], trk_vmode(t) != V_POLY, ch);
+        else
+            n = chord_make(t, note, ch, &r, &mask);    /* (CHRD OFF, a kit: the note alone; MONO: the root) */
         if (add)
             step_toggle(t, st, ch, n);
         else if (t->p[P_VOICE] && !ENGINES[t->engine]->oneshot) {   /* (drums: hits stack as a chord) */
@@ -1358,7 +1385,7 @@ static void seq_entry(uint32_t pressed)
         }
         last_note = (uint8_t)note;
     }
-    if (ui.entry_open && !(fm1_in.notes & ~kb_layer)) {
+    if (ui.entry_open && !(fm1_in.notes & ~kb_layer & ~orc_k)) {   /* (a chord key held: the roots go on) */
         if (add)
             ui.entry_open = 0;                          /* (ADD: the cursor stays) */
         else
@@ -1876,7 +1903,7 @@ static void ui_input(void)
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
             || pg->graph == GR_SONG || pg->graph == GR_TAPE || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD || (pg->graph == GR_SLICES && k < 2u) ||
-            fop_page(pg->graph)) {   /* (not an empty
+            (pg->graph == GR_ARP && k < 3u && TSEL->p[P_AMODE] == AM_CHORD) || fop_page(pg->graph)) {   /* (not an empty
                                                                                                           * column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;
