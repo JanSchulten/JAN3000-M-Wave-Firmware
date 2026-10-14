@@ -157,6 +157,12 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
 
 ## Other changes to Felucca's workflow
 
+- **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
+  the cards in place of the scope: every page's values, the row the knobs edit raised. A tap of EDIT goes to the next
+  row. WHEEL, SAMPLE and FM6 keep their pictures.
+- **FX: two rows and the effect animated:** FX with SLICER, INSERT with INSERT 2, DLY, REVERB with CHORUS show their
+  rows and under them the effect moving (the sends, the slicer's gate, the insert's curve, the echoes, reverb rings or
+  the spring, the chorus waves), following the knobs.
 - **HOME shows the four tracks** by default. The oscilloscope is MENU > DISPLAY > HOME **SCOPE** (TRACKS, LEVELS,
   SCOPE).
 - **STEP, stopped: OCT+ adds a note, OCT- removes one.** OCT+ puts the note played last into the cursor step (KNOB 1
