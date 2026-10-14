@@ -426,6 +426,73 @@ static void graph_chord(const track_t *t, uint16_t c)
                  !on ? T_RAISE : note % 12u == (uint32_t)r % 12u ? T_ACCENT : c, T_SURF);
     }
 }
+/* M-Vave-OP1: EDIT's pages without a graph of their own (EDIT 1 / 2, FILTER, LANES, OP LEVEL, VOICE 1..3) shown as rows,
+ * four to a screen in place of the scope: the run of such pages (as EDIT's taps go round them, ui.c open_family) the
+ * page is in, cut in fours. -> the rows' page indices in r, their number (0: page is no such page) */
+static int edit_row_page(uint32_t i)                /* (WHEEL, SAMPLE, FM6: their EDIT pages draw the engine) */
+{
+    const engine_t *e = ENGINES[TSEL->eng_req % NENGINES];
+    if (PAGES[i].fam != FAM_EDIT || PAGES[i].graph != GR_NONE)
+        return 0;
+#if FELUCCA_FM4
+    if (PAGES[i].id[0] == P_FM1_LEVEL && TSEL->eng_req % NENGINES == ENGI_DIGITAL)
+        return 0;
+#endif
+    return PAGES[i].scope != SC_ENGINE || !(e == &ENG_WHEEL || e == &ENG_SAMPLE || TSEL->eng_req % NENGINES == ENGI_FM6
+#if FELUCCA_FM4
+                                            || TSEL->eng_req % NENGINES == ENGI_DIGITAL
+#endif
+                                            );
+}
+static uint32_t edit_rows(uint32_t page, uint8_t *r)
+{
+    uint32_t i, n = 0, mine = 0;
+    if (page >= NPAGES || !edit_row_page(page))
+        return 0;
+    for (i = 0; i < NPAGES; i++) {
+        if (PAGES[i].fam != FAM_EDIT || !page_visible(i))
+            continue;
+        if (!edit_row_page(i) || n == 4u) {            /* a page with its own graph ends a run, four fill a screen */
+            if (mine)
+                return n;
+            n = 0;
+            if (!edit_row_page(i))
+                continue;
+        }
+        r[n++] = (uint8_t)i;
+        mine |= i == page;
+    }
+    return mine ? n : 0;
+}
+/* .. the rows: each page's four values under their labels in the columns of the cards above; the row the knobs edit
+ * (the page shown, its cards above) on a raised band, the others quieter */
+static void graph_rows(const uint8_t *r, uint32_t n)
+{
+    uint32_t j, c, k;
+    for (j = 0; j < n; j++) {
+        const page_t *pg = &PAGES[r[j]];
+        int32_t y = 4 + (int32_t)j * 29;
+        uint32_t on = r[j] == ui.page;
+        uint16_t bg = on ? T_RAISE : T_SURF;
+        if (on)
+            cv_rrect(6, y, 228, 27, 4, T_RAISE, T_SURF);
+        for (c = 0; c < 4u; c++) {
+            int16_t *vp;
+            const char *unit = "";
+            char val[24];
+            const param_desc_t *d = page_desc(pg, c, &vp);
+            if (!d || !vp)
+                continue;
+            param_format(d, *vp, val, &unit);
+            if (unit && unit[0] && (k = str_len(val)) + str_len(unit) + 2u < sizeof val) {
+                val[k] = ' ';
+                str_cpy(val + k + 1u, unit, (unsigned)(sizeof val - k - 1u));
+            }
+            cv_text_fit(CARD_X(c) + 6, y + 2, &AF_S, d->label, on ? T_MID : T_DIM, bg, CARD_W - 10);
+            cv_text_fit(CARD_X(c) + 6, y + 14, &AF_S, val, on ? T_TEXT : T_MID, bg, CARD_W - 10);
+        }
+    }
+}
 /* M-Vave-OP1, SCL > ORCHID (orchid.c), as the Orchid shows a chord (its Geek Out view: the name, the keyboard, the
  * notes): the last chord's name large in the middle, its extensions after it in the accent; under it two octaves of
  * keys from the C below its lowest note (three when it spans more), its notes lit, the root in the accent; then its
@@ -1258,12 +1325,13 @@ static uint32_t graph_signature(void)
     const page_t *pg = cur_page();
     const track_t *t = TSEL;
     uint32_t h = 2166136261u, i;
+    uint8_t rr[4];
     if (ui.home)
         return h ^ (ui.frame / 2u);                  /* scope: redraw every other frame */
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u + ui.page * 1291u;
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;
-    if (pg->graph == GR_NONE || pg->graph == GR_ARP) h ^= ui.frame / 2u;
+    if ((pg->graph == GR_NONE && !edit_rows(ui.page, rr)) || pg->graph == GR_ARP) h ^= ui.frame / 2u;
     if (pg->graph == GR_ORCH)                        /* M-Vave-OP1, SCL > ORCHID: the block, the last chord, ON */
         h ^= (orc.gen * 2654435761u) ^ (orc.lgen * 40503u) ^ ((uint32_t)orc.lock << 9) ^ ((uint32_t)(uint8_t)orc_voice[song.sel] << 17) ^
              (uint32_t)t->engine * 389u ^ (uint32_t)orc_en << 24;   /* (ROOT ONLY follows the sounding engine) */
@@ -2636,7 +2704,8 @@ static void draw_graph(void)
     const page_t *pg = cur_page();
     const track_t *t = TSEL;
     uint16_t c = ACC;
-    uint32_t sig;
+    uint32_t sig, nr;
+    uint8_t rr[4];
     if (!ui.home && pg->graph == GR_TRK) {
         draw_tracks();
         return;
@@ -2666,6 +2735,9 @@ static void draw_graph(void)
     } else if (ui.home) {
         cv_oy = 0;
         graph_scope(c);
+    } else if ((nr = edit_rows(ui.page, rr)) != 0) {  /* M-Vave-OP1: EDIT's rows */
+        cv_oy = 0;
+        graph_rows(rr, nr);
     } else {
         switch (pg->graph) {
         case GR_ADSR:
