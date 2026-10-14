@@ -28,7 +28,8 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"REVERB", "[K1]ROOM SPRING HALL[FX]CHORUS"},
     {"CHORUS", "[K1-4]ALL TRACKS[FX]FX"},
     {"SCL", "[K2]SCALE[K3]QUANTIZE[SCL]CHORDS"},
-    {"CHORD", "[K1]CHORD[KEYS]ONE FINGER[SCL]SCL"},
+    {"CHORD", "[K1]CHORD[SCL]ORCHID"},
+    {"ORCHID", "[K1]ON[K2]VOICE[K3]LOCK"},   /* (M-Vave-OP1, orchid.c) */
     {"EDIT 1", H_EDIT},
     {"EDIT 2", H_EDIT},
     {"FILTER", "[K1]LP BP HP[K2]CUTOFF[EDIT]VOICE"},
@@ -53,8 +54,8 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"PHRASES", "[K1]PHRASE[OCT+]LOAD[SAVE]PROJECT"},
     {"PROJECT", "[K1]SLOT[K4]SAVE[EDIT]NAME"},
     {"TOOLS", "[K1]CLEAR[K2]INIT SOUND[OCT+]DO"},
-    {"PLAY MODE", "[K1]MODE: ARP, CHORD[ARP]PAGE 2"},   /* (M-Vave-OP1: Felucca's ARP; CHORD: orchid.c) */
-    {"PLAY MODE 2", "[K3]LATCH[K4]ORDER[ARP]PAGE 1"},
+    {"ARP", "[K1]MODE[KEYS]CHORD[ARP]ARP 2"},
+    {"ARP 2", "[K3]LATCH[K4]ORDER[ARP]ARP"},
     {"STEP", "[KEYS]WRITE[K1]STEP[SEQ]RATCH"},   /* (1.5.1: SEQ to DETAIL) */
     {"DETAIL", "[PRESETS]STEP[K1]CHANCE[K2]RATCH"},
     {"AUTOMATION", "[K1]ROW[OCT+]DO[EDIT]DELETE"},

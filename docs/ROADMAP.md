@@ -33,7 +33,7 @@ into a sampler, album mode) do not.
 | Tape kept when switched off | one tape, as the OP-1's, in USR3's flash (two copies) | **done (M2)** |
 | Lift / drop / split | cut, copy and paste a loop region of the tape | planned (M3) |
 | Mixer | HOME > MIXER (level, pan, reverb send, mute) | from Felucca |
-| Sequencers | step sequencer with chance, ratchets, locks; arpeggiator (PLAY MODE) | from Felucca; Endless and Tombola planned (M5) |
+| Sequencers | step sequencer with chance, ratchets, locks; arpeggiator | from Felucca; Endless and Tombola planned (M5) |
 | Frequency modulators | LFO with sync, modulation matrix | from Felucca |
 | Playful screens | the TAPE cassette with turning reels | started (M1); per-engine screens planned (M4) |
 | Album / bounce | not possible without audio memory | out of scope |
@@ -52,7 +52,7 @@ And from the Telepathic Instruments Orchid, after ChoralRoot FM-1 (M2d):
 
 | Orchid | M-Vave-OP1 | Status |
 | --- | --- | --- |
-| Chord keys (type + extensions) left, roots right | **PLAY MODE CHORD**: F3 .. C#4 DIM MIN MAJ SUS, 6 m7 M7 9, LOCK; roots D4 .. G5; per track | **done (M2d)** |
+| Chord keys (type + extensions) left, roots right | **SCL > ORCHID**: F3 .. C#4 DIM MIN MAJ SUS, 6 m7 M7 9, LOCK; roots D4 .. G5; per track | **done (M2d)** |
 | Voicing up / down | KNOB 2 VOICE -12 .. +12, kept with the project | **done (M2d)** |
 | Latching chord keys | KNOB 3 / B3 LOCK, ChoralRoot's Clears / Toggle behaviour | **done (M2d)** |
 
@@ -119,23 +119,24 @@ SONG section plays: the four tracks' steps, timing and QUANTIZE, the automation 
   (flash: copies, a write cut short, damage, another project's, rename, autosave); `ui_test.c` follows the tools'
   new keys.
 
-### M2d: PLAY MODE CHORD, the Orchid's keyboard (done)
+### M2d: SCL > ORCHID, the Orchid's keyboard (done)
 
-Felucca's ARP page is PLAY MODE; its MODE CHORD (replacing Felucca's ARP CHORD, value 14 kept) is the Orchid's
-keyboard as ChoralRoot FM-1 by Quixotic7 (GPL-3.0) does it (`firmware/src/orchid.c`).
+The Orchid's keyboard as ChoralRoot FM-1 by Quixotic7 (GPL-3.0) does it (`firmware/src/orchid.c`), on SCL's third
+page ORCHID, switched on per track (it was the ARP page's MODE CHORD for one version; the ARP is Felucca's again).
 
-- The key input (`keyboard_block`) gives F3 .. C#4 to the chord block on a track in CHORD (not a kit, not on the DRUM
-  grid or a layer): they set a type / extension / LOCK state and sound nothing. A root key builds its chord when it
-  goes down (ChoralRoot's Simple style) through Felucca's own `key_on` / `key_off`, so the chord's notes go the same
-  way as a CHRD chord's: the voices, MIDI OUT, live recording, the TAPE. A one-voice part plays the root.
+- The key input (`keyboard_block`) gives F3 .. C#4 to the chord block on a track with ORCHID on (not a kit, not on
+  the DRUM grid or a layer): they set a type / extension / LOCK state and sound nothing. A root key builds its chord
+  when it goes down (ChoralRoot's Simple style) through Felucca's own `key_on` / `key_off`, so the chord's notes go
+  the same way as a CHRD chord's: the voices, the ARP, MIDI OUT, live recording, the TAPE. A one-voice part plays the
+  root.
 - LOCK and the latch are the ISR's state (`orc`), set by the keys in the ISR and by KNOB 3 through a request
-  (`orc_lock_req`) taken at the start of a block; reset with a project load. The ARP does not run in CHORD.
-- VOICE (-12 .. +12) per track is kept in the project extras (`proj_xtra_t.orc_voice`, appended; Felucca's own
-  project format and a Felucca firmware reading it unchanged).
-- The PLAY MODE page: MODE, VOICE, LOCK on the knobs, PLAY MODE 2 hidden in CHORD; the graph shows the chord's name
-  the Orchid's way, the block as keys and the notes. STEP entry writes the chord.
-- Tests: `tests/orchid_test.c` (types, extensions, VOICE, names, the key input, LOCK step by step as ChoralRoot's
-  manual, the page, LEDs, STEP entry, kept); `motion_test.c` checks the ARP takes no steps in CHORD.
+  (`orc_lock_req`) taken at the start of a block; reset with a project load.
+- ON (`orc_en`) and VOICE (-12 .. +12) per track are kept in the project extras (`proj_xtra_t`, appended; Felucca's
+  own project format unchanged).
+- The ORCHID page: ON, VOICE, LOCK on the knobs; the graph shows the chord the Orchid's way (the name large, a
+  keyboard with its notes, the notes by name). STEP entry writes the chord.
+- Tests: `tests/orchid_test.c` (types, extensions, VOICE, names, the key input, the ARP over a chord, LOCK step by
+  step as ChoralRoot's manual, the page, LEDs, STEP entry, kept).
 
 ### E1..E5: effects (E1, E2 done)
 

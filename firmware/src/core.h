@@ -132,6 +132,9 @@ static int drum_from_phys(uint32_t engine, int16_t *e)
 #define ENGI_SAMPLE 4u
 #define SMP_SET_PERC 4u
 #define DRUM_KIT_E {0, 64, 70, 64, 64, 100, 0, 0}   /* {KIT STD, TUNE, TONE, DECY, SNAP, ACC, KICK PUNCH, DRV} */
+/* M-Vave-OP1: a new DRUM sound (power-on, the engine picked, its preset) is the 808 model kit (KIT 80, eng_drum.c DK_80);
+ * old data converted as before keeps DRUM_KIT_E (STD) */
+#define DRUM_808_E {4, 64, 70, 64, 64, 100, 0, 0}
 static int drum_from_perc(uint32_t engine, int16_t *e)
 {
     static const int16_t KIT[8] = DRUM_KIT_E;
@@ -327,7 +330,7 @@ typedef struct track {
     uint32_t arp_idx;
     uint8_t arp_note;            /* sounding arp note, 0 = none */
     uint8_t arp_walk;            /* WALK: the place in the note list it stands on */
-    uint8_t arp_ch[3];           /* (unused since M-Vave-OP1: the ARP's CHORD is PLAY MODE CHORD, orchid.c) */
+    uint8_t arp_ch[3];           /* CHORD: the other notes sounding with arp_note, 0 = none */
     uint32_t arp_off;            /* q8 sample time of its note-off */
     /* sequencer */
     step_t step[NSTEP];

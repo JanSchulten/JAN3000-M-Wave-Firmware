@@ -729,6 +729,7 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
 static void proj_legacy_drums(track_t *t)
 {
     static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
+    static const int8_t KIT_E[8] = DRUM_KIT_E;    /* (M-Vave-OP1: the STD kit, as these projects always loaded) */
     const preset_t *pr = &ENGINES[ENGI_DRUM]->presets[0];
     uint32_t i;
     t->eng_req = ENGI_DRUM;
@@ -737,7 +738,7 @@ static void proj_legacy_drums(track_t *t)
         if (!param_kept(i))
             t->p[i] = TP[i].def;
     for (i = 0; i < 8u; i++)
-        t->p[P_E0 + i] = pr->e[i];
+        t->p[P_E0 + i] = KIT_E[i];
     t->p[P_ATK] = pr->env[0];
     t->p[P_DEC] = pr->env[1];
     t->p[P_SUS] = pr->env[2];
@@ -1273,7 +1274,8 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
-    h = as_mix(h, orc_voice, sizeof orc_voice);     /* PLAY MODE CHORD's VOICE too; */
+    h = as_mix(h, orc_voice, sizeof orc_voice);     /* SCL > ORCHID's VOICE and ON too; */
+    h = as_mix(h, &orc_en, 1);
     {                                               /* the scenes: the bank's bytes and the one playing, so a pick and */
         uint8_t c = scn.cur;                        /* back again writes nothing) */
         h = as_mix(h, scb.len, sizeof scb.len);

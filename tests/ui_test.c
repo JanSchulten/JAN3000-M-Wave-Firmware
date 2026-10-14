@@ -194,6 +194,7 @@ static void ui_power_on(void)
     orc_reset();                                  /* (M-Vave-OP1 PLAY MODE CHORD: nothing held or latched, VOICE 0) */
     memset(orc_voice, 0, sizeof orc_voice);
     kb_orc = 0;
+    orc_en = 0;
     orc_lock_req = 0;
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
     memset(&chain.source, 0, sizeof chain.source);
@@ -6353,14 +6354,14 @@ static int test_layer_knob_leak(void)
         btn_down(B_FX); frame(); turn(EN_K1, 4); btn_up(B_FX); frame();
         frames(320);
         turn(EN_K1, 1);
-        ok = TSEL->p[P_AMODE] == m + 1 && !perf_k[0] && str_eq(cur_page()->title, "PLAY MODE");
+        ok = TSEL->p[P_AMODE] == m + 1 && !perf_k[0] && str_eq(cur_page()->title, "ARP");
     }
     bad += check("  0.3 s after FX is let go KNOB 1 is ARP MODE again; a knob turned with FX opened no FX page", ok);
     /* a tap of FX with a knob turned in that frame: a combo, no FX page */
     ui_power_on();
     go_page(GR_ARP);
     btn_down(B_FX); frame(); lk_turn(1); btn_up(B_FX); frame(); frames(100);
-    bad += check("  FX tapped while a knob turns: no FX page, no ARP change", str_eq(cur_page()->title, "PLAY MODE") &&
+    bad += check("  FX tapped while a knob turns: no FX page, no ARP change", str_eq(cur_page()->title, "ARP") &&
                  TSEL->p[P_AMODE] == 0);
     return bad;
 }
@@ -8068,12 +8069,55 @@ static int lg_value_rows(uint32_t c)                    /* rows of card c's valu
             if (lg_px(x, y) == T_THEME) { n++; break; }
     return n;
 }
+/* M-Vave-OP1: on STEP, stopped, OCT+ adds the note played last to the cursor step, OCT- takes the step's last note out
+ * (a rest with none left); playing (and on other pages) OCT is the keyboard's octave as before */
+static int test_step_oct(void)
+{
+    int bad = 0, ok;
+    track_t *t;
+    ui_power_on();
+    stop_transport();
+    t = TSEL;
+    t->p[P_VOICE] = V_POLY;
+    track_defaults_steps(t);
+    go_page(GR_ROLL);
+    cursor_set(2);
+    frame();
+    key_down(5); frame(); key_up(5); frame();      /* (A#3 played: the note to add; not armed, nothing written) */
+    ok = !t->step[2].n && song.octave == 0;
+    press(B_OCTUP);
+    ok &= step_on(&t->step[2]) && t->step[2].n == 1u && t->step[2].note[0] == last_note && song.octave == 0;
+    key_down(9); frame(); key_up(9); frame();      /* (D4) */
+    press(B_OCTUP);
+    ok &= t->step[2].n == 2u && t->step[2].note[1] == last_note;
+    press(B_OCTUP);                                /* (the same again: there already) */
+    ok &= t->step[2].n == 2u;
+    press(B_OCTDN);
+    ok &= t->step[2].n == 1u && step_on(&t->step[2]);
+    press(B_OCTDN);
+    ok &= !step_on(&t->step[2]) && song.octave == 0;
+    bad += check("M-Vave-OP1 STEP stopped: OCT+ adds the note played last to the cursor step, OCT- takes the last out", ok);
+    song.playing = 1;
+    press(B_OCTUP);
+    ok = song.octave == 1 && !t->step[2].n;
+    song.playing = 0;
+    press(B_OCTDN);                                /* (stopped on STEP: an empty step, no note to take: nothing) */
+    ok &= song.octave == 1 && msg_is("NO NOTE HERE");
+    go_title("ENV");
+    press(B_OCTDN);
+    press(B_OCTDN);
+    ok &= song.octave == -1;
+    song.octave = 0;
+    bad += check("  playing, or another page: OCT the keyboard's octave as before", ok);
+    return bad;
+}
 static int test_large(void)
 {
     int bad = 0, ok;
     uint32_t c;
     static uint16_t off[240 * 240];
     ui_power_on();
+    ui_home_view = HV_SCOPE;                      /* (M-Vave-OP1: HOME's SCOPE view, the strip; TRACKS is the default) */
     song.playing = 0;
     frame();
     ok = !(ui_prefs & PREF_LARGE) && large_kind() == LK_OFF && card_h() == CARD_H && graph_y() == Y_GRAPH;
@@ -9110,9 +9154,9 @@ static int test_help(void)
     ok &= ui.help_t > 0u && cur_page()->graph == GR_USER && str_eq(help_page(), "[K1]SLOT[OCT+]SAVE[SAVE]PRESETS");
     press(B_HOME);
     ok &= ui.home && ui.help_t > 0u && str_eq(help_page(), H_HOME);
-    menu_put(MI_HOME, HV_LEVELS);
+    menu_put(MI_HOME, HVM_LEVELS);
     ok &= str_eq(help_page(), H_LEVELS);
-    menu_put(MI_HOME, HV_SCOPE);
+    menu_put(MI_HOME, HVM_SCOPE);
     menu_put(MI_HELP, 0);
     press(B_ENV);
     ok &= ui.help_t == 0u;
@@ -9130,12 +9174,14 @@ static int test_home_tracks(void)
     int16_t v0;
     ui_power_on();
     memcpy(before, favorites.factory[15], 32);
-    ok = ui_home_view == 0u && !home_tracks() && menu_get(MI_HOME) == 0u && menu_n(MI_HOME) == 3u &&
-         str_eq(MI_NAME[MI_HOME], "HOME") && str_eq(menu_vname(MI_HOME, 0), "SCOPE") &&
-         str_eq(menu_vname(MI_HOME, 1), "TRACKS") && str_eq(menu_vname(MI_HOME, 2), "LEVELS") &&   /* (1.5: LEVELS) */
+    ok = ui_home_view == 0u && home_tracks() && menu_get(MI_HOME) == HVM_TRACKS && menu_n(MI_HOME) == 3u &&
+         str_eq(MI_NAME[MI_HOME], "HOME") && str_eq(menu_vname(MI_HOME, 0), "TRACKS") &&   /* (M-Vave-OP1: TRACKS the */
+         str_eq(menu_vname(MI_HOME, 1), "LEVELS") && str_eq(menu_vname(MI_HOME, 2), "SCOPE") &&   /* default, SCOPE last) */
          MI_TAB[MI_HOME] == MTAB_DISPLAY && MI_HOME < MI_VALUES;
-    menu_put(MI_HOME, 1);
-    ok &= ui_home_view == 1u && home_tracks() && menu_get(MI_HOME) == 1u;
+    menu_put(MI_HOME, HVM_SCOPE);
+    ok &= ui_home_view == HV_SCOPE && !home_tracks() && menu_get(MI_HOME) == HVM_SCOPE;
+    menu_put(MI_HOME, HVM_TRACKS);
+    ok &= ui_home_view == 1u && home_tracks() && menu_get(MI_HOME) == HVM_TRACKS;
     for (i = 0; i < 32u; i++)                           /* (byte 26 only: SCREEN OFF, the 1.2 flags, the FX keys kept) */
         ok &= i == 26u || favorites.factory[15][i] == before[i];
     memset(&p, 0, sizeof p);
@@ -9143,31 +9189,31 @@ static int test_home_tracks(void)
     ok &= p.favorites.factory[15][26] == 1u;
     menu_put(MI_HOME, 0);
     ok &= settings_import(&p, (int)sizeof p) == 1 && ui_home_view == 1u;   /* (back from the record) */
-    ui_home_view = 9;                                   /* a later firmware's view: SCOPE here, kept as saved */
-    ok &= !home_tracks() && menu_get(MI_HOME) == 0u;
+    ui_home_view = 9;                                   /* a later firmware's view: TRACKS here, kept as saved */
+    ok &= home_tracks() && menu_get(MI_HOME) == HVM_TRACKS;
     settings_export(&p);
     ok &= settings_import(&p, (int)sizeof p) == 1 && ui_home_view == 9u;
-    bad += check("1.3 MENU > DISPLAY > HOME: SCOPE (0, the default) / TRACKS, its own settings byte, saved; unknown = SCOPE", ok);
+    bad += check("1.3 MENU > DISPLAY > HOME: TRACKS (the default, M-Vave-OP1) / LEVELS / SCOPE, its own byte, saved; unknown = TRACKS", ok);
 
     ui_power_on();
     hold(B_HOME);                                       /* the menu: DISPLAY, down to HOME, K1 right */
     for (i = 0; i < 7u; i++) turn(EN_PRESET, 1);
     ok = ui.menu == 1 && ui.menu_sel == MI_HOME;
-    turn(EN_K1, 1); ok &= home_tracks() && !home_levels();
-    turn(EN_K3, 1); ok &= home_levels();               /* (1.5: LEVELS, the last) */
-    turn(EN_K3, 1); ok &= home_levels();               /* (stops there) */
+    turn(EN_K1, 1); ok &= home_levels();               /* (M-Vave-OP1: TRACKS LEVELS SCOPE) */
+    turn(EN_K3, 1); ok &= !home_tracks();              /* (SCOPE, the last) */
+    turn(EN_K3, 1); ok &= !home_tracks();              /* (stops there) */
+    press(B_OCTDN); ok &= home_levels();
     press(B_OCTDN); ok &= home_tracks() && !home_levels();
-    press(B_OCTDN); ok &= !home_tracks();
-    press(B_OCTUP); ok &= home_tracks();
+    press(B_OCTUP); ok &= home_levels();
     press(B_HOME); frame();
     ok &= !ui.menu && ui.home;
-    bad += check("1.3 MENU: HOME's row (any knob, OCT+ / OCT-: SCOPE TRACKS LEVELS), the menu closed: HOME", ok);
+    bad += check("1.3 MENU: HOME's row (any knob, OCT+ / OCT-: TRACKS LEVELS SCOPE), the menu closed: HOME", ok);
 
     /* 1.5 (#134): HOME LEVELS: the rows of TRACKS, KNOB 1..4 the LEVEL of T1..T4 (the selected track's engine untouched),
      * MOMENTARY on any of them. And ANIM no longer sets
      * HOME (up to 1.4.1 its MENU row fell through into HOME's) */
     ui_power_on();
-    menu_put(MI_HOME, HV_LEVELS);
+    menu_put(MI_HOME, HVM_LEVELS);
     song.sel = 0;
     go_home(); frame();
     {
@@ -9193,17 +9239,17 @@ static int test_home_tracks(void)
         btn_up(B_LFO); frame();
         bad += check("1.5 HOME LEVELS: MOMENTARY (LFO held) on T3's LEVEL, back when LFO is let go",
                      ok && trk[2].p[P_LEVEL] == (int16_t)k && !mom.n);
-        menu_put(MI_HOME, HV_TRACKS);
+        menu_put(MI_HOME, HVM_TRACKS);
         lv[1] = trk[1].p[P_LEVEL];
         turn(EN_K2, 4);
         bad += check("1.5 HOME TRACKS (not LEVELS): KNOB 2 the selected track's engine again, no level",
                      trk[1].p[P_LEVEL] == lv[1] && !home_levels());
-        menu_put(MI_HOME, HV_LEVELS);
+        menu_put(MI_HOME, HVM_LEVELS);
         menu_put(MI_ANIM, 1u);
         ok = home_levels() && menu_get(MI_ANIM) == 1u;
         menu_put(MI_ANIM, 0u);
         ok &= home_levels() && menu_get(MI_ANIM) == 0u;
-        menu_put(MI_HOME, HV_SCOPE);
+        menu_put(MI_HOME, HVM_SCOPE);
         menu_put(MI_ANIM, 2u);
         ok &= !home_tracks() && menu_get(MI_ANIM) == 2u;
         menu_put(MI_ANIM, 0u);
@@ -9359,7 +9405,7 @@ static int test_no_flash(void)
                     ui_power_on();
                     ui_style = st ? ST_LINE : ST_FLAT;
                     ui_prefs = lg ? PREF_LARGE : 0u;
-                    ui_home_view = v == 2u;
+                    ui_home_view = v == 2u ? HV_TRACKS : HV_SCOPE;
                     if (v == 1u || v == 2u) {
                         ui.home = 1;
                         ui.force = 1;
@@ -9668,6 +9714,7 @@ int main(void)
     bad += test_usb_serial();
     bad += test_bpm_lock();
     bad += test_large();
+    bad += test_step_oct();
     bad += test_browse_no_pattern();
     bad += test_name();
     bad += test_edit_cycle();

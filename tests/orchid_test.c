@@ -1,20 +1,20 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
-/* PLAY MODE CHORD (firmware/src/orchid.c, the Orchid's keyboard after ChoralRoot FM-1), on the firmware's own sources
+/* SCL > ORCHID (firmware/src/orchid.c, the Orchid's keyboard after ChoralRoot FM-1), on the firmware's own sources
  * (ui_test.c's harness):
  *   CHORDS   the types (DIM MIN MAJ SUS) and the extensions (6 m7 M7 9) on a root as ChoralRoot's tables give them; a
  *            root alone or with extensions only: the single note; two types held: the one pressed last; VOICE up / down
  *            (the lowest up / the highest down an octave, a step out of 0..127 stops); the names the Orchid's way.
  *   KEYS     through the real key input (keyboard_block): F3 .. C4 the chord block (silent), D4 .. G5 the roots with the
- *            chord, a key's release ends exactly its notes; a track not in CHORD and a kit: the keys as ever; the ARP
- *            does not run in CHORD; a one-voice part: the root.
+ *            chord, a key's release ends exactly its notes; a track with ORCHID off and a kit: the keys as ever; the ARP
+ *            plays the chord's notes; a one-voice part: the root.
  *   LOCK     B3 latches; MIN held and let go stays; 6 and 9 toggle; MAJ resets to MAJ alone; the only type pressed again
  *            alone goes off when let go (the extensions kept for the next); LOCK off clears the latch; ChoralRoot's
  *            manual's example step by step.
- *   PAGE     PLAY MODE (Felucca's ARP): MODE CHORD, KNOB 2 VOICE, KNOB 3 LOCK; PLAY MODE 2 not shown with CHORD; the
+ *   PAGE     SCL > ORCHID (SCL's third page): KNOB 1 ON, KNOB 2 VOICE, KNOB 3 LOCK; the ARP page Felucca's again; the
  *            LEDs (the block down or latched lit, B3 with LOCK); STEP entry writes the chord (the block enters nothing,
- *            a type held: each root its own step); VOICE kept with the project (the extras), the latch not.
- *   With a directory: the PLAY MODE page's screens.
+ *            a type held: each root its own step); ON and VOICE kept with the project (the extras), the latch not.
+ *   With a directory: the ORCHID page's screens.
  * Built and run by tests/run_tests.sh. */
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
@@ -95,7 +95,7 @@ static void test_chords(void)
 /* ------------------------------------------------------------ KEYS --- */
 static void chord_track(uint32_t k)
 {
-    trk[k].p[P_AMODE] = AM_CHORD;
+    orc_en |= (uint8_t)(1u << k);
     trk[k].p[P_VOICE] = V_POLY;                   /* (track 1 is LEGATO at power-on: the root alone) */
     song.sel = (uint8_t)k;
 }
@@ -140,7 +140,7 @@ static void test_keys(void)
     key_up(black(2));
     ck("  MAJ + M7 held: Dmaj7; DIM pressed last counts; let go: MAJ again", ok);
     chord_track(1);
-    trk[1].p[P_AMODE] = 0;                        /* (track 2 normal: F3 a note) */
+    orc_en &= (uint8_t)~2u;                       /* (track 2 with ORCHID off: F3 a note) */
     key_down(0);
     ok = kb_note[0] != KB_SILENT && !kb_orc;
     key_up(0);
@@ -149,21 +149,24 @@ static void test_keys(void)
     key_down(black(1));
     ok &= !((kb_orc >> black(1)) & 1u);
     key_up(black(1));
-    ck("  a track not in CHORD, a kit in CHORD: the keys as ever (no chord block)", ok);
+    ck("  a track with ORCHID off, a kit with ORCHID on: the keys as ever (no chord block)", ok);
     chord_track(0);
-    trk[0].p[P_AHOLD] = 1;
+    trk[0].p[P_AMODE] = 1;                        /* (ARP UP) */
     transport_req = 1;
     for (i = 0; i < 4u; i++)
         blk();
     key_down(black(1));
     key_down(D4);
+    ok = trk[0].nheld == 3u && kb_chn[D4] == 3u;
     for (i = 0; i < 400u; i++)
         blk();
-    ok = !arp_on(&trk[0]) && !trk[0].arp_note && kb_chn[D4] == 3u;
+    ok &= trk[0].arp_note == 62u || trk[0].arp_note == 65u || trk[0].arp_note == 69u || !trk[0].arp_note;
     key_up(D4);
     key_up(black(1));
+    ok &= !trk[0].nheld;
+    trk[0].p[P_AMODE] = 0;
     stop_transport();
-    ck("  CHORD runs no ARP (Felucca's ARP CHORD is gone): the chord plays as held", ok);
+    ck("  the ARP (its own page again) plays the Orchid's chord: Dm's three notes held, the steps among them", ok);
     trk[0].p[P_VOICE] = V_MONO;
     key_down(black(1));
     key_down(D4);
@@ -238,24 +241,25 @@ static void test_page(const char *dir)
 {
     static const uint8_t DMIN[] = {62, 65, 69};
     uint32_t i, m, br;
-    int ok, seen2 = 0;
+    int ok;
     ui_power_on();
     stop_transport();
     song.sel = 0;
-    trk[0].p[P_AMODE] = 0;
     trk[0].p[P_VOICE] = V_POLY;
-    go_title("PLAY MODE");
-    ok = str_eq(cur_page()->title, "PLAY MODE") && cur_page()->graph == GR_ARP;
-    for (i = 0; i < NPAGES; i++)
-        seen2 |= str_eq(PAGES[i].title, "PLAY MODE 2") && page_visible(i);
-    ok &= seen2;
-    for (i = 0; i < 20u && TSEL->p[P_AMODE] != AM_CHORD; i++)
-        turn(EN_K1, 1);
-    ok &= TSEL->p[P_AMODE] == AM_CHORD;
-    for (i = 0, seen2 = 0; i < NPAGES; i++)
-        seen2 |= str_eq(PAGES[i].title, "PLAY MODE 2") && page_visible(i);
-    ok &= !seen2;
-    ck("PAGE: ARP is PLAY MODE (PLAY MODE 2 its second page); KNOB 1 to CHORD: PLAY MODE 2 not shown", ok);
+    go_title("CHORD");
+    frames(500);                                   /* (the harness's clock from 0 again: the last tap long past) */
+    press(B_SCL);                                  /* (SCL after CHORD: ORCHID) */
+    frames(400);                                   /* (a knob right after a page button: a combo, not the page's) */
+    ok = str_eq(cur_page()->title, "ORCHID") && cur_page()->fam == FAM_SCL && !orc_on(TSEL);
+    turn(EN_K1, 1);
+    ok &= orc_on(TSEL) && orc_en == 1u;
+    turn(EN_K1, -1);
+    ok &= !orc_on(TSEL);
+    turn(EN_K1, 1);
+    for (i = 0; i < NPAGES && !str_eq(PAGES[i].title, "ARP"); i++)
+        ;
+    ok &= i < NPAGES && PAGES[i].id[0] == P_AMODE;
+    ck("PAGE: SCL > CHORD > ORCHID, KNOB 1 ON / OFF (track 1's); the ARP page Felucca's again", ok);
     turn(EN_K2, 1);
     turn(EN_K2, 1);
     ok = orc_voice[0] == 2;
@@ -273,7 +277,7 @@ static void test_page(const char *dir)
     ok &= !orc.lock;
     ck("  KNOB 2 VOICE (-12..+12), KNOB 3 LOCK (taken by the ISR at the next block)", ok);
     if (dir)
-        screen_save(dir, "playmode_chord_idle");
+        screen_save(dir, "orchid_idle");
     turn(EN_K3, 1);
     blk();
     key_down(bk(ORC_MIN));
@@ -285,7 +289,7 @@ static void test_page(const char *dir)
     m = key_leds(&br);
     ok = ((m >> bk(ORC_MIN)) & 1u) && ((m >> bk(ORC_X9)) & 1u) && ((m >> bk(ORC_LOCK)) & 1u) && !((m >> bk(ORC_MAJ)) & 1u);
     if (dir)
-        screen_save(dir, "playmode_chord");
+        screen_save(dir, "orchid");
     key_up(D4);
     ck("  LEDs: the latched MIN and 9 lit, B3 lit with LOCK, MAJ dark; the page shows the chord (Dm 9)", ok);
     /* STEP entry (armed, stopped): the chord on a root, the block enters nothing; a type held, each root its own step */
@@ -319,15 +323,18 @@ static void test_page(const char *dir)
         project_store_t slot;
         orc_voice[0] = 5;
         orc_voice[2] = -3;
+        orc_en = 1u | 4u;
         ok = project_save_as(1, "ORC") == 0;
         slot = proj_slot[1];
         ui_power_on();
         proj_slot[1] = slot;
+        orc_en = 1u;
         tap(bk(ORC_LOCK));
+        ok &= orc.lock == 1u;
+        orc_en = 0;
         project_load(1);
-        ok &= orc_voice[0] == 5 && orc_voice[2] == -3 && orc_voice[1] == 0 && trk[0].p[P_AMODE] == AM_CHORD &&
-              !orc.lock && !orc.latch;
-        ck("  kept with the project: PLAY MODE CHORD and each track's VOICE; a load: LOCK off, nothing latched", ok);
+        ok &= orc_voice[0] == 5 && orc_voice[2] == -3 && orc_voice[1] == 0 && orc_en == (1u | 4u) && !orc.lock && !orc.latch;
+        ck("  kept with the project: ORCHID ON and each track's VOICE; a load: LOCK off, nothing latched", ok);
     }
 }
 

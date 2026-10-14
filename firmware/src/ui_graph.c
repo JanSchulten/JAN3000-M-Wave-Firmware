@@ -426,53 +426,84 @@ static void graph_chord(const track_t *t, uint16_t c)
                  !on ? T_RAISE : note % 12u == (uint32_t)r % 12u ? T_ACCENT : c, T_SURF);
     }
 }
-/* M-Vave-OP1, PLAY MODE CHORD (orchid.c): the last chord's name (the Orchid's), LOCK; the chord block as its keys (the
- * black ones above: DIM MIN MAJ SUS, the white ones: 6 m7 M7 LOCK 9), a key down or latched in the selection's fill,
- * LOCK on in the accent; under it the chord's notes as they sound */
-#define ORC_GX(i) (8 + 40 * (int32_t)(i))                 /* white key i (F G A B C): 36 px, 4 apart (x 8 .. 204) */
+/* M-Vave-OP1, SCL > ORCHID (orchid.c), as the Orchid shows a chord (its Geek Out view: the name, the keyboard, the
+ * notes): the last chord's name large in the middle, its extensions after it in the accent; under it two octaves of
+ * keys from the C below its lowest note (three when it spans more), its notes lit, the root in the accent; then its
+ * notes by name, and LOCK (or ROOT ONLY on a one-voice part). Before the first chord: where the roots are and the
+ * chord keys held or latched */
 static void graph_orc(const track_t *t)
 {
-    static const uint8_t BLK[4] = {ORC_DIM, ORC_MIN, ORC_MAJ, ORC_SUS}, BLK_AT[4] = {0, 1, 2, 4};   /* (C#: after C) */
-    static const uint8_t WHT[5] = {ORC_X6, ORC_XM7, ORC_XMA7, ORC_LOCK, ORC_X9};
-    static const char *const NM[9] = {"DIM", "MIN", "MAJ", "SUS", "6", "m7", "M7", "9", "LOCK"};
-    uint32_t i, k = trk_index(t), down = orc.down, last = orc.ln && orc.ltrk == k;
-    char b[12], x[12];
-    int32_t px;
-    if (!orc_on(t)) {
+    static const uint8_t BLACK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
+    static const char *const NM[8] = {"DIM", "MIN", "MAJ", "SUS", "6", "m7", "M7", "9"};
+    uint32_t i, j, k = trk_index(t), last = orc.ln && orc.ltrk == k, lo, cnt, w, down = orc.down;
+    char b[12], x[12], h[40];
+    const char *st = trk_vmode(t) != V_POLY ? "ROOT ONLY" : orc.lock ? "LOCK" : "";
+    int32_t px, gw, sx = 226 - (st[0] ? text_w(&AF_S, st) + 10 : 0);
+    if (chord_kit(t)) {
         panel_note("NO CHORDS ON KITS", 0, 0);
         return;
     }
-    if (last) {
+    if (!orc_on(t)) {
+        panel_note("ORCHID OFF", "[K1] ON: F3..C#4 CHORD KEYS", 0);
+        return;
+    }
+    if (last) {                                        /* the root large (L has no lower case: m / M / dim / sus in M) */
+        char r[4];
+        uint32_t rn;
         orc_name(b, x, orc.lroot, orc.ltype, orc.lext);
-        cv_text_on(14, 4, &AF_M, b, T_TEXT, T_SURF);
-        if (x[0]) {
-            GFX_HOOK_ALIGN(0, 0, 0, 4 + AF_M.asc, AL_B, "orchid extensions on the name's baseline");
-            cv_text_on(14 + text_w(&AF_M, b) + 4, 4 + AF_M.asc - AF_S.asc, &AF_S, x, T_ACCENT, T_SURF);
+        rn = b[1] == '#' ? 2u : 1u;
+        str_cpy(r, b, rn + 1u);
+        gw = text_w(&AF_L, r) + (b[rn] ? 2 + text_w(&AF_M, b + rn) : 0) + (x[0] ? 6 + text_w(&AF_M, x) : 0);
+        px = 120 - gw / 2;
+        cv_text_on(px, 4, &AF_L, r, T_TEXT, T_SURF);
+        px += text_w(&AF_L, r);
+        if (b[rn] || x[0])
+            GFX_HOOK_ALIGN(0, 0, 0, 4 + AF_L.asc, AL_B, "orchid chord's type and extensions on the root's baseline");
+        if (b[rn]) {
+            cv_text_on(px + 2, 4 + AF_L.asc - AF_M.asc, &AF_M, b + rn, T_TEXT, T_SURF);
+            px += 2 + text_w(&AF_M, b + rn);
         }
+        if (x[0])
+            cv_text_on(px + 6, 4 + AF_L.asc - AF_M.asc, &AF_M, x, T_ACCENT, T_SURF);
+        lo = orc.lnote[0] - orc.lnote[0] % 12u;
+        cnt = orc.lnote[orc.ln - 1u] - lo < 24u ? 24u : 36u;
     } else {
-        cv_text_on(14, 4 + AF_M.asc - AF_S.asc, &AF_S, "ROOTS D4 .. G5", T_MID, T_SURF);
+        GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "orchid idle line centred");
+        cv_text_in(0, 4 + AF_L.asc - AF_M.asc, 240, &AF_M, "PLAY A ROOT: D4 .. G5", T_MID, T_SURF);
+        lo = 60;
+        cnt = 24;
     }
-    if (trk_vmode(t) != V_POLY)                        /* MONO / LEGATO / UNISON: the root alone (as CHORD's) */
-        cv_text_r(226, 4 + AF_M.asc - AF_S.asc, &AF_S, "ROOT ONLY", T_MID, T_SURF);
-    else if (orc.lock)
-        cv_text_r(226, 4 + AF_M.asc - AF_S.asc, &AF_S, "LOCK", T_ACCENT, T_SURF);
-    for (i = 0; i < 9u; i++) {                         /* the block: the black keys, then the white ones */
-        uint32_t m = i < 4u ? BLK[i] : WHT[i - 4u], on = m == ORC_LOCK ? orc.lock : (down >> m) & 1u;
-        int32_t cx = i < 4u ? ORC_GX(BLK_AT[i]) + 38 : ORC_GX(i - 4u), y = i < 4u ? 28 : 52, w = i < 4u ? 30 : 36;
-        uint16_t fill = !on ? T_RAISE : m == ORC_LOCK ? T_ACCENT : T_THEME;
-        if (i < 4u)
-            cx -= w / 2;
-        cv_rrect(cx, y, w, 20, 4, fill, T_SURF);
-        GFX_HOOK_ALIGN(cx, y, cx + w, y + 20, AL_HV, "orchid block key name centred");
-        cv_text_in(cx, y + CAP_IN(S, 20), w, &AF_S, NM[m], on ? T_INK : T_MID, fill);
+    w = 216u / cnt;
+    GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H | AL_CELLS | AL_N(cnt), "orchid keys centred");
+    for (i = 0; i < cnt; i++) {                        /* the keys: the black ones raised, the chord's lit */
+        uint32_t note = lo + i, on = 0;
+        int32_t kx = 13 + (int32_t)(i * w);             /* (216 px of keys and their gaps: x 13 .. 227) */
+        for (j = 0; last && j < orc.ln && j < ORC_MAX; j++)
+            on |= orc.lnote[j] == note;
+        cv_rrect(kx, BLACK[note % 12u] ? 40 : 52, (int32_t)w - 2, 32, w > 6u ? 3 : 2,
+                 !on ? T_RAISE : note % 12u == orc.lroot % 12u ? T_ACCENT : T_THEME, T_SURF);
     }
-    for (i = 0, px = 14; last && i < orc.ln && i < ORC_MAX; i++) {   /* the notes, low to high */
-        note_name(b, orc.lnote[i]);
-        if (px + text_w(&AF_S, b) > 226)
-            break;
-        cv_text_on(px, 80, &AF_S, b, i == 0u ? T_TEXT : T_MID, T_SURF);
-        px += text_w(&AF_S, b) + 8;
+    if (st[0])
+        cv_text_r(226, 92, &AF_S, st, orc.lock && trk_vmode(t) == V_POLY ? T_ACCENT : T_MID, T_SURF);
+    if (last) {                                        /* the notes, low to high */
+        for (i = 0, px = 14; i < orc.ln && i < ORC_MAX; i++) {
+            note_name(b, orc.lnote[i]);
+            if (px + text_w(&AF_S, b) > sx)
+                break;
+            cv_text_on(px, 92, &AF_S, b, i == 0u ? T_TEXT : T_MID, T_SURF);
+            px += text_w(&AF_S, b) + 8;
+        }
+        return;
     }
+    for (i = 0, j = 0, h[0] = 0; i < 8u; i++)          /* nothing played yet: the chord keys held or latched */
+        if ((down >> i) & 1u) {
+            if (j)
+                h[j++] = ' ';
+            str_cpy(h + j, NM[i], (unsigned)(sizeof h - j));
+            j = str_len(h);
+        }
+    if (h[0] && text_w(&AF_S, h) <= sx - 14)
+        cv_text_on(14, 92, &AF_S, h, T_TEXT, T_SURF);
 }
 /* the four sends as faders under their cards: a RAISE slot, the THEME fill from the bottom, a cap */
 static void graph_fx(const track_t *t, uint16_t c)
@@ -1232,10 +1263,10 @@ static uint32_t graph_signature(void)
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u + ui.page * 1291u;
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;
-    if (pg->graph == GR_NONE || (pg->graph == GR_ARP && t->p[P_AMODE] != AM_CHORD)) h ^= ui.frame / 2u;
-    if (pg->graph == GR_ARP && t->p[P_AMODE] == AM_CHORD)   /* M-Vave-OP1, PLAY MODE CHORD: the block, the last chord */
+    if (pg->graph == GR_NONE || pg->graph == GR_ARP) h ^= ui.frame / 2u;
+    if (pg->graph == GR_ORCH)                        /* M-Vave-OP1, SCL > ORCHID: the block, the last chord, ON */
         h ^= (orc.gen * 2654435761u) ^ (orc.lgen * 40503u) ^ ((uint32_t)orc.lock << 9) ^ ((uint32_t)(uint8_t)orc_voice[song.sel] << 17) ^
-             (uint32_t)t->engine * 389u;             /* (ROOT ONLY follows the sounding engine) */
+             (uint32_t)t->engine * 389u ^ (uint32_t)orc_en << 24;   /* (ROOT ONLY follows the sounding engine) */
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u +
@@ -2659,12 +2690,9 @@ static void draw_graph(void)
             cv_oy = 0;
             graph_chord(t, c);
             break;
-        case GR_ARP:                                 /* PLAY MODE: the scope; CHORD (M-Vave-OP1): the Orchid's block */
+        case GR_ORCH:                                /* M-Vave-OP1: SCL > ORCHID, the chord the Orchid's way */
             cv_oy = 0;
-            if (t->p[P_AMODE] == AM_CHORD)
-                graph_orc(t);
-            else
-                graph_scope(c);
+            graph_orc(t);
             break;
         case GR_FX:
             graph_fx(t, c);

@@ -97,18 +97,24 @@ params.c, ui.c, ui_input.c, ui_draw.c, ui_graph.c, ui_help.c and icons.c; recipe
 - opstore.c: the banks in USR2 (`scb_write`, `scb_load`, `scb_retag`), tagged with `xtra_id` like the extras; the
   autosave's signature hashes the bank's bytes, so a pick and back again writes nothing.
 
-## M2d: PLAY MODE CHORD (the Orchid's keyboard)
+## M2d: SCL > ORCHID (the Orchid's keyboard)
 
-- `orchid.c` (included by seq.c after the AM_* enum): ARP MODE 14 (`AM_CHORD`, Felucca's ARP CHORD, replaced) makes
+- `orchid.c` (included by seq.c after the AM_* enum): a track with its `orc_en` bit (SCL > ORCHID's KNOB 1) makes
   F3 .. C#4 the chord block (`ORC_KEY`, `orc_press` / `orc_release`: ChoralRoot FM-1's `cu_mod_press`, noinline, once
   a press) and D4 .. G5 roots: `key_on` asks `orc_build` instead of `chord_build`, into the same `kb_chord[k]` (now 7
-  wide), so the notes go Felucca's way (voices, MIDI OUT, live recording, the TAPE). `arp_on(t)` is every ARP check
-  now (MODE set and not CHORD).
-- `keyboard_block` marks block keys in `kb_orc` (their release goes back to `orc_release`), only for a track in CHORD
-  that is not a kit and with no layer or DRUM grid. `orc_lock_req` (KNOB 3) is taken at the start of a block.
-- VOICE per track (`orc_voice[NTRK]`) is in the extras (`proj_xtra_t`, `XTRA_V2`); LOCK and the latch are runtime
-  (`orc_reset` on a project load). The page: `page_desc` / `draw_columns` / `edit_param` special-case GR_ARP in
-  CHORD (`orc_knob`), `graph_orc` draws it, the signature hashes `orc.gen`, `orc.lgen`, LOCK, VOICE.
+  wide), so the notes go Felucca's way (voices, the ARP, MIDI OUT, live recording, the TAPE).
+- `keyboard_block` marks block keys in `kb_orc` (their release goes back to `orc_release`), only for a track with
+  ORCHID on that is not a kit and with no layer or DRUM grid. `orc_lock_req` (KNOB 3) is taken at the start of a block.
+- ON (`orc_en`) and VOICE per track (`orc_voice[NTRK]`) are in the extras (`proj_xtra_t`, `XTRA_V2`); LOCK and the
+  latch are runtime (`orc_reset` on a project load). The page GR_ORCH: `draw_columns` / `edit_param` special-case it
+  (`orc_knob`), `graph_orc` draws it, the signature hashes `orc.gen`, `orc.lgen`, LOCK, VOICE, ON.
+
+## M-Vave-OP1 defaults
+
+- HOME: `ui_home_view` 0 (Felucca's SCOPE) and 1 are TRACKS, 2 LEVELS, 3 SCOPE; the menu steps TRACKS LEVELS SCOPE
+  (`HVM_*`).
+- STEP, stopped: OCT+ / OCT- add / remove a note of the cursor step (ui_input.c `step_oct`); the octave elsewhere.
+- DRUM's preset is the 808 model kit (core.h `DRUM_808_E`); migrations of old data keep `DRUM_KIT_E` (STD).
 
 ## E1: FX1 CLOUD
 

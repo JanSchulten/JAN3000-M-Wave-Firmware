@@ -67,7 +67,7 @@ ENG_MEM_FITS("DRUM", sizeof(drum_lane_t) * DV_NLANE);
 static uint8_t drum_mute[NPART];
 
 /* 1..3 named as the kit they play: aliases, never shown or offered (EDITOR_PROTOCOL.md: retired values) */
-static const char *const N_DRUM_KIT[] = {"STD", "66", "10", "77", "80", "10", "66", "55", "77"};
+static const char *const N_DRUM_KIT[] = {"STD", "66", "10", "77", "808", "10", "66", "55", "77"};   /* (M-Vave-OP1: 80 shown 808) */
 static const char *const N_DRUM_KICK[] = {"PUNCH", "ROUND"};
 
 /* General MIDI notes 35..81 -> the drum (DVT_*; DVT_PUNCH: the kick KICK picks) and semitones from its
@@ -314,7 +314,8 @@ static int32_t drum_keys(const track_t *t, uint32_t k)
 
 /* {KIT, TUNE, TONE, DECY, SNAP, ACC, KICK, DRV}; every kit suggests the BEAT pattern (GM notes) */
 static const preset_t DRUM_PRESETS[] = {
-    {"DRUM KIT", DRUM_KIT_E, {0, 100, 127, 100}, 0, 0, FX(0, 0, 0, 20), PAT(12)},   /* (core.h: SAMPLE PERC's too) */
+    {"808 KIT", DRUM_808_E, {0, 100, 127, 100}, 0, 0, FX(0, 0, 0, 20), PAT(12)},   /* (M-Vave-OP1: the 808 model kit;
+                                                                                  * Felucca's DRUM KIT was STD) */
 };
 
 static const engine_t ENG_DRUM = {

@@ -300,15 +300,29 @@ static int arp_new_modes(void)
     arp_fresh(t, AM_THUMB, 1, CEGB, 4); ok &= arp_plays(t, (const uint8_t[]){60, 64, 60, 67, 60, 71, 60}, 7);
     arp_fresh(t, AM_THUMB, 1, CEG, 1);  ok &= arp_plays(t, (const uint8_t[]){60, 60, 60}, 3);   /* (one note) */
     bad += check("ARP PINKY: C G E G, C B E B G B, the OCT 2 top; THUMB: C E C G, C E C G C B; one note", ok);
-    /* CHORD (M-Vave-OP1): PLAY MODE's chord block (orchid.c; orchid_test.c), no longer an ARP mode: no steps */
+    /* CHORD: the held notes together, an octave up each step through OCT; the first 4 of more */
     arp_fresh(t, AM_CHORD, 2, CEG, 3);
-    ok = !arp_on(t);
+    ok = 1;
     for (i = 0; i < 4u; i++) {
+        uint32_t o = 12u * (i & 1u);
         t->arp_pos = 0xFFFFFFF;
         arp_tick(t, CTL);
-        ok &= !t->arp_note;
+        ok &= t->arp_note == 60u + o && t->arp_ch[0] == 64u + o && t->arp_ch[1] == 67u + o && !t->arp_ch[2];
     }
-    bad += check("PLAY MODE CHORD: the ARP takes no steps (Felucca's ARP CHORD replaced by the Orchid's chords)", ok);
+    arp_fresh(t, AM_CHORD, 1, FIVE, 5);
+    t->arp_pos = 0xFFFFFFF;
+    arp_tick(t, CTL);
+    ok &= t->arp_note == 60u && t->arp_ch[0] == 64u && t->arp_ch[1] == 67u && t->arp_ch[2] == 71u;
+    t->arp_off = 1;                                    /* its gate ends: all four end */
+    arp_tick(t, 2);
+    ok &= !t->arp_note && !t->arp_ch[0] && !t->arp_ch[1] && !t->arp_ch[2];
+    arp_fresh(t, AM_CHORD, 1, CEG, 3);
+    t->arp_pos = 0xFFFFFFF;
+    arp_tick(t, CTL);
+    arp_remove(t, 60); arp_remove(t, 64); arp_remove(t, 67);
+    arp_tick(t, CTL);                                  /* let go: the chord ends */
+    ok &= !t->nheld && !t->arp_note && !t->arp_ch[0] && !t->arp_ch[1];
+    bad += check("ARP CHORD: C E G together, then an octave up (OCT 2); 5 held: the first 4; the gate and a release end them all", ok);
     /* WALK: from the bottom, one place up or down each step, inside the list; the same from the same seed */
     ok = 1;
     for (k = 0; k < 2u; k++) {
@@ -368,7 +382,28 @@ static int arp_new_modes(void)
     ok &= arp_plays(t, (const uint8_t[]){60, 67, 60, 72}, 4);
     t->p[P_AMODE] = AM_REPEAT;
     ok &= arp_plays(t, (const uint8_t[]){67, 67}, 2);
-    bad += check("ARP REPEAT switched to THUMB and back: each plays its own", ok);
+    t->p[P_AMODE] = AM_CHORD;
+    t->arp_pos = 0xFFFFFFF;
+    arp_tick(t, CTL);
+    ok &= t->arp_ch[0] && t->arp_ch[1];
+    t->p[P_AMODE] = AM_REPEAT;
+    ok &= arp_plays(t, (const uint8_t[]){67}, 1);      /* (CHORD's other notes ended) */
+    bad += check("ARP REPEAT switched to THUMB and back, CHORD to REPEAT: each plays its own", ok);
+    /* recording: CHORD writes its notes into one step, as the keys' chords (POLY) */
+    song.sel = 0; song.rec = 1;
+    t->p[P_VOICE] = V_POLY;
+    for (i = 0; i < NSTEP; i++)
+        t->step[i] = (step_t){0};
+    seq_start();
+    seq_tick(t, CTL);
+    arp_fresh(t, AM_CHORD, 1, CEG, 3);
+    t->arp_pos = 0xFFFFFFF;
+    arp_tick(t, CTL);
+    for (i = 0, k = 0; i < NSTEP; i++)
+        k += t->step[i].n == 3u && t->step[i].note[0] == 60 && t->step[i].note[1] == 64 && t->step[i].note[2] == 67;
+    seq_stop();
+    song.rec = 0;
+    bad += check("ARP CHORD recorded: C E G into one step", k == 1u);
     arp_fresh(t, AM_OFF, 1, CEG, 0);
     return bad;
 }

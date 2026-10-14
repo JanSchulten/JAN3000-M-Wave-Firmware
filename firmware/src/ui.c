@@ -78,8 +78,11 @@ static uint32_t up_gen;                      /* bumped on every user bank change
  * engine uses, saved with the settings; 0 in older settings = SCOPE; an unknown value (a later firmware's view) reads as
  * SCOPE and is kept as saved (1.3 / 1.4 read LEVELS so) */
 #define ui_home_view (favorites.factory[15][26])
-enum { HV_SCOPE, HV_TRACKS, HV_LEVELS, HV_COUNT };
-static int home_tracks(void) { return ui_home_view == HV_TRACKS || ui_home_view == HV_LEVELS; }
+/* M-Vave-OP1: HOME is the tracks by default; the scope is MENU > DISPLAY > HOME SCOPE. The byte: 0 (Felucca's SCOPE,
+ * the old default) and 1 TRACKS, 2 LEVELS, 3 SCOPE; anything else TRACKS. The menu steps TRACKS LEVELS SCOPE (HVM_*) */
+enum { HV_OLD, HV_TRACKS, HV_LEVELS, HV_SCOPE, HV_COUNT };
+enum { HVM_TRACKS, HVM_LEVELS, HVM_SCOPE, HVM_COUNT };
+static int home_tracks(void) { return ui_home_view != HV_SCOPE; }
 static int home_levels(void) { return ui_home_view == HV_LEVELS; }
 enum { RP_CLICK, RP_LEVEL, RP_COUNTIN };
 static uint32_t rp_get(uint32_t f)                     /* a field as the MENU steps it: 0..2 */
@@ -395,8 +398,6 @@ static int page_visible(uint32_t i)
 {
     if (PAGES[i].graph == GR_CLOUD)                   /* M-Vave-OP1: FX1's own page by its TYPE (fx1.c) */
         return fx1s.type == FX1_CLOUD;
-    if (PAGES[i].fam == FAM_ARP && PAGES[i].graph != GR_ARP)   /* M-Vave-OP1: PLAY MODE 2, the ARP's, not with CHORD */
-        return TSEL->p[P_AMODE] != PM_CHORD;
     if (PAGES[i].scope == SC_GLOBAL && PAGES[i].id[0] == G_DTIME)
         return fx1s.type != FX1_CLOUD;
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)
@@ -1250,8 +1251,10 @@ static void apply_preset_to(track_t *t, uint32_t pi)
     }
 #endif
     if (t->eng_req % NENGINES == ENGI_SAMPLE && pi == SMP_SET_PERC) {   /* SAMPLE preset 4 was PERC (retired, a stored */
-        set_engine_of(t, ENGI_DRUM);                  /* number: the editor's PRESET, a favourite): DRUM's kit */
-        return;                                       /* (core.h drum_from_perc) */
+        static const int16_t KIT[8] = DRUM_KIT_E;     /* number: the editor's PRESET, a favourite): DRUM's kit */
+        set_engine_of(t, ENGI_DRUM);                  /* (core.h drum_from_perc; M-Vave-OP1: STD as ever, the 808 */
+        memcpy(&t->p[P_E0], KIT, sizeof KIT);         /* the new sounds') */
+        return;
     }
     load_begin(t, UNDO_SOUND);
     panic_req |= (uint8_t)(1u << trk_index(t));       /* MONO/POLY may change: release what sounds */

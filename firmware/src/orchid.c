@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
-/* PLAY MODE CHORD (M-Vave-OP1): the keyboard as the Telepathic Instruments Orchid's, after ChoralRoot FM-1 by
+/* SCL > ORCHID (M-Vave-OP1): the keyboard as the Telepathic Instruments Orchid's, after ChoralRoot FM-1 by
  * Quixotic7 (GPL-3.0, https://github.com/Quixotic7/ChoralRootFM1: its chord block, chord tables, voicing rotation
- * and LOCK latch, ported with its default settings). Included by seq.c after the ARP's modes. A track whose PLAY MODE
- * (P_AMODE, the ARP's MODE up to here) is CHORD and that is no kit (chord.c chord_kit), on the selected track:
+ * and LOCK latch, ported with its default settings). Included by seq.c after the ARP's modes. A track with ORCHID on
+ * (orc_en, SCL > ORCHID's KNOB 1, kept in the project's extras) that is no kit (chord.c chord_kit), on the selected
+ * track (it comes before the track's CHRD):
  *   F#3 G#3 A#3 C#4 (black)  DIM MIN MAJ SUS   the chord's type while held (two held: the one pressed last)
  *   F3 G3 A3 C4 (white)      6 m7 M7 9         extensions while held; they stack (they need a type)
  *   B3                       LOCK              a tap: the chord block latches, or no more
  *   D4 .. G5 (18 keys)       roots             a single note alone, the chord with a type held or latched
  * The chord is fixed when its root goes down (ChoralRoot's Simple play style): the root, the type's tones (DIM 3 6,
- * MIN 3 7, MAJ 4 7, SUS 5 7 semitones), the extensions' (6: 9, m7: 10, M7: 11, 9: 14), then VOICE (PLAY MODE's KNOB 2,
+ * MIN 3 7, MAJ 4 7, SUS 5 7 semitones), the extensions' (6: 9, m7: 10, M7: 11, 9: 14), then VOICE (ORCHID's KNOB 2,
  * -12..+12, a track's: orc_voice, kept in the project's extras, opstore.c): each step up the lowest note an octave up,
  * each step down the highest an octave down, a step that would leave 0..127 stops there. Up to ORC_MAX notes. The root
  * key is mapped as any key (kb_map: the octave, TRN, QNT); a one-voice part (MONO / LEGATO / UNISON) plays the root
@@ -38,16 +39,16 @@ static volatile struct {
     uint8_t lock;                                /* LOCK on */
     uint8_t order[4];                            /* the types in the order pressed, the last at [3] (ORC_NONE: none) */
     uint8_t gen;                                 /* bumped by every change (the UI's signature) */
-    uint8_t ltrk, lroot, ltype, lext, ln, lnote[ORC_MAX], lgen;   /* the last chord played (the PLAY MODE page) */
+    uint8_t ltrk, lroot, ltype, lext, ln, lnote[ORC_MAX], lgen;   /* the last chord played (the ORCHID page) */
 } orc = {0, 0, 0, 0, 0, 0, {ORC_NONE, ORC_NONE, ORC_NONE, ORC_NONE}, 0, 0, 0, ORC_NONE, 0, 0, {0}, 0};
 static int8_t orc_voice[NTRK];                   /* main: each track's VOICE (-12..+12) */
+static uint8_t orc_en;                           /* main: bit k, track k plays the Orchid's keyboard (ORCHID ON) */
 static uint32_t kb_orc;                          /* ISR: the keys the chord block took (their release is its too) */
-_Static_assert(AM_CHORD == PM_CHORD, "PLAY MODE CHORD: params.c's number for it");
 _Static_assert(sizeof kb_chord[0] >= ORC_MAX, "a key's chord holds the Orchid's");
 static volatile uint8_t orc_lock_req;            /* main: 1 LOCK off, 2 LOCK on; the ISR takes it (orc_poll) */
 
 /* track t plays the Orchid's keyboard */
-static int orc_on(const track_t *t) { return t->p[P_AMODE] == AM_CHORD && !chord_kit(t); }
+static int orc_on(const track_t *t) { return ((orc_en >> trk_index(t)) & 1u) && !chord_kit(t); }
 
 /* the type the chord takes: the last pressed of those down (ORC_NONE: none) */
 static uint32_t orc_type(void)

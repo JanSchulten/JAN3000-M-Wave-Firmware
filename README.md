@@ -7,7 +7,7 @@ This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo 
 storage, engines and tests, and builds an OP-1-style workflow on top: a four-track tape, and from the
 OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
 switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and, after ChoralRoot FM-1, the
-Orchid's chord keyboard as PLAY MODE CHORD. What is planned next is in the [roadmap](docs/ROADMAP.md).
+Orchid's chord keyboard as SCL > ORCHID. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development. Nothing here has been flashed to hardware yet.
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
@@ -132,13 +132,12 @@ song stay the project's.
   older M-Vave-OP1 loads as scene 1. While a song plays (GLO > SONG) scenes are not picked (STOP THE SONG FIRST); a
   song plays each slot as it was saved.
 
-## PLAY MODE: CHORD (the Orchid's keyboard)
+## SCL > ORCHID (the Orchid's keyboard)
 
-Felucca's ARP page is **PLAY MODE** now (its second page PLAY MODE 2). KNOB 1 MODE still picks OFF or an ARP pattern;
-**CHORD** turns the keyboard into the Telepathic Instruments Orchid's, as
+SCL's third page (SCL, CHORD, **ORCHID**) turns the keyboard into the Telepathic Instruments Orchid's, as
 [ChoralRoot FM-1](https://github.com/Quixotic7/ChoralRootFM1) by Quixotic7 does (GPL-3.0; its chord block, tables,
-voicing and LOCK are rewritten in `firmware/src/orchid.c`). It replaces Felucca's ARP CHORD mode. Per track: each
-track has its own MODE and VOICE.
+voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it on or off for the selected track
+(each track its own, before the track's CHRD); the ARP page is Felucca's and arpeggiates the Orchid's chords too.
 
 - **F3 .. C#4 are the chord block** and play nothing themselves. Black keys: **F#3 DIM, G#3 MIN, A#3 MAJ, C#4 SUS**.
   White keys: **F3 6, G3 m7, A3 M7, C4 9** (added to the type), **B3 LOCK**.
@@ -148,12 +147,23 @@ track has its own MODE and VOICE.
   down. **KNOB 3 LOCK** (or B3): chord keys let go stay latched (lit). With LOCK on, a type pressed alone resets the
   latch to that type; the only latched type pressed again alone turns it off (the extensions wait for the next
   type); an extension pressed alone toggles. LOCK off clears the latch.
-- The page shows the last chord as the Orchid names it (DM, Dm, D 7 9, Dsus m7; three extensions JAZZ, four WTF),
-  the block (held or latched keys lit, LOCK in the accent) and the notes. The block's LEDs show the same.
+- The page shows the chord as the Orchid does (its Geek Out view): the name large (DM, Dm, D 7 9, Dsus m7; three
+  extensions JAZZ, four WTF), a keyboard with the chord's notes lit and the notes by name. The block's LEDs show the
+  keys held or latched.
 - **One voice:** a track on VOICE MONO, LEGATO or UNISON plays the root alone (the page says ROOT ONLY; track 1 is
   LEGATO by default). A DRUM or other kit track has no chord block.
 - STEP entry writes the chord (up to four notes a step, as the keys' chords); live recording and the TAPE take the
-  notes as played. VOICE is kept with the project; LOCK and the latch start off after a load.
+  notes as played. ON and VOICE are kept with the project; LOCK and the latch start off after a load.
+
+## Other changes to Felucca's workflow
+
+- **HOME shows the four tracks** by default. The oscilloscope is MENU > DISPLAY > HOME **SCOPE** (TRACKS, LEVELS,
+  SCOPE).
+- **STEP, stopped: OCT+ adds a note, OCT- removes one.** OCT+ puts the note played last into the cursor step (KNOB 1
+  the cursor, KNOB 2 moves the step's notes), as another chord note up to four; OCT- takes the step's last note out.
+  While playing, and on every other page, OCT shifts the keyboard's octave as before.
+- **DRUM starts with the 808 kit** (KIT 808, the 808 model kit Felucca calls 80): power-on, a track switched to DRUM,
+  its preset. Projects and sounds saved before keep their kit.
 
 ## Try it in the browser
 

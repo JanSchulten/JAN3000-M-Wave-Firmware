@@ -189,7 +189,7 @@ static uint32_t arp_led(void)
 {
     uint32_t k, on = 0, b = beat_samples();
     for (k = 0; k < NPART; k++)
-        on |= arp_on(&trk[k]) && trk[k].nheld;
+        on |= trk[k].p[P_AMODE] && trk[k].nheld;
     return !on ? 2u : beat_pos < (beat_n ? b / 6u : b / 2u);
 }
 
@@ -215,7 +215,7 @@ static uint32_t midi_leds(const track_t *t)
 /* the keys of the notes the selected track's sequencer and ARP sound now (#38), bit k = key k: where the keys
  * play that note (kb_map: the octave, TRN, QNT, an engine's own map), the lowest key that gives it (QNT SNAP
  * rounds the keys above down onto it); a note no key plays is not shown. A snapshot of the ISR's seq_notes /
- * arp_note: no state of its own, nothing to do while nothing sounds */
+ * arp_note (arp_ch): no state of its own, nothing to do while nothing sounds */
 static uint32_t play_leds(void)
 {
     const track_t *t = TSEL;
@@ -225,6 +225,9 @@ static uint32_t play_leds(void)
         s[i] = t->seq_notes[i];
     if (t->arp_note)
         s[n++] = t->arp_note;
+    for (i = 0; i < 3u; i++)                            /* (the ARP's CHORD) */
+        if (t->arp_ch[i])
+            s[n++] = t->arp_ch[i];
     for (k = 0; n && k < 27u; k++) {
         note = kb_map(t, k);
         for (i = 0, hit = 0; i < n; i++)
@@ -330,7 +333,7 @@ static int idle_leds(void)
         fm1_led_idle_start(settings_leds == LEDS_DIM || settings_leds == LEDS_DIM_LO);
     return fm1_led_idle_on();
 }
-/* M-Vave-OP1, PLAY MODE CHORD (orchid.c): the selected track plays the Orchid's keyboard here (no layer, no grid, no
+/* M-Vave-OP1, SCL > ORCHID (orchid.c): the selected track plays the Orchid's keyboard here (no layer, no grid, no
  * NAME, not SONG's keys) */
 static int orc_ui(void) { return orc_on(TSEL) && !song.grid; }
 /* .. the chord block's LEDs: a key down or latched lit, B3 lit while LOCK is on */
@@ -341,10 +344,13 @@ static uint32_t orc_leds(void)
         m |= (ORC_KEY[k] == ORC_LOCK ? (uint32_t)orc.lock : (down >> ORC_KEY[k]) & 1u) << k;
     return m;
 }
-/* .. PLAY MODE's KNOB 2 the track's VOICE (-12..+12), KNOB 3 LOCK (the ISR takes it: orc_lock_req) */
+/* .. ORCHID's KNOB 1 ON / OFF (the selected track's), KNOB 2 its VOICE (-12..+12), KNOB 3 LOCK (the ISR takes it:
+ * orc_lock_req) */
 static void orc_knob(uint32_t slot, int32_t steps)
 {
-    if (slot == 1u) {
+    if (slot == 0u) {
+        orc_en = (uint8_t)(steps > 0 ? orc_en | 1u << song.sel : orc_en & ~(1u << song.sel));
+    } else if (slot == 1u) {
         int32_t v = clamp((int32_t)orc_voice[song.sel] + (steps > 0 ? 1 : -1), -12, 12);
         orc_voice[song.sel] = (int8_t)v;
     } else if (slot == 2u) {
@@ -1003,6 +1009,52 @@ static void step_edit(uint32_t slot, int32_t steps)
     }
 }
 
+/* M-Vave-OP1: on STEP (a note track, not DETAIL, stopped) OCT+ / OCT- edit the cursor step's notes: OCT+ adds the note
+ * played last (KNOB 2 moves it after), OCT- takes the step's last note out (the step a rest when none is left). The
+ * keyboard's octave is OCT's while playing and on every other page */
+static int step_oct_on(void)
+{
+    return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_ROLL && !detail_on() &&
+           !drum_track(TSEL) && !song.playing && !chain_busy();
+}
+static void step_oct(int up)
+{
+    track_t *t = TSEL;
+    step_t *st = &t->step[ui.cursor];
+    uint32_t i;
+    if (!up && (!step_on(st) || !st->n)) {
+        ui_message("NO NOTE HERE");
+        return;
+    }
+    step_undo_take(t, 0x2400u | ui.cursor);              /* (each press its own undo) */
+    if (!up) {
+        st->n--;
+        if (!st->n)
+            st->time = ST_REST;
+        return;
+    }
+    if (st->time != ST_NOTE || !st->n) {
+        st->n = 0;
+        st->time = ST_NOTE;
+    }
+    for (i = 0; i < st->n && st->note[i] != last_note; i++)
+        ;
+    if (i < st->n) {
+        ui_message("NOTE IS THERE");
+        return;
+    }
+    if (st->n >= 4u || (t->p[P_VOICE] && st->n)) {      /* (four a step; MONO / LEG / UNI: one, replaced) */
+        if (t->p[P_VOICE])
+            st->note[0] = last_note;
+        else
+            ui_message("STEP FULL (4)");
+        return;
+    }
+    st->note[st->n++] = last_note;
+    if (!st->vel)
+        st->vel = 100;
+}
+
 static void edit_param(uint32_t slot, int32_t steps)
 {
     int16_t *vp;
@@ -1013,7 +1065,7 @@ static void edit_param(uint32_t slot, int32_t steps)
         ev_knob(slot, steps);
         return;
     }
-    if (pg->graph == GR_ARP && slot && TSEL->p[P_AMODE] == AM_CHORD) {   /* M-Vave-OP1, PLAY MODE CHORD: 2 VOICE, 3 LOCK */
+    if (pg->graph == GR_ORCH) {                        /* M-Vave-OP1, SCL > ORCHID: 1 ON, 2 VOICE, 3 LOCK */
         orc_knob(slot, steps);
         return;
     }
@@ -1354,7 +1406,7 @@ static void seq_entry(uint32_t pressed)
         int32_t r;
         uint16_t mask;
         uint32_t note, n, i, j;
-        if (!((pressed >> k) & 1u) || ((orc_k >> k) & 1u))   /* (PLAY MODE CHORD: the chord block enters nothing) */
+        if (!((pressed >> k) & 1u) || ((orc_k >> k) & 1u))   /* (SCL > ORCHID: the chord block enters nothing) */
             continue;
         note = kb_map(t, k);
         if (note == KB_SILENT)
@@ -1366,7 +1418,7 @@ static void seq_entry(uint32_t pressed)
                 st->time = ST_NOTE;
             }
         }
-        if (orc_k)                                     /* M-Vave-OP1, PLAY MODE CHORD: the Orchid's chord (orchid.c) */
+        if (orc_k)                                     /* M-Vave-OP1, SCL > ORCHID: the Orchid's chord (orchid.c) */
             n = orc_chord(note, orc_type(), (orc.down >> ORC_X6) & 15u, orc_voice[song.sel], trk_vmode(t) != V_POLY, ch);
         else
             n = chord_make(t, note, ch, &r, &mask);    /* (CHRD OFF, a kit: the note alone; MONO: the root) */
@@ -1813,6 +1865,10 @@ static void ui_input(void)
             uint32_t both = (1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP]);
             if (act_cols() || layer_set_open() || ui.ml.on)   /* action pages: enter / back (below); SET layers: OCT-; */
                 break;                                  /* MIDI LEARN: clear / done (below) */
+            if (step_oct_on()) {                        /* M-Vave-OP1: STEP stopped: a note in / out (step_oct) */
+                step_oct(b == B_OCTUP);
+                break;
+            }
             if ((fm1_in.buttons & both) == both)
                 song.octave = 0;
             else
@@ -1903,7 +1959,7 @@ static void ui_input(void)
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
             || pg->graph == GR_SONG || pg->graph == GR_TAPE || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD || (pg->graph == GR_SLICES && k < 2u) ||
-            (pg->graph == GR_ARP && k < 3u && TSEL->p[P_AMODE] == AM_CHORD) || fop_page(pg->graph)) {   /* (not an empty
+            (pg->graph == GR_ORCH && k < 3u) || fop_page(pg->graph)) {   /* (not an empty
                                                                                                           * column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;

@@ -530,6 +530,7 @@ static void choke(void)
     /* the DRUM engine: a closed hat chokes the open hat's lane */
     host_tracks_init();
     host_preset(&trk[0], ENGI_DRUM, 0);
+    trk[0].p[P_E0] = 0;                            /* (KIT STD; M-Vave-OP1: the preset is the 808 model kit) */
     trk[0].p[P_SUS] = 127;
     trk_note_on(&trk[0], 46, 100);
     for (i = 0; i < 20u; i++) {
