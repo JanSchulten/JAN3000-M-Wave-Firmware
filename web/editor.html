@@ -1846,7 +1846,9 @@ function makeMockDevice(opt = {}) {
   const loadPattern = (k) => loadPat16(PATTERNS[k][0].map((n, i) => [n, PATTERNS[k][1][i]]));
   function applyPreset(pi) {
     const e = ENG[st.engine];
-    if (e.name === "SAMPLE" && pi === PERC_SET) { setEngine(DRUM_E); return; }   /* once PERC: DRUM's kit (ui.c apply_preset_to) */
+    if (e.name === "SAMPLE" && pi === PERC_SET) {   /* once PERC: DRUM's STD kit (ui.c apply_preset_to; the preset is the 808's) */
+      setEngine(DRUM_E); DRUM_KIT_E.forEach((v, i) => { st.p[P_E0 + i] = v; }); return;
+    }
     pi = aliasOf(e.presets.map((x) => x.name), pi % e.presets.length);
     const pr = e.presets[pi];
     st.preset = pi;
