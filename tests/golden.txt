@@ -54,7 +54,7 @@ preset/PHYS/05_HAND_DRUM 27f95769bdbc4ff8
 preset/PHYS/06_TOMS 1f98d309370b37cc
 preset/PHYS/07_DRONE_STRING 809d919a2e5f66c4
 preset/PHYS/08_HARP b2833b38746154a4
-preset/DRUM/00_DRUM_KIT b564eca443439374
+preset/DRUM/00_808_KIT 54318fa4fe3ba9c0
 preset/NOISE/00_WIND 1c6641c3d683e27c
 preset/NOISE/01_RAIN 6c08f98161409d14
 preset/NOISE/02_ARCADE 6ca2c9a2a067976c
@@ -70,7 +70,7 @@ preset/FM6/07_PLUCK 91e9132dd7237f14
 preset/SLICE/00_CHOP 6d1e706b5119b570
 preset/SLICE/01_STUTTER 94226b45e8a75cf0
 drums/drum_gm_kit a88dcac7803e88d4
-drums/kit_80 e3de7e091a481244
+drums/kit_808 e3de7e091a481244
 drums/kit_10 0cd4e95937dc519c
 drums/kit_66 04e60dfd865541b0
 drums/kit_55 b86935ebf007cdbc
@@ -89,6 +89,6 @@ sends/ANALOG/delay a402a2254e8a0a84
 sends/ANALOG/reverb 217d0dceb6ded8e8
 sends/ANALOG/all 98b9543c25342780
 sends/ANALOG/dist 1ff75ac225e918e0
-song/4track_mix 6667b6c911a3b548
+song/4track_mix f06d099874d039c4
 slicer/gate/ANALOG_ACID 07581a19222c2474
-slicer/song_gate_stut 7e91d788f9dedecc
+slicer/song_gate_stut bdcf7024c7729bec
