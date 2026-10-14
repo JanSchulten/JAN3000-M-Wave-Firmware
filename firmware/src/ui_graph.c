@@ -475,7 +475,7 @@ static void graph_rows(const uint8_t *r, uint32_t n)
         uint32_t on = r[j] == ui.page;
         uint16_t bg = on ? T_RAISE : T_SURF;
         if (on)
-            cv_rrect(6, y, 228, 27, 4, T_RAISE, T_SURF);
+            cv_rrect(6, y, 228, 28, 4, T_RAISE, T_SURF);
         for (c = 0; c < 4u; c++) {
             int16_t *vp;
             const char *unit = "";
@@ -488,9 +488,99 @@ static void graph_rows(const uint8_t *r, uint32_t n)
                 val[k] = ' ';
                 str_cpy(val + k + 1u, unit, (unsigned)(sizeof val - k - 1u));
             }
-            cv_text_fit(CARD_X(c) + 6, y + 2, &AF_S, d->label, on ? T_MID : T_DIM, bg, CARD_W - 10);
-            cv_text_fit(CARD_X(c) + 6, y + 14, &AF_S, val, on ? T_TEXT : T_MID, bg, CARD_W - 10);
+            cv_text_fit(CARD_X(c) + 6, y + 1, &AF_S, d->label, on ? T_MID : T_DIM, bg, CARD_W - 10);
+            cv_text_fit(CARD_X(c) + 6, y + 13, &AF_S, val, on ? T_TEXT : T_MID, bg, CARD_W - 10);
         }
+    }
+}
+/* M-Vave-OP1: FX's pages of parameters two to a screen as rows (FX with SLICER, INSERT with INSERT 2, DLY, REVERB with
+ * CHORUS), an animation of the page's effect under them. -> the rows' page indices in r, their number (0: none) */
+static uint32_t fx_rows(uint32_t page, uint8_t *r)
+{
+    static const char *const G[4][2] = {{"FX", "SLICER"}, {"INSERT", "INSERT 2"}, {"DLY", 0}, {"REVERB", "CHORUS"}};
+    uint32_t g, k, i, n = 0;
+    if (page >= NPAGES || PAGES[page].fam != FAM_FX)
+        return 0;
+    for (g = 0; g < 4u; g++)
+        if (str_eq(PAGES[page].title, G[g][0]) || (G[g][1] && str_eq(PAGES[page].title, G[g][1])))
+            break;
+    if (g == 4u)
+        return 0;
+    for (k = 0; k < 2u && G[g][k]; k++)
+        for (i = 0; i < NPAGES; i++)
+            if (str_eq(PAGES[i].title, G[g][k])) {
+                r[n++] = (uint8_t)i;
+                break;
+            }
+    return n;
+}
+/* .. the animation, y 66..116 (ui.frame its clock): FX the four sends breathing as large as they are; SLICER its
+ * pattern, the step playing marked; INSERT its curve, a line sweeping it; DLY the echoes running out (TIME their
+ * spacing, FDBK how long they last); REVERB rings spreading (SIZE how far, DAMP how soon they fade; SPRING a coil
+ * shaking); CHORUS two waves drifting apart (RATE, DEPTH) */
+static void graph_insert(const track_t *t, uint16_t c);
+static void fx_anim(const track_t *t, uint16_t c)
+{
+    const char *ti = cur_page()->title;
+    uint32_t f = ui.frame, k;
+    int32_t x, y, h, py = 91;
+    if (str_eq(ti, "FX")) {
+        for (k = 0; k < 4u; k++) {
+            int32_t a = t->p[P_DIST + k], r = a ? 3 + a * (12 + (sine_i((f * 4u + k * 40u) << 24) >> 13)) / 127 : 2;
+            cv_rrect(CARD_X(k) + 28 - r, 91 - r, 2 * r, 2 * r, r, a ? c : T_RAISE, T_SURF);
+        }
+    } else if (str_eq(ti, "SLICER")) {
+        uint32_t pat = sl_pattern(t), mode = (uint32_t)t->p[P_SLCR], cur = sl[t - trk].idx;
+        for (k = 0; k < 16u; k++) {
+            x = 13 + (int32_t)k * 13;
+            cv_rrect(x, (pat >> k) & 1u ? 72 : 100, 10, (pat >> k) & 1u ? 38 : 10, 2,
+                     mode == SL_OFF ? T_RAISE : (pat >> k) & 1u ? c : T_RAISE, T_SURF);
+            if (mode != SL_OFF && k == cur)
+                cv_rect(x, 113, 10, 2, T_ACCENT);
+        }
+    } else if (str_eq(ti, "INSERT") || str_eq(ti, "INSERT 2")) {
+        graph_ht = 48;
+        cv_oy = 66;
+        graph_insert(t, c);
+        cv_oy = 0;
+        graph_ht = 100;
+        if (t->p[P_ITYPE])
+            cv_rect(PANEL_X0 + (int32_t)((f * 3u) % (uint32_t)PANEL_W), 68, 1, 46, T_ACCENT);
+    } else if (str_eq(ti, "DLY")) {
+        int32_t sp = 18 + clamp(song.g[G_DTIME], 0, 9) * 3, fb = song.g[G_DFDBK];
+        x = 12 + (int32_t)((f * 2u) % (uint32_t)sp);
+        for (h = 46; x < 228 && h > 1; x += sp, h = h * (40 + fb) / 170) {
+            cv_rrect(x, 114 - h, 6, h, 2, c, T_SURF);
+        }
+    } else if (str_eq(ti, "REVERB") && song.g[G_RTYPE] == 1) {
+        int32_t amp = 8 + song.g[G_RSIZE] * 14 / 127;
+        for (x = 12; x < 228; x++) {
+            int32_t e = amp * (228 - x) / 216;
+            y = 91 + (int32_t)(sine_i((uint32_t)(x * 9 + (int32_t)f * 6) << 23) * e / 32768);
+            if (x > 12)
+                cv_line(x - 1, py, x, y, c);
+            py = y;
+        }
+    } else if (str_eq(ti, "REVERB")) {
+        int32_t reach = 30 + song.g[G_RSIZE] * 80 / 127, gap = 14 + song.g[G_RDAMP] / 8;
+        for (k = 0; k < 6u; k++) {
+            int32_t r = (int32_t)((f + k * (uint32_t)gap) % (uint32_t)reach) + 4, w = 2 * r, hh = r / 2 + 4;
+            if (hh > 22)
+                hh = 22;
+            if (r > reach - 6)
+                continue;
+            cv_rrect(120 - w / 2, 91 - hh, w, 2 * hh, hh, r < reach / 2 ? c : T_MID, T_SURF);
+            cv_rrect(120 - w / 2 + 2, 91 - hh + 2, w - 4, 2 * hh - 4, hh - 2, T_SURF, T_SURF);
+        }
+    } else if (str_eq(ti, "CHORUS")) {
+        uint32_t rate = 1u + (uint32_t)song.g[G_CRATE] / 16u, d = (uint32_t)song.g[G_CDEPTH];
+        for (k = 0; k < 2u; k++)
+            for (x = 12; x < 228; x++) {
+                y = 91 + sine_i(((uint32_t)x * 5u + f * rate + k * d * 2u) << 24) * 16 / 32768;
+                if (x > 12)
+                    cv_line(x - 1, py, x, y, k ? T_MID : c);
+                py = y;
+            }
     }
 }
 /* M-Vave-OP1, SCL > ORCHID (orchid.c), as the Orchid shows a chord (its Geek Out view: the name, the keyboard, the
@@ -1331,7 +1421,7 @@ static uint32_t graph_signature(void)
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u + ui.page * 1291u;
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;
-    if ((pg->graph == GR_NONE && !edit_rows(ui.page, rr)) || pg->graph == GR_ARP) h ^= ui.frame / 2u;
+    if ((pg->graph == GR_NONE && !edit_rows(ui.page, rr)) || pg->graph == GR_ARP || fx_rows(ui.page, rr)) h ^= ui.frame / 2u;
     if (pg->graph == GR_ORCH)                        /* M-Vave-OP1, SCL > ORCHID: the block, the last chord, ON */
         h ^= (orc.gen * 2654435761u) ^ (orc.lgen * 40503u) ^ ((uint32_t)orc.lock << 9) ^ ((uint32_t)(uint8_t)orc_voice[song.sel] << 17) ^
              (uint32_t)t->engine * 389u ^ (uint32_t)orc_en << 24;   /* (ROOT ONLY follows the sounding engine) */
@@ -2738,6 +2828,10 @@ static void draw_graph(void)
     } else if ((nr = edit_rows(ui.page, rr)) != 0) {  /* M-Vave-OP1: EDIT's rows */
         cv_oy = 0;
         graph_rows(rr, nr);
+    } else if ((nr = fx_rows(ui.page, rr)) != 0) {    /* .. FX's: two rows, the effect animated */
+        cv_oy = 0;
+        graph_rows(rr, nr);
+        fx_anim(t, c);
     } else {
         switch (pg->graph) {
         case GR_ADSR:
