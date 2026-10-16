@@ -3099,7 +3099,7 @@ static int test_layer(void)
     bad += check("FX tap: nothing on press, the FX page when let go", ok && !ui.home && cur_page()->fam == FAM_FX);
     frames(320);                                       /* (not a double tap: #83) */
     press(B_FX);
-    bad += check("  a second tap: the next page of the family (FX TRACKS)", str_eq(cur_page()->title, "FX TRACKS"));
+    bad += check("  a second tap: the next page of the family (CHORUS, M-Vave-OP1's SEND station)", str_eq(cur_page()->title, "CHORUS"));
     ui_power_on();
     btn_down(B_FX);
     for (flash = 0, i = 0; i < 22u; i++) { frame(); flash |= ui.layer; }      /* 0.35 s */

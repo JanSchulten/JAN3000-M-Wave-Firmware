@@ -382,8 +382,8 @@ static void test_ui(const char *dir)
     int ok;
     cloud_power_on();
     fx_pages(pages, 11);
-    ck("FX's pages with FX1 the DELAY: .. INSERT 2, FX1, DLY, REVERB, CHORUS (no CLOUD)",
-       strstr(pages, "INSERT 2|FX1|DLY|REVERB|CHORUS|FX|") != 0);
+    ck("FX's pages with FX1 the DELAY: .. INSERT 2, FX1, DLY, REVERB, FX TRACKS (no CLOUD; M-Vave-OP1's stations)",
+       strstr(pages, "INSERT 2|FX1|DLY|REVERB|FX TRACKS|") != 0);
     go_title("FX1");
     turn(EN_K2, 3);
     ok = msg_is("[FX] AGAIN: DLY") && fx1s.rnd == 10u;
@@ -391,7 +391,7 @@ static void test_ui(const char *dir)
     ok &= fx1s.type == FX1_CLOUD && msg_is("FX1: CLOUD (GRANULAR)");
     ck("FX1: KNOB 2..4 belong to the CLOUD (the DELAY's are on DLY); KNOB 1 TYPE: CLOUD", ok);
     fx_pages(pages, 11);
-    ck("  .. FX's pages now: .. FX1, CLOUD, REVERB (DLY hidden)", strstr(pages, "INSERT 2|FX1|CLOUD|REVERB|CHORUS|") != 0);
+    ck("  .. FX's pages now: .. FX1, CLOUD, REVERB (DLY hidden)", strstr(pages, "INSERT 2|FX1|CLOUD|REVERB|FX TRACKS|") != 0);
     go_title("FX1");
     turn(EN_K2, 5);
     turn(EN_K3, 30);

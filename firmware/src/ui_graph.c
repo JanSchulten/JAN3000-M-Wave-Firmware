@@ -478,105 +478,122 @@ static void graph_rows(const uint8_t *r, uint32_t n)
             cv_rrect(6, y, 228, 28, 4, T_RAISE, T_SURF);
         for (c = 0; c < 4u; c++) {
             int16_t *vp;
-            const char *unit = "";
+            const char *unit = "", *lb;
             char val[24];
             const param_desc_t *d = page_desc(pg, c, &vp);
-            if (!d || !vp)
+            if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* (fx1.c's own: no parameters of the page's) */
+                static const char *const L[2][4] = {{"TYPE", "RAND", "FDBK", "MIX"}, {"SIZE", "DENS", "PITCH", "SPRD"}};
+                const volatile uint8_t *v[2][4] = {{&fx1s.type, &fx1s.rnd, &fx1s.fdbk, &fx1s.mix},
+                                                    {&fx1s.size, &fx1s.dens, &fx1s.size, &fx1s.spread}};
+                uint32_t g = pg->graph == GR_CLOUD;
+                lb = L[g][c];
+                if (!g && !c)
+                    str_cpy(val, fx1s.type == FX1_CLOUD ? "CLOUD" : "DELAY", sizeof val);
+                else if (!g && fx1s.type != FX1_CLOUD)
+                    continue;
+                else if (g && c == 2u)
+                    fmt_int(val, fx1s.pitch), unit = "st";
+                else
+                    fmt_int(val, *v[g][c]), unit = "%";
+            } else if (!d || !vp) {
                 continue;
-            param_format(d, *vp, val, &unit);
+            } else {
+                lb = d->label;
+                param_format(d, *vp, val, &unit);
+            }
             if (unit && unit[0] && (k = str_len(val)) + str_len(unit) + 2u < sizeof val) {
                 val[k] = ' ';
                 str_cpy(val + k + 1u, unit, (unsigned)(sizeof val - k - 1u));
             }
-            cv_text_fit(CARD_X(c) + 6, y + 1, &AF_S, d->label, on ? T_MID : T_DIM, bg, CARD_W - 10);
+            cv_text_fit(CARD_X(c) + 6, y + 1, &AF_S, lb, on ? T_MID : T_DIM, bg, CARD_W - 10);
             cv_text_fit(CARD_X(c) + 6, y + 13, &AF_S, val, on ? T_TEXT : T_MID, bg, CARD_W - 10);
         }
     }
 }
-/* M-Vave-OP1: FX's pages of parameters two to a screen as rows (FX with SLICER, INSERT with INSERT 2, DLY, REVERB with
- * CHORUS), an animation of the page's effect under them. -> the rows' page indices in r, their number (0: none) */
+/* M-Vave-OP1: FX's pages as four stations of rows (params.c): SEND (FX, CHORUS), TRACK FX (SLICER, INSERT, INSERT 2),
+ * SPACE (FX1, DLY or CLOUD, REVERB); FX TRACKS draws its own. -> the station's visible rows in r, their number (0: none) */
 static uint32_t fx_rows(uint32_t page, uint8_t *r)
 {
-    static const char *const G[4][2] = {{"FX", "SLICER"}, {"INSERT", "INSERT 2"}, {"DLY", 0}, {"REVERB", "CHORUS"}};
-    uint32_t g, k, i, n = 0;
+    static const char *const G[3][3] = {{"FX", "CHORUS", 0}, {"SLICER", "INSERT", "INSERT 2"}, {"FX1", "DLY", "REVERB"}};
+    uint32_t g, k, i, n = 0, mine = 0;
     if (page >= NPAGES || PAGES[page].fam != FAM_FX)
         return 0;
-    for (g = 0; g < 4u; g++)
-        if (str_eq(PAGES[page].title, G[g][0]) || (G[g][1] && str_eq(PAGES[page].title, G[g][1])))
-            break;
-    if (g == 4u)
-        return 0;
-    for (k = 0; k < 2u && G[g][k]; k++)
-        for (i = 0; i < NPAGES; i++)
-            if (str_eq(PAGES[i].title, G[g][k])) {
-                r[n++] = (uint8_t)i;
-                break;
-            }
-    return n;
+    for (g = 0; g < 3u && !mine; g++)
+        for (k = 0, n = 0; k < 3u && G[g][k]; k++)
+            for (i = 0; i < NPAGES; i++)
+                if (str_eq(PAGES[i].title, G[g][k]) || (k == 1u && g == 2u && str_eq(PAGES[i].title, "CLOUD"))) {
+                    if (!page_visible(i))
+                        continue;
+                    r[n++] = (uint8_t)i;
+                    mine |= i == page;
+                    break;
+                }
+    return mine ? n : 0;
 }
-/* .. the animation, y 66..116 (ui.frame its clock): FX the four sends breathing as large as they are; SLICER its
+/* .. the animation, in y0..y0 + h under the rows (ui.frame its clock): FX the four sends breathing as large as they are; SLICER its
  * pattern, the step playing marked; INSERT its curve, a line sweeping it; DLY the echoes running out (TIME their
  * spacing, FDBK how long they last); REVERB rings spreading (SIZE how far, DAMP how soon they fade; SPRING a coil
  * shaking); CHORUS two waves drifting apart (RATE, DEPTH) */
 static void graph_insert(const track_t *t, uint16_t c);
-static void fx_anim(const track_t *t, uint16_t c)
+static void fx_anim(const track_t *t, uint16_t c, int32_t y0, int32_t hh0)
 {
     const char *ti = cur_page()->title;
     uint32_t f = ui.frame, k;
-    int32_t x, y, h, py = 91;
-    if (str_eq(ti, "FX")) {
+    int32_t x, y, h, mid = y0 + hh0 / 2, py = mid, bot = y0 + hh0, half = hh0 / 2 - 2;
+    if (str_eq(ti, "FX")) {                            /* the sends breathing, as large as they are */
         for (k = 0; k < 4u; k++) {
-            int32_t a = t->p[P_DIST + k], r = a ? 3 + a * (12 + (sine_i((f * 4u + k * 40u) << 24) >> 13)) / 127 : 2;
-            cv_rrect(CARD_X(k) + 28 - r, 91 - r, 2 * r, 2 * r, r, a ? c : T_RAISE, T_SURF);
+            int32_t a = t->p[P_DIST + k], r = a ? 2 + a * (half - 2 + (sine_i((f * 4u + k * 40u) << 24) * 3 >> 15)) / 127 : 2;
+            if (r > half)
+                r = half;
+            cv_rrect(CARD_X(k) + 28 - r, mid - r, 2 * r, 2 * r, r, a ? c : T_RAISE, T_SURF);
         }
-    } else if (str_eq(ti, "SLICER")) {
+    } else if (str_eq(ti, "SLICER")) {                 /* the pattern, the step playing marked */
         uint32_t pat = sl_pattern(t), mode = (uint32_t)t->p[P_SLCR], cur = sl[t - trk].idx;
         for (k = 0; k < 16u; k++) {
             x = 13 + (int32_t)k * 13;
-            cv_rrect(x, (pat >> k) & 1u ? 72 : 100, 10, (pat >> k) & 1u ? 38 : 10, 2,
-                     mode == SL_OFF ? T_RAISE : (pat >> k) & 1u ? c : T_RAISE, T_SURF);
+            h = (pat >> k) & 1u ? hh0 - 6 : 4;
+            cv_rrect(x, bot - 4 - h, 10, h, 2, mode == SL_OFF ? T_RAISE : (pat >> k) & 1u ? c : T_RAISE, T_SURF);
             if (mode != SL_OFF && k == cur)
-                cv_rect(x, 113, 10, 2, T_ACCENT);
+                cv_rect(x, bot - 2, 10, 2, T_ACCENT);
         }
-    } else if (str_eq(ti, "INSERT") || str_eq(ti, "INSERT 2")) {
-        graph_ht = 48;
-        cv_oy = 66;
+    } else if (str_eq(ti, "INSERT") || str_eq(ti, "INSERT 2")) {   /* its curve, swept */
+        graph_ht = hh0 - 2;
+        cv_oy = y0;
         graph_insert(t, c);
         cv_oy = 0;
         graph_ht = 100;
         if (t->p[P_ITYPE])
-            cv_rect(PANEL_X0 + (int32_t)((f * 3u) % (uint32_t)PANEL_W), 68, 1, 46, T_ACCENT);
-    } else if (str_eq(ti, "DLY")) {
+            cv_rect(PANEL_X0 + (int32_t)((f * 3u) % (uint32_t)PANEL_W), y0 + 1, 1, hh0 - 2, T_ACCENT);
+    } else if (str_eq(ti, "DLY") || str_eq(ti, "FX1") || str_eq(ti, "CLOUD")) {   /* the echoes running out */
         int32_t sp = 18 + clamp(song.g[G_DTIME], 0, 9) * 3, fb = song.g[G_DFDBK];
         x = 12 + (int32_t)((f * 2u) % (uint32_t)sp);
-        for (h = 46; x < 228 && h > 1; x += sp, h = h * (40 + fb) / 170) {
-            cv_rrect(x, 114 - h, 6, h, 2, c, T_SURF);
-        }
-    } else if (str_eq(ti, "REVERB") && song.g[G_RTYPE] == 1) {
-        int32_t amp = 8 + song.g[G_RSIZE] * 14 / 127;
+        for (h = hh0 - 4; x < 228 && h > 1; x += sp, h = h * (40 + fb) / 170)
+            cv_rrect(x, bot - 2 - h, 6, h, 2, c, T_SURF);
+    } else if (str_eq(ti, "REVERB") && song.g[G_RTYPE] == 1) {   /* SPRING: a coil shaking */
+        int32_t amp = half * (8 + song.g[G_RSIZE] * 14 / 127) / 22;
         for (x = 12; x < 228; x++) {
             int32_t e = amp * (228 - x) / 216;
-            y = 91 + (int32_t)(sine_i((uint32_t)(x * 9 + (int32_t)f * 6) << 23) * e / 32768);
+            y = mid + (int32_t)(sine_i((uint32_t)(x * 9 + (int32_t)f * 6) << 23) * e / 32768);
             if (x > 12)
                 cv_line(x - 1, py, x, y, c);
             py = y;
         }
-    } else if (str_eq(ti, "REVERB")) {
+    } else if (str_eq(ti, "REVERB")) {                 /* rings spreading */
         int32_t reach = 30 + song.g[G_RSIZE] * 80 / 127, gap = 14 + song.g[G_RDAMP] / 8;
         for (k = 0; k < 6u; k++) {
             int32_t r = (int32_t)((f + k * (uint32_t)gap) % (uint32_t)reach) + 4, w = 2 * r, hh = r / 2 + 4;
-            if (hh > 22)
-                hh = 22;
-            if (r > reach - 6)
+            if (hh > half)
+                hh = half;
+            if (r > reach - 6 || hh < 3)
                 continue;
-            cv_rrect(120 - w / 2, 91 - hh, w, 2 * hh, hh, r < reach / 2 ? c : T_MID, T_SURF);
-            cv_rrect(120 - w / 2 + 2, 91 - hh + 2, w - 4, 2 * hh - 4, hh - 2, T_SURF, T_SURF);
+            cv_rrect(120 - w / 2, mid - hh, w, 2 * hh, hh, r < reach / 2 ? c : T_MID, T_SURF);
+            cv_rrect(120 - w / 2 + 2, mid - hh + 2, w - 4, 2 * hh - 4, hh - 2, T_SURF, T_SURF);
         }
-    } else if (str_eq(ti, "CHORUS")) {
+    } else if (str_eq(ti, "CHORUS")) {                 /* two waves drifting apart */
         uint32_t rate = 1u + (uint32_t)song.g[G_CRATE] / 16u, d = (uint32_t)song.g[G_CDEPTH];
         for (k = 0; k < 2u; k++)
             for (x = 12; x < 228; x++) {
-                y = 91 + sine_i(((uint32_t)x * 5u + f * rate + k * d * 2u) << 24) * 16 / 32768;
+                y = mid + sine_i(((uint32_t)x * 5u + f * rate + k * d * 2u) << 24) * (half - 2) / 32768;
                 if (x > 12)
                     cv_line(x - 1, py, x, y, k ? T_MID : c);
                 py = y;
@@ -2828,10 +2845,10 @@ static void draw_graph(void)
     } else if ((nr = edit_rows(ui.page, rr)) != 0) {  /* M-Vave-OP1: EDIT's rows */
         cv_oy = 0;
         graph_rows(rr, nr);
-    } else if ((nr = fx_rows(ui.page, rr)) != 0) {    /* .. FX's: two rows, the effect animated */
+    } else if ((nr = fx_rows(ui.page, rr)) != 0) {    /* .. FX's stations: rows, the effect animated */
         cv_oy = 0;
         graph_rows(rr, nr);
-        fx_anim(t, c);
+        fx_anim(t, c, 4 + (int32_t)nr * 29 + 2, 112 - (int32_t)nr * 29);
     } else {
         switch (pg->graph) {
         case GR_ADSR:

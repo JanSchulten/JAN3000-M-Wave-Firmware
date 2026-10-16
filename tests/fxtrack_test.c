@@ -256,6 +256,8 @@ static void test_ui(const char *dir)
     press(B_FX);
     ok = cur_page()->graph == GR_FX;
     frames(400);
+    go_title("REVERB");
+    frames(400);
     press(B_FX);
     ok &= cur_page()->graph == GR_FXT && fxt_page();
     frames(400);
@@ -263,8 +265,8 @@ static void test_ui(const char *dir)
     ok &= cur_page()->graph == GR_FXT2 && fxt_page();
     frames(400);
     press(B_FX);
-    ok &= str_eq(cur_page()->title, "SLICER") && !fxt_page();
-    bad += check("FX: FX, FX TRACKS, FX TRACKS 2, then SLICER", ok);
+    ok &= str_eq(cur_page()->title, "FX") && !fxt_page();
+    bad += check("FX: FX first; FX TRACKS, FX TRACKS 2 the last station (after REVERB), then FX again", ok);
     go_title("FX TRACKS");
     turn(EN_K1, 1);
     ok = ui.fxt_sel == 1u;
