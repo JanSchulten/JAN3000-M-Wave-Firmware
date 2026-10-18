@@ -25,8 +25,8 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"INSERT", "[K1]TYPE[K4]MIX[FX]CHORUS"},
     {"INSERT 2", "[K1]DRY / WET[FX]DLY"},
     {"DLY", "[K1-4]ALL TRACKS[FX]REVERB"},
-    {"REVERB", "[K1]ROOM SPRING HALL[FX]SLICER"},
-    {"CHORUS", "[K1]RATE[K2]DEPTH[FX]DELAY"},
+    {"REVERB", "[K1]TYPE[K2]SIZE[FX]SLICER"},
+    {"CHORUS", "[K1]TYPE[K4]FDBK[FX]DELAY"},
     {"SCL", "[K2]SCALE[K3]QUANTIZE[SCL]CHORDS"},
     {"CHORD", "[K1]CHORD[SCL]ORCHID"},
     {"ORCHID", "[K1]ON[K2]VOICE[K3]LOCK"},   /* (M-Vave-OP1, orchid.c) */

@@ -532,7 +532,7 @@ static void po_sync_out(void)
         if (po_l[i] && (!i || !po_l[i - 1u]) && k < 16u)
             at[k++] = i;
         w += po_l[i] != 0;
-        okmono &= po_r[i] == (l0[i] + r0[i]) / 2 && (po_l[i] == 0 || po_l[i] == 32767);
+        okmono &= po_r[i] == (l0[i] + r0[i]) >> 1 && (po_l[i] == 0 || po_l[i] == 32767);
     }
     {
         int ok = k >= 4u && at[0] == 0u && w == k * 220u;

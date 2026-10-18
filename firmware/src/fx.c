@@ -12,6 +12,13 @@ static volatile struct {
     int8_t pitch;                        /* .. their pitch, -24..+24 semitones */
     uint8_t rnd, fdbk, mix;              /* .. RAND (detune, reversed), FDBK, MIX, 0..100 */
 } fx1s = {FX1_DELAY, 50, 50, 30, 0, 10, 0, 80};
+/* M-Vave-OP1: the chorus bus's TYPE and FDBK (the CHORUS page; kept with the project's extras, opstore.c; the ISR reads
+ * them a block at a time). TYPE CHORUS with FDBK 0 is Felucca's chorus bit for bit */
+enum { CHO_CHORUS, CHO_FLANGER, CHO_VIBRATO, CHO_NTYPE };
+static volatile struct {
+    uint8_t type;                        /* CHO_* */
+    uint8_t fdbk;                        /* 0..100 */
+} chos;
 #define CHO_LEN 2048u
 static int16_t dly_buf[DLY_LEN] __attribute__((section(".pool")));
 static int16_t cho_buf[CHO_LEN] __attribute__((section(".pool")));
@@ -28,12 +35,44 @@ static struct {
     int32_t dly_lp;
     uint16_t comb_i[4], ap_i[2];
     int32_t comb_lp[4];
-    uint8_t rtype;                       /* the reverb model running (G_RTYPE: 0 ROOM, 1 SPRING, 2 HALL) */
+    uint8_t rtype;                       /* the reverb model running (G_RTYPE: 0 ROOM, 1 SPRING, 2 HALL, 3 SHIMMER) */
     uint16_t sp_w;                       /* SPRING: the loop's write index (SP_MASK) */
     int32_t sp_lp, sp_hp, sp_he, sp_size;   /* .. its loop low-pass, low cut (and its remainder), the loop
                                              * length (Q8, glides) */
     uint32_t sp_ph;                      /* .. the output tap's wobble */
 } fx;
+
+/* the chorus bus: a short line read through a sine, between samples, the read fed back (FDBK). By TYPE: CHORUS
+ * Felucca's, 9.1 .. 26 ms (DEPTH 6 samples a step), feedback up to 0.49; FLANGER 0.5 .. 6.3 ms (2 a step: the comb
+ * swept through the audio band), up to 0.87 (the jet); VIBRATO 1 .. 9.6 ms (3 a step), up to 0.49: the copy's pitch
+ * swings (the bus is all wet: a track with its CHO send up and its LEVEL down is a vibrato alone). Its constants a
+ * block (cho_setup), a sample (cho_tick: read first, the line's shortest read 22 samples back, so the order does not
+ * change Felucca's) */
+typedef struct { int32_t base, cd, g; uint32_t inc; } cho_k_t;
+static inline void cho_setup(cho_k_t *k)
+{
+    uint32_t ty = chos.type, fb = chos.fdbk > 100u ? 100u : chos.fdbk;
+    k->inc = LFO_INC[song.g[G_CRATE] & 127] / CTL;
+    k->base = (ty == CHO_FLANGER ? 22 : ty == CHO_VIBRATO ? 44 : 400) << 8;
+    k->cd = song.g[G_CDEPTH] * (ty == CHO_FLANGER ? 2 : ty == CHO_VIBRATO ? 3 : 6);
+    k->g = (int32_t)fb * (ty == CHO_FLANGER ? 285 : 160);   /* Q15 */
+}
+static inline int32_t cho_tick(const cho_k_t *k, int32_t in)
+{
+    int32_t r, f, c0, c1, c;
+    uint32_t ri;
+    fx.cho_ph += k->inc;
+    r = k->base + ((osc_sine(fx.cho_ph) + 32768) * k->cd >> 8);   /* Q8 delay: read between samples */
+    ri = (uint32_t)r >> 8;
+    f = r & 255;
+    c0 = cho_buf[(fx.cho_w - ri) & (CHO_LEN - 1u)];
+    c1 = cho_buf[(fx.cho_w - ri - 1u) & (CHO_LEN - 1u)];
+    c = c0 + (((c1 - c0) * f) >> 8);
+    c1 = (c * k->g + (c < 0 ? 32767 : 0)) >> 15;     /* (the feedback rounded towards zero: no hum left after it) */
+    cho_buf[fx.cho_w & (CHO_LEN - 1u)] = (int16_t)clamp((in >> 1) + c1, -32768, 32767);
+    fx.cho_w++;
+    return c << 1;
+}
 
 /* SPRING (G_RTYPE 1): one spring of a spring tank, mono like the other buses, in the ROOM's own buffers (no
  * RAM of its own): the input and the loop's return -> a low cut (~110 Hz: a spring carries little bass) ->
@@ -95,6 +134,9 @@ static struct {                          /* HALL's state (in the pool: no .bss) 
     int32_t sd[CTL];                     /* the block's left minus right (mix_block: rev_side_mix) */
     int32_t bx[HL_NC], l[HL_NC], r[HL_NC];   /* the block at half the rate: the diffused send, left, right */
     int16_t y[HL_NL][HL_NC];             /* the lines' ends, then what goes back into them */
+    int32_t sh[HL_NC], shlp;             /* SHIMMER: its octave going into the next block's send; its low-pass */
+    uint16_t shw, shd;                   /* .. its line's write index, the first tap's distance */
+    int16_t shb[1024];                   /* .. its line (SH_LEN) */
 } hl __attribute__((section(".pool")));
 #define rev_side (hl.sd)
 
@@ -411,6 +453,38 @@ static inline void hall_end_lp(const int16_t *b, int16_t *y, uint32_t n, int32_t
  * sample, low cut, diffusers (hl.bx); the lines' ends at their drifting taps, low-passed, scaled (hl.y); the
  * outputs and the matrix; back into the lines; the outputs back to 44.1 kHz. */
 #define HL_LFO ((uint32_t)(0.37 * CTL / FS * 4294967296.0))   /* the drift: 0.37 Hz (even lines), 0.74 Hz (odd) */
+/* SHIMMER (G_RTYPE 3, M-Vave-OP1): the HALL with its tail an octave up going back into it, so every pass round
+ * climbs an octave higher (the halo that rises over a held chord). The tail ((left + right) / 2, at the half rate)
+ * -> a line of SH_LEN read by two taps half a line apart that close in at a sample a sample (read 2 samples a
+ * sample: an octave up), each through a triangle (0 where it jumps back: the two always sum to one) -> a one-pole
+ * low-pass (~3.3 kHz: each octave darker than the one below it, the climb fades out) -> SH_G -> the next block's
+ * send, before its low cut (no rumble goes round; a block's delay, 0.7 ms). Its loop gain: the octave of a 440 Hz
+ * tail at 0.7 of the 440 a second on, the next at 0.2 (reverb_test); SIZE 127 still dies away to exact silence
+ * (both its roundings towards zero). Its RAM: in hl (the pool); rev_clear empties it with HALL's */
+#define SH_LEN 1024u                     /* 46 ms at 22.05 kHz: the window the octave is read in */
+#define SH_MASK (SH_LEN - 1u)
+#define SH_G 12000                       /* Q15: the octave's level going back in (0.37: 16000 still dies away, slowly) */
+#define SH_LP 20000                      /* Q15: its low-pass */
+#define SH_IN 1                          /* the tail into the line: (left + right) / 2, the lines' sum over 4 */
+_Static_assert(sizeof hl.shb / 2u == SH_LEN, "SHIMMER's line");
+static __attribute__((noinline)) void hall_shimmer(void)
+{
+    uint32_t i, w = hl.shw, d = hl.shd;
+    int32_t lp = hl.shlp;
+    for (i = 0; i < HL_NC; i++) {
+        uint32_t e = (d + SH_LEN / 2u) & SH_MASK;
+        int32_t g0 = (int32_t)(d < SH_LEN / 2u ? d : SH_LEN - d), y;
+        hl.shb[w] = (int16_t)clamp((hl.l[i] + hl.r[i]) >> SH_IN, -32768, 32767);
+        y = (hl.shb[(w - d) & SH_MASK] * g0 + hl.shb[(w - e) & SH_MASK] * ((int32_t)SH_LEN / 2 - g0)) >> 9;
+        y -= lp;                                       /* (both rounded towards zero: the tail ends in exact silence) */
+        lp += (y * SH_LP + (y < 0 ? 32767 : 0)) >> 15;
+        hl.sh[i] = (lp * SH_G + (lp < 0 ? 32767 : 0)) >> 15;
+        w = (w + 1u) & SH_MASK;
+        d = (d - 1u) & SH_MASK;
+    }
+    hl.shw = (uint16_t)w, hl.shd = (uint16_t)d, hl.shlp = lp;
+}
+
 static __attribute__((noinline)) void rev_hall(const int32_t *rev_in, int32_t *out, uint32_t n)
 {
     int16_t *b = rev_comb, *a = rev_ap;
@@ -423,7 +497,8 @@ static __attribute__((noinline)) void rev_hall(const int32_t *rev_in, int32_t *o
     for (i = 0; i < HL_NC; i++) {
         int32_t x = (xp + 2 * rev_in[2u * i] + rev_in[2u * i + 1u]) >> 2, v;   /* every other sample, 1 2 1 */
         xp = rev_in[2u * i + 1u];
-        x = mulq15(clamp(x, -262143, 262143), 2580);    /* (ROOM's level) */
+        x = mulq15(clamp(x, -262143, 262143), 2580) + hl.sh[i];   /* (ROOM's level; SHIMMER's octave, 0 in a HALL:
+                                                                     * through the low cut too, no rumble round it) */
         v = x - hp + he;                                /* the low cut, its step's remainder kept */
         he = v & 31;
         hp += v >> 5;
@@ -497,6 +572,8 @@ static __attribute__((noinline)) void rev_hall(const int32_t *rev_in, int32_t *o
     }
     hl.m = mp, hl.s = sp;
     hl.side = 1;
+    if (fx.rtype == 3u)
+        hall_shimmer();
 }
 
 /* the reverb's buffers and states to silence (the model changed) */
@@ -513,6 +590,11 @@ static void rev_clear(void)
         hl.lp[i] = hl.le[i] = 0;
     fx.sp_lp = fx.sp_hp = fx.sp_he = 0;
     hl.x = hl.m = hl.s = hl.hp = hl.he = 0;
+    for (i = 0; i < SH_LEN; i++)                        /* (SHIMMER's) */
+        hl.shb[i] = 0;
+    for (i = 0; i < HL_NC; i++)
+        hl.sh[i] = 0;
+    hl.shlp = 0;
 }
 
 static int32_t part_buf[CTL];                            /* a part's block (mix_part); the fade of a model change */
@@ -525,7 +607,7 @@ static __attribute__((noinline)) void rev_switch(const int32_t *rev_in, int32_t 
     uint32_t i;
     for (i = 0; i < n; i++)
         t[i] = 0;
-    if (fx.rtype == 2u)
+    if (fx.rtype >= 2u)
         rev_hall(rev_in, t, n);
     else if (fx.rtype)
         rev_spring(rev_in, t, n);
@@ -546,8 +628,9 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
     uint32_t i, dl = delay_samples();
     int32_t fb = song.g[G_DFDBK] * 230, col = 2000 + song.g[G_DCOLOR] * 240;
     int32_t dmix = song.g[G_DMIX] * 258;
-    int32_t cdepth = song.g[G_CDEPTH] * 6, rt;
-    uint32_t cinc = LFO_INC[song.g[G_CRATE] & 127] / CTL;
+    int32_t rt;
+    cho_k_t ck;
+    cho_setup(&ck);
     if (pf.ew1 && fb < THR_FB)
         fb += mulq16(THR_FB - fb, (uint32_t)pf.ew1 << 1);   /* ECHO THROW (perform.c): more feedback while held, 0.7
                                                              * at most (the loop's gain below 1: it never runs away) */
@@ -555,18 +638,7 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
         fx1_block(cho_in, dly_in, wet, n, fb);          /* M-Vave-OP1: FX1 not the DELAY, or changing (fx1.c) */
     else
     for (i = 0; i < n; i++) {
-        int32_t y = 0, x, r;
-        /* chorus: modulated short delay, 5..15 ms */
-        cho_buf[fx.cho_w & (CHO_LEN - 1u)] = (int16_t)clamp(cho_in[i] >> 1, -32768, 32767);
-        fx.cho_ph += cinc;
-        r = (400 << 8) + ((osc_sine(fx.cho_ph) + 32768) * cdepth >> 8);   /* Q8 delay: read between samples */
-        {
-            uint32_t ri = (uint32_t)r >> 8;
-            int32_t f = r & 255, c0 = cho_buf[(fx.cho_w - ri) & (CHO_LEN - 1u)];
-            int32_t c1 = cho_buf[(fx.cho_w - ri - 1u) & (CHO_LEN - 1u)];
-            y += (c0 + (((c1 - c0) * f) >> 8)) << 1;
-        }
-        fx.cho_w++;
+        int32_t y = cho_tick(&ck, cho_in[i]), x;   /* the chorus (cho_tick) */
         /* delay with a low-passed feedback */
         x = dly_buf[(fx.dly_w - dl) & (DLY_LEN - 1u)];
         fx.dly_lp += mulq15(x - fx.dly_lp, col);
@@ -577,11 +649,11 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
         wet[i] = y;
     }
     rt = song.g[G_RTYPE];
-    rt = rt == 1 || rt == 2 ? rt : 0;
+    rt = rt >= 1 && rt <= 3 ? rt : 0;
     hl.side = 0;
     if (rt != fx.rtype)
         rev_switch(rev_in, wet, n, rt);
-    else if (rt == 2)
+    else if (rt >= 2)
         rev_hall(rev_in, wet, n);
     else if (rt)
         rev_spring(rev_in, wet, n);

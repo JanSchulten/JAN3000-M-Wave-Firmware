@@ -3238,20 +3238,56 @@ static int test_layer(void)
     ok &= song.g[G_RTYPE] == 0 && str_eq(GP[G_RTYPE].names[song.g[G_RTYPE]], "ROOM");
     turn(EN_K1, 1);
     ok &= song.g[G_RTYPE] == 1 && str_eq(GP[G_RTYPE].names[song.g[G_RTYPE]], "SPRING");
-    turn(EN_K1, 5);
+    turn(EN_K1, 1);
     ok &= song.g[G_RTYPE] == 2;
-    turn(EN_K1, -1);
+    turn(EN_K1, 5);                                    /* (M-Vave-OP1: SHIMMER after HALL, the end) */
+    ok &= song.g[G_RTYPE] == 3 && str_eq(GP[G_RTYPE].names[3], "SHIMMER");
+    turn(EN_K1, -2);
     ok &= song.g[G_RTYPE] == 1;
     song.playing = 0;
     project_save(2);
     turn(EN_K1, -1);
     ok &= song.g[G_RTYPE] == 0;
     project_load(2);
-    bad += check("REVERB page: TYPE HALL (power-on) / ROOM / SPRING on KNOB 1 (SIZE, DAMP beside it); a project keeps SPRING",
+    bad += check("REVERB page: TYPE HALL (power-on) / ROOM / SPRING / SHIMMER on KNOB 1 (SIZE, DAMP beside it); a project keeps SPRING",
                  ok && song.g[G_RTYPE] == 1);
+    /* M-Vave-OP1, CHORUS: KNOB 1 TYPE (CHORUS FLANGER VIBRATO, not round), 2 RATE, 3 DEPTH (the globals), 4 FDBK 0..100;
+     * TYPE and FDBK kept by a project (its extras) */
+    ui_power_on();
+    chos.type = CHO_CHORUS;                            /* (earlier tests turned the page's knobs) */
+    chos.fdbk = 0;
     go_title("CHORUS");
-    bad += check("  CHORUS page: CRT CDP", cur_page()->fam == FAM_FX && cur_page()->id[0] == G_CRATE &&
-                 cur_page()->id[1] == G_CDEPTH && cur_page()->id[2] == 0xFFu);
+    ok = cur_page()->fam == FAM_FX && cur_page()->graph == GR_CHO && cur_page()->id[1] == G_CRATE &&
+         cur_page()->id[2] == G_CDEPTH && cur_page()->id[0] == 0xFFu && cur_page()->id[3] == 0xFFu &&
+         chos.type == CHO_CHORUS && !chos.fdbk;
+    turn(EN_K1, 1);
+    ok &= chos.type == CHO_FLANGER;
+    turn(EN_K1, 3);
+    ok &= chos.type == CHO_VIBRATO;
+    turn(EN_K1, -1);
+    ok &= chos.type == CHO_FLANGER;
+    {
+        int16_t r0 = song.g[G_CRATE], d0 = song.g[G_CDEPTH];
+        turn(EN_K2, 3);
+        turn(EN_K3, -2);
+        ok &= song.g[G_CRATE] > r0 && song.g[G_CDEPTH] < d0;
+    }
+    turn(EN_K4, 30);
+    ok &= chos.fdbk > 0u && chos.fdbk <= 100u;
+    turn(EN_K4, 400);
+    ok &= chos.fdbk == 100u;
+    turn(EN_K4, -5);
+    ok &= chos.fdbk < 100u;
+    {
+        uint8_t fb = chos.fdbk;
+        song.playing = 0;
+        project_save(2);
+        chos.type = CHO_CHORUS;
+        chos.fdbk = 0;
+        project_load(2);
+        ok &= chos.type == CHO_FLANGER && chos.fdbk == fb;
+    }
+    bad += check("  CHORUS page: TYPE CHORUS / FLANGER / VIBRATO, RATE DEPTH, FDBK; a project keeps TYPE and FDBK", ok);
     /* chording: a key held before FX stays a note, its note-off arrives */
     ui_power_on();
     mo = mo_w;

@@ -160,12 +160,18 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
   the cards in place of the scope: every page's values, the row the knobs edit raised. A tap of EDIT goes to the next
   row. WHEEL, SAMPLE and FM6 keep their pictures.
-- **FX in seven cards drawn as effect pedals** (each in the colours of a classic of its kind: a charcoal send box,
-  an orange drive, a light blue chorus, a green delay or a purple CLOUD box, a silver reverb or a brown spring, a
-  yellow slicer): the knobs where KNOB 1..4 sit (turned: the value under it), a window with the effect moving, the
-  name, the LED and the footswitch. A tap of FX the next: **1 SEND** (the track's DST CHO DLY
-  REV), **2 INSERT** (TYPE A B MIX), **3 CHORUS** (RATE DEPTH), **4 DELAY** (TYPE DELAY: TIME FDBK MIX; CLOUD, the
-  granular: SIZE PITCH DENS), **5 REVERB** (TYPE SIZE DAMP), **6 SLICER**, **7 FX TRACKS**.
+- **FX in seven cards, six drawn as effect pedals** (each in the colours of a classic of its kind: an orange drive,
+  a light blue chorus, a magenta flanger, a teal vibrato, a green delay or a purple CLOUD box, a blue room, a brown
+  spring, a silver hall, a pearl shimmer, a yellow slicer): the knobs where KNOB 1..4 sit (turned: the value under
+  it), a window with the effect moving, the name, the LED and the footswitch. A tap of FX the next: **1 SEND** (not a
+  pedal: four mixer faders, the track's DST CHO DLY REV), **2 INSERT** (TYPE A B MIX), **3 CHORUS** (TYPE CHORUS /
+  FLANGER / VIBRATO, RATE, DEPTH, FDBK), **4 DELAY** (TYPE DELAY: TIME FDBK MIX; CLOUD, the granular: SIZE PITCH
+  DENS), **5 REVERB** (TYPE ROOM / SPRING / HALL / SHIMMER, SIZE, DAMP), **6 SLICER**, **7 FX TRACKS**.
+- **CHORUS TYPE:** CHORUS is Felucca's (FDBK 0: bit for bit); FLANGER sweeps a 0.5 .. 6 ms comb, FDBK up to 0.87 for
+  the jet; VIBRATO a 1 .. 10 ms line, the copy's pitch swinging (the bus is all wet: CHO up and the track's LEVEL down
+  for the vibrato alone). TYPE and FDBK are kept with the project.
+- **REVERB SHIMMER:** the HALL with its tail shifted an octave up and fed back into it, so the tail climbs an octave
+  a pass (each one darker and quieter: it dies away at any SIZE).
 - **REC held:** F#3 clears both FX TRACKS, G#3 the selected track's automation (its recorded knob moves), each after
   OCT+; the notes stay (F3 CLEAR clears the notes and the automation, as before).
 - **HOME shows the four tracks** by default. The oscilloscope is MENU > DISPLAY > HOME **SCOPE** (TRACKS, LEVELS,

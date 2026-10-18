@@ -1069,6 +1069,20 @@ static void edit_param(uint32_t slot, int32_t steps)
         orc_knob(slot, steps);
         return;
     }
+    if (pg->graph == GR_CHO && (slot == 0u || slot == 3u)) {   /* .. CHORUS: KNOB 1 TYPE, 4 FDBK (fx.c chos; RATE
+                                                                 * DEPTH: the page's own) */
+        static const char *const MSG[CHO_NTYPE] = {"CHORUS", "CHORUS: FLANGER", "CHORUS: VIBRATO"};
+        if (slot == 0u) {
+            uint32_t ty = (uint32_t)clamp((int32_t)chos.type + (steps > 0 ? 1 : -1), 0, CHO_NTYPE - 1);
+            if (ty != chos.type) {
+                chos.type = (uint8_t)ty;
+                ui_message(MSG[ty]);
+            }
+        } else {
+            chos.fdbk = (uint8_t)clamp((int32_t)chos.fdbk + accel(EN_K1 + slot, steps, 100), 0, 100);
+        }
+        return;
+    }
     if (pg->graph == GR_TAPE) {                       /* KNOB 1 POS (a beat a detent, a bar turned fast), 2 LOOP, */
         if (slot == 0u)                               /* 3 SPEED, 4 DIR (tape.c) */
             tape_seek_ui(steps * (int32_t)(steps > 2 || steps < -2 ? TAPE_BAR : TAPE_PPQN));
@@ -1966,7 +1980,7 @@ static void ui_input(void)
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
             || pg->graph == GR_SONG || pg->graph == GR_TAPE || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD || (pg->graph == GR_SLICES && k < 2u) ||
-            (pg->graph == GR_ORCH && k < 3u) || fop_page(pg->graph)) {   /* (not an empty
+            (pg->graph == GR_ORCH && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph)) {   /* (not an empty
                                                                                                           * column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;

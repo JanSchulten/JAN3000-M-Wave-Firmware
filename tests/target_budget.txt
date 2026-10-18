@@ -41,6 +41,7 @@ slc_rev 120
 fm1_alnk0_irq 37502
 fm1_timer5_irq 33387
 click_render 30
+po_render 16
 mod_begin 158
 mod_voice 30
 mod_end 7
@@ -58,10 +59,11 @@ rev_room 218
 rev_spring 126
 rev_hall 1995
 rev_side_mix 9
+hall_shimmer 45
 track_insert 3
 ins_drive 277
 ins_swept 230
 cloud_render 306
 cl_spawn 9
-fx1_block 79
+fx1_block 92
 cloud_side 14

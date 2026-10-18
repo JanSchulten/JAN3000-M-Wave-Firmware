@@ -25,12 +25,14 @@ FUNCS = ["analog_render", "digital_render", "digital_render_legacy", "digital_re
          "fm1_alnk0_irq", "fm1_timer5_irq",               # the audio ISR; TIMER5: the key / LED scan (hal/fm1_input.h)
          "uac_tap48",                                       # the USB audio input at 48 kHz: the 44.1 -> 48 resampler (usb.c)
          "click_render",                                    # the metronome's click (click.c), while it sounds
+         "po_render",                                       # .. M-Vave-OP1: SYNC OUT PO's pulses (click.c), while on
          "mod_begin", "mod_voice", "mod_end",                 # the modulation matrix (mod.c), called when active
          "perf_begin", "perf_mute", "perf_pre", "perf_block", "perf_master",   # the FX layer (perform.c), when busy
          "perf_flanger", "perf_phaser",                     # .. FLANGER, PHASER (1.2), while held or fading
          "perf_throw",                                      # .. REV / ECHO THROW (1.5.1): per part, while held or gliding
          "perf_duck", "perf_stereo",                        # .. DUCK, STEREO (M-Vave-OP1 E2), while held or fading
          "rev_room", "rev_spring", "rev_hall", "rev_side_mix",   # the reverb bus (fx.c): REVERB TYPE ROOM / SPRING / HALL (and its stereo)
+         "hall_shimmer",                                    # .. M-Vave-OP1: SHIMMER's octave (fx.c), after rev_hall
          "track_insert", "ins_drive", "ins_swept",           # the per-track INSERT (fx.c, 1.5), while a TYPE plays
          "cloud_render", "cl_spawn", "fx1_block", "cloud_side"]   # M-Vave-OP1: FX1's CLOUD (fx1.c), while it is the TYPE
 # built only with FELUCCA_FM4=1 (DIGITAL, src/eng_digital.c; not in the default build, so not in BUDGET): absent,

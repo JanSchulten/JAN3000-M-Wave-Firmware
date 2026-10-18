@@ -189,21 +189,11 @@ static __attribute__((noinline)) void fx1_block(const int32_t *cho_in, const int
                                                 int32_t fb)
 {
     uint32_t i, want = fx1s.type < FX1_NTYPE ? fx1s.type : FX1_DELAY;
-    int32_t cdepth = song.g[G_CDEPTH] * 6, cfb = fx1s.fdbk * 295;
-    uint32_t cinc = LFO_INC[song.g[G_CRATE] & 127] / CTL;
-    for (i = 0; i < n; i++) {                    /* chorus: modulated short delay, 5..15 ms (fx_buses' own) */
-        int32_t r;
-        cho_buf[fx.cho_w & (CHO_LEN - 1u)] = (int16_t)clamp(cho_in[i] >> 1, -32768, 32767);
-        fx.cho_ph += cinc;
-        r = (400 << 8) + ((osc_sine(fx.cho_ph) + 32768) * cdepth >> 8);
-        {
-            uint32_t ri = (uint32_t)r >> 8;
-            int32_t f = r & 255, c0 = cho_buf[(fx.cho_w - ri) & (CHO_LEN - 1u)];
-            int32_t c1 = cho_buf[(fx.cho_w - ri - 1u) & (CHO_LEN - 1u)];
-            wet[i] = (c0 + (((c1 - c0) * f) >> 8)) << 1;
-        }
-        fx.cho_w++;
-    }
+    int32_t cfb = fx1s.fdbk * 295;
+    cho_k_t ck;
+    cho_setup(&ck);
+    for (i = 0; i < n; i++)                      /* the chorus (fx_buses' own) */
+        wet[i] = cho_tick(&ck, cho_in[i]);
     if (pf.ew1 && cfb < THR_FB)
         cfb += mulq16(THR_FB - cfb, (uint32_t)pf.ew1 << 1);   /* ECHO THROW: into the cloud, and round again */
     if (cld.busy) {                              /* clearing: FX1 silent */

@@ -52,7 +52,7 @@ static const char *const N_MIDI_INPUT[] = {"USB", "TRS"};
 static const char *const N_ROUTE[] = {"CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16"};
 static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const N_DASH[] = {"--"};
-static const char *const N_RTYPE[] = {"ROOM", "SPRING", "HALL"};   /* G_RTYPE: the reverb bus's model (fx.c) */
+static const char *const N_RTYPE[] = {"ROOM", "SPRING", "HALL", "SHIMMER"};   /* G_RTYPE: the reverb bus's model (fx.c) */
 static const char *const N_GO[] = {"--", "GO"};
 static const char *const N_SLCR[] = {"OFF", "GATE", "STUT"};             /* SL_OFF .. SL_STUT (slicer.c) */
 static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T"};   /* SL_DEN */
@@ -435,7 +435,8 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_TAPE, GR_TAPE2,                       /* M-Vave-OP1: GLO > TAPE, TAPE 2 (tape.c, ui_graph.c graph_tape) */
        GR_FXT, GR_FXT2,                         /* .. FX > FX TRACKS, FX TRACKS 2 (fxtrack.c, ui_graph.c graph_fxt) */
        GR_FX1, GR_CLOUD,                        /* .. FX > FX1 (the delay bus's TYPE), CLOUD (fx1.c, ui_graph.c graph_fx1) */
-       GR_ORCH };                               /* .. SCL > ORCHID (orchid.c, ui_graph.c graph_orc) */
+       GR_ORCH,                                 /* .. SCL > ORCHID (orchid.c, ui_graph.c graph_orc) */
+       GR_CHO };                                /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
 
 typedef struct {
     const char *title;
@@ -459,9 +460,9 @@ static const page_t PAGES[] = {
      * values (the tests, the editor), never shown by FX's taps */
     {"FX", FAM_FX, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},
     {"INSERT", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IMIX}},   /* 1.5: the track's INSERT (fx.c) */
-    {"CHORUS", FAM_FX, SC_GLOBAL, GR_NONE, {G_CRATE, G_CDEPTH, 0xFF, 0xFF}},
+    {"CHORUS", FAM_FX, SC_GLOBAL, GR_CHO, {0xFF, G_CRATE, G_CDEPTH, 0xFF}},   /* M-Vave-OP1: TYPE RATE DEPTH FDBK */
     {"DELAY", FAM_FX, SC_GLOBAL, GR_FX1, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, 0xFF}},   /* TYPE: ROOM / SPRING / HALL */
+    {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, 0xFF}},   /* TYPE: ROOM / SPRING / HALL / SHIMMER */
     {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},
     {"FX TRACKS", FAM_FX, SC_GLOBAL, GR_FXT, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_IMIX, P_IC, 0xFF, 0xFF}},  /* (hidden: MIX and C) */

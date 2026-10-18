@@ -1276,6 +1276,10 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
     h = as_mix(h, orc_voice, sizeof orc_voice);     /* SCL > ORCHID's VOICE and ON too; */
     h = as_mix(h, &orc_en, 1);
+    {                                               /* the CHORUS's TYPE and FDBK (fx.c) */
+        uint8_t c[2] = {chos.type, chos.fdbk};
+        h = as_mix(h, c, 2);
+    }
     {                                               /* the scenes: the bank's bytes and the one playing, so a pick and */
         uint8_t c = scn.cur;                        /* back again writes nothing) */
         h = as_mix(h, scb.len, sizeof scb.len);

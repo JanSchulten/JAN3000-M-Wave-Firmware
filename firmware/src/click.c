@@ -73,7 +73,7 @@ static __attribute__((noinline)) void po_render(int32_t *out, uint32_t n)
         po_left = PO_PULSE;
     }
     for (i = 0; i < n; i++) {
-        int32_t m = (out[2u * i] + out[2u * i + 1u]) / 2;
+        int32_t m = (out[2u * i] + out[2u * i + 1u]) >> 1;   /* (a shift: no divide in the ISR) */
         out[2u * i] = po_left ? 32767 : 0;
         out[2u * i + 1u] = m;
         if (po_left)

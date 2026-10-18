@@ -778,6 +778,179 @@ static void test_switch(void)
     check("  and back to ROOM", fx.rtype == 0 && !hl.side);
 }
 
+/* SHIMMER (M-Vave-OP1, G_RTYPE 3): the HALL with its octave fed back. A 440 Hz burst: the tail (1 .. 2 s) holds the
+ * band round 880 Hz well above HALL's and near the 440's, and round 1760 Hz too (the octave climbs); the corners (SIZE 127, DAMP 0 and 127, a full-scale noise burst):
+ * bounded, decaying, exact silence within 40 s; HALL itself unchanged by SHIMMER's code (the octave's send 0) */
+static void shimmer_reset(int rt, int32_t size, int32_t damp)
+{
+    song.g[G_RTYPE] = (int16_t)rt;
+    song.g[G_RSIZE] = (int16_t)size;
+    song.g[G_RDAMP] = (int16_t)damp;
+    rev_clear();
+    fx.rtype = (uint8_t)rt;
+    hl.ph = 0;
+    hl.sz = 0;
+    hl.shw = hl.shd = 0;
+}
+static double goertzel(const int32_t *h, uint32_t a, uint32_t b, double f)
+{
+    double w = 2 * M_PI * f / FS, c = 2 * cos(w), s0, s1 = 0, s2 = 0;
+    uint32_t i;
+    for (i = a; i < b; i++) {
+        s0 = h[i] + c * s1 - s2;
+        s2 = s1;
+        s1 = s0;
+    }
+    return sqrt(s1 * s1 + s2 * s2 - c * s1 * s2) / (b - a);
+}
+/* the band f -10 % .. +10 % of h[a .. b): its power, in 0.1 s windows (10 Hz apart: the shifter's sidebands, 43 Hz
+ * apart, all counted), as an amplitude */
+static double band(const int32_t *h, uint32_t a, uint32_t b, double f)
+{
+    uint32_t w = FS / 10u, t;
+    double p = 0, g;
+    for (t = a; t + w <= b; t += w)
+        for (g = f * 0.9; g <= f * 1.1; g += 10) {
+            double v = goertzel(h, t, t + w, g);
+            p += v * v;
+        }
+    return sqrt(p);
+}
+static void test_shimmer(void)
+{
+    static int32_t in[CTL], out[CTL], bur[FS / 4];
+    static int32_t h[2][3 * FS];
+    double a[2][3];
+    uint32_t m, i, t, k;
+    char what[200];
+    for (i = 0; i < FS / 4u; i++)
+        bur[i] = (int32_t)(20000 * sin(2 * M_PI * 440 * i / FS));
+    for (m = 0; m < 2u; m++) {                           /* HALL, SHIMMER: the tail's 440 880 1760 Hz */
+        shimmer_reset(m ? 3 : 2, 90, 60);
+        for (t = 0; t < 3u * FS / CTL * CTL; t += CTL) {
+            for (i = 0; i < CTL; i++) {
+                in[i] = t + i < FS / 4u ? bur[t + i] : 0;
+                out[i] = 0;
+            }
+            rev_hall(in, out, CTL);
+            for (i = 0; i < CTL; i++)
+                h[m][t + i] = out[i] + rev_side[i];
+        }
+        a[m][0] = band(h[m], FS, 2 * FS, 440);
+        a[m][1] = band(h[m], FS, 2 * FS, 880);
+        a[m][2] = band(h[m], FS, 2 * FS, 1760);
+    }
+    snprintf(what, sizeof what, "SHIMMER: the tail's octave (1 .. 2 s, 880 / 440 Hz) %.2f, HALL's %.3f; 1760 Hz %.2f", a[1][1] / a[1][0],
+             a[0][1] / a[0][0], a[1][2] / a[1][0]);
+    check(what, a[1][1] > 0.4 * a[1][0] && a[1][2] > 0.1 * a[1][0] && a[0][1] < 0.05 * a[0][0] && a[0][2] < 0.05 * a[0][0]);
+    for (k = 0; k < 2u; k++) {                           /* the corners */
+        int32_t peak = 0, late = 0;
+        double e1 = 0, e2 = 0;
+        uint32_t quiet = 0;
+        shimmer_reset(3, 127, k ? 127 : 0);
+        for (t = 0; t < 40u * FS; t += CTL) {
+            for (i = 0; i < CTL; i++) {
+                in[i] = t < FS ? noise(131071) : 0;
+                out[i] = 0;
+            }
+            rev_hall(in, out, CTL);
+            for (i = 0; i < CTL; i++) {
+                int32_t v = abs(out[i]) + abs(rev_side[i]);
+                peak = v > peak ? v : peak;
+                if (t >= FS && t < 3u * FS)
+                    e1 += (double)out[i] * out[i];
+                if (t >= 10u * FS && t < 12u * FS)
+                    e2 += (double)out[i] * out[i];
+                if (t >= 38u * FS)
+                    late |= out[i] | rev_side[i] | hl.sh[i % HL_NC];
+            }
+            quiet = t >= 38u * FS ? quiet : 0;
+        }
+        snprintf(what, sizeof what, "SHIMMER SIZE 127 DAMP %d: peak %d, 10 s after %.1f dB below 1 s after, silent at 38 .. 40 s: %s",
+                 k ? 127 : 0, peak, 10 * log10(e1 / (e2 + 1e-9)), late ? "no" : "yes");
+        check(what, peak < 4000000 && e2 * 1000 < e1 && !late);
+        (void)quiet;
+    }
+    shimmer_reset(0, 90, 60);
+}
+
+/* the CHORUS's TYPE (M-Vave-OP1, fx.c chos) through fx_buses, DEPTH 0 (the line still): an impulse comes out 400
+ * samples later on CHORUS, 22 on FLANGER, 44 on VIBRATO; FDBK sends it round again (FLANGER 100: the second at 2 x 22,
+ * 0.87 of the first; CHORUS 100: 0.49); FLANGER at FDBK 100 on full-scale noise: bounded, then quiet */
+static void test_chorus_types(void)
+{
+    static const int32_t BASE[CHO_NTYPE] = {400, 22, 44};
+    static int32_t c[CTL], d[CTL], r[CTL], w[CTL], h[4096];
+    uint32_t ty, b, i, fb;
+    char what[200];
+    int ok = 1;
+    for (fb = 0; fb < 2u; fb++)
+        for (ty = 0; ty < CHO_NTYPE; ty++) {
+            uint32_t first = 0, second = 0;
+            double ratio;
+            host_tracks_init();
+            rev_clear();
+            memset(dly_buf, 0, sizeof dly_buf);
+            memset(cho_buf, 0, sizeof cho_buf);
+            fx.dly_lp = 0;
+            fx.cho_ph = 0;
+            song.g[G_CDEPTH] = 0;
+            chos.type = (uint8_t)ty;
+            chos.fdbk = (uint8_t)(fb ? 100 : 0);
+            for (b = 0; b < 4096u / CTL; b++) {
+                for (i = 0; i < CTL; i++) {
+                    c[i] = b == 0 && i == 0 ? 20000 : 0;
+                    d[i] = r[i] = 0;
+                }
+                fx_buses(c, d, r, w, CTL);
+                for (i = 0; i < CTL; i++)
+                    h[b * CTL + i] = w[i];
+            }
+            for (i = 0; i < 4096u && !first; i++)
+                first = h[i] ? i : 0;
+            for (i = first + 1u; i < 4096u && !second; i++)
+                second = h[i] ? i : 0;
+            ratio = first && second ? (double)h[second] / h[first] : 0;
+            if (fb)
+                ok &= second == 2u * first && ratio > (ty == CHO_FLANGER ? 0.85 : 0.47) &&
+                      ratio < (ty == CHO_FLANGER ? 0.89 : 0.51);
+            else
+                ok &= !second;
+            ok &= first == (uint32_t)BASE[ty];
+            snprintf(what, sizeof what, "CHORUS TYPE %u FDBK %u: the impulse at %u (%d), again at %u (x %.2f)", ty,
+                     chos.fdbk, first, BASE[ty], second, ratio);
+            if (!ok)
+                check(what, 0);
+        }
+    check("CHORUS TYPE: CHORUS / FLANGER / VIBRATO at 400 / 22 / 44 samples, FDBK 100 round again (0.87 / 0.49)", ok);
+    {   /* FLANGER at its corner: full-scale noise 1 s, then silence */
+        int32_t peak = 0, late = 0;
+        host_tracks_init();
+        memset(cho_buf, 0, sizeof cho_buf);
+        song.g[G_CDEPTH] = 127;
+        song.g[G_CRATE] = 127;
+        chos.type = CHO_FLANGER;
+        chos.fdbk = 100;
+        for (b = 0; b < 4u * FS / CTL; b++) {
+            for (i = 0; i < CTL; i++) {
+                c[i] = b < FS / CTL ? noise(262143) : 0;
+                d[i] = r[i] = 0;
+            }
+            fx_buses(c, d, r, w, CTL);
+            for (i = 0; i < CTL; i++) {
+                peak = abs(w[i]) > peak ? abs(w[i]) : peak;
+                if (b > 3u * FS / CTL)
+                    late = abs(w[i]) > late ? abs(w[i]) : late;
+            }
+        }
+        snprintf(what, sizeof what, "FLANGER FDBK 100 on full-scale noise: peak %d (the line's 2 x 32767 at most), 2 s after %d",
+                 peak, late);
+        check(what, peak <= 65536 && late <= 2);
+    }
+    chos.type = CHO_CHORUS;
+    chos.fdbk = 0;
+}
+
 /* ---------------------------------------------------------------- cost --- */
 static double cost_of(int m, int bus)        /* model m alone (rev_room, rev_spring, rev_hall), or the bus stage */
 {
@@ -976,6 +1149,8 @@ int main(int argc, char **argv)
     test_hall();
     test_clear();
     test_switch();
+    test_shimmer();
+    test_chorus_types();
     test_cost();
     if (argc > 1) {
         demo(argv[1], "spring_drums", 1, 0);
