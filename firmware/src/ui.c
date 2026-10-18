@@ -396,10 +396,9 @@ static uint32_t layer_btn(void);
  * track's (its patch's operators, ui_fm6op.c) */
 static int page_visible(uint32_t i)
 {
-    if (PAGES[i].graph == GR_CLOUD)                   /* M-Vave-OP1: FX1's own page by its TYPE (fx1.c) */
-        return fx1s.type == FX1_CLOUD;
-    if (PAGES[i].scope == SC_GLOBAL && PAGES[i].id[0] == G_DTIME)
-        return fx1s.type != FX1_CLOUD;
+    if (PAGES[i].graph == GR_CLOUD || PAGES[i].graph == GR_FXT2 || (PAGES[i].scope == SC_GLOBAL && PAGES[i].id[0] == G_DTIME) ||
+        (PAGES[i].graph == GR_INS && PAGES[i].id[0] == P_IMIX))
+        return 0;                                     /* M-Vave-OP1: FX's seven cards (params.c); these on their own */
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
     if (PAGES[i].id[0] == P_FTYPE)                    /* FILTER (1.5, #104): ANALOG's */

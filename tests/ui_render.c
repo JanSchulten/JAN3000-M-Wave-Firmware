@@ -1104,7 +1104,7 @@ static void setup(int s)
         TSEL->p[P_M2DST] = 14; TSEL->p[P_M2AMT] = -64; mod_ui_slot = 1; go_title("MOD"); break;
     case S_FX: go_title("FX"); break;
     case S_SLICER: TSEL->p[P_SLCR] = 1; go_title("SLICER"); break;
-    case S_DLY: go_title("DLY"); break;
+    case S_DLY: go_title("DELAY"); break;   /* (M-Vave-OP1: FX's DELAY card) */
     case S_SCL: TSEL->p[P_SCALE] = 2; go_title("SCL"); break;
     case S_CHORD:                                    /* A minor DIA7, the last chord on B: Bm7b5 */
     case S_CHORD_WIDE: {                             /* A harmonic minor DIA7 +OCT on G#: G#dim7 over three octaves */
@@ -1166,7 +1166,7 @@ static void setup(int s)
     case S_INSERT_FOLD: set_ins_ui(IT_FOLD, 100, 96, 100, 76); go_title("INSERT"); break;
     case S_INSERT_PHASER: set_ins_ui(IT_PHASER, 70, 110, 90, 127); go_title("INSERT"); break;
     case S_INSERT_OFF: go_title("INSERT"); break;
-    case S_INSERT_MIX: set_ins_ui(IT_FLANGER, 40, 127, 110, 90); go_title("INSERT 2"); break;
+    case S_INSERT_MIX: set_ins_ui(IT_FLANGER, 40, 127, 110, 90); go_title("INSERT"); break;
     /* 1.5 MIDI LEARN (midi_learn.c): on, nothing picked (MIXER); T1 CUT picked, no CC yet (EDIT 2); T1 CUT on CC74 (its
      * message in the header); the widest line, a 5-letter label waiting; GLO's map with LEARN on (D4) */
     case S_LEARN_WAIT: go_page(GR_TRK); ml_toggle(); ui.msg_t = 0; break;
@@ -1191,8 +1191,8 @@ static void setup(int s)
     case S_MENU_LCLEAR_NONE: ui.menu = 1; ui.menu_sel = MI_LCLEAR; break;
     /* 1.5.1: the DLY page with TIME 1/8D (KNOB 1 turned: its gauge) and 1/16D (the widest name); the FX layer's map
      * with REV THROW (D5, VERB) and ECHO THROW (E5, ECHO) held */
-    case S_DLY_DOT: song.g[G_DTIME] = 10; go_title("DLY"); ui.hot_col = 0; ui.hot_t = 30; break;
-    case S_DLY_DOT16: song.g[G_DTIME] = 11; go_title("DLY"); break;
+    case S_DLY_DOT: song.g[G_DTIME] = 10; go_title("DELAY"); ui.hot_col = 1; ui.hot_t = 30; break;
+    case S_DLY_DOT16: song.g[G_DTIME] = 11; go_title("DELAY"); break;
     case S_FX_THROW:
         song.playing = 1; ui.layer = LAYER_FX;
         perf_held = perf_act = PF_BIT(PF_RTHR) | PF_BIT(PF_ETHR);

@@ -550,6 +550,21 @@ static void rec_set(uint32_t r, uint32_t v)
     rp_put(RL_F[r], v);
     lys.rp_dirty = 1;
 }
+/* M-Vave-OP1, REC held: F#3 clears both FX TRACKS, G#3 the selected track's automation (its recorded knob moves and
+ * locks; its notes stay), each after OCT+ (the dialogs of FX TRACKS 2 and AUTOMATION) */
+static int rec_fxt_any(void) { return fxt_used(0) || fxt_used(1); }
+static void rec_clear_more(uint32_t p)
+{
+    if (chain_busy()) {
+        ui_message("STOP TO EDIT");
+        return;
+    }
+    if (p == 0u ? !rec_fxt_any() : !motion_count(TSEL)) {
+        ui_message("NOTHING TO CLEAR");
+        return;
+    }
+    confirm_open(p == 0u ? CF_FXT_ALL : CF_CLEAR_MOTION, p == 0u ? 0u : song.sel);
+}
 static void rec_key(uint32_t p)
 {
     uint32_t r = p - 1u, v;
@@ -759,6 +774,8 @@ static void layer_key(uint32_t l, uint32_t k)
     } else if (l == LAYER_REC) {
         if (!key_black(k) && p < 4u)
             rec_key(p);
+        else if (key_black(k) && p < 2u)
+            rec_clear_more(p);                          /* (M-Vave-OP1: F#3 the FX TRACKS, G#3 the automation) */
     } else if (l == LAYER_SEQ) {
         if (!key_black(k))
             scene_key(p);                               /* (M-Vave-OP1: the white keys pick scenes 1..16, scene.c) */
@@ -923,6 +940,8 @@ static uint32_t layer_leds(uint32_t *br)
             on = p == 1u ? rp_get(RP_CLICK) != 0u : p == 2u ? rp_get(RP_COUNTIN) != 0u :   /* CLEAR: something to */
                  p == 3u && rp_get(RP_CLICK) != 0u;    /* clear, not while a song plays */
             can = p ? 1u : !chain_busy() && rec_clearable();
+        } else if (l == LAYER_REC && b && p < 2u) {     /* M-Vave-OP1: F#3 / G#3 breathe with something to clear */
+            can = !chain_busy() && (p == 0u ? rec_fxt_any() : motion_count(TSEL) != 0u);
         }
         m |= on << k;
         n |= (can & !on) << k;
@@ -1170,27 +1189,31 @@ static void layer_seq(void)
  * or the setting's three values, the one now with the selection's fill (as MENU > AUDIO steps them) */
 #define LR_KW 78                                         /* the key's cell; the values 46 px each: x 6 .. 234 */
 #define LR_VW 46
-#define LR_H 26
+#define LR_H 17                                          /* (M-Vave-OP1: six rows, F#3 and G#3 too) */
 static void layer_rec(void)
 {
+    static const char *const KN[6] = {"F", "G", "A", "B", "F#", "G#"};
     uint32_t r, v;
-    char n[3] = {0, 0, 0}, b[16];
-    for (r = 0; r < 4u; r++) {
-        int32_t y = 4 + (LR_H + 4) * (int32_t)r, x = 6, vx = 6 + LR_KW + 4;
-        uint32_t dim = r == 0u && (chain_busy() || !rec_clearable());
+    char b[20];
+    for (r = 0; r < 6u; r++) {
+        int32_t y = 2 + (LR_H + 3) * (int32_t)r, x = 6, vx = 6 + LR_KW + 4, w = 234 - vx;
+        uint32_t clr = r == 0u || r >= 4u, any = r == 0u ? rec_clearable() : r == 4u ? rec_fxt_any() :
+                                               r == 5u ? motion_count(TSEL) != 0u : 1u;
+        uint32_t dim = clr && (chain_busy() || !any);
         uint16_t ink, fill = lc_box(x, y, LR_KW, LR_H, lc_fill(dim ? LS_DIM : LS_OFF, &ink));
-        n[0] = W_NOTE[r];
         GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");
-        cv_text_on(x + 5, y + CAP_IN(S, LR_H), &AF_S, n, fill == T_RAISE || fill == T_SURF ? T_MID : ink, fill);
+        cv_text_on(x + 5, y + CAP_IN(S, LR_H), &AF_S, KN[r], fill == T_RAISE || fill == T_SURF ? T_MID : ink, fill);
         GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");
-        cv_icon_in(x + 15, y, 0, LR_H, 12, r ? RL_ICON[r - 1u] : ICON_CLEAR, ink, fill);
-        GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");
-        cv_text_r(x + LR_KW - 5, y + CAP_IN(S, LR_H), &AF_S, r ? RL_LABEL[r - 1u] : "CLEAR", ink, fill);
-        if (r == 0u) {                                   /* "T2 SEQUENCE" / "T2 EMPTY" (a song playing: why not) */
-            int32_t w = 234 - vx;
+        cv_text_r(x + LR_KW - 5, y + CAP_IN(S, LR_H), &AF_S, r >= 1u && r <= 3u ? RL_LABEL[r - 1u] : "CLEAR", ink, fill);
+        if (clr) {                                       /* "T2 SEQUENCE" / "FX TRACKS" / "T2 AUTOMATION" (or EMPTY) */
             b[0] = 'T';
             b[1] = (char)('1' + song.sel);
-            str_cpy(b + 2, rec_clearable() ? " SEQUENCE" : " EMPTY", sizeof b - 2);
+            b[2] = ' ';
+            str_cpy(b + 3, r == 0u ? "SEQUENCE" : "AUTOMATION", sizeof b - 3);
+            if (r == 4u)
+                str_cpy(b, "FX TRACKS", sizeof b);
+            if (!any)
+                str_cpy(r == 0u ? b + 3 : b, r == 0u ? "EMPTY" : r == 4u ? "NO FX TRACKS" : "NO AUTOMATION", sizeof b - 3);
             if (chain_busy())
                 str_cpy(b, "STOP TO EDIT", sizeof b);
             fill = lc_box(vx, y, w, LR_H, lc_fill(dim ? LS_DIM : LS_OFF, &ink));

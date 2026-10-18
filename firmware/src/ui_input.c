@@ -1080,7 +1080,7 @@ static void edit_param(uint32_t slot, int32_t steps)
             tape.rev = steps > 0;
         return;
     }
-    if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* FX1 (fx1.c): TYPE, RAND FDBK MIX; CLOUD: SIZE DENS PITCH SPREAD */
+    if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* DELAY (fx1.c): TYPE, then TIME FDBK MIX or SIZE PITCH DENS; CLOUD */
         volatile uint8_t *v;
         if (pg->graph == GR_FX1 && slot == 0u) {
             uint32_t t = (uint32_t)clamp((int32_t)fx1s.type + (steps > 0 ? 1 : -1), 0, FX1_NTYPE - 1);
@@ -1090,8 +1090,15 @@ static void edit_param(uint32_t slot, int32_t steps)
             }
             return;
         }
-        if (pg->graph == GR_FX1 && fx1s.type != FX1_CLOUD) {
-            ui_message("[FX] AGAIN: DLY");          /* (the DELAY's own are on DLY) */
+        if (pg->graph == GR_FX1 && fx1s.type != FX1_CLOUD) {   /* M-Vave-OP1 DELAY: TIME FDBK MIX (the DLY page's) */
+            static const uint8_t ID[4] = {0, G_DTIME, G_DFDBK, G_DMIX};
+            const param_desc_t *gd = &GP[ID[slot & 3u]];
+            int16_t *gv = &song.g[ID[slot & 3u]];
+            *gv = (int16_t)param_turn(gd, *gv, accel(EN_K1 + slot, steps, gd->fmt == F_ENUM ? 0 : gd->max - gd->min));
+            return;
+        }
+        if (pg->graph == GR_FX1 && slot == 2u) {          /* .. CLOUD: SIZE PITCH DENS */
+            fx1s.pitch = (int8_t)clamp(fx1s.pitch + steps, -24, 24);
             return;
         }
         if (pg->graph == GR_CLOUD && slot == 2u) {
@@ -1099,7 +1106,7 @@ static void edit_param(uint32_t slot, int32_t steps)
             return;
         }
         v = pg->graph == GR_CLOUD ? (slot == 0u ? &fx1s.size : slot == 1u ? &fx1s.dens : &fx1s.spread)
-                                  : (slot == 1u ? &fx1s.rnd : slot == 2u ? &fx1s.fdbk : &fx1s.mix);
+                                  : (slot == 1u ? &fx1s.size : &fx1s.dens);
         *v = (uint8_t)clamp((int32_t)*v + accel(EN_K1 + slot, steps, 100), 0, 100);
         return;
     }

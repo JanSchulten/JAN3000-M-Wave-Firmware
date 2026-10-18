@@ -256,17 +256,14 @@ static void test_ui(const char *dir)
     press(B_FX);
     ok = cur_page()->graph == GR_FX;
     frames(400);
-    go_title("REVERB");
+    go_title("SLICER");
     frames(400);
     press(B_FX);
     ok &= cur_page()->graph == GR_FXT && fxt_page();
     frames(400);
     press(B_FX);
-    ok &= cur_page()->graph == GR_FXT2 && fxt_page();
-    frames(400);
-    press(B_FX);
     ok &= str_eq(cur_page()->title, "FX") && !fxt_page();
-    bad += check("FX: FX first; FX TRACKS, FX TRACKS 2 the last station (after REVERB), then FX again", ok);
+    bad += check("FX: FX first; FX TRACKS the last card (after SLICER), then FX again (M-Vave-OP1's seven)", ok);
     go_title("FX TRACKS");
     turn(EN_K1, 1);
     ok = ui.fxt_sel == 1u;
@@ -352,27 +349,25 @@ static void test_ui(const char *dir)
         frame();
         screen_save(dir, "fxtracks-stopped");
     }
-    press(B_FX);                                    /* FX TRACKS 2 */
-    ok = cur_page()->graph == GR_FXT2 && act_cols() == 3u;
-    if (dir)
-        screen_save(dir, "fxtracks2");
-    turn(EN_K1, 1);
-    press(B_OCTUP);
-    ok &= ui.confirm == CF_FXT_LANE && fxt_used(0);
-    if (dir)
-        screen_save(dir, "fxtracks-clear-confirm");
-    press(B_OCTUP);
-    ok &= !fxt_used(0) && (fxt_used(1) || !dir) && msg_is("FX1 CLEARED");
-    bad += check("FX TRACKS 2: KNOB 1 CLEAR FX1, OCT+ asks, OCT+ again clears it (FX2 kept)", ok);
+    /* M-Vave-OP1: REC held + F#3 clears both FX TRACKS (after OCT+); the notes stay */
     fxt_lane[1].step[5] = C(PF_REV);
-    turn(EN_K2, 1);
-    press(B_OCTUP);
-    press(B_OCTUP);
-    ok = !fxt_used(0) && !fxt_used(1) && msg_is("FX TRACKS CLEARED");
-    turn(EN_K1, 1);
-    press(B_OCTUP);
-    ok &= !ui.confirm && msg_is("NOTHING TO CLEAR");
-    bad += check("  KNOB 2 CLEAR BOTH; then nothing there: NOTHING TO CLEAR, no dialog", ok);
+    {
+        uint8_t n0 = TSEL->step[0].n;
+        btn_down(B_REC); frames(500);
+        key_down(black(0)); frame(); key_up(black(0)); frame();
+        btn_up(B_REC); frame();
+        ok = ui.confirm == CF_FXT_ALL && fxt_used(0) && fxt_used(1);
+        if (dir)
+            screen_save(dir, "fxtracks-clear-confirm");
+        press(B_OCTUP);
+        ok &= !fxt_used(0) && !fxt_used(1) && msg_is("FX TRACKS CLEARED") && TSEL->step[0].n == n0;
+        bad += check("REC held + F#3: CLEAR BOTH FX TRACKS? OCT+ clears them, the notes stay", ok);
+        btn_down(B_REC); frames(500);
+        key_down(black(0)); frame(); key_up(black(0)); frame();
+        btn_up(B_REC); frame();
+        ok = !ui.confirm && msg_is("NOTHING TO CLEAR");
+        bad += check("  then nothing there: NOTHING TO CLEAR, no dialog", ok);
+    }
 }
 
 int main(int argc, char **argv)

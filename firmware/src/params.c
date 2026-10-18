@@ -451,22 +451,23 @@ static const page_t PAGES[] = {
     {"LFO 2", FAM_LFO, SC_TRACK, GR_LFO, {P_LSYNC, P_LTRIG, P_LPOL, 0xFF}},   /* 1.2: SYNC TRIG POL */
     {"LFO DEST", FAM_LFO, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},
     {"MOD", FAM_LFO, SC_TRACK, GR_MOD, {0xFF, P_M1SRC, P_M1DST, P_M1AMT}},   /* KNOB 1: the slot (mod_ui_slot) */
-    /* M-Vave-OP1: FX's pages in four stations, a tap of FX the next row (ui_graph.c fx_rows draws a station's rows):
-     * SEND (the track's sends, CHORUS), TRACK FX (SLICER, INSERT, its MIX), SPACE (FX1's TYPE, DLY or CLOUD, REVERB),
-     * FX TRACKS (fxtrack.c: KNOB 1 the lane, 2 STEP, 3 its EFFECT, 4 LEN, REC arms it; FX TRACKS 2 CLEAR the lane or
-     * both). FX1 (fx1.c) is the delay bus as the OP-Z's FX1: KNOB 1 its TYPE (DELAY, CLOUD), with CLOUD 2..4 RAND FDBK
-     * MIX; then DLY (the DELAY's, as Felucca's) or CLOUD (SIZE DENS PITCH SPREAD), the one of the TYPE */
+    /* M-Vave-OP1: FX's seven cards, a tap of FX the next (ui.c page_visible hides the rest): SEND (the track's DST CHO
+     * DLY REV), INSERT (the track's: TYPE A B MIX; its C keeps its value), CHORUS, DELAY (fx1.c: KNOB 1 the TYPE, DELAY
+     * TIME FDBK MIX or CLOUD SIZE PITCH DENS; ui_input.c dly_knob), REVERB, SLICER, FX TRACKS (fxtrack.c: KNOB 1 the
+     * lane, 2 STEP, 3 its EFFECT, 4 LEN, REC arms it; REC held + F#3 clears them). Each its effect animated under the
+     * cards (ui_graph.c fx_anim). INSERT 2, DLY, CLOUD and FX TRACKS 2 stay as pages of their own for the rest of their
+     * values (the tests, the editor), never shown by FX's taps */
     {"FX", FAM_FX, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},
+    {"INSERT", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IMIX}},   /* 1.5: the track's INSERT (fx.c) */
     {"CHORUS", FAM_FX, SC_GLOBAL, GR_NONE, {G_CRATE, G_CDEPTH, 0xFF, 0xFF}},
-    {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},
-    {"INSERT", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},   /* 1.5: the track's INSERT (fx.c) */
-    {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_IMIX, 0xFF, 0xFF, 0xFF}},  /* .. its dry / wet */
-    {"FX1", FAM_FX, SC_GLOBAL, GR_FX1, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},
-    {"CLOUD", FAM_FX, SC_GLOBAL, GR_CLOUD, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"DELAY", FAM_FX, SC_GLOBAL, GR_FX1, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, 0xFF}},   /* TYPE: ROOM / SPRING / HALL */
+    {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},
     {"FX TRACKS", FAM_FX, SC_GLOBAL, GR_FXT, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"FX TRACKS 2", FAM_FX, SC_GLOBAL, GR_FXT2, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_IMIX, P_IC, 0xFF, 0xFF}},  /* (hidden: MIX and C) */
+    {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},   /* (hidden: all the DELAY's) */
+    {"CLOUD", FAM_FX, SC_GLOBAL, GR_CLOUD, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (hidden: all the CLOUD's) */
+    {"FX TRACKS 2", FAM_FX, SC_GLOBAL, GR_FXT2, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (hidden: CLEAR a lane, both) */
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_TRANS}},
     {"CHORD", FAM_SCL, SC_TRACK, GR_CHORD, {P_CHRD, P_VOIC, 0xFF, 0xFF}},   /* SCL again: the chord keys (chord.c) */
     /* M-Vave-OP1: SCL's third page the Orchid's keyboard (orchid.c): KNOB 1 ON / OFF (the track's, before CHRD), 2 VOICE,

@@ -510,27 +510,21 @@ static void graph_rows(const uint8_t *r, uint32_t n)
         }
     }
 }
-/* M-Vave-OP1: FX's pages as four stations of rows (params.c): SEND (FX, CHORUS), TRACK FX (SLICER, INSERT, INSERT 2),
- * SPACE (FX1, DLY or CLOUD, REVERB); FX TRACKS draws its own. -> the station's visible rows in r, their number (0: none) */
-static uint32_t fx_rows(uint32_t page, uint8_t *r)
+/* M-Vave-OP1: FX's cards (params.c) with their effect animated under the cards: SEND, INSERT, CHORUS, DELAY, REVERB,
+ * SLICER (FX TRACKS draws its own) */
+static int fx_card(uint32_t page)
 {
-    static const char *const G[3][3] = {{"FX", "CHORUS", 0}, {"SLICER", "INSERT", "INSERT 2"}, {"FX1", "DLY", "REVERB"}};
-    uint32_t g, k, i, n = 0, mine = 0;
+    static const char *const C[6] = {"FX", "INSERT", "CHORUS", "DELAY", "REVERB", "SLICER"};
+    uint32_t k;
     if (page >= NPAGES || PAGES[page].fam != FAM_FX)
         return 0;
-    for (g = 0; g < 3u && !mine; g++)
-        for (k = 0, n = 0; k < 3u && G[g][k]; k++)
-            for (i = 0; i < NPAGES; i++)
-                if (str_eq(PAGES[i].title, G[g][k]) || (k == 1u && g == 2u && str_eq(PAGES[i].title, "CLOUD"))) {
-                    if (!page_visible(i))
-                        continue;
-                    r[n++] = (uint8_t)i;
-                    mine |= i == page;
-                    break;
-                }
-    return mine ? n : 0;
+    for (k = 0; k < 6u; k++)
+        if (str_eq(PAGES[page].title, C[k]))
+            return 1;
+    return 0;
 }
-/* .. the animation, in y0..y0 + h under the rows (ui.frame its clock): FX the four sends breathing as large as they are; SLICER its
+static void graph_fx1(void);
+/* .. the animation in y0..y0 + h (ui.frame its clock): FX the four sends breathing as large as they are; SLICER its
  * pattern, the step playing marked; INSERT its curve, a line sweeping it; DLY the echoes running out (TIME their
  * spacing, FDBK how long they last); REVERB rings spreading (SIZE how far, DAMP how soon they fade; SPRING a coil
  * shaking); CHORUS two waves drifting apart (RATE, DEPTH) */
@@ -564,7 +558,9 @@ static void fx_anim(const track_t *t, uint16_t c, int32_t y0, int32_t hh0)
         graph_ht = 100;
         if (t->p[P_ITYPE])
             cv_rect(PANEL_X0 + (int32_t)((f * 3u) % (uint32_t)PANEL_W), y0 + 1, 1, hh0 - 2, T_ACCENT);
-    } else if (str_eq(ti, "DLY") || str_eq(ti, "FX1") || str_eq(ti, "CLOUD")) {   /* the echoes running out */
+    } else if (str_eq(ti, "DELAY") && fx1s.type == FX1_CLOUD) {   /* CLOUD: the line, the grains (fx1.c) */
+        graph_fx1();
+    } else if (str_eq(ti, "DELAY")) {                  /* the echoes running out */
         int32_t sp = 18 + clamp(song.g[G_DTIME], 0, 9) * 3, fb = song.g[G_DFDBK];
         x = 12 + (int32_t)((f * 2u) % (uint32_t)sp);
         for (h = hh0 - 4; x < 228 && h > 1; x += sp, h = h * (40 + fb) / 170)
@@ -1438,7 +1434,7 @@ static uint32_t graph_signature(void)
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u + ui.page * 1291u;
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;
-    if ((pg->graph == GR_NONE && !edit_rows(ui.page, rr)) || pg->graph == GR_ARP || fx_rows(ui.page, rr)) h ^= ui.frame / 2u;
+    if ((pg->graph == GR_NONE && !edit_rows(ui.page, rr)) || pg->graph == GR_ARP || fx_card(ui.page)) h ^= ui.frame / 2u;
     if (pg->graph == GR_ORCH)                        /* M-Vave-OP1, SCL > ORCHID: the block, the last chord, ON */
         h ^= (orc.gen * 2654435761u) ^ (orc.lgen * 40503u) ^ ((uint32_t)orc.lock << 9) ^ ((uint32_t)(uint8_t)orc_voice[song.sel] << 17) ^
              (uint32_t)t->engine * 389u ^ (uint32_t)orc_en << 24;   /* (ROOT ONLY follows the sounding engine) */
@@ -2845,10 +2841,9 @@ static void draw_graph(void)
     } else if ((nr = edit_rows(ui.page, rr)) != 0) {  /* M-Vave-OP1: EDIT's rows */
         cv_oy = 0;
         graph_rows(rr, nr);
-    } else if ((nr = fx_rows(ui.page, rr)) != 0) {    /* .. FX's stations: rows, the effect animated */
+    } else if (fx_card(ui.page)) {                    /* .. FX's cards: the effect animated */
         cv_oy = 0;
-        graph_rows(rr, nr);
-        fx_anim(t, c, 4 + (int32_t)nr * 29 + 2, 112 - (int32_t)nr * 29);
+        fx_anim(t, c, 6, 108);
     } else {
         switch (pg->graph) {
         case GR_ADSR:

@@ -3099,7 +3099,7 @@ static int test_layer(void)
     bad += check("FX tap: nothing on press, the FX page when let go", ok && !ui.home && cur_page()->fam == FAM_FX);
     frames(320);                                       /* (not a double tap: #83) */
     press(B_FX);
-    bad += check("  a second tap: the next page of the family (CHORUS, M-Vave-OP1's SEND station)", str_eq(cur_page()->title, "CHORUS"));
+    bad += check("  a second tap: the next page of the family (INSERT, M-Vave-OP1's second card)", str_eq(cur_page()->title, "INSERT"));
     ui_power_on();
     btn_down(B_FX);
     for (flash = 0, i = 0; i < 22u; i++) { frame(); flash |= ui.layer; }      /* 0.35 s */
@@ -7550,7 +7550,14 @@ static int test_div_order(void)
     turn(EN_K2, -2);
     ok &= TSEL->p[P_SDIV] == 4;
     btn_up(B_SEQ); frame();
-    bad += check("#48 the pages' knobs step the divisions by length (SEQ TOOLS, ARP, DLY, SLICER)", ok && found >= 3u);
+    ui_power_on();                                  /* (M-Vave-OP1: the DELAY card's KNOB 2 TIME) */
+    go_title("DELAY"); frame();
+    song.g[G_DTIME] = 2;
+    turn(EN_K2, 1);
+    ok &= song.g[G_DTIME] == 5;
+    turn(EN_K2, -2);
+    ok &= song.g[G_DTIME] == 4;
+    bad += check("#48 the pages' knobs step the divisions by length (SEQ TOOLS, ARP, DELAY, SLICER)", ok && found >= 2u);
     return bad;
 }
 

@@ -411,11 +411,12 @@ static void test_stored(void)
             if (str_eq(PAGES[p].title, "SLICER")) ps = p;
             if (str_eq(PAGES[p].title, "INSERT")) pi = p;
             if (str_eq(PAGES[p].title, "INSERT 2")) pi2 = p;
-            if (str_eq(PAGES[p].title, "FX1")) pf = p;
+            if (str_eq(PAGES[p].title, "DELAY")) pf = p;
             if (str_eq(PAGES[p].title, "DLY")) pd = p;
         }
-        ok = pi == ps + 1u && pi2 == pi + 1u && pf == pi2 + 1u && pd == pf + 1u && PAGES[pi].fam == FAM_FX && PAGES[pi].id[0] == P_ITYPE &&
-             PAGES[pi2].id[0] == P_IMIX;
+        ok = pi < pf && pf < ps && ps && pd && PAGES[pi].fam == FAM_FX && PAGES[pi].id[0] == P_ITYPE &&   /* (M-Vave-OP1: */
+             PAGES[pi].id[3] == P_IMIX && PAGES[pi2].id[0] == P_IMIX && PAGES[pi2].id[1] == P_IC &&      /* INSERT TYPE A B MIX, */
+             page_visible(pi) && !page_visible(pi2) && !page_visible(pd);                                /* the rest hidden) */
         set_ins(t, IT_CRUSH, 64, 96, 96, 127);
         ok &= str_eq(track_desc(t, P_IA)->label, "BITS") && str_eq(track_desc(t, P_IB)->label, "RATE") &&
               str_eq(track_desc(t, P_IC)->label, "LPF");
@@ -435,7 +436,7 @@ static void test_stored(void)
         ok &= str_eq(track_desc(t, P_IA)->label, "INS A") && str_eq(param_desc_of(0, P_IB)->label, "INS B");
         for (i = P_ITYPE; i <= P_IMIX; i++)
             ok &= motion_param(i) && !param_kept(i);
-        ck("pages: SLICER, INSERT (TYPE A B C), INSERT 2 (MIX), FX1 (M-Vave-OP1), DLY; A B C named by TYPE; recordable; part of the sound", ok);
+        ck("pages: INSERT (TYPE A B MIX; INSERT 2 MIX C hidden), DELAY, DLY hidden, SLICER (M-Vave-OP1); A B C named by TYPE; recordable; part of the sound", ok);
     }
 }
 

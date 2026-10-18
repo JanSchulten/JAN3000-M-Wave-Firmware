@@ -160,10 +160,11 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
   the cards in place of the scope: every page's values, the row the knobs edit raised. A tap of EDIT goes to the next
   row. WHEEL, SAMPLE and FM6 keep their pictures.
-- **FX in four stations:** a tap of FX goes row by row, the rows of a station shown together and the effect
-  animated under them: **SEND** (the track's DST CHO DLY REV; CHORUS), **TRACK FX** (SLICER, INSERT, its MIX),
-  **SPACE** (FX1's TYPE, DLY or CLOUD, REVERB), **FX TRACKS** (record and clear). The animations: the sends breathing,
-  the slicer's gate, the insert's curve, the echoes, reverb rings or the spring, the chorus waves.
+- **FX in seven cards**, a tap of FX the next, the effect animated under each: **1 SEND** (the track's DST CHO DLY
+  REV), **2 INSERT** (TYPE A B MIX), **3 CHORUS** (RATE DEPTH), **4 DELAY** (TYPE DELAY: TIME FDBK MIX; CLOUD, the
+  granular: SIZE PITCH DENS), **5 REVERB** (TYPE SIZE DAMP), **6 SLICER**, **7 FX TRACKS**.
+- **REC held:** F#3 clears both FX TRACKS, G#3 the selected track's automation (its recorded knob moves), each after
+  OCT+; the notes stay (F3 CLEAR clears the notes and the automation, as before).
 - **HOME shows the four tracks** by default. The oscilloscope is MENU > DISPLAY > HOME **SCOPE** (TRACKS, LEVELS,
   SCOPE).
 - **STEP, stopped: OCT+ adds a note, OCT- removes one.** OCT+ puts the note played last into the cursor step (KNOB 1

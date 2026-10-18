@@ -381,36 +381,28 @@ static void test_ui(const char *dir)
     char pages[400];
     int ok;
     cloud_power_on();
-    fx_pages(pages, 11);
-    ck("FX's pages with FX1 the DELAY: .. INSERT 2, FX1, DLY, REVERB, FX TRACKS (no CLOUD; M-Vave-OP1's stations)",
-       strstr(pages, "INSERT 2|FX1|DLY|REVERB|FX TRACKS|") != 0);
-    go_title("FX1");
-    turn(EN_K2, 3);
-    ok = msg_is("[FX] AGAIN: DLY") && fx1s.rnd == 10u;
+    fx_pages(pages, 8);
+    ck("FX's seven cards: FX, INSERT, CHORUS, DELAY, REVERB, SLICER, FX TRACKS (M-Vave-OP1)",
+       strstr(pages, "FX|INSERT|CHORUS|DELAY|REVERB|SLICER|FX TRACKS|FX|") != 0);
+    go_title("DELAY");
+    song.g[G_DFDBK] = 60;
+    song.g[G_DMIX] = 90;
+    turn(EN_K3, 3);
+    turn(EN_K4, -10);
+    ok = song.g[G_DFDBK] > 60 && song.g[G_DMIX] < 90 && fx1s.type == FX1_DELAY;
     turn(EN_K1, 1);
     ok &= fx1s.type == FX1_CLOUD && msg_is("FX1: CLOUD (GRANULAR)");
-    ck("FX1: KNOB 2..4 belong to the CLOUD (the DELAY's are on DLY); KNOB 1 TYPE: CLOUD", ok);
-    fx_pages(pages, 11);
-    ck("  .. FX's pages now: .. FX1, CLOUD, REVERB (DLY hidden)", strstr(pages, "INSERT 2|FX1|CLOUD|REVERB|FX TRACKS|") != 0);
-    go_title("FX1");
-    turn(EN_K2, 5);
-    turn(EN_K3, 30);
-    turn(EN_K4, -200);
-    ok = fx1s.rnd == 15u && fx1s.fdbk == 30u && fx1s.mix == 0u;
-    turn(EN_K4, 300);
-    ok &= fx1s.mix == 100u;
-    ck("FX1 with CLOUD: KNOB 2 RAND, 3 FDBK, 4 MIX, 0..100", ok);
-    go_title("CLOUD");
-    turn(EN_K1, 7);
-    turn(EN_K2, -50);
+    ck("DELAY: KNOB 2..4 the DELAY's TIME FDBK MIX; KNOB 1 TYPE: CLOUD", ok);
+    fx1s.size = 50; fx1s.dens = 50;
+    turn(EN_K2, 7);
+    turn(EN_K4, -60);
     turn(EN_K3, 7);
-    turn(EN_K4, 200);
-    ok = fx1s.size == 57u && fx1s.dens == 0u && fx1s.pitch == 7 && fx1s.spread == 100u;
+    ok = fx1s.size == 57u && fx1s.dens == 0u && fx1s.pitch == 7;
     turn(EN_K3, 40);
     ok &= fx1s.pitch == 24;
     turn(EN_K3, -60);
     ok &= fx1s.pitch == -24;
-    ck("CLOUD: KNOB 1 SIZE, 2 DENS, 3 PITCH (-24..+24), 4 SPREAD", ok);
+    ck("DELAY with CLOUD: KNOB 2 SIZE, 3 PITCH (-24..+24), 4 DENS", ok);
     fx1s.pitch = 0;
     /* the FX layer's F5: CLOUD FREEZE */
     ok = PF_DEF[14] == PF_CFRZ && perf_map[14] == PF_CFRZ && str_eq(PF_NAME[PF_CFRZ], "CLOUD FREEZE");
@@ -438,7 +430,7 @@ static void test_ui(const char *dir)
         blk();
         ok &= fx.dly_w != w0 && !ui.layer;
         ck("FX held + F5: CLOUD FREEZE, the line stands while held; let go, it runs again", ok);
-        go_title("FX1");
+        go_title("DELAY");
         turn(EN_K1, -1);
         for (t = 0; t < CL_CLEAR + 4u; t++)
             blk();
@@ -484,7 +476,7 @@ static void test_ui(const char *dir)
     if (!dir)
         return;
     cloud_power_on();
-    go_title("FX1");
+    go_title("DELAY");
     ui.force = 1;
     frame();
     screen_save(dir, "fx1-delay");
@@ -509,7 +501,6 @@ static void test_ui(const char *dir)
                 in[i] = (int32_t)lrint(9000.0 * sin(2 * M_PI * 220.0 * (t + i) / FS) * ((t / 5512u) % 3u != 2u));
             bus(in);
         }
-        go_title("CLOUD");
         frame();
         screen_save(dir, "cloud");
         perf_act |= PF_BIT(PF_CFRZ);
@@ -520,7 +511,7 @@ static void test_ui(const char *dir)
         frame();
         screen_save(dir, "cloud-frozen");
         perf_act = 0;
-        go_title("FX1");
+        go_title("DELAY");
         ui.force = 1;
         frame();
         screen_save(dir, "fx1-cloud");
