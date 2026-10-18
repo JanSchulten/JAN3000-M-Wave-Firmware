@@ -160,7 +160,10 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
   the cards in place of the scope: every page's values, the row the knobs edit raised. A tap of EDIT goes to the next
   row. WHEEL, SAMPLE and FM6 keep their pictures.
-- **FX in seven cards**, a tap of FX the next, the effect animated under each: **1 SEND** (the track's DST CHO DLY
+- **FX in seven cards drawn as effect pedals** (each in the colours of a classic of its kind: a charcoal send box,
+  an orange drive, a light blue chorus, a green delay or a purple CLOUD box, a silver reverb or a brown spring, a
+  yellow slicer): the knobs where KNOB 1..4 sit (turned: the value under it), a window with the effect moving, the
+  name, the LED and the footswitch. A tap of FX the next: **1 SEND** (the track's DST CHO DLY
   REV), **2 INSERT** (TYPE A B MIX), **3 CHORUS** (RATE DEPTH), **4 DELAY** (TYPE DELAY: TIME FDBK MIX; CLOUD, the
   granular: SIZE PITCH DENS), **5 REVERB** (TYPE SIZE DAMP), **6 SLICER**, **7 FX TRACKS**.
 - **REC held:** F#3 clears both FX TRACKS, G#3 the selected track's automation (its recorded knob moves), each after

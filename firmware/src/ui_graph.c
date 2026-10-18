@@ -510,27 +510,14 @@ static void graph_rows(const uint8_t *r, uint32_t n)
         }
     }
 }
-/* M-Vave-OP1: FX's cards (params.c) with their effect animated under the cards: SEND, INSERT, CHORUS, DELAY, REVERB,
- * SLICER (FX TRACKS draws its own) */
-static int fx_card(uint32_t page)
-{
-    static const char *const C[6] = {"FX", "INSERT", "CHORUS", "DELAY", "REVERB", "SLICER"};
-    uint32_t k;
-    if (page >= NPAGES || PAGES[page].fam != FAM_FX)
-        return 0;
-    for (k = 0; k < 6u; k++)
-        if (str_eq(PAGES[page].title, C[k]))
-            return 1;
-    return 0;
-}
-static void graph_fx1(void);
 /* .. the animation in y0..y0 + h (ui.frame its clock): FX the four sends breathing as large as they are; SLICER its
  * pattern, the step playing marked; INSERT its curve, a line sweeping it; DLY the echoes running out (TIME their
  * spacing, FDBK how long they last); REVERB rings spreading (SIZE how far, DAMP how soon they fade; SPRING a coil
  * shaking); CHORUS two waves drifting apart (RATE, DEPTH) */
 static void graph_insert(const track_t *t, uint16_t c);
-static void fx_anim(const track_t *t, uint16_t c, int32_t y0, int32_t hh0)
+static void fx_anim(const track_t *t, uint16_t c, uint16_t bgc, int32_t x0, int32_t y0, int32_t ww, int32_t hh0)
 {
+    int32_t x1 = x0 + ww;
     const char *ti = cur_page()->title;
     uint32_t f = ui.frame, k;
     int32_t x, y, h, mid = y0 + hh0 / 2, py = mid, bot = y0 + hh0, half = hh0 / 2 - 2;
@@ -539,38 +526,52 @@ static void fx_anim(const track_t *t, uint16_t c, int32_t y0, int32_t hh0)
             int32_t a = t->p[P_DIST + k], r = a ? 2 + a * (half - 2 + (sine_i((f * 4u + k * 40u) << 24) * 3 >> 15)) / 127 : 2;
             if (r > half)
                 r = half;
-            cv_rrect(CARD_X(k) + 28 - r, mid - r, 2 * r, 2 * r, r, a ? c : T_RAISE, T_SURF);
+            cv_rrect(x0 + ww * (int32_t)(2u * k + 1u) / 8 - r, mid - r, 2 * r, 2 * r, r, a ? c : T_RAISE, bgc);
         }
     } else if (str_eq(ti, "SLICER")) {                 /* the pattern, the step playing marked */
         uint32_t pat = sl_pattern(t), mode = (uint32_t)t->p[P_SLCR], cur = sl[t - trk].idx;
         for (k = 0; k < 16u; k++) {
-            x = 13 + (int32_t)k * 13;
+            x = x0 + 2 + (int32_t)k * (ww - 4) / 16;
             h = (pat >> k) & 1u ? hh0 - 6 : 4;
-            cv_rrect(x, bot - 4 - h, 10, h, 2, mode == SL_OFF ? T_RAISE : (pat >> k) & 1u ? c : T_RAISE, T_SURF);
+            cv_rrect(x, bot - 4 - h, (ww - 4) / 16 - 3, h, 2, mode == SL_OFF ? T_RAISE : (pat >> k) & 1u ? c : T_RAISE, bgc);
             if (mode != SL_OFF && k == cur)
-                cv_rect(x, bot - 2, 10, 2, T_ACCENT);
+                cv_rect(x, bot - 2, (ww - 4) / 16 - 3, 2, T_ACCENT);
         }
     } else if (str_eq(ti, "INSERT") || str_eq(ti, "INSERT 2")) {   /* its curve, swept */
-        graph_ht = hh0 - 2;
-        cv_oy = y0;
-        graph_insert(t, c);
-        cv_oy = 0;
-        graph_ht = 100;
+        int32_t ty = clamp(t->p[P_ITYPE], 0, IT_N - 1), g = 4096 + t->p[P_IA] * t->p[P_IA] * 3;
+        uint32_t sh = ins_bits_sh(t->p[P_IA]);
+        for (x = x0 + 2; x < x1 - 2; x++) {             /* the curve: input across, output up (fx.c ins_shape) */
+            int32_t in = (x - x0 - ww / 2) * 32767 / (ww / 2 - 2);
+            int32_t o = ty == IT_CRUSH ? ins_shape(IT_CRUSH, in, sh) : ty && ty < IT_PHASER ? ins_shape((uint32_t)ty, ((in >> 3) * g) >> 9, 0) : in;
+            y = mid - clamp(o, -32767, 32767) * (half - 1) / 32767;
+            if (x > x0 + 2)
+                cv_line(x - 1, py, x, y, ty ? c : T_MID);
+            py = y;
+        }
         if (t->p[P_ITYPE])
-            cv_rect(PANEL_X0 + (int32_t)((f * 3u) % (uint32_t)PANEL_W), y0 + 1, 1, hh0 - 2, T_ACCENT);
-    } else if (str_eq(ti, "DELAY") && fx1s.type == FX1_CLOUD) {   /* CLOUD: the line, the grains (fx1.c) */
-        graph_fx1();
+            cv_rect(x0 + 2 + (int32_t)((f * 3u) % (uint32_t)(ww - 4)), y0 + 1, 1, hh0 - 2, T_ACCENT);
+    } else if (str_eq(ti, "DELAY") && fx1s.type == FX1_CLOUD) {   /* CLOUD: grains coming and going, as many as DENS */
+        uint32_t n = 3u + fx1s.dens / 14u;
+        for (k = 0; k < n; k++) {
+            uint32_t hsh = (k * 2654435761u) ^ ((f / 6u + k * 7u) * 40503u), age = (f + k * 11u) % 24u;
+            int32_t r = 1 + (int32_t)(fx1s.size * (uint32_t)(half - 2) / 100u) * (int32_t)(age < 12u ? age : 24u - age) / 12;
+            x = x0 + 6 + (int32_t)(hsh % (uint32_t)(ww - 12));
+            y = mid + (int32_t)((hsh >> 12) % (uint32_t)(2 * half - 4)) - half + 2 - fx1s.pitch * half / 48;
+            y = clamp(y, y0 + 2 + r, bot - 2 - r);
+            if (r > 0)
+                cv_rrect(x - r, y - r, 2 * r, 2 * r, r, age < 12u ? c : T_MID, bgc);
+        }
     } else if (str_eq(ti, "DELAY")) {                  /* the echoes running out */
         int32_t sp = 18 + clamp(song.g[G_DTIME], 0, 9) * 3, fb = song.g[G_DFDBK];
-        x = 12 + (int32_t)((f * 2u) % (uint32_t)sp);
-        for (h = hh0 - 4; x < 228 && h > 1; x += sp, h = h * (40 + fb) / 170)
-            cv_rrect(x, bot - 2 - h, 6, h, 2, c, T_SURF);
+        x = x0 + 2 + (int32_t)((f * 2u) % (uint32_t)sp);
+        for (h = hh0 - 4; x < x1 - 6 && h > 1; x += sp, h = h * (40 + fb) / 170)
+            cv_rrect(x, bot - 2 - h, 6, h, 2, c, bgc);
     } else if (str_eq(ti, "REVERB") && song.g[G_RTYPE] == 1) {   /* SPRING: a coil shaking */
         int32_t amp = half * (8 + song.g[G_RSIZE] * 14 / 127) / 22;
-        for (x = 12; x < 228; x++) {
-            int32_t e = amp * (228 - x) / 216;
+        for (x = x0 + 2; x < x1 - 2; x++) {
+            int32_t e = amp * (x1 - x) / ww;
             y = mid + (int32_t)(sine_i((uint32_t)(x * 9 + (int32_t)f * 6) << 23) * e / 32768);
-            if (x > 12)
+            if (x > x0 + 2)
                 cv_line(x - 1, py, x, y, c);
             py = y;
         }
@@ -582,19 +583,154 @@ static void fx_anim(const track_t *t, uint16_t c, int32_t y0, int32_t hh0)
                 hh = half;
             if (r > reach - 6 || hh < 3)
                 continue;
-            cv_rrect(120 - w / 2, mid - hh, w, 2 * hh, hh, r < reach / 2 ? c : T_MID, T_SURF);
-            cv_rrect(120 - w / 2 + 2, mid - hh + 2, w - 4, 2 * hh - 4, hh - 2, T_SURF, T_SURF);
+            if (w > ww - 4)
+                continue;
+            cv_rrect(x0 + ww / 2 - w / 2, mid - hh, w, 2 * hh, hh, r < reach / 2 ? c : T_MID, bgc);
+            cv_rrect(x0 + ww / 2 - w / 2 + 2, mid - hh + 2, w - 4, 2 * hh - 4, hh - 2, bgc, bgc);
         }
     } else if (str_eq(ti, "CHORUS")) {                 /* two waves drifting apart */
         uint32_t rate = 1u + (uint32_t)song.g[G_CRATE] / 16u, d = (uint32_t)song.g[G_CDEPTH];
         for (k = 0; k < 2u; k++)
-            for (x = 12; x < 228; x++) {
+            for (x = x0 + 2; x < x1 - 2; x++) {
                 y = mid + sine_i(((uint32_t)x * 5u + f * rate + k * d * 2u) << 24) * (half - 2) / 32768;
-                if (x > 12)
+                if (x > x0 + 2)
                     cv_line(x - 1, py, x, y, k ? T_MID : c);
                 py = y;
             }
     }
+}
+/* M-Vave-OP1: FX's cards as effect pedals, each its own after a classic (the colours of the kind, never a maker's
+ * name): SEND a charcoal mixer box, INSERT an orange drive, CHORUS a light blue chorus, DELAY a green delay (CLOUD a
+ * purple ambient box), REVERB a silver reverb (SPRING in brown tolex), SLICER a yellow one. On each: the knobs where
+ * KNOB 1..4 sit (their pointer the value; turned, the value under it), a window with the effect moving (fx_anim), the
+ * name, the LED (the effect on) and the footswitch. GREY and MONO: the pedals in their greys (ped) */
+static uint16_t ped(uint32_t rgb)                   /* 0xRRGGBB -> the screen's colour (GREY / MONO: a grey) */
+{
+    uint32_t r = rgb >> 16, g = (rgb >> 8) & 255u, b = rgb & 255u, l = (r * 54u + g * 183u + b * 19u) >> 8;
+    if (settings.palette == UI_BW_INDEX)
+        return l > 150u ? ux.text : l > 70u ? UI_BW_GREY : ux.bg;
+    if (ux.mono)
+        return ux_gray(l * 31u / 255u);
+    return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+}
+typedef struct { const char *name, *sub; uint32_t body, ink, knob, ptr; uint8_t on; } pedal_t;
+static void pedal_knob_val(const page_t *pg, uint32_t c, const char **lb, char *val, int32_t *pos)
+{
+    int16_t *vp;
+    const char *unit = "";
+    const param_desc_t *d;
+    *lb = 0;
+    if (pg->graph == GR_FX1) {                         /* DELAY: TYPE, then the DELAY's or the CLOUD's */
+        static const uint8_t ID[3] = {G_DTIME, G_DFDBK, G_DMIX};
+        static const char *const CL[3] = {"SIZE", "PITCH", "DENS"};
+        if (c == 0u) {
+            *lb = "TYPE";
+            str_cpy(val, fx1s.type == FX1_CLOUD ? "CLOUD" : "DELAY", 12);
+            *pos = fx1s.type == FX1_CLOUD ? 1000 : 0;
+        } else if (fx1s.type == FX1_CLOUD) {
+            int32_t v = c == 1u ? fx1s.size : c == 2u ? (fx1s.pitch + 24) * 100 / 48 : fx1s.dens;
+            *lb = CL[c - 1u];
+            if (c == 2u) {
+                val[0] = '+';
+                fmt_int(val + (fx1s.pitch > 0), fx1s.pitch);
+            } else {
+                fmt_int(val, v);
+            }
+            *pos = v * 10;
+        } else {
+            d = &GP[ID[c - 1u]];
+            vp = &song.g[ID[c - 1u]];
+            *lb = d->label;
+            param_format(d, *vp, val, &unit);
+            *pos = d->max > d->min ? (int32_t)(enum_rank(d, *vp) - d->min) * 1000 / (d->max - d->min) : 0;
+        }
+        return;
+    }
+    if (!(d = page_desc(pg, c, &vp)) || !vp)
+        return;
+    *lb = d->label;
+    param_format(d, *vp, val, &unit);
+    *pos = d->max > d->min ? (int32_t)(enum_rank(d, *vp) - d->min) * 1000 / (d->max - d->min) : 0;
+}
+#define PED_H (Y_GRAPH + H_GRAPH - Y_LABEL)             /* the pedal: y 28 .. 198, top part 48 px (draw_columns) */
+#define PED_TOP (Y_GRAPH - Y_LABEL)
+static void graph_pedal(const track_t *t, uint32_t part)
+{
+    static const char *const RT[3] = {"ROOM", "SPRING", "HALL"};
+    const page_t *pg = cur_page();
+    const char *ti = pg->title;
+    pedal_t p = {"SEND", "AUX", 0x2E3036, 0xEDE3C8, 0x15161A, 0xF4F0E6, 0};
+    uint16_t body, ink, knob, ptr, edge, win;
+    uint32_t c, rt = (uint32_t)clamp(song.g[G_RTYPE], 0, 2);
+    int32_t gh = PED_H;
+    cv_oy = part ? -PED_TOP : 0;
+    if (str_eq(ti, "FX")) {
+        p.on = (t->p[P_DIST] | t->p[P_CHOR] | t->p[P_DLY] | t->p[P_REV]) != 0;
+    } else if (str_eq(ti, "INSERT")) {
+        uint32_t ty = (uint32_t)clamp(t->p[P_ITYPE], 0, IT_N - 1);
+        pedal_t q = {N_ITYPE[ty], "INSERT", 0xEE7A1E, 0x141414, 0x141414, 0xF2F2F2, ty != 0u};
+        if (!ty)
+            q.name = "DRIVE";
+        p = q;
+    } else if (str_eq(ti, "CHORUS")) {
+        pedal_t q = {"CHORUS", "STEREO", 0x78B8E6, 0x10204A, 0x141414, 0xF2F2F2, t->p[P_CHOR] != 0};
+        p = q;
+    } else if (str_eq(ti, "DELAY") && fx1s.type == FX1_CLOUD) {
+        pedal_t q = {"CLOUD", "GRANULAR", 0x4A2A7E, 0xF2B4DC, 0xE8E2F0, 0x2A1846, t->p[P_DLY] != 0};
+        p = q;
+    } else if (str_eq(ti, "DELAY")) {
+        pedal_t q = {"DELAY", "ANALOG", 0x1E6440, 0xF4F0E6, 0xE8E2D0, 0x141414, t->p[P_DLY] != 0};
+        p = q;
+    } else if (str_eq(ti, "REVERB") && rt == 1u) {
+        pedal_t q = {"REVERB", "SPRING", 0x5A3C28, 0xEEDDB4, 0xEEDDB4, 0x2A1A10, t->p[P_REV] != 0};
+        p = q;
+    } else if (str_eq(ti, "REVERB")) {
+        pedal_t q = {"REVERB", RT[rt], 0xC2C4C8, 0xA8201E, 0x141414, 0xF2F2F2, t->p[P_REV] != 0};
+        p = q;
+    } else if (str_eq(ti, "SLICER")) {
+        pedal_t q = {"SLICER", "GATE", 0xF0C828, 0x141414, 0x141414, 0xF2F2F2, t->p[P_SLCR] != 0};
+        q.sub = N_SLCR[clamp(t->p[P_SLCR], 0, 2)];
+        p = q;
+    }
+    body = ped(p.body);
+    ink = ped(p.ink);
+    knob = ped(p.knob);
+    ptr = ped(p.ptr);
+    edge = ped(((p.body >> 1) & 0x7F7F7Fu));           /* the enclosure's edge: the body darker */
+    win = ped(0x101214);
+    cv_rrect(6, 1, 228, gh - 2, 14, edge, T_SURF);
+    cv_rrect(8, 3, 224, gh - 6, 12, body, edge);
+    for (c = 0; c < 4u; c++)                            /* the four screws */
+        cv_rrect(c & 1u ? 220 : 14, c & 2u ? gh - 15 : 9, 6, 6, 3, edge, body);
+    for (c = 0; c < 4u; c++) {                         /* the knobs where KNOB 1..4 are */
+        const char *lb;
+        char val[16];
+        int32_t pos = 0, cx = CARD_X(c) + 28, cy = 25, a, dx, dy;
+        uint32_t hot = ui.hot_t && ui.hot_col == c;
+        pedal_knob_val(pg, c, &lb, val, &pos);
+        if (!lb)
+            continue;
+        cv_rrect(cx - 16, cy - 16, 32, 32, 16, edge, body);   /* its skirt */
+        cv_rrect(cx - 13, cy - 13, 26, 26, 13, knob, edge);
+        a = (clamp(pos, 0, 1000) * 270 / 1000 - 135) * 1024 / 360;   /* -135 .. +135 degrees, 1024 a turn */
+        dx = sine_i((uint32_t)a << 22) * 10 / 32767;
+        dy = -sine_i((uint32_t)(a + 256) << 22) * 10 / 32767;
+        cv_line_t(cx, cy, cx + dx, cy + dy, ptr, 2);
+        if (part) {                                    /* (the labels below the top part: never cut) */
+            GFX_HOOK_ALIGN(cx - 28, 0, cx + 28, 0, AL_H, "pedal knob label centred under it");
+            cv_text_in(cx - 28, 50, 56, &AF_S, hot ? val : lb, ink, body);
+        }
+    }
+    if (!part)
+        return;
+    cv_rrect(24, 66, 192, 34, 6, win, body);         /* the window: the effect moving */
+    fx_anim(t, ped(0x7CF0A0), win, 28, 67, 184, 32);
+    GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "pedal name centred");
+    cv_text_in(0, 104, 240, &AF_L, p.name, ink, body);
+    cv_rrect(24, gh - 26, 12, 12, 6, p.on ? ped(0xF02828) : edge, body);   /* the LED */
+    cv_text_on(42, gh - 26, &AF_S, p.sub, ink, body);
+    cv_rrect(120 - 14, gh - 34, 28, 28, 14, edge, body);   /* the footswitch */
+    cv_rrect(120 - 10, gh - 30, 20, 20, 10, ped(0xB8BCC4), edge);
 }
 /* M-Vave-OP1, SCL > ORCHID (orchid.c), as the Orchid shows a chord (its Geek Out view: the name, the keyboard, the
  * notes): the last chord's name large in the middle, its extensions after it in the accent; under it two octaves of
@@ -1434,7 +1570,7 @@ static uint32_t graph_signature(void)
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u + ui.page * 1291u;
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;
-    if ((pg->graph == GR_NONE && !edit_rows(ui.page, rr)) || pg->graph == GR_ARP || fx_card(ui.page)) h ^= ui.frame / 2u;
+    if ((pg->graph == GR_NONE && !edit_rows(ui.page, rr)) || pg->graph == GR_ARP || fx_pedal()) h ^= ui.frame / 2u ^ (ui.hot_t ? ui.hot_col + 1u : 0u) * 7919u;
     if (pg->graph == GR_ORCH)                        /* M-Vave-OP1, SCL > ORCHID: the block, the last chord, ON */
         h ^= (orc.gen * 2654435761u) ^ (orc.lgen * 40503u) ^ ((uint32_t)orc.lock << 9) ^ ((uint32_t)(uint8_t)orc_voice[song.sel] << 17) ^
              (uint32_t)t->engine * 389u ^ (uint32_t)orc_en << 24;   /* (ROOT ONLY follows the sounding engine) */
@@ -2841,9 +2977,8 @@ static void draw_graph(void)
     } else if ((nr = edit_rows(ui.page, rr)) != 0) {  /* M-Vave-OP1: EDIT's rows */
         cv_oy = 0;
         graph_rows(rr, nr);
-    } else if (fx_card(ui.page)) {                    /* .. FX's cards: the effect animated */
-        cv_oy = 0;
-        fx_anim(t, c, 6, 108);
+    } else if (fx_pedal()) {                          /* .. FX's cards: effect pedals */
+        graph_pedal(t, 1);
     } else {
         switch (pg->graph) {
         case GR_ADSR:

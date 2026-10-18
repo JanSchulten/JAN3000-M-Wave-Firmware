@@ -868,6 +868,21 @@ static void draw_columns(void)
     char val[12];
     const char *unit;
     (void)motion_mask(song.sel, card_mot_mask);       /* (PLAY OFF: no scan) */
+    if (fx_pedal()) {                                 /* M-Vave-OP1: FX's pedal, its top (the knobs: ui_graph.c) */
+        static uint32_t top_sig;
+        uint32_t sig = graph_signature();
+        for (c = 0; c < 4u; c++)                      /* (no cards: no rolling digits) */
+            ui.roll[c].from[0] = 0;
+        if (!ui.force && sig == top_sig)
+            return;
+        top_sig = sig;
+        cv_begin(240, Y_GRAPH - Y_LABEL, T_BG);
+        cv_bg = T_BG;
+        graph_pedal(TSEL, 0);
+        cv_oy = 0;
+        cv_blit(0, Y_LABEL);
+        return;
+    }
     if (ui.home) {
         for (c = 0; c < 4u; c++) {
             int16_t *vp;

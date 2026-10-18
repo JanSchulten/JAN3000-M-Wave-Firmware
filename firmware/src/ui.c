@@ -350,10 +350,23 @@ static const page_t *cur_page(void) { return page_over ? page_over : &PAGES[ui.p
  *            is, the card labels in M;
  *   LK_OFF   LARGE off; the menu (its own LARGE: ui_menu.c), the dialogs and NAME keep their own layout in every case. */
 enum { LK_OFF, LK_LABEL, LK_TALL };
+/* M-Vave-OP1: FX's cards drawn as effect pedals (ui_graph.c graph_pedal), the knobs on the pedal in place of the
+ * cards: the pedal from the cards' top to the footer, its top (the knobs) drawn by draw_columns, the rest by draw_graph */
+static int fx_pedal(void)
+{
+    static const char *const C[6] = {"FX", "INSERT", "CHORUS", "DELAY", "REVERB", "SLICER"};
+    uint32_t k;
+    if (ui.home || ui.layer || ui.menu || cur_page()->fam != FAM_FX)
+        return 0;
+    for (k = 0; k < 6u; k++)
+        if (str_eq(cur_page()->title, C[k]))
+            return 1;
+    return 0;
+}
 static uint32_t large_kind(void)
 {
     uint32_t g;
-    if (!(ui_prefs & PREF_LARGE))
+    if (!(ui_prefs & PREF_LARGE) || fx_pedal())
         return LK_OFF;
     if (ui.layer)
         return LK_LABEL;
