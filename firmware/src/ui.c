@@ -208,9 +208,9 @@ static struct {
 
 enum { CF_NONE, CF_CLEAR_SEQ, CF_CLEAR_TRK, CF_OVR_PROJ, CF_OVR_USER, CF_LOAD_PAT,
        CF_DEL_ROW, CF_CLEAR_SONG, CF_INIT_SOUND, CF_CLEAR_MOTION, CF_ERASE_USER,
-       CF_TAPE_TRK, CF_TAPE_ALL, CF_FXT_LANE, CF_FXT_ALL };     /* ui.confirm: TOOLS' clears;
+       CF_FXT_LANE, CF_FXT_ALL };     /* ui.confirm: TOOLS' clears;
                                    * SAVE over a used slot; a pattern over the user's steps;
-                                   * USER ERASE; TAPE 2's ERASE (a track's notes, all); FX TRACKS 2's CLEAR (a lane, both) */
+                                   * USER ERASE; FX TRACKS 2's CLEAR (a lane, both) */
 
 /* MENU > DISPLAY > SCREEN OFF (1.1.5): after a while with no input on the panel the screen goes dark (the backlight
  * stays on: lcd.c lcd_power)
@@ -376,7 +376,7 @@ static uint32_t large_kind(void)
         return home_tracks() ? LK_LABEL : LK_TALL;      /* a list page; the rows' names in M: draw_home_tracks) */
     g = cur_page()->graph;
     return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_PATS || g == GR_SONG || g == GR_ROLL ||
-           g == GR_SLICES || g == GR_EVENTS || g == GR_TAPE || g == GR_TAPE2 || g == GR_FXT || g == GR_FXT2 ||
+           g == GR_SLICES || g == GR_EVENTS || g == GR_KEY || g == GR_FXT || g == GR_FXT2 ||
            g == GR_FX1 || g == GR_CLOUD ? LK_LABEL
                                                                                                           : LK_TALL;
 }
@@ -598,8 +598,6 @@ static int detail_on(void)
 /* GLO > SONG (1.2): the white keys A B C D (A3 B3 C4 D4, white places 2..5: seq.c song_key) set the selected cell's slot;
  * they do not sound there, the other keys play as anywhere (seq.c keyboard_block: song.grid 3) */
 static int song_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_SONG; }
-/* GLO > TAPE or TAPE 2 shown (tape.c): REC arms the tape, its LED says so */
-static int tape_page(void) { return !ui.home && (cur_page()->graph == GR_TAPE || cur_page()->graph == GR_TAPE2); }
 /* FX > FX TRACKS or FX TRACKS 2 shown (fxtrack.c): REC arms the selected lane, its LED says so */
 static int fxt_page(void) { return !ui.home && (cur_page()->graph == GR_FXT || cur_page()->graph == GR_FXT2); }
 /* .. the 16 steps shown follow the selected lane's play head: playing, STEP and EFFECT not just turned (ui_graph.c) */
@@ -1649,8 +1647,6 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     if (pg->graph == GR_TOOLS) return 15u;
     if (pg->graph == GR_SONG)
         return 1u;                               /* PLAY / STOP (also the PLAY button) */
-    if (pg->graph == GR_TAPE2)
-        return 3u;                               /* ERASE the track's notes, ERASE all */
     if (pg->graph == GR_FXT2)
         return 3u;                               /* CLEAR the lane, CLEAR both */
     if (pg->graph == GR_PATS)
@@ -1685,8 +1681,6 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
     }
     if (cur_page()->graph == GR_SONG)
         return song.playing || chain_busy() ? "STOP" : "PLAY";
-    if (cur_page()->graph == GR_TAPE2)
-        return "ERASE";
     if (cur_page()->graph == GR_FXT2)
         return "CLEAR";
     if (cur_page()->graph == GR_PATS)
@@ -1711,8 +1705,6 @@ static int act_ready(void)
                                  c == 2u ? ui.song_row < chain_config.count : chain_config.count != 0u);
     if (cur_page()->graph == GR_SONG)
         return song.playing || chain_busy() || chain_config.count;
-    if (cur_page()->graph == GR_TAPE2)                  /* notes there to erase */
-        return c == 0u ? tape_count(s) != 0u : tape_free() != TAPE_EV;
     if (cur_page()->graph == GR_FXT2)                   /* steps there to clear */
         return c == 0u ? fxt_used(ui.fxt_sel) != 0u : (fxt_used(0) | fxt_used(1)) != 0u;
     if (cur_page()->graph == GR_PATS)

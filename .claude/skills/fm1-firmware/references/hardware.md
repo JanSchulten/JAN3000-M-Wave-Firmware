@@ -20,7 +20,7 @@ AL-255/FM-1-RE (reverse engineering of the stock firmware), measurements from bu
 | RAMTEXT | 0x01C00000 | 24 KB | code that runs while the flash is busy (flash driver) |
 | (debug) | 0x01C06000 | 8 KB | kept free for RAM-run debugging |
 | RAM | 0x01C08000 | 72 KB | `.data` + `.bss`: what the ISRs touch, small variables |
-| POOL | 0x01C1A000 | 360 KB | `.pool`: big zero-initialised buffers (FX lines, canvases, engine memory, the tape) |
+| POOL | 0x01C1A000 | 360 KB | `.pool`: big zero-initialised buffers (FX lines, canvases, engine memory) |
 | stacks | 0x01C74000 .. 0x01C7C000 | 32 KB | user and system stacks with 256-byte guard bands |
 | NOINIT | 0x01C7C000 | ~15 KB | survives resets and boot-mode entry (panel calibration, boot guard) |
 | reserved | 0x01C7FD50 .. | | boot_info, boot-state mailbox, vector table |
@@ -54,7 +54,7 @@ Run `scripts/budget_report.sh` to get the current numbers.
 | 0xB4000 .. 0xC7FFF | M-Vave-OP1 (opstore.c): the scenes, set A..D + autosave, two 8 KB copies each (commit record `OBJ_SCENES`) |
 | 0xC8000 .. 0xCFFFF | M-Vave-OP1 (opstore.c): the projects' extras A/B (`OBJ_XPROJ0 + slot`: the FX TRACKS) |
 | 0xD0000 .. 0xD1FFF | the autosave's extras A/B (`OBJ_XAUTO`) |
-| 0xD2000 .. 0xDBFFF | the tape, copies A (0xD2000) and B (0xD7000), five sectors each, commit record `OBJ_TAPE` |
+| 0xD2000 .. 0xDBFFF | free since M6 (the dropped TAPE kept its copies A/B here) |
 | 0xDC000 .. 0xDFFFF | user preset banks |
 | 0xE0000 .. 0xE4FFF | OTA staging (the update loader) |
 | 0xE5000 .. 0xE6FFF | autosave A/B (RESTORE LAST) |

@@ -190,7 +190,6 @@ static void fm1_main(void)
         settings_save();
     }
     autosave_boot(boot_clean);                /* (1.2) the last session's music, under the splash */
-    tape_store_boot(boot_clean);              /* (M-Vave-OP1) the tape, as it was kept: opstore.c */
     for (ms = 0; ms < 400u; ms += 10u) {      /* the splash; the pot followed (MIDI IN plays under it) */
         fm1_delay_ms(10);
         master_poll();
@@ -276,7 +275,6 @@ static void fm1_main(void)
         ui_input();
         settings_poll();                              /* queued settings save: only while stopped */
         autosave_poll();                              /* (1.2) the music, stopped and idle: project.c */
-        tape_store_poll();                            /* (M-Vave-OP1) the tape a while after it changed: opstore.c */
         felucca_dbg.stage = 2;
         ui_leds();
         ui_draw();

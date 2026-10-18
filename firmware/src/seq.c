@@ -208,7 +208,7 @@ static void rec_note(track_t *t, uint32_t note, uint32_t vel);
 static void rec_release(track_t *t, uint32_t note);
 static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) && song.playing && !chain.running; }
 
-#include "tape.c"                                /* TAPE (M-Vave-OP1): the notes played, on a four-track tape */
+#include "key.c"                                 /* KEY (M-Vave-OP1): a chord progression moving the tracks */
 #include "fxtrack.c"                             /* FX TRACKS (M-Vave-OP1): two lanes of punch-in effects */
 #include "motion.c"
 #include "scene.c"                               /* SCENES (M-Vave-OP1): 16 patterns a project, picked while playing */
@@ -238,7 +238,6 @@ static __attribute__((noinline)) void arp_chord_off(track_t *t, int rec)   /* th
         if (t->arp_ch[i]) {
             if (rec)
                 rec_release(t, t->arp_ch[i]);
-            tape_in(t, t->arp_ch[i], 0);
             trk_note_off(t, t->arp_ch[i]);
             t->arp_ch[i] = 0;
         }
@@ -259,7 +258,6 @@ static __attribute__((noinline)) void arp_chord(track_t *t, const uint32_t *list
             t->arp_ch[i - 1u] = (uint8_t)nt;
         if (rec_on(t))
             rec_note(t, nt, 100);
-        tape_in(t, nt, 100);
         trk_note_on(t, nt, 100);
     }
 }
@@ -268,7 +266,6 @@ static void arp_silence(track_t *t)              /* the sounding arp note(s) end
 {
     if (t->arp_ch[0] | t->arp_ch[1] | t->arp_ch[2])
         arp_chord_off(t, 0);
-    tape_in(t, t->arp_note, 0);
     trk_note_off(t, t->arp_note);
     t->arp_note = 0;
 }
@@ -278,7 +275,6 @@ static void arp_off(track_t *t)                  /* the sounding arp note(s) end
     if (t->arp_ch[0] | t->arp_ch[1] | t->arp_ch[2])
         arp_chord_off(t, rec_on(t));
     trk_note_off(t, t->arp_note);
-    tape_in(t, t->arp_note, 0);
     if (rec_on(t))
         rec_release(t, t->arp_note);
     t->arp_note = 0;
@@ -391,6 +387,9 @@ static uint32_t arp_list(const track_t *t, uint32_t *list, uint32_t *cnt)
         for (i = 0; i < n && len < 64u; i++)
             list[len++] = clamp((int32_t)list[i] + 12 * (int32_t)o, 0, 127);
     if (n && t->p[P_AMODE] == AM_REPEAT) { list[0] = last; len = 1; } /* REPEAT: last played note, no octave traversal */
+    if (keyt.on && song.playing && !rec_on(t))      /* M-Vave-OP1: moved to the KEY's bar (key.c); recording: as */
+        for (i = 0; i < len; i++)                   /* played (the steps are moved when they play) */
+            list[i] = key_shift(t, list[i]);
     return len;
 }
 
@@ -417,7 +416,6 @@ static __attribute__((noinline)) void arp_fire(track_t *t, uint32_t period)
         t->arp_note = (uint8_t)list[j];
         if (rec_on(t))
             rec_note(t, t->arp_note, 100);           /* recording: what the arp plays */
-        tape_in(t, t->arp_note, 100);
         trk_note_on(t, t->arp_note, 100);
     }
 }
@@ -620,12 +618,11 @@ static __attribute__((noinline)) void cin_keep(track_t *t, uint32_t note, uint32
 static void input_on(track_t *t, uint32_t note, uint32_t vel)
 {
     last_note = (uint8_t)note;
+    key_live_n++;                                  /* (M-Vave-OP1: GLO > KEY takes it as a bar's root, key.c) */
     if (cin_left)
         cin_keep(t, note, vel);
     if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes) */
         rec_note(t, note, vel);
-    if (!t->p[P_AMODE])                            /* .. the tape's too */
-        tape_in(t, note, vel);
     if (t->p[P_AMODE])
         arp_add(t, note);
     else
@@ -645,7 +642,6 @@ static void input_off(track_t *t, uint32_t note)
                 cin_up[i] |= (uint8_t)(1u << k);
     }
     rec_release(t, note);
-    tape_in(t, note, 0);
     arp_remove(t, note);                            /* both: the note may have started in the */
     trk_note_off(t, note);                          /* other mode (ARP switched while held) */
 }
@@ -855,7 +851,7 @@ static void seq_start(void)
     beat_pos = 0; beat_n = 0;                      /* the ARP LED's beat from the top too */
     clk_pos = CLK_START;                           /* the metronome's first beat with step 0 */
     song.playing = 1;
-    tape_start();                                  /* tape.c: from where its head stands */
+    key_start();                                   /* key.c: bar 1 of the KEY's run */
     slicer_start();                                /* slicer.c: its step 0 with the sequencer's */
     perf_start();                                  /* perform.c: its 1/16 grid too */
     fxt_stop();                                    /* fxtrack.c: the FX tracks' step 1 with the first block */
@@ -891,7 +887,7 @@ static void seq_stop(void)
     }
     chain_stop();
     motion_end();
-    tape_stop();
+    key_start();
     fxt_stop();
 }
 
@@ -945,7 +941,7 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
             t->rat_left = (uint8_t)(hits - 1u);
     }
     for (i = 0; i < s->n && i < 4u; i++) {
-        uint32_t x = s->note[i];
+        uint32_t x = key_shift(t, s->note[i]);   /* (M-Vave-OP1: moved to the KEY's bar, key.c) */
         if (qseq) {                                 /* QNT SEQ: onto the scale now; two notes snapping */
             x = (uint32_t)clamp(scale_snap(t, (int32_t)x), 0, 127);   /* together play once */
             for (j = 0; j < m && nn[j] != x; j++)
@@ -1251,7 +1247,7 @@ static void events_block(uint32_t n)
             midi_clock_transport(0xFAu, fm1_ms);
         else if (cin_left)
             ;                                       /* counting in already (the UI's PLAY stops it: seq_counting) */
-        else if (cin_bars && (song.rec || tape.arm || fxt.arm) && !song.playing && !chain.armed)
+        else if (cin_bars && (song.rec || fxt.arm) && !song.playing && !chain.armed)
             cin_begin();                            /* recording from stop: the count-in first */
         else
             seq_start();
@@ -1262,7 +1258,6 @@ static void events_block(uint32_t n)
     } else if (transport_req == 3u) {                 /* GLO + PLAY: from the top without stopping (INT clock) */
         if (!clock_mode) {
             seq_stop();
-            tape_seek(tape_top());                  /* the tape from its top too */
             seq_start();
         }
         transport_req = 0;
@@ -1343,9 +1338,9 @@ static void events_block(uint32_t n)
     if (scn.req)
         scene_due(seq_n);                             /* (M-Vave-OP1: a scene waits for the pattern's end, scene.c) */
     chain_tick(seq_n);
+    key_tick(seq_n);                                /* (M-Vave-OP1, key.c: the bar before the steps on its first 1/16) */
     for (i = 0; i < NTRK; i++)
         seq_tick(&trk[i], seq_n);
-    tape_tick(seq_n);
     fxt_tick(seq_n);
     if (cin_flush)
         cin_record();

@@ -4,8 +4,8 @@ OP-1-inspired custom firmware for the **M-VAVE FM-1** pocket synthesizer.
 
 This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita
 (Hügelton Instruments). It keeps Felucca's hardware layer, USB, update loader, web installer,
-storage, engines and tests, and builds an OP-1-style workflow on top: a four-track tape, and from the
-OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
+storage, engines and tests, and builds an OP-1 / OP-Z-style workflow on top: a KEY track that moves the patterns
+through a chord progression, and from the OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
 switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and, after ChoralRoot FM-1, the
 Orchid's chord keyboard as SCL > ORCHID. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
@@ -15,26 +15,24 @@ Orchid's chord keyboard as SCL > ORCHID. What is planned next is in the [roadmap
 > hardware (FM-1 Transporter with an RP2040). Develop and try changes in the host tests and the
 > browser emulator first.
 
-## TAPE
+## KEY: a chord progression over the patterns
 
-A four-track tape in the spirit of the OP-1's. The FM-1 has far too little memory for audio, so the tape
-records the **notes** you play, at their exact time, and plays them back through each track's engine.
-Change a track's sound later and the take plays with the new sound.
+As the OP-Z's key track: a run of 1 to 16 bars, each with a root. While KEY is ON and the transport runs, every
+melodic track's sequenced notes and its arp move to the bar's root **inside the track's own scale** (SCL ROOT and
+SCALE): a pattern written in C major plays under KEY **Am F C G** as A minor, F major, C major and G major, the
+scale's own chords. The keys you play live stay as they are, so you can play along; drums and other kits never move.
 
-- **GLO** opens **TAPE** (tap GLO again: **TAPE 2**, then SONG).
-- **REC** on these pages arms the tape for the selected track (ALGORITHM selects the track). Armed while
-  stopped, it starts PLAY (MENU's count-in counts in first, if set). Play the keys, MIDI IN or the arp.
-- **PLAY** runs the tape with the sequencer from where the head stands; STOP leaves the head there.
-  **GLO + PLAY** starts from the loop's start, or the tape's.
-- **KNOB 1 POS** moves the head, a beat a detent (turned fast: a bar). **KNOB 2 LOOP** loops 1 to 32 bars from
-  the bar the head is in; recording overdubs every pass. **KNOB 3 SPEED** is varispeed, tempo and pitch
-  together (-12 to +12 semitones). **KNOB 4 DIR** plays and records backwards.
-- **TAPE 2**: KNOB 1 picks ERASE for the selected track, KNOB 2 ERASE ALL; OCT+ asks, OCT+ again erases.
-  NOTES and USED show what the tape holds.
-- Length: 128 bars (4:16 at 120 BPM), about 2000 notes over all four tracks.
-- The tape is kept: one tape, as on the OP-1, written to flash a few seconds after it changed (stopped and quiet)
-  and back after power-on. It is not part of a project.
-
+- **GLO** opens **KEY** (tap GLO again: SONG). The 16 bars show the chord each root makes in the selected track's
+  scale; the bar playing is lit.
+- **A key** sets the root of the bar under the cursor and moves the cursor on (round at LEN): play A F C G for
+  Am F C G.
+- **KNOB 1 BAR** moves the cursor, **KNOB 2 ROOT** changes its root (- C .. B; - plays as written), **KNOB 3 LEN**
+  1 to 16 bars, **KNOB 4** KEY ON / OFF.
+- The move goes the nearer way round (at most half the scale's degrees up or down), so the parts stay near where
+  they are written. A root outside the scale moves the notes chromatically; a track in CHR uses its ROOT's major
+  scale. A note between the scale's degrees keeps its distance above its degree.
+- The bars count from PLAY on the sequencer's grid. While a track records, its arp plays as played (the steps it
+  writes move when they play). KEY is kept with the project.
 ## FX TRACKS
 
 Two lanes of effects next to the four instrument tracks, after the OP-Z's FX tracks. Two more synth tracks do not
@@ -152,7 +150,7 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
   keys held or latched.
 - **One voice:** a track on VOICE MONO, LEGATO or UNISON plays the root alone (the page says ROOT ONLY; track 1 is
   LEGATO by default). A DRUM or other kit track has no chord block.
-- STEP entry writes the chord (up to four notes a step, as the keys' chords); live recording and the TAPE take the
+- STEP entry writes the chord (up to four notes a step, as the keys' chords); live recording takes the
   notes as played. ON and VOICE are kept with the project; LOCK and the latch start off after a load.
 
 ## Other changes to Felucca's workflow
@@ -197,8 +195,8 @@ JavaScript fallback. Build it with `sh web/lab/build.sh` (after `./build.sh`, wi
 
 ## Flash: two sample slots less
 
-The tape, the FX TRACKS and the scenes need flash that Felucca's project format does not have. The tape and the FX
-TRACKS live in the flash of the third user sample slot (USR3, 80 KiB), the scenes in the second's (USR2, 80 KiB):
+The FX TRACKS, the KEY and the other extras and the scenes need flash that Felucca's project format does not have.
+The extras live in the flash of the third user sample slot (USR3, 80 KiB), the scenes in the second's (USR2, 80 KiB):
 the web editor uploads samples into USR1 only (a sample uploaded into USR2 by an older version is not played any
 more). Felucca projects load as before (with empty FX TRACKS, as scene 1).
 

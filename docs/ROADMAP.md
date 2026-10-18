@@ -26,16 +26,12 @@ into a sampler, album mode) do not.
 | --- | --- | --- |
 | Synth engines | Felucca's engines: FM6 (DX7-style), ANALOG, PHASE, LOFI, FORMANT, TRIO, WHEEL, GRAIN, PHYS, NOISE, SAMPLE, SLICE | from Felucca |
 | Drum sampler | DRUM engine, SLICE, SAMPLE with user slots | from Felucca |
-| Tape: 4 tracks | **TAPE**: 4-track note tape, 128 bars (4:16 at 120 BPM), ~2000 notes | **done (M1)** |
-| Tape loop | LOOP 1..32 bars from the bar the head is in, overdub every pass | **done (M1)** |
-| Tape speed | SPEED -12..+12 semitones: tempo and pitch together | **done (M1)** |
-| Tape reverse | DIR REV, also while recording | **done (M1)** |
-| Tape kept when switched off | one tape, as the OP-1's, in USR3's flash (two copies) | **done (M2)** |
-| Lift / drop / split | cut, copy and paste a loop region of the tape | planned (M3) |
+| Tape: 4 tracks | the note TAPE of M1/M2 (loop, varispeed, reverse, kept in flash) | **dropped (M6)**: it did not play well; GLO > KEY took its place |
+| (OP-Z) key track | **KEY**: 1..16 bars of roots, the melodic tracks moved inside their scales | **done (M6)** |
 | Mixer | HOME > MIXER (level, pan, reverb send, mute) | from Felucca |
 | Sequencers | step sequencer with chance, ratchets, locks; arpeggiator | from Felucca; Endless and Tombola planned (M5) |
 | Frequency modulators | LFO with sync, modulation matrix | from Felucca |
-| Playful screens | the TAPE cassette with turning reels | started (M1); per-engine screens planned (M4) |
+| Playful screens | FX cards as effect pedals, SEND faders, the ARP keyboard, the KEY's bars | started; per-engine screens planned (M4) |
 | Album / bounce | not possible without audio memory | out of scope |
 
 And from the OP-Z (M2b):
@@ -58,7 +54,7 @@ And from the Telepathic Instruments Orchid, after ChoralRoot FM-1 (M2d):
 
 ## Milestones
 
-### M1: TAPE (done)
+### M1: TAPE (done, dropped in M6)
 
 - `firmware/src/tape.c`: the tape. One gap buffer of 4096 events (16 KiB) for all four tracks, so recording
   and playback cost O(1) in the audio ISR. Measured on the target build: +1.8 % static cost in the audio ISR.
@@ -70,7 +66,7 @@ And from the Telepathic Instruments Orchid, after ChoralRoot FM-1 (M2d):
 - `tests/tape_test.c`: 62 checks for recording, playback, overdub, loop, speed, reverse, erase, a full tape,
   the tape's end and the pages.
 
-### M2: keep the tape (done)
+### M2: keep the tape (done; the tape dropped in M6, the stores stay)
 
 Decided: notes and settings over a third sample slot. `firmware/src/opstore.c` uses the flash of the third user
 sample slot (USR3, 0xC8000..0xDBFFF, 80 KiB):
@@ -151,10 +147,15 @@ page ORCHID, switched on per track (it was the ARP page's MODE CHORD for one ver
 - Next: new track INSERTs (RING, SHIFT, COMB, VOWEL, WOW), more FX1 types (SHIMMER, REVERSE, TAPE ECHO), SCATTER,
   SHORT / LONG. All on buffers that exist already. The plan, in German: [EFFEKTE_PLAN.md](EFFEKTE_PLAN.md).
 
-### M3: tape editing
+### M3: tape editing (dropped with the TAPE)
 
-LIFT (cut the loop region to a clipboard), DROP (paste it at the head), a tape track's mute and level,
-merge one tape track into another, quantise a tape track to the grid.
+### M6: KEY instead of the TAPE (done)
+
+The note tape did not play well and is gone: `tape.c`, GLO > TAPE / TAPE 2, its store (0xD2000..0xDBFFF is free
+again) and its tests. In its place GLO > **KEY** (`firmware/src/key.c`), as the OP-Z's key track: a run of 1..16
+bars, each a root; while ON and running, the melodic tracks' sequenced notes and arps move to the bar's root inside
+their own scale (Am F C G over a pattern in C major: A minor, F, C, G), the nearer way round; live keys and kits stay
+as they are. A key sets the cursor bar's root. Kept in the project extras (`XTRA_V4`). `tests/key_test.c`.
 
 ### M4: OP-1 look
 

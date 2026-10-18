@@ -3,6 +3,9 @@
 Grundlage: das OP-1 Operator's Manual 1.2 ([docs/reference/op1-manual.md](reference/op1-manual.md)), Felucca 1.5.1
 und der Stand von M-Vave-OP1 mit Meilenstein M1 (TAPE). Gemeint ist immer das **originale OP-1**, nicht das OP-1 field.
 
+> **Stand M6:** Das Noten-TAPE ist entfernt (es spielte nicht gut). An seiner Stelle steht GLO > **KEY**, eine
+> Akkordfolge wie die Key-Spur des OP-Z (siehe README). Alles, was unten zum Tape steht, beschreibt den früheren Stand.
+
 Legende für den Stand auf dem FM-1: ✅ vorhanden, 🟡 teilweise oder anders gelöst, ❌ fehlt, ⛔ mit der Hardware nicht
 möglich.
 
@@ -121,7 +124,7 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | (OP-Z) 16 Patterns pro Projekt | SZENEN: SEQ halten + weiße Taste, OCT+ / OCT− die nächste / vorige; im Spiel am Ende des Patterns | ✅ seit M2c |
 | (OP-Z) FX-Spuren FX1/FX2 und aufgenommene Punch-in-FX | FX > FX TRACKS: zwei Effekt-Spuren, REC + FX halten + Tasten nimmt auf | ✅ seit M2b |
 
-### Tape
+### Tape (entfernt in M6, durch GLO > KEY ersetzt)
 
 | OP-1 | M-Vave-OP1 | Stand |
 | --- | --- | --- |

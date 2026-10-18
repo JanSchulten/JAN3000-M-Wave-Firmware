@@ -268,7 +268,6 @@ static void web_power_on(void)
     audio_init();
     boot_leds();                          /* main.c: the power-on LED sweep, from the scan's start */
     autosave_boot(boot_clean);            /* main.c: the last session's music (1.2, project.c) */
-    tape_store_boot(boot_clean);          /* main.c: the tape as it was kept (M-Vave-OP1, opstore.c) */
     web_boot_ms = fm1_ms + 430u;         /* main.c: 30 + 400 ms before the first frame */
     web_booted = 1;
 }
@@ -284,7 +283,6 @@ static void web_frame(void)
     ui_input();
     settings_poll();
     autosave_poll();
-    tape_store_poll();
     ui_leds();
     ui_draw();
 }

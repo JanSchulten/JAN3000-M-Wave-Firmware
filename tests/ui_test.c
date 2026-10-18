@@ -250,8 +250,9 @@ static void ui_power_on(void)
     motion_base_valid = motion_full = 0;
     memset(snd_said, 0, sizeof snd_said);               /* (.bss at power-on: nothing said yet) */
     memset(&scrn, 0, sizeof scrn);                        /* MENU > SCREEN OFF: on, idle from now (main.c) */
-    memset(&tape, 0, sizeof tape);                        /* (M-Vave-OP1: the tape empty, as the .bss and the pool) */
-    memset(tape_ev, 0, sizeof tape_ev);
+    key_defaults();                                       /* (M-Vave-OP1: no KEY run, as at boot) */
+    key_start();
+    key_cur = 0;
     memset(&fxt, 0, sizeof fxt);                          /* (the FX tracks empty and stopped, as at boot) */
     fxt.pos = FXT_START;
     memset(fxt_lane, 0, sizeof fxt_lane);
@@ -2695,8 +2696,8 @@ static int test_page_cycles(void)
     for (i = 0; i < NPAGES; i++) {                       /* every page in a family its button reaches, and its LED */
         uint32_t f = PAGES[i].fam;
         ok &= f != FAM_SEQ || PAGES[i].graph == GR_ROLL || PAGES[i].graph == GR_EVENTS;
-        ok &= f != FAM_GLO || PAGES[i].graph == GR_SONG ||   /* (1.2: GLO's only page; M-Vave-OP1: TAPE and */
-              PAGES[i].graph == GR_TAPE || PAGES[i].graph == GR_TAPE2;   /* TAPE 2 before it) */
+        ok &= f != FAM_GLO || PAGES[i].graph == GR_SONG ||   /* (1.2: GLO's only page; M-Vave-OP1: KEY */
+              PAGES[i].graph == GR_KEY;                       /* before it) */
         ok &= f != FAM_TRK || PAGES[i].graph == GR_TRK || str_eq(PAGES[i].title, "CLOCK");   /* HOME's: MIXER CLOCK */
         ok &= PAGES[i].graph != GR_TRK || f == FAM_TRK;
         ui_power_on(); ui.home = 0; ui.page = (uint8_t)i; page_entered();
@@ -2732,21 +2733,21 @@ static int test_page_cycles(void)
         else if (PAGES[i].graph == GR_PATS) ui.fam_last[FAM_SEQ] = (uint8_t)i;
     ui.fam_last[FAM_SAVE] = 200u;
     ui.fam_last[FAM_ENV] = 250u;
-    open_family(FAM_GLO); ok = str_eq(cur_page()->title, "TAPE");   /* (M-Vave-OP1: GLO's first is TAPE) */
+    open_family(FAM_GLO); ok = str_eq(cur_page()->title, "KEY");   /* (M-Vave-OP1: GLO's first is KEY) */
     open_family(FAM_SEQ); ok &= cur_page()->graph == GR_ROLL;
     open_family(FAM_ENV); ok &= str_eq(cur_page()->title, "ENV");
     open_family(FAM_SAVE); ok &= str_eq(cur_page()->title, "USER");
-    open_family(FAM_GLO); open_family(FAM_GLO);          /* TAPE remembered, then the next: TAPE 2 */
-    ok &= str_eq(cur_page()->title, "TAPE 2");
-    go_home(); open_family(FAM_GLO); ok &= str_eq(cur_page()->title, "TAPE 2");
+    open_family(FAM_GLO); open_family(FAM_GLO);          /* KEY remembered, then the next: SONG */
+    ok &= str_eq(cur_page()->title, "SONG");
+    go_home(); open_family(FAM_GLO); ok &= str_eq(cur_page()->title, "SONG");
     for (i = 0; i < 256u; i++) {                         /* any remembered index (the old GLOBAL 25, SYSTEM 27, ..) */
         go_home(); ui.fam_last[FAM_GLO] = (uint8_t)i; open_family(FAM_GLO);
-        ok &= str_eq(cur_page()->title, i < NPAGES && PAGES[i].fam == FAM_GLO ? PAGES[i].title : "TAPE") &&
+        ok &= str_eq(cur_page()->title, i < NPAGES && PAGES[i].fam == FAM_GLO ? PAGES[i].title : "KEY") &&
               ui.fam_last[FAM_GLO] == ui.page;
         go_home(); ui.fam_last[FAM_TRK] = (uint8_t)i; press(B_HOME);
         ok &= cur_page()->graph == GR_TRK && !ui.home;
     }
-    bad += check("1.2: a remembered page no longer in its family (or none) lands on the family's first; GLO's TAPE, "
+    bad += check("1.2: a remembered page no longer in its family (or none) lands on the family's first; GLO's KEY, "
                  "HOME always the MIXER first", ok);
 
     /* AUTOMATION: + ADD CHANCE / RATCH, the knobs, EDIT: the step's fields only */
@@ -2839,8 +2840,6 @@ static int test_product_ux(void)
         press(B_REC);
         if (PAGES[i].graph == GR_SONG)
             ok &= song.rec == 0 && !transport_req && msg_is("NEW CHAIN: TAP A-D") && ui.song_rec;   /* (M-Vave-OP1) */
-        else if (PAGES[i].graph == GR_TAPE || PAGES[i].graph == GR_TAPE2)   /* (M-Vave-OP1: the tape's ARM) */
-            ok &= song.rec == 0 && tape.arm == 1u && transport_req == 1 && ui.page == i && msg_is("TAPE ARMED");
         else if (PAGES[i].graph == GR_FXT || PAGES[i].graph == GR_FXT2)     /* (.. the FX track's) */
             ok &= song.rec == 0 && fxt.arm == 1u && transport_req == 1 && ui.page == i && msg_is("FX1 ARMED: HOLD [FX]");
         else if (PAGES[i].graph == GR_ROLL)            /* #133: STEP's roll arms step recording, stopped */
@@ -2848,7 +2847,7 @@ static int test_product_ux(void)
         else ok &= song.rec == 1 && transport_req == 1 && ui.page == i && !ui.home;
     }
     bad += check("REC stays on every page, SONG types a chain (STEP: step recording, stopped; "
-                 "TAPE: the tape; FX TRACKS: the lane)", ok);
+                 "FX TRACKS: the lane)", ok);
     ui_power_on(); hold(B_HOME); press(B_REC);
     bad += check("REC in the MENU does nothing (the menu stays, no arm, no transport start)",
                  ui.menu == 1 && song.rec == 0 && !transport_req);
@@ -2893,11 +2892,10 @@ static int test_product_ux(void)
     bad += check("1.2: HOME held still opens the menu", ui.menu == 1);
     ui_power_on();
     frames(320);                                       /* (taps further apart than a double tap: #83) */
-    press(B_GLO); frames(320); ok = cur_page()->fam == FAM_GLO && str_eq(cur_page()->title, "TAPE");
-    press(B_GLO); frames(320); ok &= str_eq(cur_page()->title, "TAPE 2") && cur_page()->fam == FAM_GLO && !ui.home;
+    press(B_GLO); frames(320); ok = cur_page()->fam == FAM_GLO && str_eq(cur_page()->title, "KEY");
     press(B_GLO); frames(320); ok &= str_eq(cur_page()->title, "SONG") && cur_page()->fam == FAM_GLO && !ui.home;
     go_title("CLOCK"); press(B_GLO); frames(320); ok &= str_eq(cur_page()->title, "SONG");
-    bad += check("1.2: GLO opens TAPE, again TAPE 2, SONG; from elsewhere the last (no GLOBAL, no SYSTEM, no MIXER)", ok);
+    bad += check("1.2: GLO opens KEY, again SONG; from elsewhere the last (no GLOBAL, no SYSTEM, no MIXER)", ok);
     go_home(); btn_down(B_SEQ); frames(500);
     ok = ui.layer == LAYER_SEQ && ui.home;
     btn_up(B_SEQ); frame();
@@ -3944,7 +3942,7 @@ static int test_quick_layers(void)
         btn_down(LB[i]);
         for (flash = 0, k = 0; k < 20u; k++) { frame(); flash |= ui.layer; }      /* 0.32 s */
         btn_up(LB[i]); frame();
-        ok &= !flash && !ui.home && (LB[i] == B_GLO ? str_eq(cur_page()->title, "TAPE") :
+        ok &= !flash && !ui.home && (LB[i] == B_GLO ? str_eq(cur_page()->title, "KEY") :
                                      LB[i] == B_SCL ? cur_page()->fam == FAM_SCL : str_eq(cur_page()->title, "EDIT 1"));
         hint &= msg_is(HINT[i]);
         go_home(); frame();
@@ -7032,12 +7030,12 @@ static int test_layer_lock(void)
     btn_up(B_SEQ); frame();
     ok &= !ui.layer && !ui.lock && str_eq(cur_page()->title, "STEP");
     press(B_GLO); frames(400);
-    ok &= str_eq(cur_page()->title, "TAPE") && !ui.lock;
-    press(B_GLO);                                       /* (a tap: on to TAPE 2, then the peek) */
+    ok &= str_eq(cur_page()->title, "KEY") && !ui.lock;
+    press(B_GLO);                                       /* (a tap: on to SONG, then the peek) */
     btn_down(B_GLO); frames(500);
     ok &= ui.layer == LAYER_GLO && !ui.lock;
     btn_up(B_GLO); frame();
-    ok &= !ui.layer && !ui.lock && str_eq(cur_page()->title, "TAPE 2");
+    ok &= !ui.layer && !ui.lock && str_eq(cur_page()->title, "SONG");
     press(B_SCL);
     lay_combo(B_SCL, white(2));
     key_up(white(2)); btn_up(B_SCL); frame(); frames(400);
@@ -7048,7 +7046,7 @@ static int test_layer_lock(void)
     press(B_GLO); frames(16);
     press(B_LFO); frames(16);
     press(B_GLO); frames(400);
-    ok = !ui.lock && str_eq(cur_page()->title, "TAPE");   /* (another button between the taps: two taps) */
+    ok = !ui.lock && str_eq(cur_page()->title, "KEY");   /* (another button between the taps: two taps) */
     ui_power_on();
     go_title("ENV"); frame();
     press(B_FX); press(B_FX); frames(100);

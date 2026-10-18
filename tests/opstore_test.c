@@ -5,10 +5,7 @@
  *   EXTRAS   a project slot's FX TRACKS saved after it and loaded with it; after a power-on; a project without extras
  *            (Felucca's) or written by the editor since: empty lanes; a rename keeps them; a failed write says so; the
  *            autosave's with it; a song's sections get their slots' lanes; only USR3's sectors written.
- *   TAPE     kept once changed and rested 3 s, stopped and quiet (not while playing, a key held, a note sounding); read
- *            back at power-on as it was (events, head, loop, speed, direction); the copies take turns, the newest wins;
- *            a write cut short or a damaged copy leaves the one before; one that breaks the tape's rules is not taken;
- *            none after a crash; the ISR leaves the tape alone while it is written.
+ *   KEY      GLO > KEY's run (key.c) saved with a project's extras and loaded with it; an older project's: none.
  *   SCENES   a project slot's other scenes saved after it (USR2's flash, set A..D) and loaded with it, the one it held
  *            playing; after a power-on; the copies take turns, the newest whole one wins; a write cut short: SAVE ERROR,
  *            the copy before in charge (the project as it was: its scenes; another: none); a damaged copy or one whose
@@ -39,7 +36,7 @@ static void panel_setup(void) {}
 
 static uint8_t flash_ok = 1;
 static int fail_after = -1;
-static uint32_t erases, tape_erases, lo_w = 0xFFFFFFFFu, hi_w;   /* (the lowest and highest byte erased or written) */
+static uint32_t erases, lo_w = 0xFFFFFFFFu, hi_w;   /* (the lowest and highest byte erased or written) */
 static uint32_t progs, scn_lo = 0xFFFFFFFFu, scn_hi;           /* (the programs; .. the lowest and highest in USR2) */
 static void touched(uint32_t a, uint32_t n)
 {
@@ -54,7 +51,6 @@ static int st_read(uint32_t off, void *dst, uint32_t n) { memcpy(dst, nor + off,
 static int st_erase(uint32_t off)
 {
     erases++;
-    tape_erases += off >= 0xD2000u && off < 0xDC000u;
     touched(off, 4096);
     memset(nor + off, 0xFF, 4096);
     return 0;
@@ -98,9 +94,7 @@ static void reset(void)
     memset(xtra_slot, 0, sizeof xtra_slot);
     memset(&ui, 0, sizeof ui);
     memset(fxt_lane, 0, sizeof fxt_lane);
-    memset(&tape, 0, sizeof tape);
-    memset(tape_ev, 0, sizeof tape_ev);
-    memset(&tps, 0, sizeof tps);
+    key_defaults();
     memset(&as, 0, sizeof as);
     memset(&scb, 0, sizeof scb);
     memset((void *)&scn, 0, sizeof scn);
@@ -210,6 +204,25 @@ static int test_extras(void)
     transport_req = 0;
     chain.armed = 0;
     bad += check("SONG: each slot's FX TRACKS copied (A, B: the demo; C: empty; D, Felucca's: empty)", ok);
+    {   /* GLO > KEY's run (key.c) with the project; a project's extras from before the KEY (XTRA_V3): none */
+        static const uint8_t R[4] = {9, 5, 0, 7};
+        uint32_t k;
+        key_defaults();
+        keyt.on = 1;
+        keyt.len = 4;
+        for (k = 0; k < 4u; k++)
+            keyt.root[k] = R[k];
+        ok = project_save(3) == 0;
+        key_defaults();
+        project_load(3);
+        ok &= keyt.on == 1u && keyt.len == 4u && keyt.root[0] == 9u && keyt.root[3] == 7u && keyt.root[4] == KEY_NONE;
+        xtra_slot[3].size = XTRA_V3;                  /* (as an older firmware wrote them) */
+        key_defaults();
+        keyt.on = 1;
+        project_load(3);
+        ok &= !keyt.on && keyt.len == 4u && keyt.root[0] == KEY_NONE;
+        bad += check("KEY: ON, LEN and the roots saved and loaded with the project; older extras: none", ok);
+    }
     bad += check("every write of the extras in its USR3 sectors, the projects' or their scenes' (0x97000..0xCFFFF)",
                  lo_w >= 0x97000u && hi_w <= 0xD0000u);
     return bad;
@@ -221,7 +234,6 @@ static void as_run(uint32_t ms)
     while ((int32_t)(end - fm1_ms) > 0) {
         fm1_ms += 50u;
         autosave_poll();
-        tape_store_poll();
     }
 }
 static int test_autosave(void)
@@ -229,7 +241,6 @@ static int test_autosave(void)
     int bad = 0, ok;
     reset();
     autosave_boot(1);
-    tape_store_boot(1);
     lanes_demo();
     as_run(11000u);
     ok = as.writes == 1u && ((st_hdr_t *)(nor + 0xD0000u))->type == OBJ_XAUTO;
@@ -246,131 +257,6 @@ static int test_autosave(void)
     return bad;
 }
 
-/* a tape with a few notes on tracks 1 and 3, the head in the middle, a loop, SPEED and DIR set */
-static void tape_demo(void)
-{
-    uint32_t i;
-    memset(tape_ev, 0, sizeof tape_ev);
-    for (i = 0; i < 6u; i++)
-        tape_ev[i] = te_make(i * 96u, i & 2u, 60u + i, 100, i & 1u);
-    tape.g0 = 6;
-    for (i = 0; i < 4u; i++)
-        tape_ev[TAPE_EV - 4u + i] = te_make(1000u + i * 48u, 0, 70u + i, 90, i & 1u);
-    tape.na = 4;
-    tape.head = 800;
-    tape.loop = 2;
-    tape.loop_in = TAPE_BAR;
-    tape.speed = -3;
-    tape.rev = tape.dir = 0;
-    tape.gen++;
-}
-static uint32_t tape_snap[TAPE_EV];
-static int tape_is(const uint32_t *ev, uint32_t g0, uint32_t na, uint32_t head)
-{
-    uint32_t i;
-    if (tape.g0 != g0 || tape.na != na || tape.head != head)
-        return 0;
-    for (i = 0; i < g0; i++)
-        if (tape_ev[i] != ev[i]) return 0;
-    for (i = TAPE_EV - na; i < TAPE_EV; i++)
-        if (tape_ev[i] != ev[i]) return 0;
-    return 1;
-}
-static void tape_power_on(void)
-{
-    memset(&tape, 0, sizeof tape);
-    memset(tape_ev, 0, sizeof tape_ev);
-    memset(&tps, 0, sizeof tps);
-}
-static int test_tape(void)
-{
-    int bad = 0, ok;
-    uint32_t e0;
-    reset();
-    tape_power_on();
-    ok = tape_store_boot(1) == 0 && tps.cur == 0xFFu;
-    tape_erases = 0;
-    as_run(20000u);
-    bad += check("tape: none in flash: an empty tape; nothing changes: nothing written", ok && !tps.writes && !tape_erases);
-    tape_demo();
-    memcpy(tape_snap, tape_ev, sizeof tape_snap);
-    song.playing = 1;
-    as_run(20000u);
-    ok = !tps.writes;
-    song.playing = 0;
-    fm1_in.notes = 1u << 3;
-    as_run(20000u);
-    ok &= !tps.writes;
-    fm1_in.notes = 0;
-    trk[2].v[0].active = 1;
-    as_run(20000u);
-    ok &= !tps.writes;
-    trk[2].v[0].active = 0;
-    bad += check("tape changed: no write while playing, a key held or a note sounding", ok);
-    lo_w = 0xFFFFFFFFu; hi_w = 0;
-    e0 = tape_erases;
-    as_run(2800u);
-    ok = !tps.writes;
-    as_run(500u);
-    bad += check("  .. stopped and quiet 3 s: written once (five sectors, in 0xD2000..0xD6FFF), the ISR let go of it",
-                 ok && tps.writes == 1u && tape_erases - e0 == 5u && lo_w >= 0xD0000u && hi_w <= 0xD7000u && !tape.hold &&
-                 tps.cur == 0u && ((st_hdr_t *)(nor + 0xD2000u))->type == OBJ_TAPE);
-    as_run(60000u);
-    bad += check("  .. unchanged: no more writes", tps.writes == 1u);
-    tape_power_on();
-    ok = tape_store_boot(1) == 1 && tape_is(tape_snap, 6, 4, 800) && tape.loop == 2u && tape.loop_in == TAPE_BAR &&
-         tape.speed == -3 && !tape.rev;
-    bad += check("power-on: the tape as it was kept (events, head, LOOP, SPEED, DIR)", ok);
-    tape.rev = tape.dir = 1;
-    tape_ev[2] = te_make(2u * 96u, 1, 99, 127, 0);
-    tape.gen++;
-    memcpy(tape_snap, tape_ev, sizeof tape_snap);
-    lo_w = 0xFFFFFFFFu; hi_w = 0;
-    as_run(4000u);
-    ok = tps.writes == 1u && tps.cur == 1u && ((st_hdr_t *)(nor + 0xD7000u))->type == OBJ_TAPE && hi_w <= 0xDC000u;
-    tape_power_on();
-    ok &= tape_store_boot(1) == 1 && tape_ev[2] == tape_snap[2] && tape.rev == 1u && tape.dir == 1u && tps.cur == 1u;
-    bad += check("the next change into copy B (0xD7000..0xDBFFF); power-on: the newest", ok);
-    tape_ev[3] = te_make(3u * 96u, 3, 50, 64, 1);
-    tape.gen++;
-    fail_after = 30;                              /* (cut short among the events: copy A half written) */
-    as_run(4000u);
-    fail_after = -1;
-    ok = tps.err && !tape.hold;
-    tape_power_on();
-    ok &= tape_store_boot(1) == 1 && tape_is(tape_snap, 6, 4, 800) && tape.rev == 1u;
-    bad += check("a write cut short: an error, the ISR let go; power-on: the copy before (B)", ok);
-    nor[0xD7000u + 4096u + 100u] ^= 0x10u;        /* B's events damaged, A torn: nothing whole */
-    tape_power_on();
-    ok = tape_store_boot(1) == 0 && !tape.g0 && !tape.na && !tape.head;
-    bad += check("  .. B damaged too: an empty tape", ok);
-    reset();
-    tape_power_on();
-    tape_store_boot(1);
-    tape_demo();
-    tape.gen++;
-    as_run(4000u);
-    tape_ev[1] = te_make(5000u, 0, 61, 100, 0);   /* out of order before the head: breaks the tape's rules */
-    tape.gen++;
-    memcpy(tape_snap, tape_ev, sizeof tape_snap);
-    as_run(4000u);                                /* (B: whole, its CRC right, but not a tape) */
-    tape_power_on();
-    ok = tape_store_boot(1) == 1 && tape_ev[1] != tape_snap[1] && tps.cur == 0u;
-    bad += check("a copy whose events break the tape's order is not taken: the one before", ok);
-    tape_power_on();
-    ok = tape_store_boot(0) == 0 && !tape.g0 && !tape.na && tps.cur == 0u;
-    bad += check("after a crash (not allowed): an empty tape, nothing read; the next write goes to the other copy", ok);
-    tape.hold = 1;
-    tape.req_clear = 1;
-    tape.req_seek = 100u + 1u;
-    events_block(CTL);
-    ok = tape.req_clear && tape.req_seek && !tape_rolling();
-    tape.hold = 0;
-    events_block(CTL);
-    ok &= !tape.req_clear && !tape.req_seek && tape.head == 100u;
-    bad += check("while being written (hold): the ISR leaves the tape (its requests wait, it does not roll)", ok);
-    return bad;
-}
 
 /* the scene playing marked v: T1's step 1 the note v, T2's LEN 4 + v % 8 (a scene's timing is its own) */
 static void scene_mark(uint32_t v)
@@ -563,7 +449,6 @@ int main(void)
     int bad = 0;
     bad += test_extras();
     bad += test_autosave();
-    bad += test_tape();
     bad += test_scenes();
     bad += test_usr3();
     if (bad) {

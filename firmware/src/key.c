@@ -30,6 +30,7 @@ static struct {
     uint8_t started;                            /* the first block after PLAY: bar 1 */
 } keyr;
 static volatile uint8_t key_bar;                /* the bar playing (0..LEN-1): the UI's */
+static volatile uint8_t key_live_n;             /* the notes played live (seq.c input_on): GLO > KEY takes the roots */
 
 static void key_defaults(void)
 {
@@ -113,6 +114,7 @@ static uint32_t key_shift(const track_t *t, uint32_t n)
 }
 
 /* ------------------------------------------------------------------ UI --- */
+static uint8_t key_cur, key_seen;               /* GLO > KEY's cursor bar; key_live_n taken last (ui_input.c key_poll) */
 /* the bar's root's chord in track t's scale, "Am" "F" "Bdim" "C#" (a root outside it: its name alone), "-" none */
 static void key_chord_name(const track_t *t, uint32_t r, char *b)
 {

@@ -1,6 +1,6 @@
 ---
 name: fm1-firmware
-description: Build, extend, test and safely ship custom firmware for the M-VAVE FM-1 pocket synthesizer (JieLi AC791N / WL82, pi32v2) on the Felucca / M-Vave-OP1 code base. Use this skill whenever someone works on FM-1 firmware - a new page or screen, a sound engine, sequencer or TAPE features, OP-1-style workflows, RAM / flash / audio-ISR budgets, the JieLi toolchain or AC79 SDK, build.sh or tests/run_tests.sh failures, the browser emulator or its Artifact page, flashing a .fwsc package, or recovering an FM-1 that no longer starts - even when they only say "FM1", "M-Vave", "Felucca", "fwsc" or "meine Firmware".
+description: Build, extend, test and safely ship custom firmware for the M-VAVE FM-1 pocket synthesizer (JieLi AC791N / WL82, pi32v2) on the Felucca / M-Vave-OP1 code base. Use this skill whenever someone works on FM-1 firmware - a new page or screen, a sound engine, sequencer, KEY or arp features, OP-1 / OP-Z-style workflows, RAM / flash / audio-ISR budgets, the JieLi toolchain or AC79 SDK, build.sh or tests/run_tests.sh failures, the browser emulator or its Artifact page, flashing a .fwsc package, or recovering an FM-1 that no longer starts - even when they only say "FM1", "M-Vave", "Felucca", "fwsc" or "meine Firmware".
 ---
 
 # FM-1 firmware
@@ -61,7 +61,7 @@ package needs. Linux x86-64 runs the JieLi toolchain natively; macOS needs Docke
   Keep new ISR work O(1) per block, put rarely used paths in `__attribute__((noinline))` functions, and check
   `python3 tests/target_budget.py`: `fm1_alnk0_irq` may grow at most 10 % over `tests/target_budget.txt`.
 - **Main loop ↔ ISR:** the UI never edits ISR state mid-flight. It sets a `volatile` request field that the ISR
-  takes at the start of a block (`transport_req`, `panic_req`, the tape's `req_seek`).
+  takes at the start of a block (`transport_req`, `panic_req`, `aud_req`).
 - **Big buffers go to the pool:** `static T buf[N] __attribute__((section(".pool")));` (zeroed at boot). Design
   state so all-zero is a valid empty state, because nothing else initialises it.
 - **Stored formats are append-only.** Track parameters are mapped by count (new `P_*` just before `P_E0`), global

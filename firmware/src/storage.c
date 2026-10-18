@@ -29,8 +29,8 @@
  * The FM6 voice bank (1.4.1, fm6_vbank.c): 0xE7000, the sector above the autosave, with a commit record of the same
  * kind (type OBJ_FM6VB, not an st_load object); a new bank is first staged in the autosave's older copy (fm6_vbank.c).
  * M-Vave-OP1 (opstore.c): the third user sample slot's 80 KiB (0xC8000..0xDBFFF) hold the projects' extras (OBJ_XPROJ0 +
- * slot, A/B from 0xC8000), the autosave's (OBJ_XAUTO, 0xD0000 / 0xD1000) and the tape (0xD2000..0xDBFFF, its own commit
- * records); the second's (0xB4000..0xC7FFF) the projects' scenes (scene.c, their own commit records, OBJ_SCENES); the
+ * slot, A/B from 0xC8000), the autosave's (OBJ_XAUTO, 0xD0000 / 0xD1000), 0xD2000..0xDBFFF free (the TAPE's
+ * once); the second's (0xB4000..0xC7FFF) the projects' scenes (scene.c, their own commit records, OBJ_SCENES); the
  * editor uploads samples into USR1 only (eng_sample.c SMP_USER_WRITABLE). */
 enum { OBJ_SETTINGS, OBJ_PROJECT0, OBJ_UPRESET0 = OBJ_PROJECT0 + 4, OBJ_FM6BANK = OBJ_UPRESET0 + 2, OBJ_UPFM6,
        OBJ_AUTOSAVE,

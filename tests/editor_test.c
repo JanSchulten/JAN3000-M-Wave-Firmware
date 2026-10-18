@@ -402,7 +402,7 @@ static int samples(void)
     bad += check("END cannot change published sample zones without BEGIN",
                  request(ED_SMP_END, a, n) == 8u && host_wire[6] == 2 && host_writes == 2 &&
                  usr_zone[0][0].rate == 65536u);
-    {   /* M-Vave-OP1: USR3's flash holds the projects' FX TRACKS and the tape, USR2's their scenes (opstore.c): no
+    {   /* M-Vave-OP1: USR3's flash holds the projects' extras, USR2's their scenes (opstore.c): no
          * sample goes there */
         uint32_t e0 = host_erases, w0 = host_writes, s, ok = 1;
         for (s = 1; s < 3u; s++) {

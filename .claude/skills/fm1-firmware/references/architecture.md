@@ -8,27 +8,27 @@ define. The HAL (`firmware/hal/*.h`) is header-only. Order (abridged):
 ```
 HAL headers → libc.c lcd.c gfx.c
 core.h → engines.c (dsp.c, eng_*.c) params.c mod.c voice.c slicer.c fx.c
-usb.c midi_uart.c song_chain.c seq.c (chord.c, tape.c, motion.c) audio.c
+usb.c midi_uart.c song_chain.c seq.c (chord.c, key.c, fxtrack.c, motion.c) audio.c
 panel.c ui.c menu_items.c icons.c ui_graph.c ui_draw.c ui_menu.c ui_input.c ui_layer.c
 storage_hw.c storage.c upreset.c project.c ota.c ota_hw.c editor.c console.c master.c main.c
 ```
 
 The host tests (`tests/hostsim.c`, `tests/ui_test.c`) and the browser build (`web/emu/felucca_web.c`) include
 the same sources in the same order with stubbed HAL. Consequence: a new subsystem is easiest to add by including
-it from the file that uses it (as `seq.c` includes `tape.c`), so every harness picks it up without edits.
+it from the file that uses it (as `seq.c` includes `key.c`), so every harness picks it up without edits.
 
-Everything is `static`. Names are short and prefixed by subsystem (`tape_`, `seq_`, `ui_`, `cv_` for the canvas).
+Everything is `static`. Names are short and prefixed by subsystem (`key_`, `seq_`, `ui_`, `cv_` for the canvas).
 
 ## Two worlds: the audio ISR and the main loop
 
 - **Audio ISR** (`audio.c`): per half buffer, blocks of 32 samples → `mix_block` (fx.c) → `events_block` (seq.c):
-  transport requests, the keyboard, MIDI in, `seq_tick` per track, `tape_tick`, the arp, the click; then the
+  transport requests, the keyboard, MIDI in, `key_tick`, `seq_tick` per track, the arp, the click; then the
   voices render. Everything that makes sound happens here, ending in `trk_note_on` / `trk_note_off`.
 - **Main loop** (`main.c`): UI frames (`ui_input`, `ui_draw`), storage writes, USB, the editor protocol.
 - **Crossing over:** the UI writes `volatile` request fields (`transport_req` 1 start / 2 stop / 3 restart,
-  `panic_req`, `aud_req`, the tape's `req_seek` / `req_clear`); the ISR consumes them at a block start. Plain
-  settings the ISR only reads (a parameter, the tape's `speed`) may be written directly if a torn read is
-  harmless. A UI that reads ISR data structures (the tape's gap buffer) must tolerate a frame of inconsistency.
+  `panic_req`, `aud_req`, the scenes' `scn.req`); the ISR consumes them at a block start. Plain
+  settings the ISR only reads (a parameter, the KEY's roots) may be written directly if a torn read is
+  harmless. A UI that reads ISR data structures (the arp's note list, a lane) must tolerate a frame of inconsistency.
 
 ## Tracks, parameters, the song
 
@@ -62,24 +62,26 @@ Everything is `static`. Names are short and prefixed by subsystem (`tape_`, `seq
 - **Drawing API (gfx.c):** a 240-wide canvas (`cv_begin`, `cv_rect`, `cv_rrect` with r ≤ 8, `cv_line`,
   `cv_line_t`, `cv_text*`, `cv_icon_in`, `cv_trk` for the track cushions), theme colours `T_*` from the palette.
 
-## Worked example: TAPE (M1)
+## Worked example: KEY (M6)
 
-`firmware/src/tape.c` shows the patterns above in one place: a gap buffer in the pool (all-zero = empty), O(1)
-recording and playback in the ISR, `noinline` slow paths, requests from the UI, and the hooks in seq.c
-(`input_on` / `input_off`, the arp, `seq_start` / `seq_stop`, `events_block`). The UI side is spread over
-params.c, ui.c, ui_input.c, ui_draw.c, ui_graph.c, ui_help.c and icons.c; recipes.md lists each touch point.
+`firmware/src/key.c` (GLO > KEY, which replaced the note TAPE of M1) shows the patterns in one small file: settings
+the UI writes and the ISR only reads (`keyt`), a clock that mirrors `click_tick` / `fxt_tick` (`key_tick`, called in
+`events_block` before the tracks' steps), a `noinline` slow path (`key_shift_to`, once a note), the hooks in seq.c
+(the step's notes in `seq_play`, `arp_list`, `seq_start` / `seq_stop`, `input_on` for the page's key entry), storage
+in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` in ui_input.c, `draw_columns`,
+`graph_key` and its signature). `tests/key_test.c` drives the engine, the sequencer and the page.
 
 ## M2b: FX TRACKS, live song chains, the stores
 
-- `fxtrack.c` (included by seq.c after tape.c): two effect lanes. The ISR side holds effects through perform.c's
+- `fxtrack.c` (included by seq.c after key.c): two effect lanes. The ISR side holds effects through perform.c's
   `perf_fxt` (as keys would) and `perf_fxt_now` (a REPEAT starts on its step). Recording hooks `perf_press` via
   `fxt_press`. Its clock mirrors `click_tick`; in a song `fxt_src()` reads the section's slot's lanes and
   `fxt_section()` restarts them with `chain_apply`.
 - song_chain.c: the UI never writes `chain.config`. It edits `chain_config`, then `chain_live(kind)` copies it to
   `chain_next` with IRQs off and sets `chain.req`; `chain_next_row()` (noinline, once a section) takes it.
-- opstore.c (included by project.c after `proj_wire`): extras and the tape store, hooks in `project_save_as`,
+- opstore.c (included by project.c after `proj_wire`): extras (and, until M6, the tape's store), hooks in `project_save_as`,
   `project_load`, `project_rename`, `persist_boot`, the autosave, `chain_prepare`, and main.c
-  (`tape_store_boot`, `tape_store_poll`). web/emu/felucca_web.c calls the same two.
+  (the tape's boot and poll, gone with it in M6).
 
 ## M2c: SCENES
 
@@ -102,7 +104,7 @@ params.c, ui.c, ui_input.c, ui_draw.c, ui_graph.c, ui_help.c and icons.c; recipe
 - `orchid.c` (included by seq.c after the AM_* enum): a track with its `orc_en` bit (SCL > ORCHID's KNOB 1) makes
   F3 .. C#4 the chord block (`ORC_KEY`, `orc_press` / `orc_release`: ChoralRoot FM-1's `cu_mod_press`, noinline, once
   a press) and D4 .. G5 roots: `key_on` asks `orc_build` instead of `chord_build`, into the same `kb_chord[k]` (now 7
-  wide), so the notes go Felucca's way (voices, the ARP, MIDI OUT, live recording, the TAPE).
+  wide), so the notes go Felucca's way (voices, the ARP, MIDI OUT, live recording).
 - `keyboard_block` marks block keys in `kb_orc` (their release goes back to `orc_release`), only for a track with
   ORCHID on that is not a kit and with no layer or DRUM grid. `orc_lock_req` (KNOB 3) is taken at the start of a block.
 - ON (`orc_en`) and VOICE per track (`orc_voice[NTRK]`) are in the extras (`proj_xtra_t`, `XTRA_V2`); LOCK and the

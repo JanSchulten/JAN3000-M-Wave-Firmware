@@ -1004,36 +1004,17 @@ static void draw_columns(void)
                     k != EVK_ADD ? VAL(3u) : T_DIM, RATIO(d, enum_rank(d, v)), param_icon(d, v));
         return;
     }
-    if (cur_page()->graph == GR_TAPE) {               /* POS (bar.beat), LOOP, SPEED, DIR (tape.c) */
-        uint32_t pos = tape_pos(), lb = TAPE_LOOP_BARS[tape.loop % TAPE_NLOOP];
-        if (pos >= TAPE_END) {
-            str_cpy(val, "END", sizeof val);
-        } else {
-            fmt_int(val, (int32_t)(pos / TAPE_BAR) + 1);
-            str_cpy(val + str_len(val), ".", 2);
-            fmt_int(val + str_len(val), (int32_t)(pos % TAPE_BAR / TAPE_PPQN) + 1);
-        }
-        draw_column(0, "POS", val, "", VAL(0u), (int32_t)(pos * 1000u / TAPE_END), ICON_TAPE);
-        if (lb) fmt_int(val, (int32_t)lb);
-        else str_cpy(val, "OFF", sizeof val);
-        draw_column(1, "LOOP", val, !lb ? "" : lb == 1u ? "BAR" : "BARS", lb ? VAL(1u) : T_DIM, -1, ICON_X_REPEAT);
-        val[0] = '+';                                  /* "+7", "0", "-5" */
-        fmt_int(val + (tape.speed > 0), tape.speed);
-        draw_column(2, "SPEED", val, "ST", tape.speed ? VAL(2u) : T_MID, (tape.speed + TAPE_SPEED_MAX) * 1000 / 24,
-                    ICON_RATE);
-        draw_column(3, "DIR", tape.rev ? "REV" : "FWD", "", tape.rev ? VAL(3u) : T_MID, -1, ICON_X_REVERSE);
-        return;
-    }
-    if (cur_page()->graph == GR_TAPE2) {              /* ERASE the track's notes, ERASE all; what the tape holds */
-        uint32_t n = tape_count(song.sel), used = TAPE_EV - tape_free();
-        char lb[8] = "T1";
-        lb[1] = (char)('1' + song.sel);
-        draw_act_column(0, lb, n ? T_THEME : T_DIM, ICON_TAPE);
-        draw_act_column(1, "ALL", used ? T_THEME : T_DIM, ICON_TAPE);
-        fmt_int(val, (int32_t)(n / 2u));
-        draw_column(2, "NOTES", val, "", n ? T_THEME : T_DIM, -1, ICON_NONE);
-        fmt_int(val, (int32_t)(used * 100u / TAPE_EV));
-        draw_column(3, "USED", val, "%", tape.full ? T_ACCENT : T_THEME, (int32_t)(used * 1000u / TAPE_EV), ICON_NONE);
+    if (cur_page()->graph == GR_KEY) {                /* M-Vave-OP1, GLO > KEY (key.c): BAR, its ROOT (the chord it
+                                                       * makes in the selected track's scale), LEN, ON */
+        uint32_t len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u, r = keyt.root[key_cur % KEY_BARS];
+        fmt_int(val, (int32_t)key_cur + 1);
+        draw_column(0, "BAR", val, "", VAL(0u), len > 1u ? (int32_t)(key_cur * 1000u / (len - 1u)) : 0, ICON_TIME);
+        key_chord_name(TSEL, r, val);
+        draw_column(1, "ROOT", val, "", r < 12u ? VAL(1u) : T_DIM, r < 12u ? (int32_t)(r * 1000u / 11u) : -1, ICON_SCALE);
+        fmt_int(val, (int32_t)len);
+        draw_column(2, "LEN", val, len == 1u ? "BAR" : "BARS", VAL(2u), (int32_t)((len - 1u) * 1000u / (KEY_BARS - 1u)),
+                    ICON_LENGTH);
+        draw_column(3, "KEY", keyt.on ? "ON" : "OFF", "", keyt.on ? VAL(3u) : T_DIM, -1, ICON_TRANSPOSE);
         return;
     }
     if (cur_page()->graph == GR_FX1) {                /* M-Vave-OP1 DELAY: TYPE; DELAY TIME FDBK MIX, CLOUD SIZE PITCH DENS */
@@ -1501,16 +1482,6 @@ static void confirm_text(char *a, char *b)
         break;
     case CF_DEL_ROW:
         str_cpy(a, "DELETE SECTION?", 24);
-        break;
-    case CF_TAPE_TRK:                                /* TAPE 2 (tape.c) */
-        str_cpy(a, "ERASE T1 FROM TAPE?", 24);
-        a[7] = (char)('1' + k % NTRK);
-        fmt_int(b, (int32_t)(tape_count(k % NTRK) / 2u));
-        str_cpy(b + str_len(b), " NOTES", 8);
-        break;
-    case CF_TAPE_ALL:
-        str_cpy(a, "ERASE THE TAPE?", 24);
-        str_cpy(b, "ALL FOUR TRACKS", 24);
         break;
     case CF_FXT_LANE:                                /* FX TRACKS 2 (fxtrack.c) */
         str_cpy(a, "CLEAR FX1?", 24);

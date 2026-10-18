@@ -17,10 +17,10 @@ One test on its own (the HAL's inline assembly needs optimisation on, so keep `-
 
 ```sh
 mkdir -p build/host
-cc -O1 -w -Ibuild/gen -Ifirmware/src -o build/host/tape_test tests/tape_test.c -lm && build/host/tape_test
+cc -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o build/host/key_test tests/key_test.c -lm && build/host/key_test
 ```
 
-M-Vave-OP1's own tests, good templates: `tape_test.c` (an ISR feature driven block by block), `fxtrack_test.c` (an
+M-Vave-OP1's own tests, good templates: `key_test.c` (an ISR feature driven block by block, its page through the UI harness), `fxtrack_test.c` (an
 ISR feature plus its pages, through `mix_block`), `songchain_test.c` (UI gestures while the transport runs: space REC
 taps 400 ms apart, two quick taps lock a layer), `opstore_test.c` (flash stores on a NOR image: round trip, power-on,
 torn and damaged copies), `scene_test.c` (a codec fuzzed with random and damaged input, an ISR switch timed to the
@@ -34,7 +34,7 @@ Register a new test in `tests/run_tests.sh` next to a similar one (a `$CC … -o
 
 Include it with `#define UI_TEST_NO_MAIN 1` / `#include "ui_test.c"` to get the real firmware with stubbed HAL:
 
-- `ui_power_on()` mirrors `main.c`'s init. **Reset any new subsystem state there** (as it does for the tape),
+- `ui_power_on()` mirrors `main.c`'s init. **Reset any new subsystem state there** (as it does for the KEY),
   or tests leak state into each other.
 - `frame()`, `frames(ms)`: UI frames (16 ms each). The audio side does not run by itself: call
   `events_block(CTL)` (or `blocks(n)`) to advance the ISR, or `seq_tick()` for one track.

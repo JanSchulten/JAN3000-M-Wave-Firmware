@@ -83,7 +83,7 @@ static int mom_turn(uint32_t k, int32_t s)
         if (act_cols() || lock_held() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
             pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
             pg->graph == GR_PATS || (pg->graph == GR_SLICES && k < 2u) || (pg->graph == GR_MOD && k == 0u) ||
-            pg->graph == GR_TAPE || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
+            pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
             return 0;
         d = page_desc(pg, k, &vp);
     }
@@ -346,6 +346,38 @@ static uint32_t orc_leds(void)
 }
 /* .. ORCHID's KNOB 1 ON / OFF (the selected track's), KNOB 2 its VOICE (-12..+12), KNOB 3 LOCK (the ISR takes it:
  * orc_lock_req) */
+/* .. GLO > KEY's knobs (key.c): KNOB 1 the bar (the cursor), 2 its ROOT (- before C .. B: - none), 3 LEN 1..16, 4 ON */
+static void key_knob(uint32_t slot, int32_t steps)
+{
+    uint32_t len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u;
+    if (slot == 0u) {
+        key_cur = (uint8_t)clamp((int32_t)key_cur + steps, 0, (int32_t)len - 1);
+    } else if (slot == 1u) {
+        int32_t r = keyt.root[key_cur % KEY_BARS] >= 12u ? -1 : (int32_t)keyt.root[key_cur % KEY_BARS];
+        r = clamp(r + steps, -1, 11);
+        keyt.root[key_cur % KEY_BARS] = r < 0 ? KEY_NONE : (uint8_t)r;
+    } else if (slot == 2u) {
+        keyt.len = (uint8_t)clamp((int32_t)len + steps, 1, KEY_BARS);
+        if (key_cur >= keyt.len)
+            key_cur = (uint8_t)(keyt.len - 1u);
+    } else {
+        keyt.on = steps > 0;
+        ui_message(keyt.on ? "KEY ON" : "KEY OFF");
+    }
+}
+/* .. a key played (the keys, MIDI IN) with GLO > KEY up: its note the cursor bar's root, the cursor on to the next bar
+ * (round). Every frame, so a key played elsewhere is never taken later */
+static void key_poll(void)
+{
+    uint8_t n = key_live_n;
+    if (n == key_seen)
+        return;
+    key_seen = n;
+    if (ui.home || ui.layer || ui.menu || ui.confirm || cur_page()->graph != GR_KEY)
+        return;
+    keyt.root[key_cur % KEY_BARS] = (uint8_t)(last_note % 12u);
+    key_cur = (uint8_t)((key_cur + 1u) % (keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u));
+}
 static void orc_knob(uint32_t slot, int32_t steps)
 {
     if (slot == 0u) {
@@ -417,9 +449,9 @@ static void ui_leds(void)
         led_put(nl, panel.btn[B_FX], 1);                /* FX LATCH: lit while an effect or a macro is on */
     if (ui.layer)                                       /* the layer's button breathes while its map is up */
         led_put(nb, panel.btn[layer_btn()], 1);
-    led_put(nl, panel.btn[B_REC], (tape_page() ? tape.arm : fxt_page() ? fxt.arm : song.rec | (song_keys_on() && ui.song_rec))
-                                  != 0u && ui.layer != LAYER_REC);   /* (its layer: it breathes; TAPE: the tape's, FX TRACKS
-                                                                      * the lanes', SONG typing a chain) */
+    led_put(nl, panel.btn[B_REC], (fxt_page() ? fxt.arm : song.rec | (song_keys_on() && ui.song_rec))
+                                  != 0u && ui.layer != LAYER_REC);   /* (its layer: it breathes; FX TRACKS the lanes', SONG
+                                                                      * typing a chain) */
     k = oct_leds();
     led_put(nl, panel.btn[B_OCTDN], (int)(k & 1u));
     led_put(nl, panel.btn[B_OCTUP], (int)((k >> 1) & 1u));
@@ -633,15 +665,7 @@ static uint32_t song_leds(void)
 static int rec_tap(void)                                /* 1: the arming changed */
 {
     uint8_t bit = (uint8_t)(1u << song.sel);
-    if (tape_page()) {                                /* TAPE (tape.c): the tape's ARM, not the pattern's; arming */
-        tape.arm ^= bit;                              /* while stopped starts PLAY (the count-in first, if set) */
-        ui.force = 1;
-        if ((tape.arm & bit) && !song.playing && !seq_counting())
-            transport_req = 1;
-        ui_message(tape.arm & bit ? "TAPE ARMED" : "TAPE DISARMED");
-        return 1;
-    }
-    if (fxt_page()) {                                 /* FX TRACKS (fxtrack.c): the selected lane's ARM; as the tape's */
+    if (fxt_page()) {                                 /* FX TRACKS (fxtrack.c): the selected lane's ARM, not the pattern's */
         uint8_t lb = (uint8_t)(1u << (ui.fxt_sel % FXT_N));
         if (chain_busy() && !(fxt.arm & lb)) {
             ui_message("STOP TO RECORD");
@@ -1083,15 +1107,8 @@ static void edit_param(uint32_t slot, int32_t steps)
         }
         return;
     }
-    if (pg->graph == GR_TAPE) {                       /* KNOB 1 POS (a beat a detent, a bar turned fast), 2 LOOP, */
-        if (slot == 0u)                               /* 3 SPEED, 4 DIR (tape.c) */
-            tape_seek_ui(steps * (int32_t)(steps > 2 || steps < -2 ? TAPE_BAR : TAPE_PPQN));
-        else if (slot == 1u)
-            tape_loop_ui((uint32_t)clamp((int32_t)tape.loop + steps, 0, (int32_t)TAPE_NLOOP - 1));
-        else if (slot == 2u)
-            tape.speed = (int8_t)clamp(tape.speed + steps, -TAPE_SPEED_MAX, TAPE_SPEED_MAX);
-        else
-            tape.rev = steps > 0;
+    if (pg->graph == GR_KEY) {                        /* M-Vave-OP1, GLO > KEY (key.c): KNOB 1 the bar, 2 its ROOT */
+        key_knob(slot, steps);                        /* (- C .. B), 3 LEN, 4 ON */
         return;
     }
     if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* DELAY (fx1.c): TYPE, then TIME FDBK MIX or SIZE PITCH DENS; CLOUD */
@@ -1277,13 +1294,6 @@ static void act_do(void)
     if (cur_page()->graph == GR_SONG) {
         if (song.playing || chain_busy() || seq_counting()) transport_req = 2;
         else chain_play_ui();
-        return;
-    }
-    if (cur_page()->graph == GR_TAPE2) {                  /* ERASE: the track's notes (c 0) or the whole tape */
-        if (!act_ready())
-            ui_message("NOTHING TO ERASE");
-        else
-            confirm_open(c == 0u ? CF_TAPE_TRK : CF_TAPE_ALL, song.sel);
         return;
     }
     if (cur_page()->graph == GR_FXT2) {                   /* CLEAR: the selected lane (c 0) or both */
@@ -1640,6 +1650,7 @@ static void ui_input(void)
     static uint32_t lock_ms;                            /* BPM LOCK: the last locked SELECT turn (fm1_ms | 1; 0 none) */
     midi_pc_poll();                                     /* MIDI Program Change (before fm6_poll: a bank voice) */
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
+    key_poll();                                         /* (M-Vave-OP1: GLO > KEY's root from a key) */
 #if !FELUCCA_FM4
     for (k = 0; k < NTRK; k++)                          /* a DIGITAL sound any other way (the paths convert it */
         if (trk[k].eng_req == ENGI_DIGITAL)             /* already): FM6 (fm4_convert.c) */
@@ -1821,10 +1832,6 @@ static void ui_input(void)
                 fxt_clear(kind == CF_FXT_ALL ? 0u : ui.confirm_trk % FXT_N);
                 ui_message(kind == CF_FXT_ALL ? "FX TRACKS CLEARED" : ui.confirm_trk % FXT_N ? "FX2 CLEARED" : "FX1 CLEARED");
                 ui.act = 0;
-            } else if (kind == CF_TAPE_TRK || kind == CF_TAPE_ALL) {   /* (the ISR erases at its next block) */
-                tape.req_clear = (uint8_t)(kind == CF_TAPE_ALL ? (1u << NTRK) - 1u : 1u << (ui.confirm_trk % NTRK));
-                ui_message(kind == CF_TAPE_ALL ? "TAPE ERASED" : "TRACK ERASED");
-                ui.act = 0;
             } else if (kind == CF_CLEAR_SONG) {
                 if (!chain_busy()) { chain_defaults(&chain_config); ui.song_row = 0; ui_message("SONG CLEARED"); }
             } else if (kind == CF_INIT_SOUND) {
@@ -1978,7 +1985,7 @@ static void ui_input(void)
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
-            || pg->graph == GR_SONG || pg->graph == GR_TAPE || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
+            || pg->graph == GR_SONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD || (pg->graph == GR_SLICES && k < 2u) ||
             (pg->graph == GR_ORCH && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph)) {   /* (not an empty
                                                                                                           * column) */

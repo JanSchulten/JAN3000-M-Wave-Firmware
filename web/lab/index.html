@@ -204,7 +204,7 @@ button { font: inherit; color: inherit; }
     <div class="brand">
       <h1>M-Vave-<span>OP1</span> Emulator</h1>
       <p>Die Custom-Firmware für das M-VAVE FM-1, als WebAssembly im Browser. Dieselben Quellen wie auf dem Gerät:
-         Engines, Sequencer, TAPE und Bildschirm, nur die Hardware ist simuliert.</p>
+         Engines, Sequencer und Bildschirm, nur die Hardware ist simuliert.</p>
     </div>
     <div class="status">
       <span class="pill">Kern <b id="core">lädt …</b></span>
@@ -281,7 +281,7 @@ button { font: inherit; color: inherit; }
 
   <p class="foot">Inoffiziell, kein Produkt von M-VAVE. M-Vave-OP1 ist ein Fork von Felucca (Leo Kuroshita, Hügelton
      Instruments), GPL-3.0; der Browser-Aufbau folgt Felluccas und X0X' Emulator. Projekte, die du auf dem virtuellen Gerät
-     speicherst (mit ihren Szenen), und das TAPE bleiben nur in diesem Browser.</p>
+     speicherst (mit ihren Szenen), bleiben nur in diesem Browser.</p>
 </main>
 
 <script>
@@ -586,43 +586,25 @@ const FLOWS = [
       ["<b>OCT−</b> / <b>OCT+</b>: eine Oktave tiefer oder höher.", ["OCT-", "OCT+"]],
     ],
     op1: "<b>OP-1:</b> SYNTH- und DRUM-Taste, Sound-Tasten 1–8, die Pfeile für die Oktave." },
-  { id: "loop", tab: "Tape-Loop", title: "Einen Tape-Loop aufnehmen",
-    why: "Das Tape nimmt die gespielten Noten auf, nicht den Klang. Im Loop wird jede Runde überspielt.",
+  { id: "layer", tab: "Spuren", title: "Spuren live einspielen",
+    why: "Jede Spur hat ihre eigene Engine. Was du spielst, landet als Noten im Pattern der Spur, die anderen laufen weiter.",
     steps: [
-      ["<b>GLO</b> drücken: die TAPE-Seite mit den Spulen.", ["GLO"]],
-      ["<b>KNOB 2</b> zweimal nach rechts: LOOP 2 BARS, ab dem Takt, in dem der Kopf steht.", ["KNOB 2"]],
-      ["<b>REC</b> drücken: das Tape der gewählten Spur ist scharf, PLAY startet.", ["REC"]],
-      ["Eine Melodie spielen. Jede Runde kommt dazu (Overdub).", ["KEYS"]],
-      ["<b>REC</b> noch einmal: Aufnahme aus, der Loop spielt weiter.", ["REC"]],
-      ["<b>PLAY</b> stoppt. Der Kopf bleibt stehen, wie beim OP-1. Das Tape wird nach 3 s Ruhe gesichert (auch hier im Browser).", ["PLAY"]],
+      ["<b>REC</b> drücken: die gewählte Spur nimmt auf, PLAY startet.", ["REC"]],
+      ["Eine Melodie spielen, dann <b>REC</b> noch einmal: Aufnahme aus, das Pattern spielt weiter.", ["KEYS", "REC"]],
+      ["<b>ALGORITHM</b> eine Stufe nach rechts: Spur 2, mit <b>PRESETS</b> einen Sound wählen.", ["ALGORITHM", "PRESETS"]],
+      ["<b>REC</b>, spielen, wieder <b>REC</b>. Später den Sound wechseln: die Noten spielen mit dem neuen Sound.", ["REC", "KEYS"]],
     ],
-    op1: "<b>OP-1:</b> TAPE-Taste, LOOP IN und OUT (Tape-Tricks 1 und 2), LOOP TOGGLE (3), REC + PLAY." },
-  { id: "layer", tab: "Zweite Spur", title: "Eine zweite Spur dazu",
-    why: "Jede Spur hat ihre eigene Engine. Der Loop von Spur 1 läuft weiter, während du Spur 2 einspielst.",
+    op1: "<b>OP-1:</b> T1–T4 im Tape-Modus. Beim OP-1 ist die Aufnahme Audio, hier sind es Noten im Pattern." },
+  { id: "key", tab: "KEY-Spur", title: "Eine Akkordfolge mit der KEY-Spur",
+    why: "Die KEY-Spur verschiebt die Patterns der melodischen Spuren Takt für Takt in ihrer Tonleiter: ein Pattern in C spielt unter Am F C G als A-Moll, F-Dur, C-Dur, G-Dur.",
     steps: [
-      ["<b>ALGORITHM</b> eine Stufe nach rechts: Spur 2.", ["ALGORITHM"]],
-      ["<b>PRESETS</b> drehen, bis dir der Sound gefällt.", ["PRESETS"]],
-      ["<b>REC</b>, spielen, wieder <b>REC</b>.", ["REC", "KEYS"]],
-      ["Später den Sound von Spur 1 wechseln: die Aufnahme spielt mit dem neuen Sound.", ["PRESETS", "ALGORITHM"]],
+      ["<b>GLO</b> drücken: die KEY-Seite mit 16 Takten.", ["GLO"]],
+      ["Nacheinander A, F, C und G auf den Tasten: Takt 1 bis 4 bekommen ihren Grundton, der Cursor springt weiter.", ["KEYS"]],
+      ["<b>KNOB 4</b> nach rechts: KEY ON.", ["KNOB 4"]],
+      ["<b>PLAY</b>: die Patterns folgen der Akkordfolge, der laufende Takt leuchtet. Was du live spielst, bleibt wie es ist.", ["PLAY"]],
+      ["<b>KNOB 3</b> LEN: 1 bis 16 Takte. <b>KNOB 1</b> wählt einen Takt, <b>KNOB 2</b> ändert seinen Grundton (– heißt: wie geschrieben).", ["KNOB 3", "KNOB 1", "KNOB 2"]],
     ],
-    op1: "<b>OP-1:</b> im Tape-Modus T1–T4 für die Spur, dann SYNTH für den Sound. Beim OP-1 ist die Aufnahme Audio, hier bleibt sie veränderbar." },
-  { id: "tricks", tab: "Varispeed", title: "Varispeed und rückwärts",
-    why: "Wie bei echtem Band: schneller heißt höher, langsamer heißt tiefer.",
-    steps: [
-      ["<b>KNOB 3</b> SPEED: −12 bis +12 Halbtöne, Tempo und Tonhöhe zusammen.", ["KNOB 3"]],
-      ["<b>KNOB 4</b> DIR: REV spielt rückwärts, auch beim Aufnehmen.", ["KNOB 4"]],
-      ["<b>GLO</b> halten und <b>PLAY</b> drücken: Neustart am Anfang des Loops. Mit der Maus: GLO mit <kbd>Shift</kbd>-Klick festhalten.", ["GLO", "PLAY"]],
-      ["<b>KNOB 1</b> POS: den Kopf versetzen, schnell gedreht taktweise.", ["KNOB 1"]],
-    ],
-    op1: "<b>OP-1:</b> der weiße Encoder für die Bandgeschwindigkeit, Tape-Trick 5 REVERSE, STOP + ← an den Anfang." },
-  { id: "erase", tab: "Löschen", title: "Eine Spur vom Tape löschen",
-    why: "Mit Rückfrage, damit nichts aus Versehen verschwindet.",
-    steps: [
-      ["Auf der TAPE-Seite <b>GLO</b> noch einmal: TAPE 2.", ["GLO"]],
-      ["<b>KNOB 1</b> nach rechts wählt ERASE für die Spur, <b>KNOB 2</b> ERASE ALL.", ["KNOB 1", "KNOB 2"]],
-      ["<b>OCT+</b> fragt nach, <b>OCT+</b> noch einmal löscht. <b>OCT−</b> bricht ab.", ["OCT+", "OCT-"]],
-    ],
-    op1: "<b>OP-1:</b> SHIFT + TAPE und alle vier Spurtasten drücken (löscht das ganze Band)." },
+    op1: "<b>OP-1:</b> kein Gegenstück; ähnlich der Key-Spur des OP-Z. Drums folgen nie." },
   { id: "fxt", tab: "FX-Spuren", title: "Punch-in-Effekte auf die FX-Spuren aufnehmen",
     why: "Zwei Effekt-Spuren neben den vier Instrument-Spuren, wie FX1 und FX2 beim OP-Z. Die Effekte der FX-Ebene werden Schritt für Schritt aufgenommen.",
     steps: [
@@ -692,7 +674,7 @@ const FLOWS = [
     ],
     op1: "<b>OP-Z:</b> Projekt-Taste halten und Pattern-Tasten tippen. <b>OP-1:</b> kein Song-Modus; dort ist das Tape der Song." },
   { id: "seq", tab: "Sequencer", title: "Ein Pattern im Step-Sequencer",
-    why: "Felluccas Sequencer: 64 Schritte pro Spur, Akkorde, Chance, Ratchets. Er läuft parallel zum Tape.",
+    why: "Felluccas Sequencer: 64 Schritte pro Spur, Akkorde, Chance, Ratchets.",
     steps: [
       ["<b>SEQ</b> drücken: die STEP-Seite mit der Pianoroll.", ["SEQ"]],
       ["Tasten schreiben Schritte an den Cursor, <b>KNOB 1</b> bewegt den Cursor.", ["KEYS", "KNOB 1"]],

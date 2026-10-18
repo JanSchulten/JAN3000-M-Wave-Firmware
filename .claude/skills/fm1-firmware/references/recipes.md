@@ -1,7 +1,7 @@
 # Recipes
 
 Each recipe lists every place that has to change. Grep for the closest existing example (`GR_SONG`, `GR_TOOLS`,
-`CF_CLEAR_SONG`, `tape_`) and follow its pattern.
+`CF_CLEAR_SONG`, `key_`) and follow its pattern.
 
 ## A new page
 
@@ -9,7 +9,7 @@ Each recipe lists every place that has to change. Grep for the closest existing 
    at the place it should take in its family's cycle (the first page of a family opens first). Page indices are
    not stored anywhere, so inserting is safe.
 2. `ui.c`: `large_kind()` (list-like pages keep the normal layout: `LK_LABEL`); for an action page `act_cols()`,
-   `act_name()`, `act_ready()`; a predicate such as `tape_page()` if other code must know.
+   `act_name()`, `act_ready()`; a predicate such as `fxt_page()` if other code must know.
 3. `ui_input.c`: `edit_param()` for knobs with `0xFF` ids; exclude the page from MOMENTARY in `mom_turn()`; mark the
    turned column hot (the `hot_col` condition in `ui_input()`); `act_do()` for actions; REC / LED behaviour in
    `rec_tap()` and `ui_leds()` if the page changes them.
@@ -64,8 +64,8 @@ beyond it in `opstore.c`'s extras (`proj_xtra_t`): add a field at the end (its `
 fill it in `xtra_capture`, apply it in `xtra_lanes` / `xtra_loaded`, hash it into `autosave_sig`. The extras carry the
 CRC of their project (`xtra_id`), so a project written another way never picks up stale extras. Writes go through
 `storage.c` (A/B copies, CRC, a sequence number) and happen only while the transport is stopped and nothing sounds
-(`autosave_quiet`): an erase silences the audio ~40 ms. Something bigger than a sector (the tape) writes its own
-commit record last over several sectors (`tape_store_write`) and freezes the ISR's side meanwhile (`tape.hold`).
+(`autosave_quiet`): an erase silences the audio ~40 ms. Something bigger than a sector (the scenes, the dropped tape) writes its own
+commit record last over several sectors (as opstore.c's scene sets do) and keeps the ISR off what it writes meanwhile.
 Test against a NOR image in the style of `tests/opstore_test.c` (round trip, power-on, torn write, damaged copy).
 
 ## Changing the panel graphics

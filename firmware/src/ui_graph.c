@@ -1730,12 +1730,12 @@ static uint32_t graph_signature(void)
             h ^= (ui_prefs & PREF_LARGE) ? 0x2545F491u : 0u;
         }
     }
-    if (pg->graph == GR_TAPE || pg->graph == GR_TAPE2) {   /* the head, the events, the settings (tape.c) */
-        h = (h ^ tape_pos()) * 16777619u;
-        h = (h ^ (tape.g0 | (uint32_t)tape.na << 16)) * 16777619u;
-        h = (h ^ (tape.arm | (uint32_t)tape.loop << 8 | (uint32_t)(uint8_t)tape.speed << 16 | (uint32_t)tape.rev << 24)) *
-            16777619u;
-        h = (h ^ (tape.loop_in + ((uint32_t)tape.full << 20) + ((uint32_t)song.playing << 21))) * 16777619u;
+    if (pg->graph == GR_KEY) {                        /* the run, the cursor, the bar playing, the scale (key.c) */
+        uint32_t i;
+        for (i = 0; i < KEY_BARS; i++)
+            h = (h ^ keyt.root[i]) * 16777619u;
+        h = (h ^ (keyt.on | (uint32_t)keyt.len << 8 | (uint32_t)key_cur << 16 | (uint32_t)key_bar << 24)) * 16777619u;
+        h = (h ^ ((uint32_t)song.playing | (uint32_t)TSEL->p[P_ROOT] << 8 | (uint32_t)TSEL->p[P_SCALE] << 16)) * 16777619u;
     }
     if (pg->graph == GR_FXT || pg->graph == GR_FXT2) {     /* the lanes, the cursor, the play heads (fxtrack.c) */
         uint32_t l;
@@ -2770,170 +2770,40 @@ static void graph_song(void)
                      i < 4u ? "[K3] ADD SECTION" : "[SAVE] PROJECT A-D", T_MID, T_SURF, x0 - 10 - SG_X0);
     }
 }
-/* GLO > TAPE, TAPE 2 (M-Vave-OP1, tape.c): the cassette. Two reels turning with the head, the tape wound off the left
- * one onto the right one as the head goes on, running past the head between them, the time on the tape over it; under
- * it the four tracks' lanes round the head (a quarter TAPE_PPQN / TP_TPX px), the notes as lines at their pitch (each
- * lane spans its own notes' range), the loop shaded, a tick a bar. Recording: the head and the armed lanes' numbers
- * in REC. All read from the ISR's buffer as it is (a note moved meanwhile shows on the next frame) */
-#define TP_RY 29                                      /* the reels' centres: y, and x either side of the middle */
-#define TP_RX 54
-#define TP_RR 24                                      /* .. their flanges' radius; the tape packs TP_HUB .. TP_RR - 2 */
-#define TP_HUB 9
-#define TP_LY 64                                      /* the lanes: from y 64, TP_LH each and 1 px between */
-#define TP_LH 13
-#define TP_X0 28                                      /* the lanes' strip, the head at TP_HX */
-#define TP_X1 231
-#define TP_HX 128
-#define TP_TPX 8                                      /* ticks a pixel: a quarter 12 px, a bar 48 */
-static const int8_t TP_COS[32] = {127, 125, 117, 106, 90, 71, 49, 25, 0, -25, -49, -71, -90, -106, -117, -125,
-                                  -127, -125, -117, -106, -90, -71, -49, -25, 0, 25, 49, 71, 90, 106, 117, 125};
-/* a disc of radius r round the pixel corner (cx, cy), its edge anti-aliased against under (2 x 2 samples a pixel) */
-static void tp_disc(int32_t cx, int32_t cy, int32_t r, uint16_t c, uint16_t under)
+/* GLO > KEY (M-Vave-OP1, key.c): the run as 16 bars in two rows of eight, each with the chord its root makes in the
+ * selected track's scale (none: "-"); the bars past LEN in dim text, the cursor's outlined, the bar playing (KEY ON,
+ * running) in the accent; under them the scale the chords are of, or how to start */
+static void graph_key(void)
 {
-    int32_t x, y, r2 = 16 * r * r;
-    for (y = cy - r; y < cy + r; y++)
-        for (x = cx - r; x < cx + r; x++) {
-            int32_t i, n = 0;
-            for (i = 0; i < 4; i++) {
-                int32_t dx = 4 * (x - cx) + 1 + 2 * (i & 1), dy = 4 * (y - cy) + 1 + (i & 2);
-                n += dx * dx + dy * dy <= r2;
-            }
-            if (n)
-                cv_pset(x, y, n == 4 ? c : ux_mix(under, c, n * 25));
-        }
-}
-/* a reel: its flange, the tape wound on it (pack: radius), the hub and three spokes at angle a (of 32) */
-static void tp_reel(int32_t cx, uint32_t pack, uint32_t a, uint16_t ink)
-{
-    uint16_t fl = T_RAISE, tp = ux_mix(T_RAISE, T_THEME, 40);
-    uint32_t k;
-    tp_disc(cx, TP_RY, TP_RR, fl, T_SURF);
-    tp_disc(cx, TP_RY, (int32_t)pack, tp, fl);
-    tp_disc(cx, TP_RY, TP_HUB, T_SURF, tp);
-    for (k = 0; k < 3u; k++) {
-        uint32_t s = (a + k * 32u / 3u) % 32u;
-        int32_t dx = TP_COS[s], dy = TP_COS[(s + 24u) % 32u];
-        cv_line_t(cx + dx * 3 / 127, TP_RY + dy * 3 / 127, cx + dx * (TP_HUB - 1) / 127, TP_RY + dy * (TP_HUB - 1) / 127,
-                  ink, 2);
+    uint32_t i, len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u, play = keyt.on && song.playing;
+    char b[8], l[24];
+    if (!ui.layer && !ui.msg_t) {                    /* (a layer's map or a hint over it covers some) */
+        GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H | AL_CELLS | AL_N(16), "key bars centred");
     }
-}
-static int32_t tp_x(uint32_t tick, uint32_t head) { return TP_HX + ((int32_t)tick - (int32_t)head) / TP_TPX; }
-static void graph_tape(void)
-{
-    uint32_t head = tape_pos(), g0 = tape.g0, g1 = TAPE_G1, i, k, sel = song.sel % NTRK;
-    uint32_t f = head * 1000u / TAPE_END, lo[NTRK], hi[NTRK];
-    int rec = tape.arm && tape_rolling();
-    uint16_t on_at[NTRK][128];                        /* a note's on tick + 1 while it sounds, in the scan below */
-    int32_t xs = tp_x(0, head), xe = tp_x(TAPE_END, head), x0, x1;
-    char b[16];
-    /* the cassette: the reels (the left one turns faster as the tape leaves it), the tape past the head */
-    {
-        uint32_t pl = TP_HUB + 2u + (uint32_t)(TP_RR - TP_HUB - 4) * (1000u - f) / 1000u;
-        uint32_t pr = TP_HUB + 2u + (uint32_t)(TP_RR - TP_HUB - 4) * f / 1000u;
-        uint16_t hc = rec ? T_REC : song.playing ? T_ACCENT : T_MID;
-        tp_reel(TP_HX - TP_RX, pl, head / 10u, T_TEXT);
-        tp_reel(TP_HX + TP_RX, pr, head / 13u, T_TEXT);
-        cv_line(TP_HX - TP_RX, TP_RY + (int32_t)pl, TP_HX - 6, TP_RY + TP_RR + 2, T_MID);
-        cv_line(TP_HX + 6, TP_RY + TP_RR + 2, TP_HX + TP_RX, TP_RY + (int32_t)pr, T_MID);
-        cv_rrect(TP_HX - 7, TP_RY + TP_RR - 1, 14, 6, 2, hc, T_SURF);
+    for (i = 0; i < KEY_BARS; i++) {
+        int32_t x = 13 + (int32_t)(i % 8u) * 27, y = 6 + (int32_t)(i / 8u) * 46;
+        uint32_t in = i < len, cur = i == key_cur, now = play && i == key_bar;
+        uint16_t bg = now ? T_ACCENT : T_RAISE;        /* (past LEN: the same cell, its text dim) */
+        cv_rrect(x, y, 25, 40, 4, cur ? T_THEME : bg, T_SURF);   /* (the cursor's outline inside the cell: */
+        cv_rrect(x + 1, y + 1, 23, 38, 3, bg, cur ? T_THEME : bg);   /* two cells each, the lint counts 16 a row) */
+        fmt_int(b, (int32_t)i + 1);
+        cv_text_in(x, y + 3, 25, &AF_S, b, now ? T_SURF : in ? T_MID : T_DIM, bg);
+        key_chord_name(TSEL, keyt.root[i], b);
+        cv_text_in(x, y + 20, 25, &AF_S, b, now ? T_SURF : !in ? T_DIM : keyt.root[i] < 12u ? T_TEXT : T_MID, bg);
     }
-    {   /* the time on the tape (m:ss at the tempo), REC or FULL under it */
-        uint32_t s = head * tape_beat() / (TAPE_PPQN * (uint32_t)FS);
-        fmt_int(b, (int32_t)(s / 60u));
-        str_cpy(b + str_len(b), ":", 2);
-        b[str_len(b) + 1u] = 0;
-        b[str_len(b)] = (char)('0' + s % 60u / 10u);
-        b[str_len(b) + 1u] = 0;
-        b[str_len(b)] = (char)('0' + s % 10u);
-        cv_text_in(TP_HX - 22, 6, 44, &AF_S, b, T_MID, T_SURF);
-        if (tape.full)
-            cv_text_in(TP_HX - 22, 21, 44, &AF_S, "FULL", T_ACCENT, T_SURF);
-        else if (rec)
-            cv_text_in(TP_HX - 22, 21, 44, &AF_S, "REC", T_REC, T_SURF);
+    if (chord_kit(TSEL))
+        str_cpy(l, "KITS PLAY AS WRITTEN", sizeof l);
+    else if (!keyt.on)
+        str_cpy(l, "KEY OFF: [K4] ON", sizeof l);
+    else {
+        str_cpy(l, "IN ", sizeof l);
+        str_cpy(l + 3, N_NOTE[clamp(TSEL->p[P_ROOT], 0, 11)], 4);
+        str_cpy(l + str_len(l), " ", 2);
+        str_cpy(l + str_len(l), N_SCALE[clamp(TSEL->p[P_SCALE], 1, (int32_t)(sizeof N_SCALE / sizeof N_SCALE[0]) - 1)], 8);
+                                                       /* (CHR: its ROOT's major, as key_mask) */
     }
-    /* the lanes: the strip where the tape is (from its start to its end), the loop shaded, the bars' ticks */
-    x0 = xs > TP_X0 ? xs : TP_X0;
-    x1 = xe < TP_X1 ? xe : TP_X1;
-    for (k = 0; k < NTRK; k++) {
-        int32_t y = TP_LY + (int32_t)k * (TP_LH + 1);
-        uint16_t cc = (tape.arm >> k & 1u) ? T_REC : k == sel ? T_ACCENT : T_MID;
-        cv_trk(10, y + (TP_LH - 12) / 2, 12, k, cc, T_SURF);   /* (an even size: the digit centred) */
-        if (x1 > x0)
-            cv_rect(x0, y, x1 - x0, TP_LH, T_RAISE);
-    }
-    if (tape.loop) {
-        int32_t l0 = tp_x(tape.loop_in, head), l1 = tp_x(tape_loop_out(), head);
-        l0 = l0 > x0 ? l0 : x0;
-        l1 = l1 < x1 ? l1 : x1;
-        if (l1 > l0) {
-            for (k = 0; k < NTRK; k++)
-                cv_rect(l0, TP_LY + (int32_t)k * (TP_LH + 1), l1 - l0, TP_LH, ux_mix(T_RAISE, T_THEME, 22));
-            cv_rect(l0, TP_LY - 3, l1 - l0, 2, T_THEME);
-        }
-    }
-    for (i = head > (uint32_t)(TP_HX - TP_X0) * TP_TPX ? (head - (uint32_t)(TP_HX - TP_X0) * TP_TPX) / TAPE_BAR : 0u;
-         i <= TAPE_BARS; i++) {
-        int32_t x = tp_x(i * TAPE_BAR, head);
-        if (x >= TP_X1)
-            break;
-        if (x >= TP_X0)
-            cv_rect(x, TP_LY - (i % 4u ? 3 : 6), 1, i % 4u ? 3 : 6, i % 4u ? T_DIM : T_MID);
-    }
-    /* the notes: every event in tick order (before the gap, then after it); a note drawn at its off (still held: to
-     * the head), at its pitch in its lane's range */
-    for (k = 0; k < NTRK; k++) {
-        lo[k] = 127;
-        hi[k] = 0;
-    }
-    for (i = 0; i < TAPE_EV; i++) {
-        uint32_t e = tape_ev[i], n = TE_NOTE(e), t = TE_TRK(e);
-        if (i >= g0 && i < g1)
-            continue;
-        lo[t] = n < lo[t] ? n : lo[t];
-        hi[t] = n > hi[t] ? n : hi[t];
-    }
-    memset(on_at, 0, sizeof on_at);
-    for (i = 0; i <= TAPE_EV; i++) {
-        uint32_t e, n, t, from, to;
-        if (i >= g0 && i < g1)
-            continue;
-        if (i < TAPE_EV) {
-            e = tape_ev[i];
-            n = TE_NOTE(e);
-            t = TE_TRK(e);
-            if (!(e & TE_OFF)) {
-                on_at[t][n] = (uint16_t)(TE_TICK(e) + 1u);
-                continue;
-            }
-            if (!on_at[t][n])
-                continue;
-            from = on_at[t][n] - 1u;
-            to = TE_TICK(e);
-            on_at[t][n] = 0;
-            {
-                int32_t a = tp_x(from, head), z = tp_x(to, head);
-                int32_t span = (int32_t)(hi[t] - lo[t]), y = TP_LY + (int32_t)t * (TP_LH + 1) + TP_LH - 3;
-                y -= span ? (int32_t)(n - lo[t]) * (TP_LH - 4) / span : (TP_LH - 4) / 2;
-                z = z > a + 2 ? z : a + 2;
-                a = a > x0 ? a : x0;
-                z = z < x1 ? z : x1;
-                if (z > a)
-                    cv_rect(a, y, z - a, 2, t == sel ? T_THEME : T_TEXT);
-            }
-            continue;
-        }
-        for (t = 0; t < NTRK; t++)                    /* the end: notes held now run to the head */
-            for (n = 0; n < 128u; n++)
-                if (on_at[t][n] && on_at[t][n] - 1u <= head) {
-                    int32_t a = tp_x(on_at[t][n] - 1u, head), z = TP_HX;
-                    int32_t span = (int32_t)(hi[t] - lo[t]), y = TP_LY + (int32_t)t * (TP_LH + 1) + TP_LH - 3;
-                    y -= span ? (int32_t)(n - lo[t]) * (TP_LH - 4) / span : (TP_LH - 4) / 2;
-                    a = a > x0 ? a : x0;
-                    if (z > a)
-                        cv_rect(a, y, z - a, 2, T_REC);
-                }
-    }
-    cv_rect(TP_HX - 1, TP_LY - 6, 2, NTRK * (TP_LH + 1) + 5, rec ? T_REC : T_ACCENT);   /* the head */
+    GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "key line centred");
+    cv_text_in(0, 102, 240, &AF_S, l, T_MID, T_SURF);
 }
 
 /* FX > FX1, CLOUD (fx1.c): the line, 1.49 s of what went into FX1, oldest left, the write head at the right edge (its
@@ -3172,10 +3042,9 @@ static void draw_graph(void)
             cv_oy = 0;
             graph_song();
             break;
-        case GR_TAPE:
-        case GR_TAPE2:
+        case GR_KEY:
             cv_oy = 0;
-            graph_tape();
+            graph_key();
             break;
         case GR_FXT:
         case GR_FXT2:

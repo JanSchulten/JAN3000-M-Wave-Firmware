@@ -54,15 +54,14 @@
 #                   with live notes, RATCH on its start, nudges 0 play the same either way, a tempo change of the external
 #                   clock, SEQ > AUTOMATION's QUANTIZE and NUDGE rows, STEP steps held + PRESETS), 128 motion records, FUN10 round trip, FUN9 /
 #                   FUN8 / FUN7 as 1.1 / 1.0 wrote them (tests/old_pack.h) loading exactly, user presets of 99 / 103.
-# TAPE (tests/tape_test.c, M-Vave-OP1): the four-track note tape (tape.c): recording only armed and rolling, on / off
-#                   where played, playback, overdub, the gap buffer's order, STOP / PLAY from the head, LOOP (wrap, keys
-#                   held over it, RESTART), SPEED (rate, transposition, recorded at a SPEED), DIR REV (playback and
-#                   recording backwards, DIR turned with a key held), ERASE, a full tape keeps every on's off, the end.
+# KEY (tests/key_test.c, M-Vave-OP1): GLO > KEY (key.c): the move in the scale (Am F C G in C major, the nearer way, a
+#                   passing note, a root outside the scale, A minor, CHR, kits never; OFF, stopped, no root: as written),
+#                   a pattern under KEY bar by bar (the run round, LEN 1, each off its on), the arp's notes moved (not
+#                   while recording), live keys as they are; the page (GLO's first, the knobs, a key sets a root).
 # STORES (tests/opstore_test.c, M-Vave-OP1): USR3's and USR2's flash (opstore.c) on a NOR image: a slot's FX TRACKS saved
 #                   and loaded with its project (a power-on, a project without extras or written by the editor: empty, a
-#                   rename keeps them, a failed write), the autosave's, a song's slots; the tape kept when stopped and
-#                   quiet, read back as it was, copies taking turns, torn / damaged / unsound copies left, none after a
-#                   crash, the ISR's hold; a slot's scenes with its project and the autosave's (copies taking turns, a
+#                   rename keeps them, a failed write), the autosave's, a song's slots; the KEY's run with a project;
+#                   a slot's scenes with its project and the autosave's (copies taking turns, a
 #                   write cut short, damaged, unsound, another project's or slot's, a rename); USR2 and USR3 read as empty
 #                   sample slots.
 # SCENES (tests/scene_test.c, M-Vave-OP1): 16 scenes a project (scene.c, the SEQ layer): the packed form (3000 random
@@ -277,8 +276,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "motion, whole-step chance, FUN7 migration, song restore, ARP repeat and the 1.2 ARP modes" "$OUT/motion_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ratchet_test" tests/ratchet_test.c -lm
     run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
-    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/tape_test" tests/tape_test.c -lm
-    run "TAPE: record, play, overdub, LOOP, SPEED, DIR REV, ERASE, a full tape, the end" "$OUT/tape_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/key_test" tests/key_test.c -lm
+    run "KEY: the move in the scale, a pattern under KEY bar by bar, the arp, live keys, the page" "$OUT/key_test"
     mkdir -p build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
     run "FX1 CLOUD: granular in the delay's line (TYPE change, grains inside the line, DENS, PITCH, level, FDBK, FREEZE), pages, F5, kept" "$OUT/cloud_test" build/cloud_shots build/cloud_demo
@@ -344,7 +343,7 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/persistence_test" tests/persistence_test.c -lm
     run "persistence: deferred settings, retry and failed-save rollback" "$OUT/persistence_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/opstore_test" tests/opstore_test.c -lm
-    run "M-Vave-OP1 stores in USR3 / USR2: FX TRACKS and scenes with projects and the autosave, the tape (kept, read back, torn, damaged), USR2 / USR3 empty" "$OUT/opstore_test"
+    run "M-Vave-OP1 stores in USR3 / USR2: FX TRACKS, the KEY and scenes with projects and the autosave, USR2 / USR3 empty" "$OUT/opstore_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/backup_test" tests/backup_test.c -lm
     run "full backup: CRC before writes, stale runtime, USB reset / timeout, malformed objects, older projects" "$OUT/backup_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/fm6bank_test" tests/fm6bank_test.c -lm

@@ -762,7 +762,7 @@ static union {                               /* serialized main-loop work; no re
 } proj_wire_u __attribute__((section(".pool")));
 #define proj_wire (proj_wire_u.s)
 static uint8_t proj_wire_gen;                /* +1 whenever proj_wire is rewritten (a backup's runtime copy lives there) */
-#include "opstore.c"                         /* M-Vave-OP1: the projects' extras (the FX TRACKS), the tape */
+#include "opstore.c"                         /* M-Vave-OP1: the projects' extras (the FX TRACKS ..), the scenes */
 
 static void proj_steps(step_t *s)            /* a loaded sequence stays inside its fixed fields */
 {
@@ -1280,6 +1280,7 @@ static uint32_t autosave_sig(void)
         uint8_t c[2] = {chos.type, chos.fdbk};
         h = as_mix(h, c, 2);
     }
+    h = as_mix(h, (const void *)&keyt, sizeof keyt);   /* GLO > KEY's run (key.c) */
     {                                               /* the scenes: the bank's bytes and the one playing, so a pick and */
         uint8_t c = scn.cur;                        /* back again writes nothing) */
         h = as_mix(h, scb.len, sizeof scb.len);

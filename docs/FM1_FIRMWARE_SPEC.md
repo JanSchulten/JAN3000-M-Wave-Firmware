@@ -73,7 +73,7 @@ looping**. Record notes, not sound.
 | 0xB4000..0xC7FFF | (M-Vave-OP1, former USR2) scenes: sets A..D + autosave, two 8 KB copies each |
 | 0xC8000..0xCFFFF | (M-Vave-OP1) project extras A/B (`proj_xtra_t`) |
 | 0xD0000..0xD1FFF | the autosave's extras A/B |
-| 0xD2000..0xDBFFF | (M-Vave-OP1) TAPE copies A/B. TAPE is being removed, so this region becomes free |
+| 0xD2000..0xDBFFF | free (the dropped TAPE's copies were here) |
 | 0xDC000..0xDFFFF | user preset banks |
 | 0xE0000..0xE4FFF | OTA staging (the update loader) |
 | 0xE5000..0xE6FFF | autosave A/B |
@@ -325,7 +325,7 @@ These live in this repository and can be studied or reused:
 - REVERB ROOM / SPRING / HALL / SHIMMER.
 - PO sync out.
 - A one-screen ARP with a keyboard view.
-- A KEY track (chord progression transposing the tracks inside their scales), in progress.
+- A KEY track (chord progression transposing the tracks inside their scales).
 - A notes-only TAPE was built and dropped as not good enough.
 
 ---
