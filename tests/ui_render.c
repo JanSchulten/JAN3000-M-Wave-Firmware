@@ -764,7 +764,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_LEARN_WAIT, S_LEARN_PICK, S_LEARN_SET, S_LEARN_LONG, S_GLO_LEARN, S_MENU_LCLEAR, S_MENU_LCLEAR_NONE,
        S_DLY_DOT, S_DLY_DOT16, S_FX_THROW,
        S_DETAIL, S_DETAIL_PLAYING, S_DETAIL_REST, S_DETAIL_DRUM, S_ROLL_MARKS, S_DRUM_MARKS, S_HELP_DETAIL,
-       S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_COUNT };
+       S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
@@ -794,7 +794,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "learn_wait", "learn_pick", "learn_set", "learn_long", "layer_glo_learn", "menu_learn_clear", "menu_learn_clear_none",
     "dly_dotted", "dly_dotted_16", "perform_throw",
     "detail", "detail_playing", "detail_rest", "detail_drum", "roll_marks", "drum_marks", "help_detail",
-    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer"};
+    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -1136,6 +1136,11 @@ static void setup(int s)
     case S_CHORD_OFF: go_title("CHORD"); break;
     case S_CHORD_KIT: eng(ENGI_DRUM); TSEL->p[P_CHRD] = CH_DIA3; go_title("CHORD"); break;
     case S_ARP: go_title("ARP"); break;
+    case S_ARP_PLAY: case S_ARP2_PLAY:                 /* (M-Vave-OP1: ARP's one screen, C E G held, OCT 2, E4 sounding) */
+        TSEL->p[P_AMODE] = 1; TSEL->p[P_AOCT] = 2;
+        memset(held_key[song.sel], 0, sizeof held_key[0]);
+        TSEL->held[0] = 60; TSEL->held[1] = 64; TSEL->held[2] = 67; TSEL->nheld = 3; TSEL->arp_note = 64;
+        go_title(s == S_ARP_PLAY ? "ARP" : "ARP 2"); break;
     /* M-Vave-OP1, SCL > ORCHID (orchid.c): LOCK with MIN and 9 latched, VOICE +1, the last chord on D4 (Dm 9: F4 A4
      * D5 E5); nothing played yet (MIN held); a one-voice part (ROOT ONLY) on C#4 */
     case S_ORCHID:

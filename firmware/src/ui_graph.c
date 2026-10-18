@@ -510,6 +510,44 @@ static void graph_rows(const uint8_t *r, uint32_t n)
         }
     }
 }
+/* M-Vave-OP1: ARP and ARP 2 as one screen: both pages' values as two rows (graph_rows: the page the knobs edit raised,
+ * an ARP tap goes to the other), under them two octaves of keys (three or four when the notes span more) from the C
+ * below the lowest note the arp plays: the notes it runs through (arp_list) lit, the keys held in the theme, the
+ * octaves OCT adds quieter, the note sounding now (and a CHORD's others) in the accent */
+static void graph_arp(const track_t *t)
+{
+    static const uint8_t BLACK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
+    uint8_t rr[2];
+    uint32_t i, j, n = 0, list[64], cnt = 0, len, lo = 127, hi = 0, keys, w;
+    for (i = 0; i < NPAGES && n < 2u; i++)
+        if (PAGES[i].graph == GR_ARP && page_visible(i))
+            rr[n++] = (uint8_t)i;
+    graph_rows(rr, n);
+    len = arp_list(t, list, &cnt);
+    for (i = 0; i < len; i++) {
+        lo = list[i] < lo ? list[i] : lo;
+        hi = list[i] > hi ? list[i] : hi;
+    }
+    if (!len)
+        lo = hi = 60;
+    lo -= lo % 12u;
+    keys = hi - lo < 24u ? 24u : hi - lo < 36u ? 36u : 48u;
+    if (lo + keys > 128u)
+        lo = 120u - keys;
+    w = 216u / keys;
+    GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H | AL_CELLS | AL_N(keys), "arp keys centred");
+    for (i = 0; i < keys; i++) {
+        uint32_t note = lo + i, st = 0;                /* 0 off, 1 an OCT copy, 2 held, 3 sounding */
+        int32_t kx = 13 + (int32_t)(i * w) + (int32_t)(216u - w * keys) / 2;   /* (x 13 .. 227, centred) */
+        for (j = 0; j < len && j < 64u; j++)
+            if (list[j] == note)
+                st = j < cnt ? 2u : st > 1u ? st : 1u;
+        if (note == t->arp_note || note == t->arp_ch[0] || note == t->arp_ch[1] || note == t->arp_ch[2])
+            st = note ? 3u : st;
+        cv_rrect(kx, BLACK[note % 12u] ? 68 : 82, (int32_t)w - 2, 34, w > 6u ? 3 : 2,
+                 st == 3u ? T_ACCENT : st == 2u ? T_THEME : st ? T_MID : T_RAISE, T_SURF);
+    }
+}
 /* .. the animation in y0..y0 + h (ui.frame its clock): FX the four sends breathing as large as they are; SLICER its
  * pattern, the step playing marked; INSERT its curve, a line sweeping it; DLY the echoes running out (TIME their
  * spacing, FDBK how long they last); REVERB rings spreading (SIZE how far, DAMP how soon they fade; SPRING a coil
@@ -3096,6 +3134,10 @@ static void draw_graph(void)
         case GR_CHORD:
             cv_oy = 0;
             graph_chord(t, c);
+            break;
+        case GR_ARP:                                 /* M-Vave-OP1: ARP and ARP 2, the rows and the keys */
+            cv_oy = 0;
+            graph_arp(t);
             break;
         case GR_ORCH:                                /* M-Vave-OP1: SCL > ORCHID, the chord the Orchid's way */
             cv_oy = 0;

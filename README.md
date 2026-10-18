@@ -172,6 +172,9 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
   for the vibrato alone). TYPE and FDBK are kept with the project.
 - **REVERB SHIMMER:** the HALL with its tail shifted an octave up and fed back into it, so the tail climbs an octave
   a pass (each one darker and quieter: it dies away at any SIZE).
+- **ARP on one screen:** ARP and ARP 2 show both their rows (MODE RATE OCT GATE, SWING PROB HOLD ORDER; the row the
+  knobs edit raised, an ARP tap goes to the other) and under them a keyboard: the notes the arp runs through lit (the
+  keys held brighter, the octaves OCT adds quieter), the note sounding in the accent.
 - **REC held:** F#3 clears both FX TRACKS, G#3 the selected track's automation (its recorded knob moves), each after
   OCT+; the notes stay (F3 CLEAR clears the notes and the automation, as before).
 - **HOME shows the four tracks** by default. The oscilloscope is MENU > DISPLAY > HOME **SCOPE** (TRACKS, LEVELS,

@@ -6377,7 +6377,8 @@ static int test_layer_knob_leak(void)
                         printf("ui:   leak: %s scenario %u page %s\n", B_NAME[LB[b]], sc,
                                pg < NPAGES ? PAGES[pg].title : "HOME");
                 }
-                if (b == 0u && pg < NPAGES && PAGES[pg].graph == GR_ARP && trk[0].p[P_AMODE] == lk_p[0][P_AMODE])
+                if (b == 0u && pg < NPAGES && PAGES[pg].graph == GR_ARP && PAGES[pg].id[0] == P_AMODE &&
+                    trk[0].p[P_AMODE] == lk_p[0][P_AMODE])   /* (ARP itself: ARP 2 shares its graph) */
                     arp_fx++;
             }
     bad += check("#39 FX / GLO / SCL / EDIT + KNOB 1..4, let go while turning: no page under the layer changes",
