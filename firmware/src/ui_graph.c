@@ -1735,7 +1735,8 @@ static uint32_t graph_signature(void)
         for (i = 0; i < KEY_BARS; i++)
             h = (h ^ keyt.root[i]) * 16777619u;
         h = (h ^ (keyt.on | (uint32_t)keyt.len << 8 | (uint32_t)key_cur << 16 | (uint32_t)key_bar << 24)) * 16777619u;
-        h = (h ^ ((uint32_t)song.playing | (uint32_t)TSEL->p[P_ROOT] << 8 | (uint32_t)TSEL->p[P_SCALE] << 16)) * 16777619u;
+        h = (h ^ ((uint32_t)song.playing | (uint32_t)TSEL->p[P_ROOT] << 8 | (uint32_t)TSEL->p[P_SCALE] << 16 |
+                  (uint32_t)key_arm << 24 | (uint32_t)(key_live & 31u) << 25)) * 16777619u;
     }
     if (pg->graph == GR_FXT || pg->graph == GR_FXT2) {     /* the lanes, the cursor, the play heads (fxtrack.c) */
         uint32_t l;
@@ -2772,7 +2773,8 @@ static void graph_song(void)
 }
 /* GLO > KEY (M-Vave-OP1, key.c): the run as 16 bars in two rows of eight, each with the chord its root makes in the
  * selected track's scale (none: "-"); the bars past LEN in dim text, the cursor's outlined, the bar playing (KEY ON,
- * running) in the accent; under them the scale the chords are of, or how to start */
+ * running) in the accent; under them a root played live (LIVE, REC: key.c), or the scale the chords are of, or how to
+ * start */
 static void graph_key(void)
 {
     uint32_t i, len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u, play = keyt.on && song.playing;
@@ -2791,7 +2793,12 @@ static void graph_key(void)
         key_chord_name(TSEL, keyt.root[i], b);
         cv_text_in(x, y + 20, 25, &AF_S, b, now ? T_SURF : !in ? T_DIM : keyt.root[i] < 12u ? T_TEXT : T_MID, bg);
     }
-    if (chord_kit(TSEL))
+    if (song.playing && key_live < 12u) {             /* (a root played live: its chord, over the run) */
+        str_cpy(l, key_arm ? "REC " : "LIVE ", sizeof l);
+        key_chord_name(TSEL, key_live, l + str_len(l));
+    } else if (key_arm)
+        str_cpy(l, "REC: PLAY THE ROOTS", sizeof l);
+    else if (chord_kit(TSEL))
         str_cpy(l, "KITS PLAY AS WRITTEN", sizeof l);
     else if (!keyt.on)
         str_cpy(l, "KEY OFF: [K4] ON", sizeof l);
@@ -2803,7 +2810,7 @@ static void graph_key(void)
                                                        /* (CHR: its ROOT's major, as key_mask) */
     }
     GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "key line centred");
-    cv_text_in(0, 102, 240, &AF_S, l, T_MID, T_SURF);
+    cv_text_in(0, 102, 240, &AF_S, l, key_arm ? T_REC : song.playing && key_live < 12u ? T_ACCENT : T_MID, T_SURF);
 }
 
 /* FX > FX1, CLOUD (fx1.c): the line, 1.49 s of what went into FX1, oldest left, the write head at the right edge (its

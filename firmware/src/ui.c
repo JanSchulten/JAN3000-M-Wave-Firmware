@@ -598,6 +598,8 @@ static int detail_on(void)
 /* GLO > SONG (1.2): the white keys A B C D (A3 B3 C4 D4, white places 2..5: seq.c song_key) set the selected cell's slot;
  * they do not sound there, the other keys play as anywhere (seq.c keyboard_block: song.grid 3) */
 static int song_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_SONG; }
+/* M-Vave-OP1, GLO > KEY shown: the keys are roots (key.c), silent (seq.c keyboard_block: song.grid 4) */
+static int key_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_KEY; }
 /* FX > FX TRACKS or FX TRACKS 2 shown (fxtrack.c): REC arms the selected lane, its LED says so */
 static int fxt_page(void) { return !ui.home && (cur_page()->graph == GR_FXT || cur_page()->graph == GR_FXT2); }
 /* .. the 16 steps shown follow the selected lane's play head: playing, STEP and EFFECT not just turned (ui_graph.c) */

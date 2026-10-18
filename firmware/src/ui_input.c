@@ -365,18 +365,31 @@ static void key_knob(uint32_t slot, int32_t steps)
         ui_message(keyt.on ? "KEY ON" : "KEY OFF");
     }
 }
-/* .. a key played (the keys, MIDI IN) with GLO > KEY up: its note the cursor bar's root, the cursor on to the next bar
- * (round). Every frame, so a key played elsewhere is never taken later */
-static void key_poll(void)
+/* .. GLO > KEY's keys (song.grid 4: silent; key.c), each a root by its name: stopped, the cursor bar's (the cursor on,
+ * round at LEN); running, the tracks move at once (key_live); with REC, into the run too: the bar playing, or the next
+ * in its last quarter, the cursor there and KEY ON */
+static void key_keys(uint32_t notes)
 {
-    uint8_t n = key_live_n;
-    if (n == key_seen)
+    uint32_t k, pc, len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u;
+    for (k = 0; k < 27u && !((notes >> k) & 1u); k++)
+        ;
+    if (k == 27u)
         return;
-    key_seen = n;
-    if (ui.home || ui.layer || ui.menu || ui.confirm || cur_page()->graph != GR_KEY)
+    pc = (5u + k) % 12u;                              /* (key 0: F3) */
+    if (!song.playing) {
+        keyt.root[key_cur % KEY_BARS] = (uint8_t)pc;
+        key_cur = (uint8_t)((key_cur + 1u) % len);
         return;
-    keyt.root[key_cur % KEY_BARS] = (uint8_t)(last_note % 12u);
-    key_cur = (uint8_t)((key_cur + 1u) % (keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u));
+    }
+    if (key_arm) {
+        uint32_t step = keyr.step, bar = step / 16u;
+        if (step % 16u >= 12u)
+            bar = (bar + 1u) % len;
+        keyt.root[bar % KEY_BARS] = (uint8_t)pc;
+        keyt.on = 1;
+        key_cur = (uint8_t)bar;
+    }
+    key_live = (uint8_t)pc;
 }
 static void orc_knob(uint32_t slot, int32_t steps)
 {
@@ -449,9 +462,9 @@ static void ui_leds(void)
         led_put(nl, panel.btn[B_FX], 1);                /* FX LATCH: lit while an effect or a macro is on */
     if (ui.layer)                                       /* the layer's button breathes while its map is up */
         led_put(nb, panel.btn[layer_btn()], 1);
-    led_put(nl, panel.btn[B_REC], (fxt_page() ? fxt.arm : song.rec | (song_keys_on() && ui.song_rec))
-                                  != 0u && ui.layer != LAYER_REC);   /* (its layer: it breathes; FX TRACKS the lanes', SONG
-                                                                      * typing a chain) */
+    led_put(nl, panel.btn[B_REC], (fxt_page() ? fxt.arm : key_keys_on() ? key_arm : song.rec | (song_keys_on() && ui.song_rec))
+                                  != 0u && ui.layer != LAYER_REC);   /* (its layer: it breathes; FX TRACKS the lanes', KEY its
+                                                                      * recording, SONG typing a chain) */
     k = oct_leds();
     led_put(nl, panel.btn[B_OCTDN], (int)(k & 1u));
     led_put(nl, panel.btn[B_OCTUP], (int)((k >> 1) & 1u));
@@ -665,6 +678,14 @@ static uint32_t song_leds(void)
 static int rec_tap(void)                                /* 1: the arming changed */
 {
     uint8_t bit = (uint8_t)(1u << song.sel);
+    if (key_keys_on()) {                              /* M-Vave-OP1, GLO > KEY (key.c): its recording, not the pattern's; */
+        key_arm ^= 1u;                                /* arming while stopped starts PLAY (the count-in first, if set) */
+        ui.force = 1;
+        if (key_arm && !song.playing && !seq_counting())
+            transport_req = 1;
+        ui_message(key_arm ? "KEY REC: PLAY THE ROOTS" : "KEY REC OFF");
+        return 1;
+    }
     if (fxt_page()) {                                 /* FX TRACKS (fxtrack.c): the selected lane's ARM, not the pattern's */
         uint8_t lb = (uint8_t)(1u << (ui.fxt_sel % FXT_N));
         if (chain_busy() && !(fxt.arm & lb)) {
@@ -1650,7 +1671,6 @@ static void ui_input(void)
     static uint32_t lock_ms;                            /* BPM LOCK: the last locked SELECT turn (fm1_ms | 1; 0 none) */
     midi_pc_poll();                                     /* MIDI Program Change (before fm6_poll: a bank voice) */
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
-    key_poll();                                         /* (M-Vave-OP1: GLO > KEY's root from a key) */
 #if !FELUCCA_FM4
     for (k = 0; k < NTRK; k++)                          /* a DIGITAL sound any other way (the paths convert it */
         if (trk[k].eng_req == ENGI_DIGITAL)             /* already): FM6 (fm4_convert.c) */
@@ -1930,7 +1950,9 @@ static void ui_input(void)
         slice_keys_pick(notes);
 #endif
     lock_keys();                                        /* (a grid key on a hit let go: the hit goes) */
-    if (song.grid == 3u) {
+    if (song.grid == 4u) {
+        key_keys(notes);                                /* (M-Vave-OP1: GLO > KEY, key.c) */
+    } else if (song.grid == 3u) {
         song_keys(notes);
     } else if (song.grid) {
         grid_keys(notes);

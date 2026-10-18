@@ -387,7 +387,7 @@ static uint32_t arp_list(const track_t *t, uint32_t *list, uint32_t *cnt)
         for (i = 0; i < n && len < 64u; i++)
             list[len++] = clamp((int32_t)list[i] + 12 * (int32_t)o, 0, 127);
     if (n && t->p[P_AMODE] == AM_REPEAT) { list[0] = last; len = 1; } /* REPEAT: last played note, no octave traversal */
-    if (keyt.on && song.playing && !rec_on(t))      /* M-Vave-OP1: moved to the KEY's bar (key.c); recording: as */
+    if (key_root_now() < 12u && !rec_on(t))         /* M-Vave-OP1: moved to the KEY's bar (key.c); recording: as */
         for (i = 0; i < len; i++)                   /* played (the steps are moved when they play) */
             list[i] = key_shift(t, list[i]);
     return len;
@@ -618,7 +618,6 @@ static __attribute__((noinline)) void cin_keep(track_t *t, uint32_t note, uint32
 static void input_on(track_t *t, uint32_t note, uint32_t vel)
 {
     last_note = (uint8_t)note;
-    key_live_n++;                                  /* (M-Vave-OP1: GLO > KEY takes it as a bar's root, key.c) */
     if (cin_left)
         cin_keep(t, note, vel);
     if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes) */
@@ -774,7 +773,8 @@ static void keyboard_block(void)
     }
     lay = (fm1_in.buttons & kb_mask) || kb_lock;  /* (#83: kb_lock, a layer locked open with no button held) */
     fx = (fm1_in.buttons & perf_mask) || (kb_lock & 2u);
-    mute = song.grid == 2u ? ~0u : song.grid == 3u ? SONG_KEYS : 0u;   /* the keys that never sound here */
+    mute = song.grid == 2u || song.grid == 4u ? ~0u : song.grid == 3u ? SONG_KEYS : 0u;   /* the keys that never sound
+                                                                                         * here (4: GLO > KEY's roots) */
     for (k = 0; k < 27u; k++) {
         if (!((ch >> k) & 1u))
             continue;
@@ -1247,7 +1247,7 @@ static void events_block(uint32_t n)
             midi_clock_transport(0xFAu, fm1_ms);
         else if (cin_left)
             ;                                       /* counting in already (the UI's PLAY stops it: seq_counting) */
-        else if (cin_bars && (song.rec || fxt.arm) && !song.playing && !chain.armed)
+        else if (cin_bars && (song.rec || fxt.arm || key_arm) && !song.playing && !chain.armed)
             cin_begin();                            /* recording from stop: the count-in first */
         else
             seq_start();

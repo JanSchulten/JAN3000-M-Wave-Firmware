@@ -14,6 +14,11 @@
  * The bars: counted from PLAY on the sequencer's 1/16 grid (key_tick: before the tracks' steps, so the step on a bar's
  * first sixteenth plays in the new bar); seq_start sets bar 1. A note keeps the pitch it started with: the sequencer
  * keeps its sounding notes (seq_notes) as moved, the arp its note, so every off matches its on.
+ * Played as the OP-Z's key track: on GLO > KEY the keys sound nothing, each is a root (its name, F3 .. G5 whatever
+ * the octave). Stopped, a key sets the cursor bar's root and moves the cursor on. Running, a key moves the tracks
+ * at once (key_live): it holds until a bar of the run with a root of its own starts (KEY ON), or the transport stops.
+ * REC on the page (key_arm) records it too: into the bar playing, or the next one in its last quarter (a key played a
+ * little early is meant for the bar coming), and KEY goes ON.
  * Kept with the project (its extras, opstore.c). The ISR reads key, the UI writes it (bytes: a root or LEN changes
  * whole). */
 #define KEY_BARS 16u
@@ -30,7 +35,8 @@ static struct {
     uint8_t started;                            /* the first block after PLAY: bar 1 */
 } keyr;
 static volatile uint8_t key_bar;                /* the bar playing (0..LEN-1): the UI's */
-static volatile uint8_t key_live_n;             /* the notes played live (seq.c input_on): GLO > KEY takes the roots */
+static volatile uint8_t key_live = KEY_NONE;    /* a root played live (GLO > KEY, running), KEY_NONE none */
+static volatile uint8_t key_arm;                /* REC on GLO > KEY: the keys record into the run */
 
 static void key_defaults(void)
 {
@@ -48,6 +54,7 @@ static void key_start(void)
     keyr.step = 0;
     keyr.started = 0;
     key_bar = 0;
+    key_live = KEY_NONE;
 }
 
 /* each block, before the tracks' steps (seq.c events_block): n samples further on the 1/16 grid */
@@ -68,7 +75,11 @@ static void key_tick(uint32_t n)
     }
     if (keyr.step >= len * 16u)                 /* (LEN made shorter while it ran) */
         keyr.step = 0;
-    key_bar = (uint8_t)(keyr.step / 16u);
+    if (keyr.step / 16u != key_bar) {           /* a bar starts: a root of the run's own ends a live one */
+        key_bar = (uint8_t)(keyr.step / 16u);
+        if (keyt.on && keyt.root[key_bar] < 12u)
+            key_live = KEY_NONE;
+    }
 }
 
 /* the scale k's notes are moved in: the track's, its ROOT's major for CHR */
@@ -105,16 +116,25 @@ static __attribute__((noinline)) uint32_t key_shift_to(const track_t *t, uint32_
     out = (int32_t)n - (int32_t)rn + 12 * oct + (int32_t)deg[idx] + (int32_t)(rn - deg[j]);
     return (uint32_t)clamp(out, 0, 127);
 }
+/* the root the tracks are moved to now (live, else the run's bar), KEY_NONE none */
+static uint32_t key_root_now(void)
+{
+    if (!song.playing)
+        return KEY_NONE;
+    if (key_live < 12u)
+        return key_live;
+    return keyt.on ? keyt.root[key_bar % KEY_BARS] : KEY_NONE;
+}
 static uint32_t key_shift(const track_t *t, uint32_t n)
 {
-    uint32_t r;
-    if (!keyt.on || !song.playing || (r = keyt.root[key_bar % KEY_BARS]) >= 12u || chord_kit(t))
+    uint32_t r = key_root_now();
+    if (r >= 12u || chord_kit(t))
         return n;
     return key_shift_to(t, n, r);
 }
 
 /* ------------------------------------------------------------------ UI --- */
-static uint8_t key_cur, key_seen;               /* GLO > KEY's cursor bar; key_live_n taken last (ui_input.c key_poll) */
+static uint8_t key_cur;                         /* GLO > KEY's cursor bar */
 /* the bar's root's chord in track t's scale, "Am" "F" "Bdim" "C#" (a root outside it: its name alone), "-" none */
 static void key_chord_name(const track_t *t, uint32_t r, char *b)
 {

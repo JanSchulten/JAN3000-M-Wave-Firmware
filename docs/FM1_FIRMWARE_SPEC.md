@@ -325,7 +325,7 @@ These live in this repository and can be studied or reused:
 - REVERB ROOM / SPRING / HALL / SHIMMER.
 - PO sync out.
 - A one-screen ARP with a keyboard view.
-- A KEY track (chord progression transposing the tracks inside their scales).
+- A KEY track (chord progression transposing the tracks inside their scales; played live, recorded with REC, as the OP-Z's).
 - A notes-only TAPE was built and dropped as not good enough.
 
 ---

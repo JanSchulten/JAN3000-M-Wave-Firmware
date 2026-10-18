@@ -46,7 +46,7 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"DELAY", "[K1]DELAY / CLOUD[FX]REVERB"},
     {"CLOUD", "[K1]SIZE[K2]DENSITY[K3]PITCH"},
     {"FX TRACKS 2", "[K1]LANE[K2]BOTH[OCT+]CLEAR"},
-    {"KEY", "[K1]BAR[K2]ROOT[KEYS]SET ROOT"},
+    {"KEY", "[KEYS]ROOT[REC]RECORD[K4]ON"},
     {"SONG", "[REC]CHAIN[KEYS]A-D[PLAY]SONG"},
     {"USER", "[K1]SLOT[OCT+]SAVE[SAVE]PRESETS"},
     {"PRESETS", "[K2]ENGINE[K3]FAV[K4]LIST"},

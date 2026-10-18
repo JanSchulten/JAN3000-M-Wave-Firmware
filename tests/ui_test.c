@@ -253,6 +253,7 @@ static void ui_power_on(void)
     key_defaults();                                       /* (M-Vave-OP1: no KEY run, as at boot) */
     key_start();
     key_cur = 0;
+    key_arm = 0;
     memset(&fxt, 0, sizeof fxt);                          /* (the FX tracks empty and stopped, as at boot) */
     fxt.pos = FXT_START;
     memset(fxt_lane, 0, sizeof fxt_lane);
@@ -2840,6 +2841,8 @@ static int test_product_ux(void)
         press(B_REC);
         if (PAGES[i].graph == GR_SONG)
             ok &= song.rec == 0 && !transport_req && msg_is("NEW CHAIN: TAP A-D") && ui.song_rec;   /* (M-Vave-OP1) */
+        else if (PAGES[i].graph == GR_KEY)            /* (M-Vave-OP1: GLO > KEY's recording) */
+            ok &= song.rec == 0 && key_arm == 1u && transport_req == 1 && ui.page == i && msg_is("KEY REC: PLAY THE ROOTS");
         else if (PAGES[i].graph == GR_FXT || PAGES[i].graph == GR_FXT2)     /* (.. the FX track's) */
             ok &= song.rec == 0 && fxt.arm == 1u && transport_req == 1 && ui.page == i && msg_is("FX1 ARMED: HOLD [FX]");
         else if (PAGES[i].graph == GR_ROLL)            /* #133: STEP's roll arms step recording, stopped */
@@ -2847,7 +2850,7 @@ static int test_product_ux(void)
         else ok &= song.rec == 1 && transport_req == 1 && ui.page == i && !ui.home;
     }
     bad += check("REC stays on every page, SONG types a chain (STEP: step recording, stopped; "
-                 "FX TRACKS: the lane)", ok);
+                 "KEY: its recording; FX TRACKS: the lane)", ok);
     ui_power_on(); hold(B_HOME); press(B_REC);
     bad += check("REC in the MENU does nothing (the menu stays, no arm, no transport start)",
                  ui.menu == 1 && song.rec == 0 && !transport_req);

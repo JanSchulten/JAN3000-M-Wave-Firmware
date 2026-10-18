@@ -24,8 +24,15 @@ scale's own chords. The keys you play live stay as they are, so you can play alo
 
 - **GLO** opens **KEY** (tap GLO again: SONG). The 16 bars show the chord each root makes in the selected track's
   scale; the bar playing is lit.
-- **A key** sets the root of the bar under the cursor and moves the cursor on (round at LEN): play A F C G for
-  Am F C G.
+- **The keys play roots, not notes** (on this page they sound nothing, as on the OP-Z's key track; each key is its
+  name, whatever the octave):
+  - **stopped:** a key sets the root of the bar under the cursor and moves the cursor on (round at LEN): play
+    A F C G for Am F C G;
+  - **running:** a key moves the tracks **at once, live**. It holds until a bar of the run with a root of its own
+    starts (KEY ON), or STOP;
+  - **REC** on this page records it too (the REC LED shows it; stopped, REC starts PLAY): into the bar playing, or
+    the next one when played in a bar's last quarter (a little early for the coming bar), and KEY goes ON. REC
+    again stops recording. The page shows LIVE or REC and the chord played.
 - **KNOB 1 BAR** moves the cursor, **KNOB 2 ROOT** changes its root (- C .. B; - plays as written), **KNOB 3 LEN**
   1 to 16 bars, **KNOB 4** KEY ON / OFF.
 - The move goes the nearer way round (at most half the scale's degrees up or down), so the parts stay near where

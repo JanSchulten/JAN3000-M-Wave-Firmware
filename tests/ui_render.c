@@ -764,7 +764,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_LEARN_WAIT, S_LEARN_PICK, S_LEARN_SET, S_LEARN_LONG, S_GLO_LEARN, S_MENU_LCLEAR, S_MENU_LCLEAR_NONE,
        S_DLY_DOT, S_DLY_DOT16, S_FX_THROW,
        S_DETAIL, S_DETAIL_PLAYING, S_DETAIL_REST, S_DETAIL_DRUM, S_ROLL_MARKS, S_DRUM_MARKS, S_HELP_DETAIL,
-       S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_KEY, S_KEY_PLAY, S_COUNT };
+       S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_KEY, S_KEY_PLAY, S_KEY_LIVE, S_KEY_REC, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
@@ -794,7 +794,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "learn_wait", "learn_pick", "learn_set", "learn_long", "layer_glo_learn", "menu_learn_clear", "menu_learn_clear_none",
     "dly_dotted", "dly_dotted_16", "perform_throw",
     "detail", "detail_playing", "detail_rest", "detail_drum", "roll_marks", "drum_marks", "help_detail",
-    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play"};
+    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -974,6 +974,8 @@ static void setup(int s)
     key_defaults();                                  /* (M-Vave-OP1: no KEY run) */
     key_cur = 0;
     key_bar = 0;
+    key_live = KEY_NONE;
+    key_arm = 0;
     chos.type = CHO_CHORUS;                          /* (M-Vave-OP1: the CHORUS's TYPE, FDBK: Felucca's) */
     chos.fdbk = 0;
     switch (s) {
@@ -1139,10 +1141,12 @@ static void setup(int s)
     case S_CHORD_OFF: go_title("CHORD"); break;
     case S_CHORD_KIT: eng(ENGI_DRUM); TSEL->p[P_CHRD] = CH_DIA3; go_title("CHORD"); break;
     case S_ARP: go_title("ARP"); break;
-    case S_KEY: case S_KEY_PLAY:                       /* (M-Vave-OP1: GLO > KEY, Am F C G in C major; ON, bar 3 playing) */
+    case S_KEY: case S_KEY_PLAY: case S_KEY_LIVE: case S_KEY_REC:                       /* (M-Vave-OP1: GLO > KEY, Am F C G in C major; ON, bar 3 playing) */
         key_defaults(); keyt.root[0] = 9; keyt.root[1] = 5; keyt.root[2] = 0; keyt.root[3] = 7;
         TSEL->p[P_ROOT] = 0; TSEL->p[P_SCALE] = 1; key_cur = 1;
-        if (s == S_KEY_PLAY) { keyt.on = 1; song.playing = 1; key_bar = 2; }
+        if (s != S_KEY) { keyt.on = 1; song.playing = 1; key_bar = 2; }
+        if (s == S_KEY_LIVE) key_live = 2;                /* (D played live: Dm) */
+        if (s == S_KEY_REC) { key_arm = 1; key_live = 4; }   /* (recording, E played: Em) */
         go_title("KEY"); break;
     case S_ARP_PLAY: case S_ARP2_PLAY:                 /* (M-Vave-OP1: ARP's one screen, C E G held, OCT 2, E4 sounding) */
         TSEL->p[P_AMODE] = 1; TSEL->p[P_AOCT] = 2;

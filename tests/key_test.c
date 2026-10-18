@@ -11,6 +11,10 @@
  *   PAGE     GLO opens KEY; KNOB 1 the bar, 2 its ROOT (- C .. B), 3 LEN (the cursor kept in it), 4 ON; a key sets the
  *            cursor bar's root and moves on (round at LEN), only on the page; the cards and the chord names in the
  *            selected track's scale; screens into DIR (optional).
+ *   LIVE     as the OP-Z's: the page's keys sound nothing; running, a key moves the tracks at once (the next C4 an A3)
+ *            and holds until a bar of the run with a root starts; REC on the page arms the KEY's recording (not the
+ *            pattern's): a key goes into the bar playing, or the next one in its last quarter, and KEY goes ON; STOP
+ *            ends a live root.
  * Built and run by tests/run_tests.sh. */
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
@@ -238,11 +242,86 @@ static void test_page(const char *dir)
     key_defaults();
 }
 
+/* -------------------------------------------------------------- LIVE --- */
+static uint32_t gates0(void)
+{
+    uint32_t i, g = 0;
+    for (i = 0; i < NVOICE; i++)
+        g += trk[0].v[i].active && trk[0].v[i].gate;
+    return g;
+}
+static void until_step(uint32_t s16)                 /* blocks until the KEY's 1/16 in the bar is s16 */
+{
+    uint32_t i;
+    for (i = 0; i < 20000u && keyr.step % 16u != s16; i++)
+        blk();
+}
+static void test_live(void)
+{
+    uint8_t got[8];
+    uint32_t ok, i, n = 0;
+    uint8_t was = 0;
+    ui_power_on();
+    frames(320);
+    pattern_c4();
+    key_defaults();
+    go_title("KEY");
+    frame();
+    key_down(white(9)); blk(); frame(); blk(); blk();
+    ok = song.grid == 4u && !gates0() && keyt.root[0] == 9u;
+    key_up(white(9)); blk(); frame();
+    ck("the page's keys sound nothing (song.grid 4); stopped: the cursor bar's root", ok);
+    key_defaults();
+    key_cur = 0;
+    transport_req = 1;
+    for (i = 0; i < 8u; i++)
+        blk();
+    until_step(4);
+    ktap(white(9));                                  /* A, live, no REC */
+    ok = key_live == 9u && keyt.root[0] == KEY_NONE && !keyt.on && !key_arm;
+    for (i = 0; i < 2u * 16u * div_samples(2) / CTL && n < 8u; i++) {   /* the next bars' C4 */
+        blk();
+        if (trk[0].seq_n && trk[0].seq_notes[0] != was)
+            got[n++] = trk[0].seq_notes[0];
+        was = trk[0].seq_n ? trk[0].seq_notes[0] : 0;
+    }
+    ck("running, a key moves the tracks at once (the next C4s: A3), nothing recorded",
+       ok && n >= 1u && got[0] == 57u && key_live == 9u);
+    keyt.on = 1;
+    keyt.len = 2;
+    keyt.root[0] = keyt.root[1] = 0;                  /* (the run: C C) */
+    key_live = 9;
+    until_step(15);
+    until_step(0);
+    ck("  a bar of the run with a root of its own ends it", key_live == KEY_NONE);
+    key_defaults();
+    keyt.len = 4;
+    press(B_REC);
+    ok = key_arm == 1u && !song.rec && msg_is("KEY REC: PLAY THE ROOTS");
+    until_step(2);
+    i = key_bar;
+    ktap(white(7));                                  /* F early in the bar: this bar */
+    ok &= keyt.root[i] == 5u && keyt.on == 1u && key_live == 5u;
+    until_step(13);
+    i = (key_bar + 1u) % keyt.len;
+    ktap(white(8));                                  /* G in the bar's last quarter: the next */
+    ok &= keyt.root[i] == 7u && key_cur == i;
+    ck("REC on the page arms the KEY's recording: a key into the bar playing, in its last quarter the next; KEY ON", ok);
+    frames(400);                                     /* (not a double tap of REC: that locks its layer) */
+    press(B_REC);
+    ok = !key_arm && msg_is("KEY REC OFF");
+    transport_req = 2;
+    blk();
+    ck("  REC again: off; STOP ends a live root", ok && key_live == KEY_NONE && !song.playing);
+    key_defaults();
+}
+
 int main(int argc, char **argv)
 {
     test_move();
     test_playing();
     test_page(argc > 1 ? argv[1] : 0);
+    test_live();
     printf("%s\n", bad ? "KEY TEST FAILED" : "key test passed");
     return bad != 0;
 }
