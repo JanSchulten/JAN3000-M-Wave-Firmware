@@ -154,7 +154,9 @@
 #                   the first sample of its block, with a 1/16 track's steps 1 5 9 13 (internal and external clock, DIV 1/8
 #                   and SWING too), the accent, the frequencies, length, LEVEL, MASTER, OFF / REC / ON, USB audio bit for bit
 #                   without it; COUNT-IN 1 / 2 BARS (step 1 exactly N bars after PLAY, STOP cancels, PLAY again nothing,
-#                   never with an external clock), notes in its last eighth onto step 1; build/click_demo/.
+#                   never with an external clock), notes in its last eighth onto step 1; SYNC OUT PO (MENU > AUDIO): a
+#                   220-sample full-scale pulse on the left each eighth while playing, the mono mix on the right, none
+#                   stopped or OFF; build/click_demo/.
 # USB audio (tests/uac_test.c): the UAC1 descriptors as a host parses them (with and without CDC; 44100 and
 #                   48000 Hz), the ring and packetiser: 44.1 frames per packet, every frame in order (bit for bit),
 #                   underrun / overrun, restart; SET_CUR; the 44.1 -> 48 kHz resampler (every frame against a

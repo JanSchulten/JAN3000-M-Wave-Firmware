@@ -1206,11 +1206,14 @@ static void click_tick(uint32_t adv)
         clk_pos = 0;
         clk_step = 0;
         beat = 2;
+        po_req = po_sync;                           /* (M-Vave-OP1: SYNC OUT PO, the first eighth) */
     } else {
         clk_pos += adv;
         while (clk_pos >= p) {                      /* (as seq_tick: the remainder kept) */
             clk_pos -= p;
             clk_step = (clk_step + 1u) & 15u;
+            if (!(clk_step & 1u))
+                po_req = po_sync;                   /* (M-Vave-OP1: SYNC OUT PO, an eighth: click.c) */
             if (!(clk_step & 3u))
                 beat = clk_step ? 1u : 2u;
         }

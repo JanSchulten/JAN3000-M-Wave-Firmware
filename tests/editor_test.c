@@ -181,7 +181,7 @@ static int preferences(void)
         host_wire[n - 33] == 0 &&                        /* (no bank since 1.0.3) */
         host_wire[n - 32] == 0x53 && host_wire[n - 31] == 1 && host_wire[n - 30] == 3 &&
         host_wire[n - 29] == 0x50 && host_wire[n - 28] == 1 && host_wire[n - 27] == 3 &&   /* FM6 v2: no bank, preset patches */
-        host_wire[n - 26] == 0x4E && host_wire[n - 25] == 1 && host_wire[n - 24] == 25 &&   /* MENU settings: 25 items (1.5) */
+        host_wire[n - 26] == 0x4E && host_wire[n - 25] == 1 && host_wire[n - 24] == 26 &&   /* MENU settings: 26 items (M-Vave-OP1: SYNC OUT) */
         host_wire[n - 23] == 0x52 && host_wire[n - 22] == 1 && host_wire[n - 21] == 4 &&   /* RATCH */
         host_wire[n - 20] == 0x4C && host_wire[n - 19] == 1 && host_wire[n - 18] == 1 &&   /* 1.1 parameter locks */
         host_wire[n - 17] == 0x41 && host_wire[n - 16] == 1 && host_wire[n - 15] == 0 && host_wire[n - 14] == 1 &&   /* 1.2: 128 */
@@ -935,12 +935,12 @@ static int menu_protocol(void)
         bad += check("MENU_DESC: the tab comes after every byte of the 1.0.4 reply (older editors ignore it)", ok);
     }
     ok = 1;
-    for (i = 0; i < 25u; i++) {
+    for (i = 0; i < 26u; i++) {
         menu_desc(i, &it);
         ok &= strcmp(it.name, "CALIBRATION") && strcmp(it.name, "ABOUT") && strcmp(it.name, "INFO");
     }
-    n = menu_desc(25, &it);
-    ok &= n == 2u && it.index == 25 && it.id == 127;
+    n = menu_desc(26, &it);
+    ok &= n == 2u && it.index == 26 && it.id == 127;
     n = menu_desc(127, &it);
     bad += check("MENU_DESC: no CALIBRATION / INFO / ABOUT; an index past the list answers index, 127 (no item)",
                  ok && n == 2u && it.index == 127 && it.id == 127);
@@ -1007,7 +1007,7 @@ static int menu_protocol(void)
         static uint8_t fav0[sizeof favorites], set0[sizeof settings];
         uint8_t hold0 = settings_hold, leds0 = settings_leds;
         memcpy(fav0, &favorites, sizeof favorites); memcpy(set0, &settings, sizeof settings);
-        ok = menu_set(25, 1) == 1 && host_wire[6] == 25 && ed_rv(host_wire + 7) == 1;
+        ok = menu_set(26, 1) == 1 && host_wire[6] == 26 && ed_rv(host_wire + 7) == 1;
         ok &= menu_set(126, -3) == 1 && host_wire[6] == 126 && ed_rv(host_wire + 7) == -3;
         ok &= menu_set(127, 0) == 1 && host_wire[6] == 127;
         ok &= !memcmp(fav0, &favorites, sizeof favorites) && !memcmp(set0, &settings, sizeof settings) &&

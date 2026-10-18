@@ -499,6 +499,60 @@ static void ext_clock(void)
     check("external clock: PLAY on the FM-1 starts as before (as a Start), never a count-in", song.playing && !seq_counting());
 }
 
+/* M-Vave-OP1, MENU > AUDIO > SYNC OUT PO: the left channel a 5 ms full-scale pulse on every eighth (the first with
+ * PLAY, in the click's blocks, no drift), the right the mix in mono (bit for bit the two channels' average); stopped
+ * no pulse; OFF: the stereo as before (USB audio is tapped before it, as the click) */
+static int32_t po_l[1500u * CTL], po_r[1500u * CTL];
+static void po_run(uint32_t n, int on, int32_t *l, int32_t *r)
+{
+    int32_t out[2 * CTL];
+    uint32_t b, i;
+    fresh(); grid_track();
+    song.g[G_BPM] = 120;
+    po_sync = (uint8_t)on;
+    trk[0].p[P_LEVEL] = 100;
+    input_on(&trk[0], 57, 110);                        /* (a note held: the mix not silent) */
+    transport_req = 1;
+    for (b = 0; b < n; b++) {
+        audio_block(out, CTL);
+        for (i = 0; i < CTL; i++) {
+            l[b * CTL + i] = out[2u * i] / (1 << OUT_SHIFT);
+            r[b * CTL + i] = out[2u * i + 1u] / (1 << OUT_SHIFT);
+        }
+    }
+}
+static void po_sync_out(void)
+{
+    static int32_t l0[1500u * CTL], r0[1500u * CTL];
+    uint32_t n = 1500u, i, k = 0, at[16], w = 0, okmono = 1;
+    uint32_t E = click_beat_len() / 2u;
+    po_run(n, 0, l0, r0);
+    po_run(n, 1, po_l, po_r);
+    for (i = 0; i < n * CTL; i++) {
+        if (po_l[i] && (!i || !po_l[i - 1u]) && k < 16u)
+            at[k++] = i;
+        w += po_l[i] != 0;
+        okmono &= po_r[i] == (l0[i] + r0[i]) / 2 && (po_l[i] == 0 || po_l[i] == 32767);
+    }
+    {
+        int ok = k >= 4u && at[0] == 0u && w == k * 220u;
+        if (!ok || getenv("PO_DEBUG"))
+            printf("    po: %u pulses, %u samples high, at %u %u %u %u (eighth %u)\n", k, w, at[0], at[1], at[2], at[3], E);
+        for (i = 1; i < k; i++)                        /* eighth k at the first sample of block ceil(k E / CTL) */
+            ok &= at[i] == ceil_div((uint64_t)i * E, CTL) * CTL;
+        check("SYNC OUT PO: a 5 ms full-scale pulse on the left every eighth (2 a quarter) from PLAY, no drift", ok);
+    }
+    check("  the right channel the mix in mono (the average of what OFF plays, bit for bit)", okmono);
+    po_sync = 0;
+    fresh();
+    run(200);
+    {
+        uint32_t z = 1;
+        for (i = 0; i < 200u * CTL; i++)
+            z &= dac[i] == 0;
+        check("  stopped: no pulse; OFF: as before", z);
+    }
+}
 int main(void)
 {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -510,6 +564,7 @@ int main(void)
     count_in();
     count_in_notes();
     ext_clock();
+    po_sync_out();
     printf(bad ? "click: %d FAILED\n" : "click: all passed\n", bad);
     return bad != 0;
 }

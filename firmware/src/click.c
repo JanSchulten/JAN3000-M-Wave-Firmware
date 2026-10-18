@@ -55,3 +55,28 @@ static __attribute__((noinline)) void click_render(int32_t *out, uint32_t n)
     }
     clk.s = s; clk.c = c; clk.env = env;
 }
+
+/* M-Vave-OP1, MENU > AUDIO > SYNC OUT PO: the Pocket Operators' sync (their SY modes with a sync out) on the DAC's
+ * output: the left channel a pulse on every eighth note while the transport runs (2 a quarter, as the POs and the
+ * volcas take it; full scale, 5 ms, whatever MASTER), the right the mix in mono. A stereo-to-two-mono cable gives a PO /
+ * volca its sync from the left and the mixer the sound from the right. Not on USB (as the click). seq.c's click_tick
+ * asks for the pulses (po_req), on the same eighths the click counts */
+#define PO_PULSE 220u                                  /* samples: 5 ms */
+static volatile uint8_t po_sync;                       /* SYNC OUT PO (ui.c rp_apply) */
+static volatile uint8_t po_req;                        /* seq.c: an eighth started; the next block starts its pulse */
+static uint32_t po_left;                               /* samples of the pulse still to come */
+static __attribute__((noinline)) void po_render(int32_t *out, uint32_t n)
+{
+    uint32_t i;
+    if (po_req) {
+        po_req = 0;
+        po_left = PO_PULSE;
+    }
+    for (i = 0; i < n; i++) {
+        int32_t m = (out[2u * i] + out[2u * i + 1u]) / 2;
+        out[2u * i] = po_left ? 32767 : 0;
+        out[2u * i + 1u] = m;
+        if (po_left)
+            po_left--;
+    }
+}
