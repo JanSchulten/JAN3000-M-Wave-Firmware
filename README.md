@@ -209,6 +209,10 @@ more). Felucca projects load as before (with empty FX TRACKS, as scene 1).
 
 ## Documents
 
+- **First flash on a real FM-1** (German checklists): [docs/ERSTER_FLASH.md](docs/ERSTER_FLASH.md), then
+  [docs/TESTLISTE.md](docs/TESTLISTE.md). The installer as a ZIP to start on your computer:
+  `dist/M-Vave-OP1-Installer.zip` (`sh tools/make_installer_zip.sh`); it can return the FM-1 to M-VAVE's official
+  V15 without a separate download (`vendor/m-vave/`, Apache-2.0)
 - Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 - OP-1 and FM-1 compared, with the step-by-step plan (German): [docs/OP1_COMPARISON.md](docs/OP1_COMPARISON.md)
 - The plan for new effects (granular CLOUD and the OP-Z punch-ins done, track inserts next; German):

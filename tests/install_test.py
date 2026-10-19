@@ -9,6 +9,7 @@ Also checks logical_image/product_of against web/fm1pkg.js (needs node and
 build/felucca.fwsc, skipped otherwise)."""
 import io
 import queue
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -290,15 +291,25 @@ def against_js():
 
 def official():
     """#32: back to the official V15 from Felucca, without --force (only the unmodified file)"""
-    v15 = ROOT / "FM-1_v15.fwsc"
+    v15 = ROOT / "vendor/m-vave/FM-1_015.fwsc"        # (M-Vave-OP1: M-VAVE's FM1 Open ships it, Apache-2.0)
     if not v15.exists():
-        print("official V15 restore: skipped (needs FM-1_v15.fwsc in the repo root)")
+        print("official V15 restore: skipped (needs vendor/m-vave/FM-1_015.fwsc)")
         return
     raw = v15.read_bytes()
+    ok(hashlib.sha256(raw).hexdigest() == I.STOCK_V15_SHA256 and I.STOCK_V15_PATH == str(v15.resolve()),
+       "vendor/m-vave/FM-1_015.fwsc is the official V15 (its SHA-256), the one --stock installs")
     dev = FakeFM1(I.logical_image(raw), identity="FM-1_900", name="Felucca", after_write="FM-1_015")
     rc, out, err = cli([str(v15), "--yes"], dev)
     ok(rc == 0 and dev.bad == 0 and "FM-1_015" in out and dev.identity == "FM-1_015",
        "official V15 (FM-1.fwsc) from Felucca: installed without --force, back as FM-1_015")
+    dev = FakeFM1(I.logical_image(raw), identity="FM-1_900", name="Felucca", after_write="FM-1_015")
+    rc, out, err = cli(["--stock", "--yes"], dev)
+    ok(rc == 0 and dev.bad == 0 and dev.identity == "FM-1_015", "--stock: the V15 in vendor/m-vave/, no file to give")
+    try:                                             # (argparse's error: exit 2)
+        rc, out, err = cli(["--stock", str(v15), "--yes"], FakeFM1(I.logical_image(raw)))
+    except SystemExit as e:
+        rc = e.code
+    ok(rc == 2, "--stock with a PACKAGE too: refused")
     bad = bytearray(raw)
     bad[-1] ^= 1
     dev = FakeFM1(I.logical_image(bytes(bad)), identity="FM-1_900", name="Felucca")

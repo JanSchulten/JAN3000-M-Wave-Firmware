@@ -6,6 +6,8 @@
   index.html                  redirect to the installer (the old URL keeps working)
   firmware/felucca-VER.fwsc   the package (+ LICENSE, LICENSING.md, LICENSES/: the package holds
                               JieLi SDK files under Apache-2.0, see LICENSING.md)
+  firmware/FM-1_015.fwsc      M-Vave-OP1: M-VAVE's official V15 (Apache-2.0, vendor/m-vave/), for
+                              the installer's return to V15 without a separate download
   webapp/installer/index.html index_pkg.html, self-contained (fm1pkg.js, fm1ota.js, metadata inlined)
   webapp/editor/index.html    editor.html (+ fukiai.ttf, FUKIAI-LICENSE.txt)
   src/                        not touched
@@ -50,7 +52,9 @@ def main(pkg, version, out):
         strip_module((HERE / "fm1ota.js").read_text(encoding="utf-8")) + "\n" + \
         strip_module((HERE / "fm1backup.js").read_text(encoding="utf-8"))
     name = f"felucca-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
-    meta = json.dumps({"version": version, "product": product, "pkg": "../../firmware/" + name})
+    stock = HERE.parent / "vendor" / "m-vave" / "FM-1_015.fwsc"   # M-Vave-OP1: official V15 (Apache-2.0)
+    meta = json.dumps({"version": version, "product": product, "pkg": "../../firmware/" + name,
+                       "stock": "../../firmware/FM-1_015.fwsc" if stock.exists() else ""})
     for mark in ("/*LIB*/", "/*META*/"):
         if html.count(mark) != 1:
             raise SystemExit(f"index_pkg.html must contain {mark} once; update make_site.py")
@@ -62,6 +66,9 @@ def main(pkg, version, out):
         old.unlink()
     (inst / "index.html").write_text(html, encoding="utf-8")
     shutil.copy(pkg, fw / name)
+    if stock.exists():                              # (its notice beside it: vendor/m-vave/README.md)
+        shutil.copy(stock, fw / "FM-1_015.fwsc")
+        shutil.copy(stock.parent / "README.md", fw / "FM-1_015-README.md")
     lic = HERE.parent / "LICENSES"                  # the package holds JieLi SDK files (Apache-2.0): their
     (fw / "LICENSES").mkdir(exist_ok=True)          # licence travels next to it, with Felucca's own
     names = sorted(f.name for f in lic.glob("*.txt"))
