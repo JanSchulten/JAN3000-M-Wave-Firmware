@@ -58,8 +58,12 @@ Klappt das alles: Der Weg hin und zurück ist erprobt, weiter mit Schritt 4.
 - [ ] Im entpackten Ordner starten:
   - Mac: **`START-Mac.command`** doppelklicken. Beim ersten Mal: Rechtsklick → Öffnen, falls macOS warnt.
   - Windows: **`START-Windows.bat`** doppelklicken.
-- [ ] Der Browser öffnet `http://localhost:8000/webapp/installer/`. Falls nicht, die Adresse von Hand in Chrome oder
+- [ ] Der Browser öffnet `http://127.0.0.1:<Port>/webapp/installer/` (jeder Start nimmt einen freien Port; die Adresse
+      steht im Starter-Fenster, ebenso der Name der Firmware-Datei). Falls nicht, die Adresse von Hand in Chrome oder
       Edge eingeben. Das Fenster mit dem Starter **offen lassen**, solange du installierst.
+- [ ] Die Seite zeigt nach dem Laden **Felucca op1-…**: Die Kennung hinter „op1-“ muss zu der im Starter-Fenster
+      passen. Bei einem Update: das neue ZIP in einen **neuen** Ordner entpacken und Starter-Fenster älterer Versionen
+      schließen.
 - [ ] FM-1 anschließen, **Install** klicken, MIDI-Zugriff (SysEx) erlauben.
 - [ ] Der Fortschrittsbalken läuft: Prüfen, dann Schreiben. **Nichts abziehen, Tab nicht schließen.**
 - [ ] „done“: Das FM-1 startet neu, M-Vave-OP1 erscheint.
