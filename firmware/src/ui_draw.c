@@ -1329,8 +1329,9 @@ static void draw_columns(void)
     for (c = 0; c < 4u; c++) {
         int16_t *vp;
         const param_desc_t *d = page_desc(cur_page(), c, &vp);
-        if (cur_page()->graph == GR_SLOTS && c == 1u) {   /* M-Vave-OP1: PROJECT's NEW */
-            draw_act_column(c, "NEW", T_THEME, ICON_X_FOLDER);
+        if (cur_page()->graph == GR_SLOTS && c) {         /* M-Vave-OP1: PROJECT's NEW LOAD SAVE: where they are */
+            static const char *const L[3] = {"NEW", "LOAD", "SAVE"}, *const K[3] = {"F#5", "OCT-", "OCT+"};
+            draw_column(c, L[c - 1u], K[c - 1u], "", T_THEME, -1, ICON_AUTO);
             continue;
         }
         if (!d || !d->label || d->label[0] == '-') {
@@ -1568,6 +1569,11 @@ static void confirm_text(char *a, char *b)
         break;
     case CF_NEW_PROJ:                                /* M-Vave-OP1: PROJECT's NEW (project.c project_new) */
         str_cpy(a, "START A NEW PROJECT?", 24);
+        str_cpy(b, "UNSAVED MUSIC IS LOST", 24);
+        break;
+    case CF_LOAD_PROJ:                               /* M-Vave-OP1: PROJECT's OCT- */
+        str_cpy(a, "LOAD PROJECT A?", 24);
+        a[13] = (char)('A' + (k & 3u));
         str_cpy(b, "UNSAVED MUSIC IS LOST", 24);
         break;
     case CF_OVR_PROJ:

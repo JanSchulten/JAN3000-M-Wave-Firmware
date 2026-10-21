@@ -6,7 +6,7 @@
  *   UNDO     REC armed takes the track's copy; REC held: OCT- undoes what was recorded since, OCT+ redoes it, each
  *            once in a row (NOTHING TO REDO / ALREADY UNDONE); a clear or CLICK changed in the same hold: OCT- puts
  *            those back as before
- *   NEW      SAVE > PROJECT, KNOB 2 NEW, OCT+ asks, OCT+ again: the power-on sounds (808 kit) with empty steps, the
+ *   NEW      SAVE > PROJECT, F#5 (NEW) asks, OCT+: the power-on sounds (808 kit) with empty steps, the
  *            default BPM, no song, FX TRACKS, KEY or CHORUS TYPE, no slot or name; while playing: STOP FIRST
  *   SELECT   on a page SELECT turns its family's pages (wrapping), the tempo stays; the page's button again: HOME;
  *            on HOME (and its MIXER, CLOCK) SELECT is the tempo, HOME's taps go round its pages as before
@@ -49,6 +49,42 @@ static void test_pages(void)
     turn(EN_ALGO, -1);
     frame();
     ck("  the family shown when the track changes stays on its page (CHORUS)", str_eq(cur_page()->title, "CHORUS"));
+}
+
+/* SAVE opens PROJECT: a white key F3..B3 picks A..D (silent, lit), OCT+ saves (NAME, or OVERWRITE?), OCT- loads (LOAD?) */
+static void test_slots(void)
+{
+    int ok;
+    uint32_t i;
+    ui_power_on();
+    frames(320);
+    for (i = 0; i < 4u; i++)
+        memset(&proj_slot[i], 0, sizeof proj_slot[i]);
+    press_raw = 1;
+    press(B_SAVE); frames(100);
+    ok = !ui.home && cur_page()->graph == GR_SLOTS && song.grid == 5u;
+    key_down(2); frame(); key_up(2); frame();         /* G3: B */
+    ok &= song.g[G_SLOT] == 2 && !gates() && (key_leds(0) & 0x55u) == 0x55u && ((key_leds(0) >> SLOT_KEY_NEW) & 1u);
+    press(B_OCTDN); frame();
+    ok &= msg_is("EMPTY SLOT") && !ui.confirm;
+    press(B_OCTUP); frame();
+    ok &= name_on() && nm.kind == NK_PROJ_SAVE;
+    press(B_OCTUP); frames(50);
+    ok &= !name_on() && project_used(1);
+    ck("SAVE opens PROJECT: G3 picks B (silent, the keys lit); OCT- on an empty one: EMPTY SLOT; OCT+: NAME, saved", ok);
+    trk[0].p[P_LEVEL] = 11;
+    press(B_OCTDN); frame();
+    ok = ui.confirm == CF_LOAD_PROJ && trk[0].p[P_LEVEL] == 11;
+    press(B_OCTDN); frame();                            /* (OCT-: no) */
+    ok &= !ui.confirm && trk[0].p[P_LEVEL] == 11;
+    press(B_OCTDN); frame();
+    press(B_OCTUP); frames(50);
+    ok &= trk[0].p[P_LEVEL] != 11 && msg_is("LOADED");
+    press(B_OCTUP); frame();
+    ok &= ui.confirm == CF_OVR_PROJ;
+    press(B_OCTDN); frame();
+    press_raw = 0;
+    ck("  OCT- asks LOAD PROJECT B? (OCT- no, OCT+ loads); OCT+ on a used one: OVERWRITE?", ok && !ui.confirm);
 }
 
 static void test_select(void)
@@ -142,14 +178,12 @@ static void test_new(void)
     frame();
     transport_req = 1;
     blk();
-    turn(EN_K2, 1);
-    frame();
-    press(B_OCTUP); frame();
+    key_down(SLOT_KEY_NEW); frame(); key_up(SLOT_KEY_NEW); frame();
     ok = msg_is("STOP FIRST") && !ui.confirm;
     transport_req = 2;
     blk();
     frames(100);
-    press(B_OCTUP); frame();
+    key_down(SLOT_KEY_NEW); frame(); key_up(SLOT_KEY_NEW); frame();
     ok &= ui.confirm == CF_NEW_PROJ;
     press(B_OCTUP); frames(50);
     for (k = 0; k < NTRK; k++)
@@ -157,7 +191,7 @@ static void test_new(void)
     ok &= !ui.confirm && msg_is("NEW PROJECT") && !notes && song.g[G_BPM] == GP[G_BPM].def && !keyt.on &&
           keyt.root[0] == KEY_NONE && chos.type == CHO_CHORUS && !fxt_lane[0].len && !chain_config.count &&
           proj_cur == PROJ_NO_SLOT && !proj_name[0] && trk[3].eng_req == ENGI_DRUM && str_eq(N_DRUM_KIT[trk[3].p[P_E0]], "808");
-    ck("SAVE > PROJECT > NEW (KNOB 2, OCT+, OCT+): power-on sounds (808), empty steps, default BPM, no song / FX TRACKS / "
+    ck("SAVE > PROJECT > NEW (F#5, OCT+): power-on sounds (808), empty steps, default BPM, no song / FX TRACKS / "
        "KEY / CHORUS TYPE, no slot; while playing: STOP FIRST", ok);
 }
 
@@ -287,6 +321,7 @@ int main(void)
     test_select();
     test_undo();
     test_new();
+    test_slots();
     test_analog2();
     test_splash();
     printf("%s\n", bad ? "JAN TEST FAILED" : "jan test passed");

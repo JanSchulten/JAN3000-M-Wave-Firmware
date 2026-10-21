@@ -194,8 +194,11 @@ its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows
   like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
   the accent and theme colour beside it and a band torn sideways now and then. Then the version with a blinking block
   cursor, a sine settling under it, "based on Felucca" below.
-- **SAVE > PROJECT > NEW (KNOB 2):** OCT+ asks, OCT+ again starts a new project: the power-on sounds with empty
-  steps, the default tempo, no song, FX TRACKS, KEY or scenes, no slot. Stopped only (STOP FIRST).
+- **SAVE opens PROJECT, played on the keys:** F3 G3 A3 B3 pick project A..D (the keys are silent there and lit),
+  OCT+ saves into it (the NAME screen; a used one asks OVERWRITE? first), OCT- loads it (LOAD PROJECT? first). F#5,
+  the highest black key, is **NEW**: OCT+ starts a new project (the power-on sounds with empty steps, the default
+  tempo, no song, FX TRACKS, KEY or scenes, no slot), stopped only (STOP FIRST). SELECT goes on to USER, PRESETS,
+  PHRASES, TOOLS.
 - **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
   change in the same hold is put back by OCT- as before.
 - **Another track opens each family at its first page:** turn ALGORITHM, then FX (SCL, ENV ..) starts at its first

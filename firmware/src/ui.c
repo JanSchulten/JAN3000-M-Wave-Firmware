@@ -209,7 +209,7 @@ static struct {
 
 enum { CF_NONE, CF_CLEAR_SEQ, CF_CLEAR_TRK, CF_OVR_PROJ, CF_OVR_USER, CF_LOAD_PAT,
        CF_DEL_ROW, CF_CLEAR_SONG, CF_INIT_SOUND, CF_CLEAR_MOTION, CF_ERASE_USER,
-       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ };     /* ui.confirm: TOOLS' clears;
+       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ, CF_LOAD_PROJ };   /* ui.confirm: TOOLS' clears;
                                    * SAVE over a used slot; a pattern over the user's steps;
                                    * USER ERASE; FX TRACKS 2's CLEAR (a lane, both); PROJECT's NEW */
 
@@ -603,6 +603,9 @@ static int detail_on(void)
 static int song_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_SONG; }
 /* M-Vave-OP1, GLO > KEY shown: the keys are roots (key.c), silent (seq.c keyboard_block: song.grid 4) */
 static int key_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_KEY; }
+/* M-Vave-OP1, SAVE > PROJECT: the keys pick the project (F3 G3 A3 B3: A..D), F#5 is NEW; OCT+ saves, OCT- loads */
+#define SLOT_KEY_NEW 25u                          /* F#5, the highest black key */
+static int slots_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_SLOTS; }
 /* FX > FX TRACKS or FX TRACKS 2 shown (fxtrack.c): REC arms the selected lane, its LED says so */
 static int fxt_page(void) { return !ui.home && (cur_page()->graph == GR_FXT || cur_page()->graph == GR_FXT2); }
 /* .. the 16 steps shown follow the selected lane's play head: playing, STEP and EFFECT not just turned (ui_graph.c) */
@@ -737,8 +740,8 @@ static void open_family(uint32_t fam)
     } else if (fam == FAM_SAVE) {
         uint32_t i;
         for (i = 0; i < NPAGES; i++)
-            if (PAGES[i].graph == GR_USER) break;
-        ui.page = (uint8_t)i;                         /* SAVE enters the sound save screen directly */
+            if (PAGES[i].graph == GR_SLOTS) break;
+        ui.page = (uint8_t)i;                         /* SAVE enters PROJECT directly (M-Vave-OP1; Felucca: USER) */
     } else {
         uint32_t i = ui.fam_last[fam];
         ui.page = (uint8_t)(i && i < NPAGES && PAGES[i].fam == fam && page_visible(i) ? i : page_first(fam));
@@ -1686,7 +1689,7 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     if (pg->graph == GR_SLICES)
         return slice_page_ok() ? 12u : 0u;       /* SPLIT JOIN (a SLICE track only) */
     if (pg->graph == GR_SLOTS)
-        m = 2u;                                  /* M-Vave-OP1: KNOB 2 NEW (project.c project_new) */
+        return 0;                                /* M-Vave-OP1: the keys and OCT+ / OCT- (ui_input.c slots_keys) */
     if (pg->scope == SC_GLOBAL)
         for (c = 0; c < 4u; c++)
             if (go_id(pg->id[c]))

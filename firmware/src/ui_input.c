@@ -376,6 +376,42 @@ static void key_knob(uint32_t slot, int32_t steps)
 /* .. GLO > KEY's keys (song.grid 4: silent; key.c), each a root by its name: stopped, the cursor bar's (the cursor on,
  * round at LEN); running, the tracks move at once (key_live); with REC, into the run too: the bar playing, or the next
  * in its last quarter, the cursor there and KEY ON */
+/* M-Vave-OP1, SAVE > PROJECT: a white key F3 G3 A3 B3 picks project A..D, F#5 asks for a NEW one (stopped) */
+static void slots_keys(uint32_t notes)
+{
+    static const uint8_t WK[4] = {0, 2, 4, 6};
+    uint32_t k;
+    for (k = 0; k < 4u; k++)
+        if ((notes >> WK[k]) & 1u) {
+            song.g[G_SLOT] = (int16_t)(k + 1u);
+            ui.force = 1;
+        }
+    if ((notes >> SLOT_KEY_NEW) & 1u) {
+        if (transport_busy())
+            ui_message("STOP FIRST");
+        else
+            confirm_open(CF_NEW_PROJ, 0);
+    }
+}
+/* .. OCT+ saves into the picked project (the NAME screen; a used one: OVERWRITE? first), OCT- loads it (LOAD? first) */
+static void slots_oct(uint32_t oct)
+{
+    uint32_t k = ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
+    ui.act = 0;
+    if (oct & 2u) {
+        if (transport_busy())
+            ui_message("STOP TO SAVE");
+        else if (project_used(k))
+            confirm_open(CF_OVR_PROJ, k);
+        else
+            name_open(NK_PROJ_SAVE, k);
+    } else if (!project_used(k)) {
+        ui_message("EMPTY SLOT");
+    } else {
+        confirm_open(CF_LOAD_PROJ, k);
+    }
+}
+
 static void key_keys(uint32_t notes)
 {
     uint32_t k, pc, len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u;
@@ -428,6 +464,8 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
     if (!ui.layer && !ui.menu && !name_on() && slice_page_on())
         c |= slice_leds();                              /* SLICES: and the keys of the selected slice */
 #endif
+    if (slots_keys_on())                                /* M-Vave-OP1, PROJECT: the projects' keys and NEW */
+        c = 1u << 0 | 1u << 2 | 1u << 4 | 1u << 6 | 1u << SLOT_KEY_NEW;
     return c;
 }
 
@@ -1271,6 +1309,8 @@ static void edit_param(uint32_t slot, int32_t steps)
         return;
     }
 #endif
+    if (pg->graph == GR_SLOTS && slot)                    /* M-Vave-OP1, PROJECT: KNOB 1 the project, the rest say */
+        return;                                           /* where NEW, LOAD, SAVE are (F#5, OCT-, OCT+) */
     if ((act_cols() >> slot) & 1u) {                      /* an action's knob picks it (right) or drops it (left); */
         if (pg->graph != GR_PATS)                         /* OCT+ does it (act_do) */
             ui.act = steps > 0 ? (uint8_t)(slot + 1u) : ui.act == slot + 1u ? 0u : ui.act;
@@ -1737,7 +1777,8 @@ static void ui_input(void)
     if (((pressed >> panel.btn[B_REC]) & 1u) && ui.ly == LAYER_REC)
         ui.rec_t0 |= 2u;                                /* (REC is its layer's button now: its tap is layer_tap's) */
     layer_oct_open(pressed);                            /* (OCT± with a SET layer's button down: it opens now) */
-    oct = oct_taps(pressed, ui.menu || ui.confirm || act_cols() || name_on() || layer_set_open() || ui.ml.on);
+    oct = oct_taps(pressed, ui.menu || ui.confirm || act_cols() || slots_keys_on() || name_on() || layer_set_open() ||
+                            ui.ml.on);
     oct = layer_oct(pressed, oct);                      /* (a SET layer's OCT-: put back) */
     layer_masks();                                      /* seq.c: keys pressed with a layer's button are its own */
     lay = layer_held();
@@ -1850,6 +1891,8 @@ static void ui_input(void)
             if (kind == CF_NEW_PROJ) {                  /* M-Vave-OP1: everything as at power-on */
                 project_new();
                 ui.act = 0;
+            } else if (kind == CF_LOAD_PROJ) {          /* .. PROJECT's OCT- */
+                project_load(ui.confirm_trk & 3u);
             } else if (kind == CF_OVR_PROJ) {           /* overwrite: the NAME screen writes it */
                 name_open(NK_PROJ_SAVE, ui.confirm_trk & 3u);
             } else if (kind == CF_OVR_USER) {
@@ -1958,7 +2001,9 @@ static void ui_input(void)
     for (id = 0; b; id++, b >>= 1)
         if (b & 1u)
             page_tap(panel_btn_of(id));
-    if (act_cols() && (oct & 2u)) {                     /* action pages: OCT+ does the picked action, */
+    if (slots_keys_on() && (oct & 3u)) {               /* M-Vave-OP1, PROJECT: OCT+ saves, OCT- loads the picked one */
+        slots_oct(oct);
+    } else if (act_cols() && (oct & 2u)) {              /* action pages: OCT+ does the picked action, */
         act_do();
     } else if (act_cols() && (oct & 1u)) {              /* OCT- drops it, or (none picked) goes HOME */
         if (cur_page()->graph != GR_PATS && ui.act)
@@ -1974,7 +2019,9 @@ static void ui_input(void)
         slice_keys_pick(notes);
 #endif
     lock_keys();                                        /* (a grid key on a hit let go: the hit goes) */
-    if (song.grid == 4u) {
+    if (song.grid == 5u) {
+        slots_keys(notes);                              /* (M-Vave-OP1: SAVE > PROJECT) */
+    } else if (song.grid == 4u) {
         key_keys(notes);                                /* (M-Vave-OP1: GLO > KEY, key.c) */
     } else if (song.grid == 3u) {
         song_keys(notes);

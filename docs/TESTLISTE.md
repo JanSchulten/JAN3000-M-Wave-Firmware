@@ -87,10 +87,11 @@ kann nur das echte Gerät zeigen.
 
 ## J. Speichern (sehr wichtig)
 
-- [ ] SAVE: Projekt speichern. Ausschalten, einschalten, Projekt laden: Alles ist wieder da (Noten, Sounds, FX
+- [ ] SAVE (PROJECT, Taste wählen, OCT+): Projekt speichern. Ausschalten, einschalten, OCT− lädt es: Alles ist wieder da (Noten, Sounds, FX
       TRACKS, Szenen, CHORUS-Typ, KEY).
 - [ ] Ohne SAVE etwas ändern, ein paar Sekunden warten, aus- und einschalten: RESTORE LAST bringt den Stand zurück.
-- [ ] SAVE > PROJECT, KNOB 2 auf NEW, OCT+ und nochmal OCT+: ein neues, leeres Projekt (vorher gestoppt).
+- [ ] SAVE öffnet PROJECT: F3 G3 A3 B3 wählen Projekt A–D (leuchten, kein Ton). OCT+ speichert (Name eingeben),
+      OCT− lädt (mit Rückfrage). F#5 (höchste schwarze Taste) = NEW, dann OCT+: ein neues, leeres Projekt.
 - [ ] Während des Speicherns kurzes Stocken im Ton ist normal (~40 ms). Mehr nicht.
 
 ## K. Last-Test (sehr wichtig)

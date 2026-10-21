@@ -291,8 +291,9 @@ static uint32_t press_last, press_ms;         /* the label tapped last (+ 1) and
 static int press_is_next(uint32_t label)      /* double tap that locks a layer, as it is */
 {
     uint32_t f;
-    if (press_last == label + 1u && fm1_ms - press_ms < 300u)
-        return 0;
+    if (press_last == label + 1u && fm1_ms - press_ms < 300u &&
+        (label == B_FX || label == B_GLO || label == B_SCL || label == B_EDIT || label == B_SEQ))
+        return 0;                                 /* (a layer's button) */
     if (press_raw || ui.home || ui.menu || ui.confirm || ui.layer || name_on() || label == B_HOME)
         return 0;
     for (f = FAM_HOME + 1u; f < FAM_COUNT; f++)
@@ -915,12 +916,15 @@ static int test_midi(void)
 
 static int test_save(void)
 {
-    int bad = 0;
+    int bad = 0, ok;
     uint32_t i;
     ui_power_on();
     trk[0].p[P_E0] = 5;
     press(B_SAVE);
-    bad += check("SAVE opens USER with SAVE selected, without writing a slot",
+    bad += check("M-Vave-OP1: SAVE opens PROJECT (the keys pick, OCT+ saves, OCT- loads)",
+                 !ui.home && cur_page()->graph == GR_SLOTS && !project_used(0));
+    press(B_SAVE);                                /* (SELECT: the next page) */
+    bad += check("SAVE, SELECT: USER with SAVE selected, without writing a slot",
                  !ui.home && cur_page()->graph == GR_USER && ui.act == 4u && !up_used(0));
     press(B_OCTUP);
     bad += check("SAVE then OCT+ opens NAME (the automatic name), writes nothing yet",
@@ -938,11 +942,13 @@ static int test_save(void)
     press(B_SAVE);
     bad += check("1.2: SAVE again: PHRASES (the patterns, after the sounds)", cur_page()->graph == GR_PATS);
     press(B_SAVE);
-    bad += check("SAVE again still cycles to PROJECT", cur_page()->graph == GR_SLOTS);
+    bad += check("SAVE again (SELECT) still cycles to TOOLS, then PROJECT", cur_page()->graph == GR_TOOLS &&
+                 (press(B_SAVE), cur_page()->graph == GR_SLOTS));
     go_home();
     press(B_SAVE);
-    bad += check("SAVE from HOME returns directly to USER, even after visiting PROJECT",
-                 cur_page()->graph == GR_USER && ui.act == 4u);
+    ok = cur_page()->graph == GR_SLOTS;
+    press(B_SAVE);
+    bad += check("SAVE from HOME returns directly to PROJECT, the next USER", ok && cur_page()->graph == GR_USER && ui.act == 4u);
     press(B_OCTUP);
     bad += check("direct SAVE still asks before overwriting an occupied slot",
                  ui.confirm == CF_OVR_USER && up_value(up_rec(0), P_E0) == 5);
@@ -970,7 +976,7 @@ static int test_save(void)
     page_entered();
     ui.msg_t = 0;
     turn(EN_K4, 1);                               /* SAVE picked */
-    bad += check("PROJECT KNOB 4 picks SAVE, saves nothing", ui.act == 4u && !project_used(0) && !ui.msg_t);
+    bad += check("M-Vave-OP1: PROJECT KNOB 4 saves nothing (OCT+ saves)", ui.act == 0u && !project_used(0) && !ui.msg_t);
     press(B_OCTUP);
     bad += check("OCT+ while playing: STOP TO SAVE, no NAME", msg_is("STOP TO SAVE") && !project_used(0) &&
                  song.g[G_SAVE] == 0 && !name_on());
@@ -995,10 +1001,11 @@ static int test_save(void)
     press(B_OCTUP);
     bad += check("OCT+ overwrites it", ui.confirm == CF_NONE && !name_on() && stored_param(0, 0, P_E0) == 5);
     trk[0].p[P_LEVEL] = 11;
-    turn(EN_K3, 1);
+    press(B_OCTDN);
+    ok = ui.confirm == CF_LOAD_PROJ && ui.confirm_trk == 0u && trk[0].p[P_LEVEL] == 11;
     press(B_OCTUP);
-    bad += check("KNOB 3 LOAD, OCT+: the project back; LOAD stays picked", trk[0].p[P_LEVEL] != 11 &&
-                 trk[0].p[P_LEVEL] == stored_param(0, 0, P_LEVEL) && msg_is("LOADED") && ui.act == 3u);
+    bad += check("M-Vave-OP1: OCT- LOAD PROJECT A?, OCT+: the project back", ok && trk[0].p[P_LEVEL] != 11 &&
+                 trk[0].p[P_LEVEL] == stored_param(0, 0, P_LEVEL) && msg_is("LOADED"));
     /* user presets */
     for (i = 0; i < NPAGES; i++)
         if (PAGES[i].graph == GR_USER)
@@ -2718,7 +2725,8 @@ static int steps_but(const track_t *t, const step_t *ref, uint32_t at, const ste
 static uint32_t auto_cur(void) { uint16_t rw[EV_ROWS]; return ev_cur(rw, 0); }
 static int test_page_cycles(void)
 {
-    static const char *const SAVE_CYC[6] = {"USER", "PRESETS", "PHRASES", "PROJECT", "TOOLS", "USER"};   /* (1.5, #173) */
+    static const char *const SAVE_CYC[6] = {"PROJECT", "USER", "PRESETS", "PHRASES", "TOOLS", "PROJECT"};   /* (1.5, #173;
+                                                                                * M-Vave-OP1: PROJECT first) */
     int bad = 0, ok = 1;
     uint32_t i, n0;
     step_t ref[NSTEP], want;
@@ -2730,7 +2738,7 @@ static int test_page_cycles(void)
         press(B_SAVE); frames(320);
         ok &= !ui.home && cur_page()->fam == FAM_SAVE && str_eq(cur_page()->title, SAVE_CYC[i]);
     }
-    bad += check("1.5 (#173): SAVE cycles USER > PRESETS > PHRASES > PROJECT > TOOLS > USER", ok);
+    bad += check("1.5 (#173): SAVE, then SELECT: PROJECT > USER > PRESETS > PHRASES > TOOLS > PROJECT", ok);
     ok = 1;
     for (i = 0; i < NPAGES; i++) {                       /* every page in a family its button reaches, and its LED */
         uint32_t f = PAGES[i].fam;
@@ -2775,7 +2783,7 @@ static int test_page_cycles(void)
     fam_next(FAM_GLO); ok = str_eq(cur_page()->title, "KEY");   /* (M-Vave-OP1: GLO's first is KEY) */
     fam_next(FAM_SEQ); ok &= cur_page()->graph == GR_ROLL;
     fam_next(FAM_ENV); ok &= str_eq(cur_page()->title, "ENV");
-    fam_next(FAM_SAVE); ok &= str_eq(cur_page()->title, "USER");
+    fam_next(FAM_SAVE); ok &= str_eq(cur_page()->title, "PROJECT");
     fam_next(FAM_GLO); fam_next(FAM_GLO);          /* KEY remembered, then the next: SONG */
     ok &= str_eq(cur_page()->title, "SONG");
     go_home(); fam_next(FAM_GLO); ok &= str_eq(cur_page()->title, "SONG");
@@ -9232,11 +9240,11 @@ static int test_help(void)
     ui_power_on();
     menu_put(MI_HELP, 1);
     press(B_ENV);
-    ok = ui.help_t > 0u && str_eq(help_page(), "[K1-4]A D S R[ENV]ENV DEST");
+    ok = ui.help_t > 0u && str_eq(help_page(), "[K1-4]A D S R[SELECT]ENV DEST");
     frames(2200);
     ok &= ui.help_t == 0u;
     press(B_SAVE);
-    ok &= ui.help_t > 0u && cur_page()->graph == GR_USER && str_eq(help_page(), "[K1]SLOT[OCT+]SAVE[SAVE]PRESETS");
+    ok &= ui.help_t > 0u && cur_page()->graph == GR_SLOTS && str_eq(help_page(), "[KEYS]PROJECT[OCT+]SAVE[OCT-]LOAD");
     press(B_HOME);
     ok &= ui.home && ui.help_t > 0u && str_eq(help_page(), H_HOME);
     menu_put(MI_HOME, HVM_LEVELS);

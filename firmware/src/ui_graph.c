@@ -2098,18 +2098,22 @@ static void graph_events(void)
     }
 }
 /* project slots: the name (none: USED) / EMPTY, the selected one filled */
-static void graph_slots(void)
+static void graph_slots(void)                       /* M-Vave-OP1: each row's key (F3 .. B3) on its right, F#5 NEW */
 {
+    static const char *const KEY[4] = {"F3", "G3", "A3", "B3"};
     uint32_t i;
     for (i = 0; i < 4u; i++) {
-        int32_t y = 12 + (int32_t)i * 26;
+        int32_t y = 4 + (int32_t)i * 21;
         char b[4];
         int sel = (int32_t)i + 1 == song.g[G_SLOT], used = graph_project_used(i);
         const char *n = graph_project_name(i);
         b[0] = (char)('A' + i);
         b[1] = 0;
-        list_row(y, sel, b, T_MID, !used ? "--" : n[0] ? n : "USED", used ? T_TEXT : T_DIM, 232);
+        list_row(y, sel, b, T_MID, !used ? "--" : n[0] ? n : "USED", used ? T_TEXT : T_DIM, 196);
+        cv_text_on(204, y + LIST_TY, &AF_S, KEY[i], sel ? T_INK : T_DIM, sel ? T_THEME : T_SURF);
     }
+    list_row(4 + 4 * 21, 0, "+", T_MID, "NEW PROJECT", T_TEXT, 196);
+    cv_text_on(204, 4 + 4 * 21 + LIST_TY, &AF_S, "F#5", T_DIM, T_SURF);
 }
 /* MIXER page: four SURF columns, one under each card: the track number on its cushion (in the accent:
  * the selected track) with a REC / ARM / MUTE badge (P_MUTE, KNOB 1), the sound's short name (a MUTE badge
