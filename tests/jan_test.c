@@ -188,11 +188,12 @@ static void test_analog2(void)
     track_t *t = &trk[0];
     ui_power_on();
     frames(320);
-    ok = ENGINES[14] == &ENG_ANALOG2 && eng_step(0, 1) == 14u && eng_step(14, 1) == ENGI_FM6 && eng_ok(14);
+    ok = ENGINES[14] == &ENG_ANALOG2 && eng_step(0, 1) == 14u && eng_step(14, 1) == ENGI_FM6 && eng_ok(14) &&
+         a2_hz(pitch_inc(69 * 16), 10) - pitch_inc(69 * 16) == 973920u && a2_hz(1000u, -50) == 0u;   /* (TUNE: Hz) */
     set_engine_of(t, 14);
     frame();
     ok &= t->eng_req == 14u && t->p[P_A2_CUT2] == A2_OSC2_PRESET[0][0] && t->p[P_A2_RATE2] == A2_OSC2_PRESET[0][3];
-    ck("ANALOG2: engine 14, after ANALOG in the list; its first preset sets WAVE 2's values too", ok);
+    ck("ANALOG2: engine 14 (ANLG2), after ANALOG in the list, TUNE in Hz; its first preset sets WAVE 2's values too", ok);
     go_title("EDIT 1");
     frame();
     n = edit_rows(ui.page, rr);
@@ -203,7 +204,7 @@ static void test_analog2(void)
             const param_desc_t *d = page_desc(&PAGES[rr[j]], c, &vp);
             ok &= d && vp && str_eq(d->label, L[j][c]);
         }
-    ok &= ok && str_eq(PAGES[rr[2]].title, "WAVE 2") && str_eq(param_desc_of(14, P_A2_RATE2)->label, "RATE2") &&
+    ok &= ok && str_eq(PAGES[rr[2]].title, "WAVE 2") && str_eq(param_desc_of(14, P_A2_RATE2)->label, "RATE2") && str_eq(ENGINES[14]->name, "ANLG2") && str_eq(ENGINES[14]->edit[1].unit, "Hz") &&
           str_eq(track_desc(t, P_A2_CUT2)->label, "CUT2") && track_desc(t, P_A2_CUT2)->fmt == F_CUTOFF;
     ck("  EDIT: one screen of four rows, WAVE TUNE WAVE2 TUNE2 / CUT RES LFO RATE / CUT2 RES2 LFO2 RATE2 / VCE GLD GLMOD "
        "PRIO", ok);

@@ -162,7 +162,7 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
 
 ## ANALOG2: two oscillators, a filter and an LFO each
 
-A synth engine of its own (engine 14, after ANALOG in PRESETS): two oscillators, each through its own low-pass with
+A synth engine of its own (engine 14, shown **ANLG2**, after ANALOG in PRESETS): two oscillators, each through its own low-pass with
 its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows:
 
 | Row | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
@@ -173,12 +173,13 @@ its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows
 | VOICE | VCE | GLD | GLMOD | PRIO |
 
 - **WAVE / WAVE2:** SAW SQR TRI SIN PWM NOISE (band-limited as ANALOG's; PWM's width from the SHP routings).
-- **TUNE / TUNE2:** -24 .. +24 semitones (OSC 2 is 6 cents sharp on top, so two equal oscillators do not merge into one).
+- **TUNE / TUNE2:** the oscillator's detune in Hz, -50 .. +50: two oscillators a few Hz apart beat at that rate on
+  every note.
 - **CUT RES:** each oscillator's own filter (ANALOG's state-variable low-pass). ENV, LFO and the matrix to FLT move
   both, and both follow the keyboard a little (ANALOG's KTR 64).
 - **LFO / RATE:** the depth (up to half of CUT's range either way) and speed (0.05 .. 30 Hz, shown in Hz) of the
   oscillator's own sine LFO on its CUT; it starts with each note.
-- Eight presets: DUAL SAW, WOBBLE, SWEEP PAD, OCT BASS, BELL SIN, NOISE HAT, STEREO LD, WIND. HOME's knobs: CUT, CUT2,
+- Eight presets: DUAL SAW, WOBBLE, SWEEP PAD, DUO BASS, BELL SIN, NOISE HAT, STEREO LD, WIND. HOME's knobs: CUT, CUT2,
   ATK, REL.
 - WAVE 2's four values sit in track parameters the retired DIGITAL engine left free, so projects, user presets,
   automation and the editor keep them without a new format.

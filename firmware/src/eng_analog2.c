@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
-/* ANALOG2 (M-Vave-OP1, engine 14): two oscillators, each with a filter and an LFO of its own, summed. EDIT as four
+/* ANALOG2 (M-Vave-OP1, engine 14, shown ANLG2): two oscillators, each with a filter and an LFO of its own, summed. EDIT as four
  * rows: WAVE TUNE WAVE2 TUNE2, then WAVE 1's CUT RES LFO RATE, WAVE 2's CUT2 RES2 LFO2 RATE2, then VOICE (VCE GLD
  * GLDMOD PRIO, the track's).
  *   WAVE     SAW SQR TRI SIN PWM NOISE (band-limited as ANALOG's; PWM's width from the SHP routings, as ANALOG's)
- *   TUNE     the oscillator above or below the note, in semitones (OSC 2 also 6 cents sharp: two oscillators that
- *            agree exactly sound as one, and two different filters on one phase cancel in places)
+ *   TUNE     the oscillator's detune in Hz, -50 .. +50 (a shift of its frequency, not a ratio: two oscillators a few Hz
+ *            apart beat at that rate on every note, as two analog oscillators drifting); 0 on both: one pitch
  *   CUT RES  the oscillator's own low-pass (dsp.c's trapezoidal SVF, as ANALOG's); ENV / LFO / matrix -> FLT move
  *            both, and both follow the note as ANALOG at KTR 64
  *   LFO      the depth of the oscillator's own sine LFO on its CUT: up to +-64 of CUT's 127 steps
@@ -89,6 +89,13 @@ static int32_t a2_cut(const int16_t *p, voice_t *v, const vmod_t *m, uint32_t k)
     return cut;
 }
 
+/* the phase increment of TUNE's hz Hz on top of inc (2^32 / 44100 a Hz), at least 0, at most half the sample rate */
+static uint32_t a2_hz(uint32_t inc, int32_t hz)
+{
+    int64_t x = (int64_t)inc + (int64_t)hz * 97392;
+    return x < 0 ? 0u : x > 0x7FFFFFFF ? 0x7FFFFFFFu : (uint32_t)x;
+}
+
 static void analog2_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
 {
     const int16_t *p = t->p;
@@ -97,8 +104,7 @@ static void analog2_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, con
     uint32_t ph0 = v->ph[0], ph1 = v->ph[1], i;       /* state in locals: out[] may alias v->s[] */
     int32_t a1 = v->s[0], a2 = v->s[1], b1 = v->s[4], b2 = v->s[5], nst = v->s[6];
     uint32_t pw = 0x80000000u + (uint32_t)((m->shape - (64 << 8)) << 15);
-    uint32_t inc1 = p[P_E1] ? cents_inc(m->pitch16 + p[P_E1] * 16, 0, m->fine) : m->inc;
-    uint32_t inc2 = cents_inc(m->pitch16 + p[P_E3] * 16, 6, m->fine);
+    uint32_t inc1 = a2_hz(m->inc, p[P_E1]), inc2 = a2_hz(m->inc, p[P_E3]);
     n = n < CTL ? n : CTL;
     tsvf_coef(&f1, a2_cut(p, v, m, 0), p[P_E5]);
     tsvf_coef(&f2, a2_cut(p, v, m, 1), p[P_A2_RES2]);
@@ -118,14 +124,14 @@ static void analog2_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, con
 /* the presets: {WAVE TUNE WAVE2 TUNE2, CUT RES LFO RATE}, and WAVE 2's {CUT2 RES2 LFO2 RATE2} (A2_OSC2_PRESET, the
  * same order) */
 static const preset_t ANALOG2_PRESETS[] = {
-    {"DUAL SAW", {0, 0, 0, 0, 85, 25, 0, 60}, {2, 70, 100, 50}, 15, 0, FX(0, 30, 30, 35), PAT(4)},
-    {"WOBBLE", {0, -12, 1, -12, 55, 70, 70, 48}, {0, 60, 100, 30}, 0, 1, FX(10, 0, 20, 15), PAT(2)},
-    {"SWEEP PAD", {4, 0, 0, 7, 60, 30, 50, 20}, {80, 90, 110, 95}, 0, 0, FX(0, 60, 25, 70), PAT(5)},
-    {"OCT BASS", {1, -12, 0, 0, 45, 60, 0, 60}, {0, 55, 40, 25}, 35, 1, FX(10, 0, 10, 10), PAT(2)},
-    {"BELL SIN", {3, 0, 2, 19, 127, 0, 0, 60}, {0, 85, 20, 70}, 0, 0, FX(0, 25, 35, 45), PAT(7)},
+    {"DUAL SAW", {0, 0, 0, 2, 85, 25, 0, 60}, {2, 70, 100, 50}, 15, 0, FX(0, 30, 30, 35), PAT(4)},
+    {"WOBBLE", {0, 0, 1, -1, 55, 70, 70, 48}, {0, 60, 100, 30}, 0, 1, FX(10, 0, 20, 15), PAT(2)},
+    {"SWEEP PAD", {4, 0, 0, 3, 60, 30, 50, 20}, {80, 90, 110, 95}, 0, 0, FX(0, 60, 25, 70), PAT(5)},
+    {"DUO BASS", {1, 0, 0, 1, 45, 60, 0, 60}, {0, 55, 40, 25}, 35, 1, FX(10, 0, 10, 10), PAT(2)},
+    {"BELL SIN", {3, 0, 2, 7, 127, 0, 0, 60}, {0, 85, 20, 70}, 0, 0, FX(0, 25, 35, 45), PAT(7)},
     {"NOISE HAT", {5, 0, 5, 0, 120, 60, 0, 60}, {0, 30, 0, 25}, 0, 0, FX(0, 0, 10, 15), PAT(0)},
-    {"STEREO LD", {0, 0, 4, 12, 90, 40, 25, 70}, {4, 70, 100, 50}, 20, 1, FX(0, 20, 40, 30), PAT(4)},
-    {"WIND", {5, 0, 3, 12, 50, 100, 60, 25}, {60, 90, 70, 80}, 0, 0, FX(0, 30, 30, 70), PAT(5)},
+    {"STEREO LD", {0, -2, 4, 2, 90, 40, 25, 70}, {4, 70, 100, 50}, 20, 1, FX(0, 20, 40, 30), PAT(4)},
+    {"WIND", {5, 0, 3, 0, 50, 100, 60, 25}, {60, 90, 70, 80}, 0, 0, FX(0, 30, 30, 70), PAT(5)},
 };
 static const uint8_t A2_OSC2_PRESET[NELEM(ANALOG2_PRESETS)][4] = {
     {70, 25, 20, 30}, {55, 70, 70, 52}, {75, 20, 40, 30}, {80, 30, 0, 60},
@@ -141,13 +147,13 @@ static void a2_preset(track_t *t, uint32_t pi)
 }
 
 static const engine_t ENG_ANALOG2 = {
-    .name = "ANALOG2",
+    .name = "ANLG2",
     .page_title = {"OSC", "WAVE 1"},
     .edit = {
         {"WAVE", F_ENUM, 0, 5, 0, N_A2_WAVE, 0},
-        {"TUNE", F_SEMI, -24, 24, 0, 0, 0},
+        {"TUNE", F_INT, -50, 50, 0, 0, "Hz"},
         {"WAVE2", F_ENUM, 0, 5, 0, N_A2_WAVE, 0},
-        {"TUNE2", F_SEMI, -24, 24, 0, 0, 0},
+        {"TUNE2", F_INT, -50, 50, 0, 0, "Hz"},
         {"CUT", F_CUTOFF, 0, 127, 85, 0, 0},
         {"RES", F_PCT, 0, 127, 25, 0, 0},
         {"LFO", F_PCT, 0, 127, 0, 0, 0},
