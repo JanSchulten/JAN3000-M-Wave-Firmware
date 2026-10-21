@@ -122,12 +122,13 @@ check("FX held: its button and the effects' keys breathe, none lit; let go: noth
 
 // ---- a user preset saved from the panel, kept across a fresh instance
 const w0 = a.ex.web_flash_writes_count();
-a.tap(B.SAVE);
+a.tap(B.SAVE);                                                 // (M-Vave-OP1: SAVE opens PROJECT, SELECT goes on to USER)
+a.turn(EN.SELECT, 1);
 a.tap(B.OCTUP);
 a.tap(B.OCTUP);
 a.render(200);
 const saved = storeSectors(new Uint8Array(a.mem.buffer, a.ex.web_nor(), a.ex.web_nor_size()));
-check(`SAVE, OCT+, OCT+: user preset 1 written (${Object.keys(saved).length} sectors kept)`,
+check(`SAVE, SELECT, OCT+, OCT+: user preset 1 written (${Object.keys(saved).length} sectors kept)`,
       a.ex.web_test_user_preset(0) === 1 && a.ex.web_flash_writes_count() > w0 && Object.keys(saved).length > 0);
 const kept = JSON.parse(JSON.stringify(Object.fromEntries(     // as the page keeps them (base64 in localStorage)
   Object.entries(saved).map(([k, v]) => [k, Buffer.from(v).toString("base64")]))));
