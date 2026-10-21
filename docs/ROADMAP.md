@@ -24,7 +24,7 @@ into a sampler, album mode) do not.
 
 | OP-1 | M-Vave-OP1 | Status |
 | --- | --- | --- |
-| Synth engines | Felucca's engines: FM6 (DX7-style), ANALOG, PHASE, LOFI, FORMANT, TRIO, WHEEL, GRAIN, PHYS, NOISE, SAMPLE, SLICE | from Felucca |
+| Synth engines | Felucca's engines: FM6 (DX7-style), ANALOG, ANALOG2 (M-Vave-OP1: two oscillators, a filter and an LFO each), PHASE, LOFI, FORMANT, TRIO, WHEEL, GRAIN, PHYS, NOISE, SAMPLE, SLICE | from Felucca |
 | Drum sampler | DRUM engine, SLICE, SAMPLE with user slots | from Felucca |
 | Tape: 4 tracks | the note TAPE of M1/M2 (loop, varispeed, reverse, kept in flash) | **dropped (M6)**: it did not play well; GLO > KEY took its place |
 | (OP-Z) key track | **KEY**: 1..16 bars of roots, the melodic tracks moved inside their scales | **done (M6)** |

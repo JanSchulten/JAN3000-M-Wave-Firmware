@@ -9,7 +9,7 @@ through a chord progression, and from the OP-Z two FX tracks with recordable pun
 switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and, after ChoralRoot FM-1, the
 Orchid's chord keyboard as SCL > ORCHID. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
-> **Status:** early development. Nothing here has been flashed to hardware yet.
+> **Status:** early development, running on a real FM-1 since the first flash (JAN3000 v0.8: the name on its splash).
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
 > recovery button; if an install fails and the unit will not start, recovery needs extra
 > hardware (FM-1 Transporter with an RP2040). Develop and try changes in the host tests and the
@@ -160,7 +160,40 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
 - STEP entry writes the chord (up to four notes a step, as the keys' chords); live recording takes the
   notes as played. ON and VOICE are kept with the project; LOCK and the latch start off after a load.
 
+## ANALOG2: two oscillators, a filter and an LFO each
+
+A synth engine of its own (engine 14, after ANALOG in PRESETS): two oscillators, each through its own low-pass with
+its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows:
+
+| Row | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| OSC | WAVE | TUNE | WAVE2 | TUNE2 |
+| WAVE 1 | CUT | RES | LFO | RATE |
+| WAVE 2 | CUT2 | RES2 | LFO2 | RATE2 |
+| VOICE | VCE | GLD | GLMOD | PRIO |
+
+- **WAVE / WAVE2:** SAW SQR TRI SIN PWM NOISE (band-limited as ANALOG's; PWM's width from the SHP routings).
+- **TUNE / TUNE2:** -24 .. +24 semitones (OSC 2 is 6 cents sharp on top, so two equal oscillators do not merge into one).
+- **CUT RES:** each oscillator's own filter (ANALOG's state-variable low-pass). ENV, LFO and the matrix to FLT move
+  both, and both follow the keyboard a little (ANALOG's KTR 64).
+- **LFO / RATE:** the depth (up to half of CUT's range either way) and speed (0.05 .. 30 Hz, shown in Hz) of the
+  oscillator's own sine LFO on its CUT; it starts with each note.
+- Eight presets: DUAL SAW, WOBBLE, SWEEP PAD, OCT BASS, BELL SIN, NOISE HAT, STEREO LD, WIND. HOME's knobs: CUT, CUT2,
+  ATK, REL.
+- WAVE 2's four values sit in track parameters the retired DIGITAL engine left free, so projects, user presets,
+  automation and the editor keep them without a new format.
+
 ## Other changes to Felucca's workflow
+
+- **JAN3000 v0.8 splash:** the name wipes in, a sine runs under it, "based on Felucca" below.
+- **SAVE > PROJECT > NEW (KNOB 2):** OCT+ asks, OCT+ again starts a new project: the power-on sounds with empty
+  steps, the default tempo, no song, FX TRACKS, KEY or scenes, no slot. Stopped only (STOP FIRST).
+- **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
+  change in the same hold is put back by OCT- as before.
+- **Another track opens each family at its first page:** turn ALGORITHM, then FX (SCL, ENV ..) starts at its first
+  card again; the page shown when the track changes stays.
+- **DRUM, SEQ grid:** a lane's black key lights for a moment whenever that lane plays (a hi-hat's key flashes with
+  each hit).
 
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
   the cards in place of the scope: every page's values, the row the knobs edit raised. A tap of EDIT goes to the next

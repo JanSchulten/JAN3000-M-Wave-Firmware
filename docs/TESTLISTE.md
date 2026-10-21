@@ -9,7 +9,7 @@ kann nur das echte Gerät zeigen.
 
 ## A. Start und Grundlagen
 
-- [ ] Startet nach dem Flash von selbst. Die Splash-Anzeige zeigt die Version.
+- [ ] Startet nach dem Flash von selbst. Die Splash-Animation zeigt **JAN3000 v0.8** und darunter „based on Felucca“.
 - [ ] HOME zeigt die vier Spuren.
 - [ ] Ton aus Lautsprecher und Kopfhörer. MASTER regelt die Lautstärke.
 - [ ] Akku-Anzeige oben rechts plausibel.
@@ -30,12 +30,18 @@ kann nur das echte Gerät zeigen.
 - [ ] DRUM startet mit dem **808-Kit**.
 - [ ] PRESETS durchblättern: verschiedene Engines (FM6, ANALOG, SAMPLE …) klingen sauber.
 - [ ] EDIT: die Reihen-Ansicht. Ein EDIT-Tipp wechselt die Reihe, die Werte ändern den Klang.
+- [ ] **ANALOG2** (in PRESETS direkt nach ANALOG): EDIT zeigt vier Reihen (WAVE TUNE WAVE2 TUNE2 / CUT RES LFO RATE /
+      CUT2 RES2 LFO2 RATE2 / VCE GLD GLMOD PRIO). LFO hoch und RATE ändern: Der Filter des Oszillators wabert hörbar.
+      Alle acht Presets durchhören, auch mit vollen Akkorden. Kein Knacken.
 
 ## D. Sequencer
 
 - [ ] STEP: Noten eingeben. Gestoppt fügt OCT+ eine Note hinzu, OCT− entfernt eine.
 - [ ] PLAY und STOP. Tempo im CLOCK-Bereich ändern.
 - [ ] REC und live einspielen: Die Noten landen im Pattern.
+- [ ] REC halten + OCT−: Die Aufnahme wird rückgängig gemacht. REC halten + OCT+: Sie ist wieder da.
+- [ ] DRUM, SEQ: Bei jedem Hi-Hat-Schlag (und jeder anderen Spur) blinkt die schwarze Taste der Spur kurz auf.
+- [ ] Spur mit ALGORITHM wechseln, dann FX: FX beginnt wieder auf der ersten Karte (SEND).
 - [ ] DETAIL und AUTOMATION (Knopfbewegungen aufnehmen) funktionieren.
 - [ ] Ratchets und Chance hörbar.
 
@@ -81,6 +87,7 @@ kann nur das echte Gerät zeigen.
 - [ ] SAVE: Projekt speichern. Ausschalten, einschalten, Projekt laden: Alles ist wieder da (Noten, Sounds, FX
       TRACKS, Szenen, CHORUS-Typ, KEY).
 - [ ] Ohne SAVE etwas ändern, ein paar Sekunden warten, aus- und einschalten: RESTORE LAST bringt den Stand zurück.
+- [ ] SAVE > PROJECT, KNOB 2 auf NEW, OCT+ und nochmal OCT+: ein neues, leeres Projekt (vorher gestoppt).
 - [ ] Während des Speicherns kurzes Stocken im Ton ist normal (~40 ms). Mehr nicht.
 
 ## K. Last-Test (sehr wichtig)

@@ -221,7 +221,9 @@ with a subsystem prefix (`seq_`, `ui_`, `cv_`, `fx_`).
   - **Stored formats are append-only.**
 - Engines (`engine_t`, core.h): `note_on`, `render`, optional `amp`, `desc`, `block`, `keys`, `done`; eight edit
   parameters `P_E0..P_E7`; presets; a share of per-part memory. `ENGINES[]` is append-only, and display order
-  lives in `ENGINE_ORDER`.
+  lives in `ENGINE_ORDER`. An engine that needs more than eight values can borrow track parameters no engine of
+  its build reads (ANALOG2 takes four of retired DIGITAL's `P_FM1_*`, `eng_analog2.c`): `track_desc` and
+  `param_desc_of` name them for it, its presets set them, and a page shows them only on its tracks.
 
 ### UI system
 - **Pages** (`params.c PAGES[]`): `{title, family, scope, graph, id[4]}`.

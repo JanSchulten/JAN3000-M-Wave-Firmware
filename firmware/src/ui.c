@@ -417,6 +417,8 @@ static int page_visible(uint32_t i)
         return 0;                                     /* M-Vave-OP1: FX's seven cards (params.c); these on their own */
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
+    if (PAGES[i].id[0] == P_A2_CUT2 && PAGES[i].graph == GR_NONE)   /* WAVE 2: ANALOG2's (eng_analog2.c) */
+        return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG2;
     if (PAGES[i].id[0] == P_FTYPE)                    /* FILTER (1.5, #104): ANALOG's */
         return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG;
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)
@@ -1304,6 +1306,8 @@ static void apply_preset_to(track_t *t, uint32_t pi)
             t->p[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
     }
     fm6_track_loaded(t);                              /* FM6: the preset's patch (its SLOT) */
+    if (e == &ENG_ANALOG2)                            /* .. ANALOG2: WAVE 2's values (eng_analog2.c) */
+        a2_preset(t, pi);
     load_end(t);
 }
 

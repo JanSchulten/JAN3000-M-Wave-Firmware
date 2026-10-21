@@ -8,6 +8,9 @@
  *            those back as before
  *   NEW      SAVE > PROJECT, KNOB 2 NEW, OCT+ asks, OCT+ again: the power-on sounds (808 kit) with empty steps, the
  *            default BPM, no song, FX TRACKS, KEY or CHORUS TYPE, no slot or name; while playing: STOP FIRST
+ *   ANALOG2  engine 14, after ANALOG in the list; EDIT's rows on one screen: WAVE TUNE WAVE2 TUNE2 / CUT RES LFO RATE /
+ *            CUT2 RES2 LFO2 RATE2 / VCE GLD GLMOD PRIO; a preset sets WAVE 2's values; each filter and LFO acts on
+ *            its own oscillator; NOISE sounds; its favourites leave MIDI LEARN's row alone
  * Built and run by tests/run_tests.sh. */
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
@@ -113,11 +116,98 @@ static void test_new(void)
        "KEY / CHORUS TYPE, no slot; while playing: STOP FIRST", ok);
 }
 
+/* track 1's ANALOG2 voice at C4 for 64 blocks: the output's energy (>> 8 a sample) and a hash of it */
+static uint64_t a2_play(uint32_t *hash)
+{
+    voice_t v;
+    vmod_t m;
+    int32_t out[CTL];
+    uint64_t e = 0;
+    uint32_t b, i, h = 2166136261u;
+    memset(&v, 0, sizeof v);
+    memset(&m, 0, sizeof m);
+    m.pitch16 = v.pitch16 = 60 * 16;
+    m.inc = pitch_inc(60 * 16);
+    m.amp0 = m.amp1 = 32767;
+    m.shape = 64 << 8;
+    analog2_note_on(&trk[0], &v);
+    for (b = 0; b < 64u; b++) {
+        memset(out, 0, sizeof out);
+        analog2_render(&trk[0], &v, out, CTL, &m);
+        for (i = 0; i < CTL; i++) {
+            e += (uint64_t)((int64_t)out[i] * out[i]) >> 8;
+            h = (h ^ (uint32_t)out[i]) * 16777619u;
+        }
+    }
+    *hash = h;
+    return e;
+}
+static void test_analog2(void)
+{
+    static const char *const L[4][4] = {{"WAVE", "TUNE", "WAVE2", "TUNE2"}, {"CUT", "RES", "LFO", "RATE"},
+                                        {"CUT2", "RES2", "LFO2", "RATE2"}, {"VCE", "GLD", "GLMOD", "PRIO"}};
+    uint8_t rr[4];
+    uint32_t n, j, c, h0, h1, h2;
+    uint64_t e0, e1;
+    int ok;
+    track_t *t = &trk[0];
+    ui_power_on();
+    frames(320);
+    ok = ENGINES[14] == &ENG_ANALOG2 && eng_step(0, 1) == 14u && eng_step(14, 1) == ENGI_FM6 && eng_ok(14);
+    set_engine_of(t, 14);
+    frame();
+    ok &= t->eng_req == 14u && t->p[P_A2_CUT2] == A2_OSC2_PRESET[0][0] && t->p[P_A2_RATE2] == A2_OSC2_PRESET[0][3];
+    ck("ANALOG2: engine 14, after ANALOG in the list; its first preset sets WAVE 2's values too", ok);
+    go_title("EDIT 1");
+    frame();
+    n = edit_rows(ui.page, rr);
+    ok = n == 4u;
+    for (j = 0; ok && j < 4u; j++)
+        for (c = 0; c < 4u; c++) {
+            int16_t *vp;
+            const param_desc_t *d = page_desc(&PAGES[rr[j]], c, &vp);
+            ok &= d && vp && str_eq(d->label, L[j][c]);
+        }
+    ok &= ok && str_eq(PAGES[rr[2]].title, "WAVE 2") && str_eq(param_desc_of(14, P_A2_RATE2)->label, "RATE2") &&
+          str_eq(track_desc(t, P_A2_CUT2)->label, "CUT2") && track_desc(t, P_A2_CUT2)->fmt == F_CUTOFF;
+    ck("  EDIT: one screen of four rows, WAVE TUNE WAVE2 TUNE2 / CUT RES LFO RATE / CUT2 RES2 LFO2 RATE2 / VCE GLD GLMOD "
+       "PRIO", ok);
+    t->p[P_E0] = A2_SAW; t->p[P_E1] = 0; t->p[P_E2] = A2_SQR; t->p[P_E3] = 0;
+    t->p[P_E4] = 100; t->p[P_E5] = 20; t->p[P_E6] = 0; t->p[P_E7] = 60;
+    t->p[P_A2_CUT2] = 100; t->p[P_A2_RES2] = 20; t->p[P_A2_LFO2] = 0; t->p[P_A2_RATE2] = 60;
+    e0 = a2_play(&h0);
+    t->p[P_A2_CUT2] = 10;
+    e1 = a2_play(&h1);
+    ok = e0 > 0u && e1 < e0 * 3u / 4u;
+    t->p[P_A2_CUT2] = 100;
+    t->p[P_E6] = 127; t->p[P_E7] = 120;
+    a2_play(&h2);
+    ok &= h2 != h0;
+    t->p[P_E6] = 0;
+    t->p[P_A2_LFO2] = 127; t->p[P_A2_RATE2] = 120;
+    a2_play(&h1);
+    ok &= h1 != h0 && h1 != h2;
+    t->p[P_A2_LFO2] = 0;
+    t->p[P_E0] = t->p[P_E2] = A2_NOISE;
+    ok &= a2_play(&h1) > e0 / 8u;
+    ck("  WAVE 2's CUT2 closes its oscillator; each LFO moves its own filter (LFO, LFO2 different); NOISE sounds", ok);
+    {
+        uint8_t row14[32];
+        memcpy(row14, favorites.factory[14], sizeof row14);
+        ok = favorite_set(14, 3, 1) && favorite_has(14, 3) && !favorite_has(0, 3) &&
+             !memcmp(row14, favorites.factory[14], sizeof row14);
+        favorite_set(14, 3, 0);
+        ok &= !favorite_has(14, 3);
+    }
+    ck("  ANALOG2's favourites (ANALOG's row, upper half): MIDI LEARN's row untouched", ok);
+}
+
 int main(void)
 {
     test_pages();
     test_undo();
     test_new();
+    test_analog2();
     printf("%s\n", bad ? "JAN TEST FAILED" : "jan test passed");
     return bad != 0;
 }
