@@ -203,6 +203,10 @@ its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows
   change in the same hold is put back by OCT- as before.
 - **Another track opens each family at its first page:** turn ALGORITHM, then FX (SCL, ENV ..) starts at its first
   card again; the page shown when the track changes stays.
+- **DRUM, every sound its own: EDIT > SOUNDS** (after LANES 2). A key picks the sound (it plays as everywhere), KNOB
+  1..4 set that sound's TUNE (-12..+12 semitones), DECAY and TONE (-6..+6 steps around the kit) and SOUND (KIT, or the
+  piece of STD / 808 / 10 / 66 / 55 / 77: an 808 kick under a 10 snare). The screen lists all eight. Projects and user
+  presets keep them (in track parameters the retired DIGITAL engine left free); a preset load sets them back.
 - **DRUM, SEQ grid:** a lane's black key lights for a moment whenever that lane plays (a hi-hat's key flashes with
   each hit).
 

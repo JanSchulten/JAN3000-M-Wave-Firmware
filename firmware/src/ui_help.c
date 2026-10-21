@@ -35,6 +35,7 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"FILTER", "[K1]LP BP HP[K2]CUTOFF[SELECT]VOICE"},
     {"LANES", H_LANES},
     {"LANES 2", H_LANES},
+    {"SOUNDS", "[KEYS]PICK[K1-4]TUNE DECAY TONE"},   /* (M-Vave-OP1: a DRUM lane's own) */
     {"SLICES", "[K1]SLICE[K2]MOVE[OCT+]SPLIT, JOIN"},
     {"OPERATOR", H_FMOP},
     {"OP ENV", H_FMOP},

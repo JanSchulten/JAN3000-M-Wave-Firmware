@@ -1329,6 +1329,19 @@ static void draw_columns(void)
     for (c = 0; c < 4u; c++) {
         int16_t *vp;
         const param_desc_t *d = page_desc(cur_page(), c, &vp);
+        if (cur_page()->graph == GR_DLANE) {             /* M-Vave-OP1, SOUNDS: the lane's own values */
+            static const char *const L[DL_N] = {"TUNE", "DECAY", "TONE", "SOUND"};
+            uint32_t v = dl_get(TSEL->p, ui.lane, c);
+            unit = "";
+            if (c == DL_SOUND) {
+                str_cpy(val, N_DL_SOUND[v], sizeof val);
+            } else {
+                fmt_int(val, (int32_t)v - (int32_t)DL_MAX[c] / 2);   /* TUNE in semitones, DECAY / TONE in steps */
+                unit = c == DL_TUNE ? "st" : "";
+            }
+            draw_column(c, L[c], val, unit, VAL(c), c == DL_SOUND ? -1 : (int32_t)v * 1000 / DL_MAX[c], ICON_AUTO);
+            continue;
+        }
         if (cur_page()->graph == GR_SLOTS && c) {         /* M-Vave-OP1: PROJECT's NEW LOAD SAVE: where they are */
             static const char *const L[3] = {"NEW", "LOAD", "SAVE"}, *const K[3] = {"F#5", "OCT-", "OCT+"};
             draw_column(c, L[c - 1u], K[c - 1u], "", T_THEME, -1, ICON_AUTO);

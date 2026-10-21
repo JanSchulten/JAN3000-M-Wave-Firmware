@@ -10,6 +10,8 @@
  *            default BPM, no song, FX TRACKS, KEY or CHORUS TYPE, no slot or name; while playing: STOP FIRST
  *   SELECT   on a page SELECT turns its family's pages (wrapping), the tempo stays; the page's button again: HOME;
  *            on HOME (and its MIXER, CLOCK) SELECT is the tempo, HOME's taps go round its pages as before
+ *   SOUNDS   DRUM's EDIT > SOUNDS: a key picks its lane, KNOB 1..4 that lane's TUNE DECAY TONE SOUND (the other lanes as
+ *            they were; a sound saved before, or a preset load: every lane neutral); they change the hit; projects keep them
  *   SPLASH   JAN3000 in bars of its own (no text): booting left to right, its colour copies beside it, torn now and
  *            then early on, still at the end; the version and the credit as text
  *   ANALOG2  engine 14, after ANALOG in the list; EDIT's rows on one screen: WAVE TUNE WAVE2 TUNE2 / CUT RES LFO RATE /
@@ -85,6 +87,85 @@ static void test_slots(void)
     press(B_OCTDN); frame();
     press_raw = 0;
     ck("  OCT- asks LOAD PROJECT B? (OCT- no, OCT+ loads); OCT+ on a used one: OVERWRITE?", ok && !ui.confirm);
+}
+
+/* track 1's hit of GM note `note`, 60 blocks: its energy (>> 10 a sample; the sends off, so no tail of another hit) */
+static uint64_t dl_hit(uint32_t note)
+{
+    static int32_t o[2 * CTL];
+    uint32_t b, i;
+    uint64_t e = 0;
+    trk[0].p[P_DIST] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;
+    song.master_q12 = 4096;                           /* (the harness: no MASTER knob read) */
+    panic_req = 0xFF;
+    for (b = 0; b < 200u; b++)
+        mix_block(o, CTL);
+    trk_note_on(&trk[0], note, 110);
+    for (b = 0; b < 60u; b++) {
+        mix_block(o, CTL);
+        for (i = 0; i < 2u * CTL; i++)
+            e += (uint64_t)((int64_t)o[i] * o[i]) >> 10;
+    }
+    return e;
+}
+static void test_sounds(void)
+{
+    int ok;
+    uint32_t l, v, ks, k;
+    uint64_t sn0, sn1, kk0, kk1;
+    track_t *t = &trk[0];
+    ui_power_on();
+    frames(320);
+    set_engine_of(t, ENGI_DRUM);
+    frame();
+    for (ok = 1, l = 0; l < NLANE; l++)
+        for (v = 0; v < DL_N; v++)
+            ok &= dl_get(t->p, l, v) == (v == DL_SOUND ? 0u : DL_MAX[v] / 2u);
+    for (k = P_FM1_ATK; k <= P_FM4_LEVEL; k++)      /* (a sound saved before: the TP defaults there) */
+        ok &= t->p[k] == TP[k].def;
+    ck("SOUNDS: a new DRUM sound (its preset) and one saved before: every lane neutral (TUNE DECAY TONE 0, SOUND KIT)", ok);
+    kk0 = dl_hit(36);
+    sn0 = dl_hit(38);
+    go_title("SOUNDS");
+    frame();
+    ks = (uint32_t)(38 - 29 - 12 * song.octave);     /* (the snare's key: eng_drum.c drum_keys) */
+    key_down(ks); frame(); key_up(ks); frame();
+    ok = ui.lane == DV_SNARE && cur_page()->graph == GR_DLANE;
+    turn(EN_K1, 3); turn(EN_K2, -1); turn(EN_K2, -1); turn(EN_K2, -1); turn(EN_K3, 2);   /* (a detent a step) */
+    ok &= dl_get(t->p, DV_SNARE, DL_TUNE) == 13u && dl_get(t->p, DV_SNARE, DL_DECAY) == 3u &&
+          dl_get(t->p, DV_SNARE, DL_TONE) == 7u && dl_get(t->p, DV_KICK, DL_TUNE) == 12u;
+    sn1 = dl_hit(38);
+    kk1 = dl_hit(36);
+    ok &= sn1 < sn0 * 95u / 100u && kk1 > kk0 * 99u / 100u && kk1 < kk0 * 101u / 100u;   /* (DECAY -20: shorter) */
+    ck("  a key (D: SNARE) picks the lane; KNOB 1..3 its TUNE DECAY TONE: the snare sounds other, the kick as before", ok);
+    turn(EN_K4, 1); turn(EN_K4, 1); turn(EN_K4, 1);
+    {
+        int32_t st;
+        ok = dl_get(t->p, DV_SNARE, DL_SOUND) == 3u && drum_gm(t->p, 38, &st) == DV_KTYPE(2, DV_SNARE) &&
+             str_eq(N_DL_SOUND[3], "10") && dl_hit(38) != sn1 && dl_hit(38) > 0u;   /* (the kit is 808's: 10's snare) */
+        for (k = 0; k < 9u; k++) turn(EN_K4, 1);
+        ok &= dl_get(t->p, DV_SNARE, DL_SOUND) == DL_NSOUND - 1u;
+        for (k = 0; k < 9u; k++) turn(EN_K4, -1);
+        ok &= dl_get(t->p, DV_SNARE, DL_SOUND) == 0u && drum_gm(t->p, 38, &st) == DV_KTYPE(1, DV_SNARE);   /* (KIT: 808) */
+        turn(EN_K4, 1); turn(EN_K4, 1); turn(EN_K4, 1);
+        ok &= dl_get(t->p, DV_SNARE, DL_TUNE) == 13u && dl_get(t->p, DV_SNARE, DL_TONE) == 7u;   /* (its pair kept) */
+    }
+    ck("  KNOB 4 SOUND: another kit's piece on the lane (10's snare in the 808 kit), KIT .. 77 and back", ok);
+    project_save(2);
+    set_engine_of(t, ENGI_DRUM);
+    ok = dl_get(t->p, DV_SNARE, DL_TUNE) == 12u;      /* (the preset: neutral again) */
+    project_load(2);
+    ok &= dl_get(t->p, DV_SNARE, DL_TUNE) == 13u && dl_get(t->p, DV_SNARE, DL_SOUND) == 3u &&
+          dl_get(t->p, DV_SNARE, DL_DECAY) == 3u && dl_get(t->p, DV_SNARE, DL_TONE) == 7u;
+    for (k = 0; k < 16u; k++)                          /* (every parameter a byte, as projects and user presets keep them) */
+        ok &= t->p[P_DL0 + k] >= -64 && t->p[P_DL0 + k] <= 127;
+    up_store(5, "MYKIT");
+    ok &= up_used(5);
+    set_engine_of(t, ENGI_DRUM);
+    ok &= dl_get(t->p, DV_SNARE, DL_TUNE) == 12u && !up_load(5) && t->eng_req == ENGI_DRUM;
+    frames(50);
+    ok &= dl_get(t->p, DV_SNARE, DL_TUNE) == 13u && dl_get(t->p, DV_SNARE, DL_SOUND) == 3u && dl_get(t->p, DV_SNARE, DL_DECAY) == 3u;
+    ck("  a preset load sets them neutral; a project and a user preset keep them (save, load)", ok);
 }
 
 static void test_select(void)
@@ -323,6 +404,7 @@ int main(void)
     test_new();
     test_slots();
     test_analog2();
+    test_sounds();
     test_splash();
     printf("%s\n", bad ? "JAN TEST FAILED" : "jan test passed");
     return bad != 0;

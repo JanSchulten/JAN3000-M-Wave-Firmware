@@ -1309,6 +1309,17 @@ static void edit_param(uint32_t slot, int32_t steps)
         return;
     }
 #endif
+    if (pg->graph == GR_DLANE) {                          /* M-Vave-OP1, EDIT > SOUNDS: the lane's TUNE DECAY TONE SOUND */
+        if (drum_track(TSEL)) {
+            uint32_t v = dl_get(TSEL->p, ui.lane, slot);
+            int32_t n = clamp((int32_t)v + (steps > 0 ? 1 : -1), 0, DL_MAX[slot]);   /* (a step a detent: few steps) */
+            dl_set(TSEL->p, ui.lane, slot, (uint32_t)n);
+            TSEL->user = 0;
+            ui.hot_col = (uint8_t)slot;
+            ui.hot_t = 40;
+        }
+        return;
+    }
     if (pg->graph == GR_SLOTS && slot)                    /* M-Vave-OP1, PROJECT: KNOB 1 the project, the rest say */
         return;                                           /* where NEW, LOAD, SAVE are (F#5, OCT-, OCT+) */
     if ((act_cols() >> slot) & 1u) {                      /* an action's knob picks it (right) or drops it (left); */
@@ -2014,6 +2025,12 @@ static void ui_input(void)
         ml_oct(oct);
     }
     song.grid = (uint8_t)keys_mode();                 /* (seq.c: the keys are the grid's) */
+    if (notes && !ui.home && !ui.layer && cur_page()->graph == GR_DLANE && drum_track(TSEL)) {
+        for (k = 0; k < 27u && !((notes >> k) & 1u); k++)   /* M-Vave-OP1, SOUNDS: the key played picks its lane (it */
+            ;                                                /* sounds, as everywhere) */
+        if (k < 27u)
+            ui.lane = (uint8_t)drum_lane((uint32_t)drum_keys(TSEL, k));
+    }
 #if FELUCCA_SLICE
     if (notes && slice_page_on())                       /* SLICES: a key picks the slice it plays */
         slice_keys_pick(notes);

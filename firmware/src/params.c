@@ -227,6 +227,8 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
         return ins_desc(t->p[P_ITYPE], id - P_IA);
     if (a2_osc2_id(id) && ENGINES[eng_idx(t->eng_req)] == &ENG_ANALOG2)   /* ANALOG2's WAVE 2 (eng_analog2.c) */
         return &A2_OSC2[id - P_A2_CUT2];
+    if (dl_id(id) && eng_idx(t->eng_req) == ENGI_DRUM)   /* DRUM's lanes' own values (eng_drum.c) */
+        return dl_desc(id);
     if (t->p[P_ESYNC] && (id == P_ATK || id == P_DEC || id == P_REL))   /* ENV SYNC: note values (1.5, #175) */
         return &ESYNC_DESC[id == P_ATK ? 0 : id == P_DEC ? 1 : 2];
     return &TP[id];
@@ -238,6 +240,8 @@ static const param_desc_t *param_desc_of(uint32_t e, uint32_t id)
 {
     if (a2_osc2_id(id) && ENGINES[e % NENGINES] == &ENG_ANALOG2)
         return &A2_OSC2[id - P_A2_CUT2];
+    if (dl_id(id) && e % NENGINES == ENGI_DRUM)
+        return dl_desc(id);
     return id >= P_E0 ? &ENGINES[e]->edit[id - P_E0] : &TP[id];
 }
 
@@ -436,7 +440,8 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_FXT, GR_FXT2,                         /* .. FX > FX TRACKS, FX TRACKS 2 (fxtrack.c, ui_graph.c graph_fxt) */
        GR_FX1, GR_CLOUD,                        /* .. FX > FX1 (the delay bus's TYPE), CLOUD (fx1.c, ui_graph.c graph_fx1) */
        GR_ORCH,                                 /* .. SCL > ORCHID (orchid.c, ui_graph.c graph_orc) */
-       GR_CHO };                                /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
+       GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
+       GR_DLANE };                              /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
 
 typedef struct {
     const char *title;
@@ -480,6 +485,8 @@ static const page_t PAGES[] = {
     {"WAVE 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_A2_CUT2, P_A2_RES2, P_A2_LFO2, P_A2_RATE2}},   /* ANALOG2 only: its third row */
     {"LANES", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN0, P_LN1, P_LN2, P_LN3}},   /* DRUM only: the lane levels */
     {"LANES 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN4, P_LN5, P_LN6, P_LN7}},
+    {"SOUNDS", FAM_EDIT, SC_TRACK, GR_DLANE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* M-Vave-OP1, DRUM only: a key picks the lane,
+                                                                           * KNOB 1..4 its TUNE DECAY TONE SOUND */
     {"SLICES", FAM_EDIT, SC_TRACK, GR_SLICES, {0xFF, 0xFF, 0xFF, 0xFF}},   /* SLICE only: the slices by hand (ui_slice.c) */
     {"OPERATOR", FAM_EDIT, SC_TRACK, GR_FMOP, {0xFF, 0xFF, 0xFF, 0xFF}},    /* FM6 only: KNOB 1 the operator, then its */
     {"OP ENV", FAM_EDIT, SC_TRACK, GR_FMENV, {0xFF, 0xFF, 0xFF, 0xFF}},     /* bytes of the track's patch (ui_fm6op.c): */

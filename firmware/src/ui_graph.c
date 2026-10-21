@@ -1703,6 +1703,9 @@ static uint32_t graph_signature(void)
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;
     if ((pg->graph == GR_NONE && !edit_rows(ui.page, rr)) || pg->graph == GR_ARP || fx_pedal()) h ^= ui.frame / 2u ^ (ui.hot_t ? ui.hot_col + 1u : 0u) * 7919u;
+    if (pg->graph == GR_DLANE)                       /* M-Vave-OP1, SOUNDS: the lane picked, every lane's values */
+        for (h ^= ui.lane * 40503u, i = 0; i < 16u; i++)
+            h = (h ^ (uint16_t)t->p[P_DL0 + i]) * 16777619u;
     if (pg->graph == GR_ORCH)                        /* M-Vave-OP1, SCL > ORCHID: the block, the last chord, ON */
         h ^= (orc.gen * 2654435761u) ^ (orc.lgen * 40503u) ^ ((uint32_t)orc.lock << 9) ^ ((uint32_t)(uint8_t)orc_voice[song.sel] << 17) ^
              (uint32_t)t->engine * 389u ^ (uint32_t)orc_en << 24;   /* (ROOT ONLY follows the sounding engine) */
@@ -2098,6 +2101,30 @@ static void graph_events(void)
     }
 }
 /* project slots: the name (none: USED) / EMPTY, the selected one filled */
+/* M-Vave-OP1, EDIT > SOUNDS: the eight lanes, each its name, TUNE DECAY TONE and SOUND in the cards' columns; the lane
+ * the knobs edit (the key played last) raised */
+static void graph_dlane(const track_t *t)
+{
+    uint32_t l, c;
+    for (l = 0; l < NLANE; l++) {
+        int32_t y = 2 + (int32_t)l * 15;
+        uint32_t on = l == ui.lane;
+        uint16_t bg = on ? T_RAISE : T_SURF;
+        if (on)
+            cv_rrect(6, y, 228, 15, 4, T_RAISE, T_SURF);
+        cv_text_on(12, y + 1, &AF_S, drum_lane_name(t, l), on ? T_TEXT : T_MID, bg);
+        for (c = 0; c < DL_N; c++) {
+            uint32_t v = dl_get(t->p, l, c);
+            char b[8];
+            if (c == DL_SOUND)
+                str_cpy(b, N_DL_SOUND[v], sizeof b);
+            else
+                fmt_int(b, (int32_t)v - (int32_t)DL_MAX[c] / 2);
+            cv_text_on(64 + (int32_t)c * 44, y + 1, &AF_S, b,
+                       on ? T_TEXT : (c == DL_SOUND ? v != 0u : v != DL_MAX[c] / 2u) ? T_MID : T_DIM, bg);
+        }
+    }
+}
 static void graph_slots(void)                       /* M-Vave-OP1: each row's key (F3 .. B3) on its right, F#5 NEW */
 {
     static const char *const KEY[4] = {"F3", "G3", "A3", "B3"};
@@ -3040,6 +3067,10 @@ static void draw_graph(void)
         case GR_BROWSE:
             cv_oy = 0;
             graph_browse();
+            break;
+        case GR_DLANE:
+            cv_oy = 0;
+            graph_dlane(t);
             break;
         case GR_SLOTS:
             cv_oy = 0;

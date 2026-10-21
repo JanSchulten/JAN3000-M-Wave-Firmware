@@ -31,6 +31,8 @@ kann nur das echte Gerät zeigen.
 
 - [ ] Jede der vier Spuren klingt mit ihrem Startsound.
 - [ ] DRUM startet mit dem **808-Kit**.
+- [ ] DRUM: EDIT, mit SELECT zu **SOUNDS**. Eine Taste (z. B. Snare) wählt den Sound, KNOB 1–4: TUNE, DECAY, TONE,
+      SOUND (anderes Kit-Instrument). Nur dieser Sound ändert sich. Speichern und laden: Die Werte sind wieder da.
 - [ ] PRESETS durchblättern: verschiedene Engines (FM6, ANALOG, SAMPLE …) klingen sauber.
 - [ ] EDIT: die Reihen-Ansicht. Ein EDIT-Tipp wechselt die Reihe, die Werte ändern den Klang.
 - [ ] **ANALOG2** (in PRESETS direkt nach ANALOG): EDIT zeigt vier Reihen (WAVE TUNE WAVE2 TUNE2 / CUT RES LFO RATE /

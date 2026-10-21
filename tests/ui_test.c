@@ -3706,9 +3706,11 @@ static int test_edit_cycle(void)
     (void)CYC_D;
 #endif
     {   /* #97: a DRUM track's lane levels on EDIT > LANES (KICK SNARE CLAP HATCL) and LANES 2 (HATOP TOM RIM BELL) */
-        static const char *const CYC_K[] = {"EDIT 1", "EDIT 2", "LANES", "LANES 2", "VOICE", "VOICE 2", "VOICE 3", "EDIT 1"};
+        static const char *const CYC_K[] = {"EDIT 1", "EDIT 2", "LANES", "LANES 2", "SOUNDS", "VOICE", "VOICE 2", "VOICE 3",
+                                            "EDIT 1"};
         set_engine_of(TSEL, ENGI_DRUM);
-        bad += check("EDIT cycle (DRUM): EDIT 1 EDIT 2 LANES LANES 2 VOICE VOICE 2 VOICE 3 EDIT 1", engine_cycle(CYC_K, NELEM(CYC_K)));
+        bad += check("EDIT cycle (DRUM): EDIT 1 EDIT 2 LANES LANES 2 SOUNDS (M-Vave-OP1) VOICE VOICE 2 VOICE 3 EDIT 1",
+                     engine_cycle(CYC_K, NELEM(CYC_K)));
         go_title("LANES 2"); frame();
         ok = TSEL->p[P_LN5] == 127;
         turn(EN_K2, -3);

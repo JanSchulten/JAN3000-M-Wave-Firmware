@@ -82,12 +82,63 @@ static const int8_t DRUM_GM[47][2] = {
     {DVT_CLAVE, 7}, {DVT_CLAVE, 5}, {DVT_HATC, -4}, {DVT_HATC, -6}, {DVT_CLAVE, 0}, {DVT_CLAVE, -4},  /* 71 */
     {DVT_CLAVE, -7}, {DVT_CONGA, 7}, {DVT_CONGA, 3}, {DVT_BELL, 12}, {DVT_BELL, 12},                  /* 77 */
 };
+/* M-Vave-OP1: each lane's own TUNE (-12..+12 semitones), DECAY and TONE (-6..+6, 10 of the kit's 0..127 a step) and SOUND
+ * (0 the KIT's piece, 1 STD's, 2.. a model kit's: 808 10 66 55 77), in sixteen of the twenty track parameters DIGITAL's OP
+ * ENV pages had (P_FM1_ATK .., retired with DIGITAL; stored with every sound already, as ANALOG2's WAVE 2). Projects and
+ * user presets keep a parameter in a byte (-64..127: 192 values), so a lane takes two: TUNE x SOUND (25 x 7) and DECAY x
+ * TONE (13 x 13), each a number 0..174 held as (number - DL_MID + its default) mod 192: a parameter at its default (a
+ * sound saved before, every preset load: ui.c apply_preset_to) is DL_MID, every value as the kit has it. Not recordable
+ * (ui_events.c ev_id_ok); set on EDIT > SOUNDS (ui_input.c) */
+#define P_DL0 P_FM1_ATK                               /* .. P_DL0 + 15: lane l at P_DL0 + 2l (TUNE SOUND), + 1 (DECAY TONE) */
+enum { DL_TUNE, DL_DECAY, DL_TONE, DL_SOUND, DL_N };
+#define DL_NSOUND 7u
+#define DL_MID 84u                                    /* 12 x 7 + 0 = 6 x 13 + 6: TUNE 0, SOUND KIT / DECAY 0, TONE 0 */
+static const char *const N_DL_SOUND[DL_NSOUND] = {"KIT", "STD", "808", "10", "66", "55", "77"};
+static const uint8_t DL_MAX[DL_N] = {24, 12, 12, DL_NSOUND - 1u};   /* (TUNE DECAY TONE: 12 6 6 the kit's) */
+static int dl_id(uint32_t id) { return id >= P_DL0 && id < P_DL0 + 16u; }
+static int32_t dl_def(uint32_t id) { uint32_t k = (id - P_FM1_ATK) % 5u; return k == 2u || k == 4u ? 127 : 0; }   /* (TP) */
+static const param_desc_t DL_DESC[2] = {{"-", F_INT, -64, 127, 0, 0, 0}, {"-", F_INT, -64, 127, 127, 0, 0}};
+static const param_desc_t *dl_desc(uint32_t id) { return &DL_DESC[dl_def(id) != 0]; }   /* (the whole byte: no clamp) */
+static uint32_t dl_num(const int16_t *p, uint32_t id)    /* the parameter's number, 0..174 */
+{
+    uint32_t x = ((uint32_t)(clamp(p[id], -64, 127) - dl_def(id)) + DL_MID + 192u * 2u) % 192u;
+    return x < 175u ? x : 174u;
+}
+static uint32_t dl_get(const int16_t *p, uint32_t lane, uint32_t v)
+{
+    uint32_t id = P_DL0 + (lane & (NLANE - 1u)) * 2u, x;
+    v &= 3u;
+    if (v == DL_TUNE || v == DL_SOUND) {
+        x = dl_num(p, id);
+        return v == DL_TUNE ? x / DL_NSOUND : x % DL_NSOUND;
+    }
+    x = dl_num(p, id + 1u);
+    return v == DL_DECAY ? x / 13u : x % 13u;
+}
+static void dl_set(int16_t *p, uint32_t lane, uint32_t v, uint32_t val)
+{
+    uint32_t id = P_DL0 + (lane & (NLANE - 1u)) * 2u + ((v & 3u) == DL_DECAY || (v & 3u) == DL_TONE), x;
+    uint32_t t = dl_get(p, lane, DL_TUNE), s = dl_get(p, lane, DL_SOUND), d = dl_get(p, lane, DL_DECAY);
+    uint32_t o = dl_get(p, lane, DL_TONE);
+    val = val > DL_MAX[v & 3u] ? DL_MAX[v & 3u] : val;
+    switch (v & 3u) {
+    case DL_TUNE: t = val; break;
+    case DL_SOUND: s = val; break;
+    case DL_DECAY: d = val; break;
+    default: o = val; break;
+    }
+    x = ((v & 3u) == DL_TUNE || (v & 3u) == DL_SOUND) ? t * DL_NSOUND + s : d * 13u + o;
+    p[id] = (int16_t)((int32_t)((x + 192u * 2u - DL_MID + (uint32_t)(dl_def(id) + 64)) % 192u) - 64);
+}
+
 /* the drum of a note (DVT_*, or a model kit's lane: DV_KTYPE) and its semitones; KICK picks the kick; a model kit
- * plays its own piece on the note's lane */
+ * plays its own piece on the note's lane (M-Vave-OP1: the lane's SOUND, when set, the kit it takes its piece from) */
+static uint32_t drum_lane(uint32_t note);
 static uint32_t drum_gm(const int16_t *p, uint32_t note, int32_t *st)
 {
     uint32_t n = note >= 35u && note <= 81u ? note : 36u + (note + 120u - 36u) % 12u, t = (uint32_t)DRUM_GM[n - 35u][0];
-    uint32_t kit = drum_kit_plays(p[P_E0]);           /* STD, the model kits */
+    uint32_t snd = dl_get(p, drum_lane(note), DL_SOUND);
+    uint32_t kit = snd ? (snd == 1u ? (uint32_t)DK_STD : DK_80 + snd - 2u) : drum_kit_plays(p[P_E0]);   /* STD, the model kits */
     *st = DRUM_GM[n - 35u][1];
     if (kit >= DK_80)
         return DV_KTYPE(kit - DK_80 + 1u, DV_TYPE_LANE[t]);
@@ -283,12 +334,15 @@ static void drum_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     if (n > CTL)
         n = CTL;
     r = L->role;
-    dv_default(&k, r);                                   /* the knobs move every lane from its design (64) */
-    k.decay = (uint8_t)clamp(k.decay + p[P_E3] - 64, 0, 127);
-    k.tone = (uint8_t)clamp(k.tone + p[P_E2] - 64, 0, 127);
+    dv_default(&k, r);                                   /* the knobs move every lane from its design (64), and */
+    {                                                    /* the lane's own values on top (M-Vave-OP1) */
+        uint32_t ln = (uint32_t)v->s[0] & (DV_NLANE - 1u);
+        k.decay = (uint8_t)clamp(k.decay + p[P_E3] - 64 + ((int32_t)dl_get(p, ln, DL_DECAY) - 6) * 10, 0, 127);
+        k.tone = (uint8_t)clamp(k.tone + p[P_E2] - 64 + ((int32_t)dl_get(p, ln, DL_TONE) - 6) * 10, 0, 127);
+        k.tune = (int16_t)(L->st * 16 + (p[P_E1] - 64) * 3 + ((int32_t)dl_get(p, ln, DL_TUNE) - 12) * 16);   /* +-12 st, each */
+    }
     k.extra = (uint8_t)clamp(k.extra + p[P_E4] - 64, 0, 127);
     k.accent = (uint8_t)clamp(acc >> 9, 0, 127);         /* (Q16 -> 0..127) */
-    k.tune = (int16_t)(L->st * 16 + (p[P_E1] - 64) * 3);   /* +-12 semitones */
     if (((const uint32_t *)&k)[0] != ((const uint32_t *)&L->key)[0] ||
         ((const uint32_t *)&k)[1] != ((const uint32_t *)&L->key)[1]) {
         dv_setup(&L->c, &k);                             /* (a parameter moved) */
