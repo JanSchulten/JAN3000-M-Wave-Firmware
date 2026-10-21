@@ -4130,12 +4130,13 @@ static int test_quick_layers(void)
     ok &= TSEL->eng_req == 14u;                         /* (G3: ANALOG2, second in ENGINE_ORDER) */
     key_down(white(2)); key_up(white(2)); frame();
     ok &= TSEL->eng_req == ENGI_FM6;                    /* (A3: FM6, third) */
-    key_down(white(NENG_SHOWN - 3u)); key_up(white(NENG_SHOWN - 3u)); frame();
+    key_down(white(eng_rank(ENGI_DRUM))); key_up(white(eng_rank(ENGI_DRUM))); frame();
     ok &= TSEL->eng_req == ENGI_DRUM;                   /* (DRUM, then M-Vave-OP1's VDRUM and DBOX last) */
-    key_down(white(NENG_SHOWN - 2u)); key_up(white(NENG_SHOWN - 2u)); frame();
+    key_down(white(eng_rank(ENGI_VDRUM))); key_up(white(eng_rank(ENGI_VDRUM))); frame();
     ok &= TSEL->eng_req == ENGI_VDRUM;
-    key_down(white(NENG_SHOWN - 1u)); key_up(white(NENG_SHOWN - 1u)); frame();
-    ok &= TSEL->eng_req == ENGI_DBOX;
+    key_down(white(LY_NENG - 1u)); key_up(white(LY_NENG - 1u)); frame();   /* (the last white key, G5: DBOX; a
+                                                         * FELUCCA_FM4 build shows 17 engines: VDRUM, DBOX PRESETS only) */
+    ok &= TSEL->eng_req == (FELUCCA_FM4 ? ENGI_VDRUM : ENGI_DBOX);
     ok &= !memcmp(TSEL->step, before.step, sizeof before.step) && TSEL->p[P_SLEN] == before.p[P_SLEN] &&
           TSEL->p[P_SLCR] == SL_STUT;
     btn_up(B_EDIT); frame();
@@ -4153,7 +4154,7 @@ static int test_quick_layers(void)
     }
     btn_up(B_EDIT); frame();
     bad += check("  every engine one can pick has its white key from F3 (NENG_SHOWN, not a fixed count; never DIGITAL)",
-                 ok && a == NENG_SHOWN);
+                 ok && a == LY_NENG && (FELUCCA_FM4 || LY_NENG == NENG_SHOWN));
     set_engine_of(TSEL, 0);
     lay_combo(B_EDIT, white(eng_rank(3))); key_up(white(eng_rank(3))); frame();
     turn(EN_K2, 1);
@@ -4994,7 +4995,7 @@ static int test_bughunt_ui2(void)
         bad += check("piano roll: the C-1 label stays inside the panel (every palette)", !out);
     }
     {   /* 7. EDIT (M-Vave-OP1): every white key an engine, INIT the last black key (F#5, drawn bottom right), no other */
-        uint32_t p, ok = LY_NENG == NENG_SHOWN && LY_NENG == 16u && LY_INIT_B == 10u;
+        uint32_t p, ok = (FELUCCA_FM4 || LY_NENG == NENG_SHOWN) && LY_NENG == 16u && LY_INIT_B == 10u;
         for (p = 0; p < 11u; p++) {
             ui_power_on(); go_home(); frame();
             btn_down(B_EDIT); key_down(black(p)); frame(); frames(50);
