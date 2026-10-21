@@ -179,6 +179,10 @@
 #                   the GM map, the choke groups, the resonator's pitch (TUNE), DECAY, MIX 0, its sleep; KIT OWN; one
 #                   voice a part; the cost; demos in build/vdrum_demo/. tests/vdrum_ui_test.c: its EDIT > LAYER .. PART 2
 #                   pages (the part struck by hand, LYR, KIT OWN, undo), its kit in projects and user presets.
+# DBOX (tests/dbox_test.c, M-Vave-OP1): the engine (src/eng_dbox.c): every kit's 12 sounds under full scale, no DC,
+#                   they sound and end, a retrigger from rest the same, each MODE its own and bounded, the octaves;
+#                   its EDIT > OSC 1, OSC 2, SOUND pages (src/ui_dbox.c), its kit in projects and user presets;
+#                   screens in build/dbox_shots/, demos in build/dbox_demo/.
 # NOISE (tests/noise_test.c): the engine (src/eng_noise.c): COLR's slope (white, pink, brown), the filter and the
 #                   register clock following the key, META periodic at the key, no DC, no clipping at the
 #                   corners, a note from silence the same twice, the cost per voice; demos in build/noise_demo/.
@@ -416,6 +420,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/vdrum_ui_test" tests/vdrum_ui_test.c -lm
     mkdir -p build/vdrum_shots
     run "VDRUM: the part pages (part struck by hand, LYR, KIT OWN, undo), the kit in projects and user presets, screens" "$OUT/vdrum_ui_test" build/vdrum_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/dbox_test" tests/dbox_test.c -lm
+    mkdir -p build/dbox_shots build/dbox_demo
+    run "DBOX: kits under full scale, DC, ends, retrigger, MODEs, octaves, the key pages, its kit stored, screens, demos" "$OUT/dbox_test" build/dbox_shots build/dbox_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/noise_test" tests/noise_test.c -lm
     mkdir -p build/noise_demo
     run "NOISE: colour slopes, key-tracked filter and clock, META period, DC, clipping, retrigger, cost, demos" "$OUT/noise_test" build/noise_demo

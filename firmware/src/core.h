@@ -20,10 +20,11 @@
 #define FELUCCA_FM4 0            /* the DIGITAL engine (eng_digital.c, four-operator FM): kept in the tree, not built
                                   * by default; replaced by FM6, its sounds convert (fm4_convert.c) */
 #endif
-#define NENGINES 15u              /* .. SLICE (13; FELUCCA_SLICE=0: reserved, never selectable), VDRUM (14,
-                                  * M-Vave-OP1): appended, the other engines keep their numbers */
+#define NENGINES 16u              /* .. SLICE (13; FELUCCA_SLICE=0: reserved, never selectable), VDRUM (14) and DBOX
+                                  * (15, M-Vave-OP1): appended, the other engines keep their numbers */
 #define ENGI_SLICE 13u
 #define ENGI_VDRUM 14u
+#define ENGI_DBOX 15u
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
 #define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - !FELUCCA_SLICE)   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
                                                 * in the display order of engines.c ENGINE_ORDER */

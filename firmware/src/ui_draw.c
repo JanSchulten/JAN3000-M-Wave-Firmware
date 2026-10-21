@@ -1190,6 +1190,21 @@ static void draw_columns(void)
         return;
     }
 #endif
+    if (dbu_page(cur_page()->graph)) {                   /* (M-Vave-OP1) DBOX: the key's bytes (ui_dbox.c) */
+        for (c = 0; c < 4u; c++) {
+            const char *lb, *u;
+            int32_t r;
+            uint32_t ic;
+            int on;
+            if (!dbu_ok()) {                             /* (the engine changed before ui_draw left the page) */
+                draw_column(c, "", "", "", T_THEME, -1, ICON_NONE);
+                continue;
+            }
+            on = dbu_card(c, &lb, val, &u, &r, &ic);
+            draw_column(c, lb, val, u, on ? VAL(c) : T_DIM, r, ic);
+        }
+        return;
+    }
     if (vdu_page(cur_page()->graph)) {                   /* (M-Vave-OP1) VDRUM: the part's bytes (ui_vdrum.c) */
         for (c = 0; c < 4u; c++) {
             const char *lb, *u;

@@ -37,7 +37,8 @@ static uint32_t user_of(const track_t *t)    /* user preset slot its sound came 
 }
 static uint32_t up_gen;                      /* bumped on every user bank change (redraws) */
 #include "favorites.c"
-_Static_assert(NELEM(VDRUM_PRESETS) <= 32u, "favorites.c: an engine from 14 on keeps 32 favourites");
+_Static_assert(NELEM(VDRUM_PRESETS) <= 32u && NELEM(DBOX_PRESETS) <= 32u, "favorites.c: an engine from 14 on keeps 32 favourites");
+_Static_assert(NENGINES <= 16u, "favorites.c: room for the favourites of engines 14 and 15 only");
 _Static_assert(NELEM(ANALOG_PRESETS) <= 8u * FAV_HI_BYTE, "favorites.c: ANALOG's row holds the favourites of 14 on");
 #include "category.c"                   /* sound categories (Discussion #90): PRESETS > LIST */
 /* MENU's two-valued settings (ui_menu.c MENU_FLAGS), a bit each in a byte no engine uses (as ui_layer.c layer_seen):
@@ -422,6 +423,8 @@ static int page_visible(uint32_t i)
         return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG;
     if (PAGES[i].graph >= GR_VDL && PAGES[i].graph <= GR_VDP2)   /* (M-Vave-OP1) VDRUM's part pages (ui_vdrum.c) */
         return TSEL->eng_req % NENGINES == ENGI_VDRUM;
+    if (PAGES[i].graph >= GR_DBO1 && PAGES[i].graph <= GR_DBHIT)   /* (M-Vave-OP1) DBOX's key pages (ui_dbox.c) */
+        return TSEL->eng_req % NENGINES == ENGI_DBOX;
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)
         return TSEL->eng_req % NENGINES == ENGI_FM6;
 #if FELUCCA_SLICE
@@ -793,6 +796,7 @@ static struct {
     uint8_t fm6_slot;            /* the track's FM6 patch and its SLOT (eng_fm6.c): an edited or a project's */
     uint8_t fm6[FP_SIZE + 1u];   /* patch is the track's own, not a factory one */
     uint8_t vdk[VK_SIZE];        /* (M-Vave-OP1) the track's own VDRUM kit (eng_vdrum.c vd_own) */
+    uint8_t dbk[VK_SIZE];        /* .. and DBOX kit (eng_dbox.c dbx_own) */
     int16_t p[P_COUNT];
     step_t step[NSTEP];
     motion_store_t motion_backup; /* one track only, swaps with the shared event pool on undo */
@@ -829,6 +833,7 @@ static uint32_t track_sig(const track_t *t)      /* the sound (an FM6 track's pa
     uint32_t h = fnv(fnv(steps_sig(t), t->p, sizeof t->p), id, 3), k = trk_index(t);
     h = fnv(h, fm6_patch[k], sizeof fm6_patch[k]); /* (a patch the editor sent between two loads) */
     h = fnv(h, vd_own[k], VK_SIZE);                /* (VDRUM's own kit: its part pages) */
+    h = fnv(h, dbx_own[k], VK_SIZE);               /* (DBOX's) */
     for (uint32_t j = 0; j < motion.count; j++)
         if ((motion.event[j].place >> 6) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
     return h ^ ((motion.on >> k) & 1u);
@@ -922,6 +927,7 @@ static void load_begin(track_t *t, uint32_t what)
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
     memcpy(undo.vdk, vd_own[i], VK_SIZE);
+    memcpy(undo.dbk, dbx_own[i], VK_SIZE);
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -981,6 +987,7 @@ static void edit_undo_take(track_t *t, uint32_t tag, uint32_t what)
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
     memcpy(undo.vdk, vd_own[i], VK_SIZE);
+    memcpy(undo.dbk, dbx_own[i], VK_SIZE);
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -1072,6 +1079,9 @@ static void undo_swap(void)
         memcpy(vd_own[tr], undo.vdk, VK_SIZE);
         memcpy(undo.vdk, kv, VK_SIZE);
         vd_kgen[tr]++;
+        memcpy(kv, dbx_own[tr], VK_SIZE);
+        memcpy(dbx_own[tr], undo.dbk, VK_SIZE);
+        memcpy(undo.dbk, kv, VK_SIZE);
         uint8_t v[FP_SIZE + 1u], sl = fm6_slot[tr];
         memcpy(v, fm6_patch[tr], FP_SIZE);
         fm6_set_patch(tr, undo.fm6);

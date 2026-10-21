@@ -424,7 +424,7 @@ static int up_store_cat(uint32_t k, const char *name, uint32_t cat)
     }
     {
         int rc = up_put(k, &r);                         /* the record first, then its FM6 patch (up_fm6.c) */
-        if ((rc == 0 || rc == 3) && (r.engine == ENGI_FM6 || r.engine == ENGI_VDRUM)) {   /* (VDRUM: its own kit) */
+        if ((rc == 0 || rc == 3) && (r.engine == ENGI_FM6 || r.engine == ENGI_VDRUM || r.engine == ENGI_DBOX)) {   /* (VDRUM, DBOX: their own kits) */
             int u = upf_store(k, (uint32_t)(TSEL - trk));
             if (u == 2)
                 rc = 2;

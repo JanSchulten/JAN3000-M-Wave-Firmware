@@ -75,7 +75,7 @@ static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-",
 #else
                                              "-",    /* (13 reserved: VDRUM keeps its number) */
 #endif
-                                             "VDRUM",   /* M-Vave-OP1 */
+                                             "VDRUM", "DBOX",   /* M-Vave-OP1 */
 };
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0, 0}
@@ -440,7 +440,8 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_FX1, GR_CLOUD,                        /* .. FX > FX1 (the delay bus's TYPE), CLOUD (fx1.c, ui_graph.c graph_fx1) */
        GR_ORCH,                                 /* .. SCL > ORCHID (orchid.c, ui_graph.c graph_orc) */
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
-       GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2 };   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
+       GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2,     /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
+       GR_DBO1, GR_DBO2, GR_DBHIT };            /* .. EDIT > DBOX's key pages (ui_dbox.c), in this order */
 
 typedef struct {
     const char *title;
@@ -494,6 +495,10 @@ static const page_t PAGES[] = {
     {"LAYER ENV", FAM_EDIT, SC_TRACK, GR_VDLE, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"PART", FAM_EDIT, SC_TRACK, GR_VDP, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"PART 2", FAM_EDIT, SC_TRACK, GR_VDP2, {0xFF, 0xFF, 0xFF, 0xFF}},
+    /* M-Vave-OP1: DBOX only, the key struck last (ui_dbox.c): PITCH WAVE ENV XMOD / PITCH WAVE ENV CUT / MODE LVL */
+    {"OSC 1", FAM_EDIT, SC_TRACK, GR_DBO1, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"OSC 2", FAM_EDIT, SC_TRACK, GR_DBO2, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"SOUND", FAM_EDIT, SC_TRACK, GR_DBHIT, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"OP1 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM1_ATK, P_FM1_DEC, P_FM1_SUS, P_FM1_REL}},
     {"OP2 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM2_ATK, P_FM2_DEC, P_FM2_SUS, P_FM2_REL}},
     {"OP3 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM3_ATK, P_FM3_DEC, P_FM3_SUS, P_FM3_REL}},

@@ -1,7 +1,7 @@
 # VDRUM and DBOX: two drum engines (spec)
 
-Status: **VDRUM built** (`firmware/src/eng_vdrum.c`, `ui_vdrum.c`; tests `tests/vdrum_test.c`, `tests/vdrum_ui_test.c`),
-**DBOX not yet.** The decisions come from the interviews of 2026-10-21; section 7 lists what the build changed against
+Status: **both built.** VDRUM: `firmware/src/eng_vdrum.c`, `ui_vdrum.c`, tests `tests/vdrum_test.c`,
+`tests/vdrum_ui_test.c`; DBOX: `firmware/src/eng_dbox.c`, `ui_dbox.c`, test `tests/dbox_test.c`. The decisions come from the interviews of 2026-10-21; section 7 lists what the build changed against
 the first draft.
 
 Two new engines, each selectable on any of the four tracks like every other engine:
@@ -319,6 +319,19 @@ green.
 5. **Order of work:** VDRUM first, then DBOX on the same base.
 
 ## 7. What the build changed against the first draft
+
+DBOX:
+
+- **The pages are OSC 1, OSC 2, SOUND** (SOUND, not KEY: GLO > KEY is a page already). The key's sound state lives in
+  the voice (one voice a note), DBOX needs no engine memory.
+- **ENV:** 0..63 decays (99 % of the way) from ~12 ms to ~0.3 s with no attack, 64..127 longer decays up to ~6 s with an
+  attack up to ~80 ms; the voice ends at -84 dB, ~2.1x that time. Every ENV is moved by DECY (64: as stored).
+- **Keys:** a note plays sound n mod 12, the octave of the first C as stored, +-2 octaves around it.
+- **EDIT 1 / 2:** KIT TUNE DECY TONE / ACC DRV - -; HOME TUNE DECY TONE DRV (P_E1 P_E2 P_E3 P_E5).
+- **Budgets after DBOX:** image 545 652 B (36 KB of code flash left), RAM 56 152 B, pool 340 184 B; new budget line
+  `dbx_render` 263; the static ISR cost as after VDRUM (37 899).
+
+VDRUM:
 
 - **Favourites:** the settings keep favourites per engine in `favorites.factory[16][32]`, but rows 14 (MIDI LEARN's
   map) and 15 (MENU and FX-layer settings) are taken. Engines from 14 on keep 32 favourites each at the end of ANALOG's

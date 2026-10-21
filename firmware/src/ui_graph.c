@@ -14,6 +14,7 @@
 static int32_t graph_ht = 100;
 #include "ui_fm6op.c"                                /* EDIT > OPERATOR, OP ENV, OPERATOR 2: FM6's operators (their charts below) */
 #include "ui_vdrum.c"                                /* (M-Vave-OP1) EDIT > LAYER .. PART 2: VDRUM's parts */
+#include "ui_dbox.c"                                 /* .. EDIT > OSC 1, OSC 2, SOUND: DBOX's keys */
 
 /* Matches voice.c: attack is linear, decay and release are exponential
  * (env += (target - env) * k each tick, ~99 % after the set time). Time
@@ -1784,6 +1785,7 @@ static uint32_t graph_signature(void)
         h ^= (fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u + (fop_op + 1u) * 40503u + (fop_stg + 1u) * 7919u;
     if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_SAMPLE) h ^= sample_wave.pos * 13u + sample_wave.key;
     if (vdu_page(pg->graph) && vdu_ok()) h ^= vdu_sig();   /* (M-Vave-OP1) VDRUM: the part, its bytes, LYR, KIT */
+    if (dbu_page(pg->graph) && dbu_ok()) h ^= dbu_sig();   /* .. DBOX: the key, its bytes, KIT */
     if (pg->graph == GR_ROLL) {
         uint32_t ph = song.playing ? t->seq_idx : 0xFFFFu;
         if (ph / 16u != ui.bank)
@@ -1815,7 +1817,7 @@ static const char *eng_abbr(const char *name)
                                        {"SAMPLE", "SMPL"}, {"VOICE", "VOCL"}, {"TRIO", "TRIO"}, {"WHEEL", "WHEL"},
                                        {"GRAIN", "GRAN"}, {"PHYS", "PHYS"}, {"DRUM", "DRUM"},
                                        {"NOISE", "NOIS"}, {"FM6", "FM6"}, {"SLICE", "SLCE"},
-                                       {"VDRUM", "VDRM"}};
+                                       {"VDRUM", "VDRM"}, {"DBOX", "DBOX"}};
     uint32_t i;
     for (i = 0; i < sizeof A / sizeof A[0]; i++)
         if (str_eq(name, A[i][0]))
@@ -3097,6 +3099,11 @@ static void draw_graph(void)
         case GR_VDP:
         case GR_VDP2:
             if (vdu_ok()) graph_vdrum(t, c);
+            break;
+        case GR_DBO1:
+        case GR_DBO2:
+        case GR_DBHIT:
+            if (dbu_ok()) graph_dbox(t, c);
             break;
         default:
             if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL) graph_wheel(t, c);

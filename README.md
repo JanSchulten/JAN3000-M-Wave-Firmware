@@ -176,6 +176,19 @@ BEAT pattern and MIDI drum parts play on it.
   own kit (in the place an FM6 track keeps its patch).
 - Eight factory kits: INIT, ELECTRO, TUBES, STRINGS, METAL, DUB, CRUSH, WOOD.
 
+## DBOX: twelve keys of two oscillators
+
+After the OP-1's DBOX (our own design and sounds). Each of the twelve keys C .. B is its own drum sound; the next octave
+plays the same twelve an octave up. The factory kits (INIT, 808-ISH, CHIP, METAL) put their sounds on the GM notes, so
+the BEAT pattern plays on them.
+
+- **A sound:** two oscillators, each PITCH, WAVE (a morph sine, triangle, saw, square, noise) and ENV (one value: short
+  decays, then longer ones with an attack), a cross modulation MODE 1..7 (MIX, FM, RING, SYNC, AM, NOISE, FILT) at XMOD,
+  a low-pass CUT and LVL.
+- **HOME's KNOB 1..4:** TUNE, DECY, TONE, DRV on every sound at once; EDIT 1: KIT TUNE DECY TONE, EDIT 2: ACC DRV.
+- **Editing a key:** strike it, then EDIT > OSC 1 (PITCH WAVE ENV XMOD), OSC 2 (PITCH WAVE ENV CUT), SOUND (MODE LVL);
+  KIT OWN, undo and storage as on VDRUM.
+
 ## Other changes to Felucca's workflow
 
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under

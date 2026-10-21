@@ -621,6 +621,9 @@ static void input_on(track_t *t, uint32_t note, uint32_t vel)
     if (t->eng_req == ENGI_VDRUM) {                 /* (M-Vave-OP1) the part the VDRUM pages edit (ui_vdrum.c) */
         int32_t st;
         vd_pick[trk_index(t)] = (uint8_t)(vd_part_note(note, &st) + 1u);
+    } else if (t->eng_req == ENGI_DBOX) {           /* .. the key the DBOX pages edit (ui_dbox.c) */
+        int32_t o;
+        dbx_pick[trk_index(t)] = (uint8_t)(dbx_key(note, &o) + 1u);
     }
     if (cin_left)
         cin_keep(t, note, vel);

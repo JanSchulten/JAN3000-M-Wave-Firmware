@@ -184,6 +184,8 @@ static void ui_power_on(void)
     memset(vd_own, 0, sizeof vd_own);             /* (M-Vave-OP1 VDRUM: no own kits, no part struck, LYR L1) */
     memset((void *)vd_pick, 0, sizeof vd_pick);
     vdu_lyr = 0;
+    memset(dbx_own, 0, sizeof dbx_own);           /* (DBOX: no own kits, no key struck) */
+    memset((void *)dbx_pick, 0, sizeof dbx_pick);
     memset(pat_last, 0, sizeof pat_last);
     memset(pat_from, 0, sizeof pat_from);                /* (the header's slot letter: none) */
     memset(proj_slot, 0, sizeof proj_slot);
@@ -4078,14 +4080,16 @@ static int test_quick_layers(void)
     key_up(white(eng_rank(2))); frame();
     key_down(white(1)); key_up(white(1)); frame();
     ok &= TSEL->eng_req == ENGI_FM6;                    /* (G3: FM6, second in ENGINE_ORDER) */
+    key_down(white(NENG_SHOWN - 3u)); key_up(white(NENG_SHOWN - 3u)); frame();
+    ok &= TSEL->eng_req == ENGI_DRUM;                   /* (DRUM, then M-Vave-OP1's VDRUM and DBOX last) */
     key_down(white(NENG_SHOWN - 2u)); key_up(white(NENG_SHOWN - 2u)); frame();
-    ok &= TSEL->eng_req == ENGI_DRUM;                   /* (the key before the last: DRUM) */
+    ok &= TSEL->eng_req == ENGI_VDRUM;
     key_down(white(NENG_SHOWN - 1u)); key_up(white(NENG_SHOWN - 1u)); frame();
-    ok &= TSEL->eng_req == ENGI_VDRUM;                  /* (the last key: M-Vave-OP1's VDRUM) */
+    ok &= TSEL->eng_req == ENGI_DBOX;
     ok &= !memcmp(TSEL->step, before.step, sizeof before.step) && TSEL->p[P_SLEN] == before.p[P_SLEN] &&
           TSEL->p[P_SLCR] == SL_STUT;
     btn_up(B_EDIT); frame();
-    bad += check("EDIT + white key n: the n-th engine shown (FM6 2nd, DRUM, VDRUM last), while playing; steps, LEN, SLICER stay", ok);
+    bad += check("EDIT + white key n: the n-th engine shown (FM6 2nd, DRUM, VDRUM, DBOX last), while playing; steps, LEN, SLICER stay", ok);
     hold(B_SAVE);
     bad += check("  SAVE held: UNDO back to before the layer's loads, the steps untouched",
                  TSEL->eng_req == 0u && TSEL->preset == before.preset && !memcmp(TSEL->step, before.step, sizeof before.step));
@@ -5091,10 +5095,10 @@ static int test_fm4_retired(void)
     }
     bad += check("PRESETS KNOB 2: the engines in order, DIGITAL skipped, back to the first",
                  seen == all && TSEL->eng_req == 0u && eng_step(0, 1) == ENGI_FM6 && eng_step(ENGI_FM6, 1) == 2u &&
-                 eng_step(ENGI_FM6, -1) == 0u && eng_step(0, -1) == ENGI_VDRUM && eng_step(ENGI_VDRUM, -1) == ENGI_DRUM);
+                 eng_step(ENGI_FM6, -1) == 0u && eng_step(0, -1) == ENGI_DBOX && eng_step(ENGI_DBOX, -1) == ENGI_VDRUM && eng_step(ENGI_VDRUM, -1) == ENGI_DRUM);
     {   /* the display order (engines.c ENGINE_ORDER): every engine one can pick once; the PRESETS list follows it */
         static const char *const ORDER[] = {"ANALOG", "FM6", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN",
-                                            "PHYS", "NOISE", "SLICE", "DRUM", "VDRUM"};
+                                            "PHYS", "NOISE", "SLICE", "DRUM", "VDRUM", "DBOX"};
         uint32_t last = 0xFFu, r = 0, n = 0;
         ok = NENG_SHOWN == NELEM(ORDER);
         for (i = 0; ok && i < NENG_SHOWN; i++)
@@ -5109,7 +5113,7 @@ static int test_fm4_retired(void)
             last = e;
             r++;
         }
-        bad += check("engines shown ANALOG FM6 PHASE ... NOISE SLICE DRUM VDRUM (ENGINE_ORDER); PRESETS lists them so",
+        bad += check("engines shown ANALOG FM6 PHASE ... NOISE SLICE DRUM VDRUM DBOX (ENGINE_ORDER); PRESETS lists them so",
                      ok && r == NENG_SHOWN);
     }
     /* a user preset stored with engine 1: kept as it is, it loads as FM6 with the converted patch */

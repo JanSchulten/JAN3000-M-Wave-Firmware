@@ -58,6 +58,7 @@ static const engine_t ENG_SLICE_GONE = {
 };
 #endif
 #include "eng_vdrum.c"          /* VDRUM: six parts of two layers into a resonator (M-Vave-OP1) */
+#include "eng_dbox.c"           /* DBOX: twelve keys of two oscillators (M-Vave-OP1) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
 static const engine_t *const ENGINES[NENGINES] = {
@@ -84,6 +85,7 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_SLICE_GONE,             /* 13: reserved (FELUCCA_SLICE=0) */
 #endif
     &ENG_VDRUM,                  /* 14 (ENGI_VDRUM, M-Vave-OP1) */
+    &ENG_DBOX,                   /* 15 (ENGI_DBOX, M-Vave-OP1) */
 };
 
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
@@ -145,6 +147,7 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
 #endif
     10,                          /* DRUM */
     14,                          /* VDRUM */
+    15,                          /* DBOX */
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them
