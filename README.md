@@ -185,7 +185,10 @@ its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows
 
 ## Other changes to Felucca's workflow
 
-- **JAN3000 v0.8 splash:** the name wipes in, a sine runs under it, "based on Felucca" below.
+- **JAN3000 v0.8 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
+  like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
+  the accent and theme colour beside it and a band torn sideways now and then. Then the version with a blinking block
+  cursor, a sine settling under it, "based on Felucca" below.
 - **SAVE > PROJECT > NEW (KNOB 2):** OCT+ asks, OCT+ again starts a new project: the power-on sounds with empty
   steps, the default tempo, no song, FX TRACKS, KEY or scenes, no slot. Stopped only (STOP FIRST).
 - **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK

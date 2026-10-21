@@ -8,6 +8,8 @@
  *            those back as before
  *   NEW      SAVE > PROJECT, KNOB 2 NEW, OCT+ asks, OCT+ again: the power-on sounds (808 kit) with empty steps, the
  *            default BPM, no song, FX TRACKS, KEY or CHORUS TYPE, no slot or name; while playing: STOP FIRST
+ *   SPLASH   JAN3000 in bars of its own (no text): booting left to right, its colour copies beside it, torn now and
+ *            then early on, still at the end; the version and the credit as text
  *   ANALOG2  engine 14, after ANALOG in the list; EDIT's rows on one screen: WAVE TUNE WAVE2 TUNE2 / CUT RES LFO RATE /
  *            CUT2 RES2 LFO2 RATE2 / VCE GLD GLMOD PRIO; a preset sets WAVE 2's values; each filter and LFO acts on
  *            its own oscillator; NOISE sounds; its favourites leave MIDI LEARN's row alone
@@ -116,6 +118,39 @@ static void test_new(void)
        "KEY / CHORUS TYPE, no slot; while playing: STOP FIRST", ok);
 }
 
+static uint32_t splash_px(uint32_t ms, uint16_t c, uint32_t *hash)   /* the name's band: pixels of colour c */
+{
+    uint32_t x, y, n = 0, h = 2166136261u;
+    draw_splash_at(ms);
+    for (y = SPL_Y + SPL_NY; y < SPL_Y + SPL_NY + SPL_GH; y++)
+        for (x = 0; x < 240u; x++) {
+            n += host_screen[y * 240u + x] == swap16(c);
+            h = (h ^ host_screen[y * 240u + x]) * 16777619u;
+        }
+    *hash = h;
+    return n;
+}
+static void test_splash(void)
+{
+    uint32_t end, early, ghost, h0, h1, h2, ms, torn = 0;
+    int ok;
+    ui_power_on();
+    end = splash_px(SPL_MS, T_TEXT, &h0);
+    ghost = splash_px(SPL_MS, T_ACCENT, &h1);
+    early = splash_px(150u, T_TEXT, &h2);
+    ok = end > 800u && ghost > 40u && early < end / 2u && h1 == h0;
+    for (ms = 0; ms < SPL_GLITCH; ms += 20u) {        /* a tear: the frame differs from the same frame untorn */
+        uint32_t a, b;
+        splash_px(ms, T_TEXT, &a);
+        splash_px(ms, T_TEXT, &b);
+        ok &= a == b;                                 /* (the same ms, the same frame) */
+        torn += ms >= SPL_WIPE && (spl_hash(ms / 60u, 99u) & 3u) == 0u;
+    }
+    ok &= torn > 0u && splash_px(SPL_MS, T_TEXT, &h2) == end && h2 == h0;
+    ck("splash: JAN3000 in bars, booted left to right, colour copies beside it, a tear now and then, still at the end",
+       ok);
+}
+
 /* track 1's ANALOG2 voice at C4 for 64 blocks: the output's energy (>> 8 a sample) and a hash of it */
 static uint64_t a2_play(uint32_t *hash)
 {
@@ -208,6 +243,7 @@ int main(void)
     test_undo();
     test_new();
     test_analog2();
+    test_splash();
     printf("%s\n", bad ? "JAN TEST FAILED" : "jan test passed");
     return bad != 0;
 }

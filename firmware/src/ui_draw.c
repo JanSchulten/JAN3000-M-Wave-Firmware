@@ -1354,37 +1354,109 @@ static void draw_columns(void)
 
 
 /* The power-on splash (main.c fm1_main, web/emu felucca_web.c), M-Vave-OP1's: JAN3000, animated over SPL_MS. A band
- * of 240 x SPL_H in the middle of the screen: the name in L wiped in from the left behind a line in the accent (its
- * first SPL_WIPE ms), a line growing out from under its middle, then the version in M in the accent and, small, "based
- * on Felucca"; under them a sine that grows and runs (an oscillator settling). draw_splash_at(ms) draws the band as it
- * is ms after the start (main.c: as often as the panel takes it, during the boot's wait); draw_splash, the screen
- * cleared and the band at its end (the emulator's first frame, the tests). In the saved palette */
+ * of 240 x SPL_H in the middle of the screen. The name in a segment face of its own (spl_glyph: an LCD's bars with
+ * gaps at the joints, a diagonal for N, a slashed zero), booting like a terminal: each glyph flickers through random
+ * bars (dim) before it locks, left to right, over scan lines (SPL_WIPE ms); a copy in the accent and one in the theme
+ * colour beside it (3 px apart at first, 1 px at the end); now and then a band of it torn sideways (spl_tear) until
+ * SPL_GLITCH. Then a line out from under its middle, the version in M in the accent with a block cursor blinking after
+ * it and, small, "based on Felucca"; under them a sine that grows and runs (an oscillator settling).
+ * draw_splash_at(ms) draws the band as it is ms after the start (main.c: as often as the panel takes it, during the
+ * boot's wait); draw_splash, the screen cleared and the band at its end (the emulator's first frame, the tests). In
+ * the saved palette */
 #define JAN_NAME "JAN3000"
 #define JAN_VERSION "v0.8"
 #define SPL_H 120                                   /* the band (the canvas holds 124 rows) */
 #define SPL_Y ((240u - SPL_H) / 2u)
-#define SPL_WIPE 360u                               /* the name's wipe */
+#define SPL_WIPE 360u                               /* the name's boot: the last glyph locks */
+#define SPL_GLITCH 520u                             /* .. the last tear */
 #define SPL_MS 760u                                 /* the whole animation */
+#define SPL_GW 22                                   /* a glyph: SPL_GW x SPL_GH, bars SPL_T thick, SPL_GAP apart */
+#define SPL_GH 40
+#define SPL_T 4
+#define SPL_GAP 6
+#define SPL_NY 8                                    /* the name's top in the band */
+/* the bars: 0 top, 1 upper right, 2 lower right, 3 bottom, 4 lower left, 5 upper left, 6 middle, 7 its right half,
+ * 8 the diagonal (N), 9 the slash (0) */
+static void spl_glyph(int32_t x, int32_t y, uint32_t m, uint16_t c)
+{
+    static const int8_t R[8][4] = {
+        {2, 0, SPL_GW - 4, SPL_T}, {SPL_GW - SPL_T, 2, SPL_T, SPL_GH / 2 - 3},
+        {SPL_GW - SPL_T, SPL_GH / 2 + 1, SPL_T, SPL_GH / 2 - 3}, {2, SPL_GH - SPL_T, SPL_GW - 4, SPL_T},
+        {0, SPL_GH / 2 + 1, SPL_T, SPL_GH / 2 - 3}, {0, 2, SPL_T, SPL_GH / 2 - 3},
+        {2, SPL_GH / 2 - SPL_T / 2, SPL_GW - 4, SPL_T}, {SPL_GW / 2, SPL_GH / 2 - SPL_T / 2, SPL_GW / 2 - 2, SPL_T},
+    };
+    uint32_t k;
+    int32_t d;
+    for (k = 0; k < 8u; k++)
+        if (m >> k & 1u)
+            cv_rect(x + R[k][0], y + R[k][1], R[k][2], R[k][3], c);
+    for (d = 0; d < SPL_T - 1 && (m & 0x100u); d++)  /* N's diagonal, as thick as the bars (but one) */
+        cv_line(x + SPL_T + d, y + 3, x + SPL_GW - SPL_T - 3 + d, y + SPL_GH - 4, c);
+    for (d = 0; d < 2 && (m & 0x200u); d++)          /* the zero's slash */
+        cv_line(x + SPL_GW - SPL_T - 4 + d, y + 9, x + SPL_T + 2 + d, y + SPL_GH - 10, c);
+}
+static uint32_t spl_hash(uint32_t a, uint32_t b)   /* (the flicker and the tears: the same for the same ms) */
+{
+    uint32_t h = a * 2654435761u ^ (b + 1u) * 40503u;
+    h ^= h >> 13;
+    h *= 0x5bd1e995u;
+    return h ^ h >> 15;
+}
+/* rows y .. y + h of the band shifted dx px sideways (what comes in from the edge: the background) */
+static void spl_tear(int32_t y, int32_t h, int32_t dx)
+{
+    int32_t r, x;
+    uint16_t bg = swap16(T_BG);
+    for (r = y; r < y + h && r < (int32_t)cv_h; r++) {
+        uint16_t *p = &cv_px[(uint32_t)r * cv_w];
+        if (dx > 0)
+            for (x = (int32_t)cv_w - 1; x >= 0; x--)
+                p[x] = x >= dx ? p[x - dx] : bg;
+        else
+            for (x = 0; x < (int32_t)cv_w; x++)
+                p[x] = x - dx < (int32_t)cv_w ? p[x - dx] : bg;
+    }
+}
 static void draw_splash_at(uint32_t ms)
 {
-    int32_t tw = text_w(&AF_L, JAN_NAME), tx = (240 - tw) / 2, ty = 10, rv, k, x, py = 0;
-    uint32_t amp = ms < 300u ? 0u : ms >= SPL_MS ? 10u : (ms - 300u) * 10u / (SPL_MS - 300u);
+    static const uint16_t GL[7] = {0x01E, 0x077, 0x136, 0x08F, 0x23F, 0x23F, 0x23F};   /* J A N 3 0 0 0 */
+    int32_t tw = 7 * SPL_GW + 6 * SPL_GAP, tx = (240 - tw) / 2, ty = SPL_NY, k, x, py = 0;
+    int32_t o = ms < 300u ? 3 : ms < SPL_GLITCH ? 2 : 1;   /* the colour copies' distance */
+    uint32_t amp = ms < 300u ? 0u : ms >= SPL_MS ? 10u : (ms - 300u) * 10u / (SPL_MS - 300u), i, pass;
     cv_begin(240, SPL_H, T_BG);
-    GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "splash name centred");
-    cv_text_on(tx, ty, &AF_L, JAN_NAME, T_TEXT, T_BG);
-    rv = ms >= SPL_WIPE ? tw + 4 : (int32_t)(ms * (uint32_t)(tw + 4) / SPL_WIPE);   /* (the rest still hidden) */
-    if (rv < tw + 4) {
-        cv_rect(tx + rv, ty - 2, tw + 8 - rv, AF_L.h + 4, T_BG);
-        cv_rect(tx + rv, ty, 2, AF_L.h - 4, T_ACCENT);
+    for (pass = 0; pass < 3u; pass++)               /* the accent's copy, the theme's, the name */
+        for (i = 0; i < 7u; i++) {
+            uint32_t lock = 60u + i * 40u, m = GL[i];
+            uint16_t c = pass == 0u ? T_ACCENT : pass == 1u ? T_THEME : T_TEXT;
+            int32_t gx = tx + (int32_t)i * (SPL_GW + SPL_GAP) + (pass == 0u ? o : pass == 1u ? -o : 0);
+            if (ms < i * 20u)
+                continue;                           /* not booted yet */
+            if (ms < lock) {                        /* flickering: random bars, dim, no copies */
+                if (pass < 2u)
+                    continue;
+                m = spl_hash(ms / 40u, i) & 0x7Fu;
+                c = T_MID;
+            }
+            spl_glyph(gx, ty, m, c);
+        }
+    if (ms < SPL_WIPE)                               /* scan lines over the name while it boots */
+        for (k = ty; k < ty + SPL_GH; k += 3)
+            cv_rect(0, k, 240, 1, T_BG);
+    if (ms < SPL_GLITCH && (spl_hash(ms / 60u, 99u) & 3u) == 0u) {   /* a tear, now and then */
+        uint32_t h = spl_hash(ms / 60u, 7u);
+        spl_tear(ty + (int32_t)(h % (SPL_GH - 8)), 3 + (int32_t)(h >> 8 & 7u), (int32_t)(h >> 12 & 15u) - 7);
     }
     if (ms > SPL_WIPE / 2u) {                       /* the line, out from the middle */
         uint32_t t = ms - SPL_WIPE / 2u, half = (uint32_t)tw / 2u;
         int32_t w = (int32_t)(t >= 300u ? half : t * half / 300u);
-        cv_rect(120 - w, ty + AF_L.h + 2, 2 * w, 2, T_ACCENT);
+        cv_rect(120 - w, ty + SPL_GH + 4, 2 * w, 2, T_ACCENT);
     }
     if (ms >= SPL_WIPE + 40u) {
+        int32_t vw = text_w(&AF_M, JAN_VERSION), vy = ty + SPL_GH + 10;
         GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "splash version centred");
-        cv_text_in(0, ty + AF_L.h + 8, 240, &AF_M, JAN_VERSION, T_ACCENT, T_BG);
+        cv_text_in(0, vy, 240, &AF_M, JAN_VERSION, T_ACCENT, T_BG);
+        if (!(ms / 160u & 1u))                      /* the cursor */
+            cv_rect((240 + vw) / 2 + 3, vy + 2, 7, AF_M.h - 4, T_ACCENT);
     }
     for (k = 0, x = 40; x < 200; x++, k++) {        /* the oscillator: 3 cycles, running */
         int32_t y = 92 + sine_i((uint32_t)k * 80530637u + ms * 0x1000000u) * (int32_t)amp / 32768;   /* (2^32 x 3 / 160

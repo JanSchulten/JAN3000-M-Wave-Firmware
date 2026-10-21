@@ -1629,15 +1629,15 @@ static void draw(int s)
         return;
     }
     if (s == S_SPLASH) {                          /* the power-on splash (main.c, before the UI), M-Vave-OP1's JAN3000: at
-                                                   * its end the name, the version and the credit; half way the name
-                                                   * still being wiped in (its texts: the name only) */
-        static const char WANT[] = JAN_NAME "|" JAN_VERSION "|based on Felucca";
+                                                   * its end the version and the credit (the name is bars, not text:
+                                                   * ui_draw.c spl_glyph); half way through the name's boot no text */
+        static const char WANT[] = JAN_VERSION "|based on Felucca";
         splash_seen[0] = 0;
         in_splash = 1;
         draw_splash_at(SPL_WIPE / 2u);
         in_splash = 0;
-        if (strcmp(splash_seen, JAN_NAME)) {
-            if (rep) fprintf(rep, "FIND %-26s the splash half way shows '%s', not '%s' alone\n", cur_name, splash_seen, JAN_NAME);
+        if (splash_seen[0]) {
+            if (rep) fprintf(rep, "FIND %-26s the splash half way shows '%s', not the name alone\n", cur_name, splash_seen);
             nfind++;
         }
         splash_seen[0] = 0;

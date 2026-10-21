@@ -9,7 +9,8 @@ kann nur das echte Gerät zeigen.
 
 ## A. Start und Grundlagen
 
-- [ ] Startet nach dem Flash von selbst. Die Splash-Animation zeigt **JAN3000 v0.8** und darunter „based on Felucca“.
+- [ ] Startet nach dem Flash von selbst. Die Splash-Animation zeigt **JAN3000** im Cyber-Stil (flackernde Segmente, Farbversatz, kurze Glitches), dann
+      **v0.8** mit blinkendem Cursor und darunter „based on Felucca“.
 - [ ] HOME zeigt die vier Spuren.
 - [ ] Ton aus Lautsprecher und Kopfhörer. MASTER regelt die Lautstärke.
 - [ ] Akku-Anzeige oben rechts plausibel.
