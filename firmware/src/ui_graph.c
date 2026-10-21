@@ -13,6 +13,7 @@
 /* the height ADSR and LFO are drawn on: 100 px, or (MENU > LARGE's strip: draw_graph) the strip's ~ 56 */
 static int32_t graph_ht = 100;
 #include "ui_fm6op.c"                                /* EDIT > OPERATOR, OP ENV, OPERATOR 2: FM6's operators (their charts below) */
+#include "ui_vdrum.c"                                /* (M-Vave-OP1) EDIT > LAYER .. PART 2: VDRUM's parts */
 
 /* Matches voice.c: attack is linear, decay and release are exponential
  * (env += (target - env) * k each tick, ~99 % after the set time). Time
@@ -1782,6 +1783,7 @@ static uint32_t graph_signature(void)
                                                      * levels, FB; the operator pages: the operator, the stage) */
         h ^= (fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u + (fop_op + 1u) * 40503u + (fop_stg + 1u) * 7919u;
     if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_SAMPLE) h ^= sample_wave.pos * 13u + sample_wave.key;
+    if (vdu_page(pg->graph) && vdu_ok()) h ^= vdu_sig();   /* (M-Vave-OP1) VDRUM: the part, its bytes, LYR, KIT */
     if (pg->graph == GR_ROLL) {
         uint32_t ph = song.playing ? t->seq_idx : 0xFFFFu;
         if (ph / 16u != ui.bank)
@@ -3087,6 +3089,13 @@ static void draw_graph(void)
             break;
         case GR_FMENV:
             if (fop_ok()) graph_fm6env(t, c);
+            break;
+        case GR_VDL:
+        case GR_VDLP:
+        case GR_VDLE:
+        case GR_VDP:
+        case GR_VDP2:
+            if (vdu_ok()) graph_vdrum(t, c);
             break;
         default:
             if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL) graph_wheel(t, c);

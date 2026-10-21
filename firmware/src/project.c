@@ -831,7 +831,10 @@ static void project_capture(project_t *p)
         p->t[i].engine = trk[i].eng_req;
         p->t[i].preset = trk[i].preset;
         memcpy(p->t[i].step, trk[i].step, sizeof trk[i].step);
-        fm6_pack(fm6_patch[i], p->fm6[i]);
+        if (trk[i].eng_req == ENGI_VDRUM)               /* (M-Vave-OP1) a VDRUM track: its own kit in the patch's */
+            vd_pack(i, p->fm6[i]);                      /* place (eng_vdrum.c; its FM6 patch is not kept) */
+        else
+            fm6_pack(fm6_patch[i], p->fm6[i]);
     }
     p->motion = motion;
     motion_unguard(f);
@@ -1019,9 +1022,15 @@ static int project_restore_runtime(const project_t *input)
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset >= PROJ_DEF_KEEP ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
         proj_steps(t->step);
-        {   /* the project's own FM6 patch, never reloaded from SLOT: F n if it is that factory patch, else OWN */
+        {   /* the project's own FM6 patch, never reloaded from SLOT: F n if it is that factory patch, else OWN; a VDRUM
+             * track's own kit (M-Vave-OP1: in the patch's place) and the init voice */
             uint8_t v[FP_SIZE + 1u];
-            fm6_unpack(p->fm6[k], v);
+            if (e == ENGI_VDRUM) {
+                vd_unpack(k, p->fm6[k]);
+                fm6_unpack(FM6_INIT, v);
+            } else {
+                fm6_unpack(p->fm6[k], v);
+            }
             fm6_set_patch(k, v);
             fm6_adopt(k);
         }
@@ -1267,6 +1276,8 @@ static uint32_t autosave_sig(void)
         h = as_mix(h, &t->preset, 1);
         h = as_mix(h, t->step, sizeof t->step);
         h = as_mix(h, fm6_patch[i], sizeof fm6_patch[i]);
+        if (t->eng_req == ENGI_VDRUM)                   /* (M-Vave-OP1) its own kit, which the project keeps */
+            h = as_mix(h, vd_own[i], VK_SIZE);
     }
     for (i = 0; i < G_COUNT; i++)
         if (i != G_SLOT && i != G_NAME && i != G_LOAD && i != G_SAVE)

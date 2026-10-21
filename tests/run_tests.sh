@@ -174,6 +174,11 @@
 #                   Felucca's targets, the controls' directions, no clipping, DC, retriggers, the hat choke, the
 #                   kick on a small speaker; the DRUM engine (src/eng_drum.c): its key map, the 8 lanes together,
 #                   one hit per lane, the choke between lanes; the cost per voice; demos in build/drum_demo/.
+# VDRUM (tests/vdrum_test.c, M-Vave-OP1): the engine (src/eng_vdrum.c): every factory kit's parts under full scale,
+#                   no DC, they sound and fall silent (the resonator's tail with them), a retrigger from rest the same;
+#                   the GM map, the choke groups, the resonator's pitch (TUNE), DECAY, MIX 0, its sleep; KIT OWN; one
+#                   voice a part; the cost; demos in build/vdrum_demo/. tests/vdrum_ui_test.c: its EDIT > LAYER .. PART 2
+#                   pages (the part struck by hand, LYR, KIT OWN, undo), its kit in projects and user presets.
 # NOISE (tests/noise_test.c): the engine (src/eng_noise.c): COLR's slope (white, pink, brown), the filter and the
 #                   register clock following the key, META periodic at the key, no DC, no clipping at the
 #                   corners, a note from silence the same twice, the cost per voice; demos in build/noise_demo/.
@@ -405,6 +410,12 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/drum_test" tests/drum_test.c -lm
     mkdir -p build/drum_demo
     run "DRUM: voice targets, controls, no clipping, retrigger, hat choke, the kick on a small speaker, keys, 8 lanes, cost, demos" "$OUT/drum_test" build/drum_demo
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/vdrum_test" tests/vdrum_test.c -lm
+    mkdir -p build/vdrum_demo
+    run "VDRUM: kits under full scale, DC, tails end, retrigger, GM map, choke, resonator pitch / DECAY / sleep, OWN, voices, cost, demos" "$OUT/vdrum_test" build/vdrum_demo
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/vdrum_ui_test" tests/vdrum_ui_test.c -lm
+    mkdir -p build/vdrum_shots
+    run "VDRUM: the part pages (part struck by hand, LYR, KIT OWN, undo), the kit in projects and user presets, screens" "$OUT/vdrum_ui_test" build/vdrum_shots
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/noise_test" tests/noise_test.c -lm
     mkdir -p build/noise_demo
     run "NOISE: colour slopes, key-tracked filter and clock, META period, DC, clipping, retrigger, cost, demos" "$OUT/noise_test" build/noise_demo

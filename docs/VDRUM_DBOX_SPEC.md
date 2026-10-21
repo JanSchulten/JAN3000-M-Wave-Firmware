@@ -1,7 +1,8 @@
-# VDRUM and DBOX: two drum engines (spec, draft for review)
+# VDRUM and DBOX: two drum engines (spec)
 
-Status: **draft, nothing built yet.** It records the decisions from the interview of 2026-10-21 and the design that
-follows from them, so the user can review it before any code is written. Open points are listed at the end.
+Status: **VDRUM built** (`firmware/src/eng_vdrum.c`, `ui_vdrum.c`; tests `tests/vdrum_test.c`, `tests/vdrum_ui_test.c`),
+**DBOX not yet.** The decisions come from the interviews of 2026-10-21; section 7 lists what the build changed against
+the first draft.
 
 Two new engines, each selectable on any of the four tracks like every other engine:
 
@@ -258,11 +259,10 @@ Four (proposal): INIT, 808-ISH, CHIP, METAL. **Open point 3.**
   with a wrong tag or version loads the KIT's factory kit.
 - **User presets:** `up_fm6.c` ties an entry to an FM6 record by its hash; this is extended to VDRUM and DBOX records
   (the entry then holds the kit). The 7-bit rule (section 2.9) keeps the 8-into-7 packing working.
-- **Switching engines:** a track's FM6 patch and its kit share one field, so the last engine that wrote it wins when
-  the project or preset is saved. Switching back to FM6 loads its SLOT's factory patch (OWN: the init voice); back to
-  VDRUM / DBOX loads the KIT's factory kit. This was accepted in the interview.
-- **Older firmware** that reads such a project sees an unknown engine number (it plays ANALOG: `eng_idx`) and ignores
-  the 128 bytes, as it should.
+- **Switching engines:** a track's FM6 patch and its kit share one field in the stored record, so the engine the
+  track has when it is saved decides what is kept; the other one comes back as the init voice or the INIT kit. While the
+  unit is on both stay in RAM (section 7).
+- **Older firmware** refuses such a project (an unknown engine number: section 7).
 - Formats stay append-only: no `P_*` id is added (the engines use P_E0..P_E7), no enum value is reused.
 
 ### 4.3 Editor protocol and web editor
@@ -310,12 +310,33 @@ data is device-only until the editor learns a `KIT` message (later).
 screenshots in the colour palette. Real hardware is only installed with the user's go-ahead once everything above is
 green.
 
-## 6. Open points (for the user)
+## 6. Decided in the second interview
 
-1. **PAN per part.** The engines render one mono signal per track; a pan per part needs a stereo path inside the engine
-   (as SPREAD does for whole voices). Proposal: leave it out in step 1 (the track's PAN and SPREAD apply), add it later
-   if wanted.
-2. **DBOX's HOME knobs:** proposal TUNE, DECY, TONE, DRV.
-3. **DBOX factory kits:** four proposed (INIT, 808-ISH, CHIP, METAL), or another set.
-4. **Resonator TUNE following the keys:** fixed as on the volca (proposal), or an option to follow part 6's pitch.
-5. **Order of work:** proposal VDRUM first (engine, kit storage, pages, factory kits), then DBOX on the same base.
+1. **PAN per part:** left out for now (the track's PAN and SPREAD apply); the kit's PAN byte is reserved (64).
+2. **DBOX's HOME knobs:** TUNE, DECY, TONE, DRV.
+3. **DBOX factory kits:** INIT, 808-ISH, CHIP, METAL.
+4. **Resonator TUNE:** fixed, as on the volca (the keys do not move it).
+5. **Order of work:** VDRUM first, then DBOX on the same base.
+
+## 7. What the build changed against the first draft
+
+- **Favourites:** the settings keep favourites per engine in `favorites.factory[16][32]`, but rows 14 (MIDI LEARN's
+  map) and 15 (MENU and FX-layer settings) are taken. Engines from 14 on keep 32 favourites each at the end of ANALOG's
+  row (bytes 24..27 for VDRUM, 28..31 for DBOX: `favorites.c favorite_cell`). DBOX (15) has room there, a third new
+  engine would not.
+- **The kit in RAM is separate from the FM6 patch.** Every track has its own kit (`vd_own`, 128 B of pool a track)
+  next to its FM6 patch, so switching a track between FM6 and VDRUM loses nothing while the unit is on. Only the
+  stored record holds one of them: the one for the track's engine when the project or user preset is saved.
+- **Older firmware** refuses a project with an engine number it does not know (`project.c proj_engines_ok`): a project
+  with a VDRUM track does not load on Felucca or an older M-Vave-OP1 (it shows EMPTY there), rather than playing
+  ANALOG.
+- **`FELUCCA_SLICE=0`** builds keep engine 13 as a silent, never selectable stub (`ENG_SLICE_GONE`), so VDRUM stays 14.
+- **Undo** takes one copy per knob gesture (as FM6's operator pages): SAVE held undoes the last gesture, again redoes it.
+- **The `post` hook** (`engine_t.post`) runs after `spread_sum` and gets the engine switch's fade as an argument.
+- **Resonator arithmetic:** every product in its loop rounds towards zero, and its low-pass is written as
+  `(1 - a) lp + a r`; a floor, or `lp += a (r - lp)`, held a small offset against the loop gain for ever (a limit
+  cycle of a few units: the resonator never fell asleep).
+- **Budgets after VDRUM:** image 531 500 -> 540 164 B (41 KB of code flash left), RAM unchanged (56 136 B), pool
+  338 904 -> 339 544 B; static ISR cost 37 541 -> 37 899 (budget 41 252); new budget lines `vd_render` 165,
+  `vd_layer_run` 115, `vd_post` 124. Host cost: six parts with both layers and the resonator ~90 ns a sample (an x86
+  container; the instruction count of `tests/regress.c` needs the Mac).

@@ -418,6 +418,8 @@ static int page_visible(uint32_t i)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
     if (PAGES[i].id[0] == P_FTYPE)                    /* FILTER (1.5, #104): ANALOG's */
         return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG;
+    if (PAGES[i].graph >= GR_VDL && PAGES[i].graph <= GR_VDP2)   /* (M-Vave-OP1) VDRUM's part pages (ui_vdrum.c) */
+        return TSEL->eng_req % NENGINES == ENGI_VDRUM;
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)
         return TSEL->eng_req % NENGINES == ENGI_FM6;
 #if FELUCCA_SLICE
@@ -788,6 +790,7 @@ static struct {
     uint8_t eng, preset, user, patn;
     uint8_t fm6_slot;            /* the track's FM6 patch and its SLOT (eng_fm6.c): an edited or a project's */
     uint8_t fm6[FP_SIZE + 1u];   /* patch is the track's own, not a factory one */
+    uint8_t vdk[VK_SIZE];        /* (M-Vave-OP1) the track's own VDRUM kit (eng_vdrum.c vd_own) */
     int16_t p[P_COUNT];
     step_t step[NSTEP];
     motion_store_t motion_backup; /* one track only, swaps with the shared event pool on undo */
@@ -823,6 +826,7 @@ static uint32_t track_sig(const track_t *t)      /* the sound (an FM6 track's pa
     uint8_t id[3] = {t->eng_req, t->preset, t->user};
     uint32_t h = fnv(fnv(steps_sig(t), t->p, sizeof t->p), id, 3), k = trk_index(t);
     h = fnv(h, fm6_patch[k], sizeof fm6_patch[k]); /* (a patch the editor sent between two loads) */
+    h = fnv(h, vd_own[k], VK_SIZE);                /* (VDRUM's own kit: its part pages) */
     for (uint32_t j = 0; j < motion.count; j++)
         if ((motion.event[j].place >> 6) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
     return h ^ ((motion.on >> k) & 1u);
@@ -915,6 +919,7 @@ static void load_begin(track_t *t, uint32_t what)
     memcpy(undo.step, t->step, sizeof undo.step);
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
+    memcpy(undo.vdk, vd_own[i], VK_SIZE);
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -973,6 +978,7 @@ static void edit_undo_take(track_t *t, uint32_t tag, uint32_t what)
     memcpy(undo.step, t->step, sizeof undo.step);
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
+    memcpy(undo.vdk, vd_own[i], VK_SIZE);
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -1057,8 +1063,13 @@ static void undo_swap(void)
     }
     fm1_irq_on();
     if (undo.what & UNDO_SOUND) {                 /* FM6: the track's patch as it was (edited, a project's, a
-                                                   * converted DIGITAL sound), not a factory one */
+                                                   * converted DIGITAL sound), not a factory one; VDRUM's own kit */
         uint32_t tr = trk_index(t);
+        uint8_t kv[VK_SIZE];
+        memcpy(kv, vd_own[tr], VK_SIZE);
+        memcpy(vd_own[tr], undo.vdk, VK_SIZE);
+        memcpy(undo.vdk, kv, VK_SIZE);
+        vd_kgen[tr]++;
         uint8_t v[FP_SIZE + 1u], sl = fm6_slot[tr];
         memcpy(v, fm6_patch[tr], FP_SIZE);
         fm6_set_patch(tr, undo.fm6);

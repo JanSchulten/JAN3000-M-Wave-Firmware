@@ -39,7 +39,25 @@ static uint8_t eng_mem_owner[NPART];       /* engine index + 1 whose state is in
 #endif
 #if FELUCCA_SLICE
 #include "eng_slice.c"
+#else
+/* engine 13 without SLICE: reserved (VDRUM's number follows it), never selectable (eng_ok), silent */
+static void slice_gone_note_on(struct track *t, voice_t *v) { (void)t; (void)v; }
+static void slice_gone_render(struct track *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
+{
+    (void)t; (void)v; (void)out; (void)n; (void)m;
+}
+static const engine_t ENG_SLICE_GONE = {
+    .name = "-",
+    .page_title = {"-", "-"},
+    .edit = {{"-", F_INT, 0, 0, 0, 0, 0}, {"-", F_INT, 0, 0, 0, 0, 0}, {"-", F_INT, 0, 0, 0, 0, 0},
+             {"-", F_INT, 0, 0, 0, 0, 0}, {"-", F_INT, 0, 0, 0, 0, 0}, {"-", F_INT, 0, 0, 0, 0, 0},
+             {"-", F_INT, 0, 0, 0, 0, 0}, {"-", F_INT, 0, 0, 0, 0, 0}},
+    .note_on = slice_gone_note_on,
+    .render = slice_gone_render,
+    .knob = {P_E0, P_E1, P_E2, P_E3},
+};
 #endif
+#include "eng_vdrum.c"          /* VDRUM: six parts of two layers into a resonator (M-Vave-OP1) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
 static const engine_t *const ENGINES[NENGINES] = {
@@ -61,8 +79,11 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_NOISE,                  /* 11 */
     &ENG_FM6,                    /* 12 (ENGI_FM6) */
 #if FELUCCA_SLICE
-    &ENG_SLICE,                  /* 13 (FELUCCA_SLICE=0 builds without it) */
+    &ENG_SLICE,                  /* 13 */
+#else
+    &ENG_SLICE_GONE,             /* 13: reserved (FELUCCA_SLICE=0) */
 #endif
+    &ENG_VDRUM,                  /* 14 (ENGI_VDRUM, M-Vave-OP1) */
 };
 
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
@@ -123,11 +144,15 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     13,                          /* SLICE */
 #endif
     10,                          /* DRUM */
+    14,                          /* VDRUM */
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them
  * eng_vis(n), e's place among them eng_rank(e), the next / previous one eng_step(e, dir) (wraps) */
-static int eng_ok(uint32_t e) { return e < NENGINES && (FELUCCA_FM4 || e != ENGI_DIGITAL); }
+static int eng_ok(uint32_t e)
+{
+    return e < NENGINES && (FELUCCA_FM4 || e != ENGI_DIGITAL) && (FELUCCA_SLICE || e != ENGI_SLICE);
+}
 static uint32_t eng_vis(uint32_t n) { return ENGINE_ORDER[n % NENG_SHOWN]; }
 static uint32_t eng_rank(uint32_t e)
 {

@@ -11,7 +11,7 @@
 enum { CAT_NONE, CAT_BASS, CAT_LEAD, CAT_PAD, CAT_PLUCK, CAT_KEYS, CAT_DRUM, CAT_FX, CAT_OTHER, CAT_N };
 static const char *const CAT_NAME[CAT_N] = {"-", "BASS", "LEAD", "PAD", "PLUCK", "KEYS", "DRUM", "FX", "OTHER"};
 /* the category a sound without one is listed under: a kit (DRUM, SLICE: engines 10, 13) DRUM, any other OTHER */
-static uint32_t cat_of_engine(uint32_t e) { return e == 10u || e == 13u ? CAT_DRUM : CAT_OTHER; }
+static uint32_t cat_of_engine(uint32_t e) { return e == 10u || e == 13u || e == ENGI_VDRUM ? CAT_DRUM : CAT_OTHER; }
 
 #ifndef UP_HOST
 /* the factory presets' categories: per engine number (engines.c ENGINES[]), a letter per preset in its order (B BASS,

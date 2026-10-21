@@ -20,9 +20,12 @@
 #define FELUCCA_FM4 0            /* the DIGITAL engine (eng_digital.c, four-operator FM): kept in the tree, not built
                                   * by default; replaced by FM6, its sounds convert (fm4_convert.c) */
 #endif
-#define NENGINES (13 + FELUCCA_SLICE)   /* SLICE (13) comes last: the other engines keep their numbers */
+#define NENGINES 15u              /* .. SLICE (13; FELUCCA_SLICE=0: reserved, never selectable), VDRUM (14,
+                                  * M-Vave-OP1): appended, the other engines keep their numbers */
+#define ENGI_SLICE 13u
+#define ENGI_VDRUM 14u
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
-#define NENG_SHOWN (NENGINES - !FELUCCA_FM4)   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
+#define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - !FELUCCA_SLICE)   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
                                                 * in the display order of engines.c ENGINE_ORDER */
 #define UP_SLOTS 32u             /* user presets (upreset.c) */
 #define NELEM(a) (sizeof(a) / sizeof((a)[0]))
@@ -224,6 +227,9 @@ typedef struct {                 /* an engine (engines.c ENGINES[]; the eng_*.c 
      * in, 0 = none: a part plays one engine at a time, so they share one region; on a switch to the engine
      * (after the old one's fade) the region is zeroed when another engine had it (eng_mem_claim) */
     uint16_t mem;
+    /* optional: after the part's voices, on their sum (VDRUM's resonator); fade Q15 (32767, or an engine switch's fade
+     * of the voices); returns 1 while it still sounds with no voice (track_render then reports the part as sounding) */
+    int (*post)(struct track *t, int32_t *out, uint32_t n, int32_t fade);
 } engine_t;
 
 /* ------------------------------------------------- tracks, the song --- */

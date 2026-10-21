@@ -618,6 +618,10 @@ static __attribute__((noinline)) void cin_keep(track_t *t, uint32_t note, uint32
 static void input_on(track_t *t, uint32_t note, uint32_t vel)
 {
     last_note = (uint8_t)note;
+    if (t->eng_req == ENGI_VDRUM) {                 /* (M-Vave-OP1) the part the VDRUM pages edit (ui_vdrum.c) */
+        int32_t st;
+        vd_pick[trk_index(t)] = (uint8_t)(vd_part_note(note, &st) + 1u);
+    }
     if (cin_left)
         cin_keep(t, note, vel);
     if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes) */

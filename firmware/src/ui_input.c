@@ -1276,6 +1276,10 @@ static void edit_param(uint32_t slot, int32_t steps)
         fop_knob(slot, steps);
         return;
     }
+    if (vdu_page(pg->graph)) {                           /* (M-Vave-OP1) VDRUM's parts: their kit bytes (ui_vdrum.c) */
+        vdu_knob(slot, steps);
+        return;
+    }
     if (pg->graph == GR_MOD && slot == 0u) {             /* MOD: KNOB 1 the slot, 2..4 its SRC DST AMT */
         mod_ui_slot = (uint8_t)clamp((int32_t)mod_ui_slot + (steps > 0 ? 1 : -1), 0, 3);
         return;
@@ -2009,7 +2013,8 @@ static void ui_input(void)
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
             || pg->graph == GR_SONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD || (pg->graph == GR_SLICES && k < 2u) ||
-            (pg->graph == GR_ORCH && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph)) {   /* (not an empty
+            (pg->graph == GR_ORCH && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
+            (vdu_page(pg->graph) && vdu_field(k) != VU_NONE)) {   /* (not an empty
                                                                                                           * column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;

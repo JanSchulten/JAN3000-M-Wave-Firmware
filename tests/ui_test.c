@@ -181,6 +181,9 @@ static void ui_power_on(void)
     ml_off();                                     /* (MIDI LEARN off, nothing learned) */
     memset(&undo, 0, sizeof undo);
     fop_op = fop_stg = 0;                         /* (FM6's operator pages: OP 1, stage 1, as at power-on) */
+    memset(vd_own, 0, sizeof vd_own);             /* (M-Vave-OP1 VDRUM: no own kits, no part struck, LYR L1) */
+    memset((void *)vd_pick, 0, sizeof vd_pick);
+    vdu_lyr = 0;
     memset(pat_last, 0, sizeof pat_last);
     memset(pat_from, 0, sizeof pat_from);                /* (the header's slot letter: none) */
     memset(proj_slot, 0, sizeof proj_slot);

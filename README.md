@@ -160,6 +160,22 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
 - STEP entry writes the chord (up to four notes a step, as the keys' chords); live recording takes the
   notes as played. ON and VOICE are kept with the project; LOCK and the latch start off after a load.
 
+## VDRUM: six drum parts into a resonator
+
+A drum engine after the concept of Korg's volca drum (our own design and sounds; spec: [docs/VDRUM_DBOX_SPEC.md](docs/VDRUM_DBOX_SPEC.md)).
+Pick it like any engine (PRESETS, EDIT held); it plays the General MIDI drum notes with the kick on the first C, so the
+BEAT pattern and MIDI drum parts play on it.
+
+- **Six parts** (KICK, SNARE, CLAP, HAT CL, HAT OP, TOM; the toms' notes pitch part 6), each of **two layers**: a source
+  (SIN, SAW, high-, low- or band-passed noise), a pitch modulator (EXP sweep, TRI, RND) and an envelope (AD, EXP, MULT for
+  claps). Per part BIT, FOLD, DRV, GAIN, the SEND into the resonator and a choke group (the hats choke each other).
+- **The resonator** after the parts: TUBE (odd harmonics, a shell) or STRING (a plucked string). HOME's KNOB 1..4 are
+  its **TYPE, DECAY, BODY, TUNE**; EDIT 2: KIT (F1..F8, OWN), MIX, ACC, DRV.
+- **Editing a part:** strike its key, then EDIT > LAYER, LAYER PITCH, LAYER ENV (KNOB 1: L1, L2 or L1+L2), PART,
+  PART 2. The first edit makes the kit the track's own (KIT OWN); SAVE held undoes. Projects and user presets keep the
+  own kit (in the place an FM6 track keeps its patch).
+- Eight factory kits: INIT, ELECTRO, TUBES, STRINGS, METAL, DUB, CRUSH, WOOD.
+
 ## Other changes to Felucca's workflow
 
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
