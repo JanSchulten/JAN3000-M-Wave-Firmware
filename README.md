@@ -9,7 +9,7 @@ through a chord progression, and from the OP-Z two FX tracks with recordable pun
 switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and, after ChoralRoot FM-1, the
 Orchid's chord keyboard as SCL > ORCHID. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
-> **Status:** early development. Nothing here has been flashed to hardware yet.
+> **Status:** early development, running on a real FM-1 since the first flash (JAN3000 v0.8: the name on its splash).
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
 > recovery button; if an install fails and the unit will not start, recovery needs extra
 > hardware (FM-1 Transporter with an RP2040). Develop and try changes in the host tests and the
@@ -22,7 +22,7 @@ melodic track's sequenced notes and its arp move to the bar's root **inside the 
 SCALE): a pattern written in C major plays under KEY **Am F C G** as A minor, F major, C major and G major, the
 scale's own chords. The keys you play live stay as they are, so you can play along; drums and other kits never move.
 
-- **GLO** opens **KEY** (tap GLO again: SONG). The 16 bars show the chord each root makes in the selected track's
+- **GLO** opens **KEY** (SELECT: SONG). The 16 bars show the chord each root makes in the selected track's
   scale; the bar playing is lit.
 - **The keys play roots, not notes** (on this page they sound nothing, as on the OP-Z's key track; each key is its
   name, whatever the octave):
@@ -120,6 +120,12 @@ song stay the project's.
 
 - Hold **SEQ**: the layer says **[SEQ] SCENES**. The **white keys F3 .. G5 are scenes 1 .. 16**; **OCT+ / OCT-** pick the
   next / the one before (from the scene waiting, else the one playing).
+- **SEQ + OCT+ held (0.7 s) copies the scene playing into the next free scene** (the first empty one after it, round
+  past 16 to 1) and goes on with the copy: COPIED TO SCENE n, while OCT+ is still held; letting go then steps no scene.
+  It is at once, playing too, and nothing is heard: the music plays on where it was; from then on every edit changes
+  the copy, the original waits in its scene, and OCT- goes back to it. A pick waiting is taken back. Else it says
+  NOTHING TO COPY (the scene is empty), NO FREE SCENE or SCENE MEMORY FULL. The footer: [OCT-/+] PREV NEXT,
+  [OCT+] HOLD: COPY.
 - Stopped, a scene comes at once. **Playing, it comes at the end of the pattern**: the end of the loop of the longest
   track that plays something, on the grid, as a SONG section ends. The scene playing picked again takes the pick
   back (SCENE n STAYS). STOP with one waiting: it comes at once.
@@ -160,6 +166,29 @@ voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it 
 - STEP entry writes the chord (up to four notes a step, as the keys' chords); live recording takes the
   notes as played. ON and VOICE are kept with the project; LOCK and the latch start off after a load.
 
+## ANALOG2: two oscillators, a filter and an LFO each
+
+A synth engine of its own (engine 14, shown **ANLG2**, after ANALOG in PRESETS): two oscillators, each through its own low-pass with
+its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows:
+
+| Row | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| OSC | WAVE | TUNE | WAVE2 | TUNE2 |
+| WAVE 1 | CUT | RES | LFO | RATE |
+| WAVE 2 | CUT2 | RES2 | LFO2 | RATE2 |
+| VOICE | VCE | GLD | GLMOD | PRIO |
+
+- **WAVE / WAVE2:** SAW SQR TRI SIN PWM NOISE (band-limited as ANALOG's; PWM's width from the SHP routings).
+- **TUNE / TUNE2:** the oscillator's detune in Hz, -50 .. +50: two oscillators a few Hz apart beat at that rate on
+  every note.
+- **CUT RES:** each oscillator's own filter (ANALOG's state-variable low-pass). ENV, LFO and the matrix to FLT move
+  both, and both follow the keyboard a little (ANALOG's KTR 64).
+- **LFO / RATE:** the depth (up to half of CUT's range either way) and speed (0.05 .. 30 Hz, shown in Hz) of the
+  oscillator's own sine LFO on its CUT; it starts with each note.
+- Eight presets: DUAL SAW, WOBBLE, SWEEP PAD, DUO BASS, BELL SIN, NOISE HAT, STEREO LD, WIND. HOME's knobs: CUT, CUT2,
+  ATK, REL.
+- WAVE 2's four values sit in track parameters the retired DIGITAL engine left free, so projects, user presets,
+  automation and the editor keep them without a new format.
 ## VDRUM: six drum parts into a resonator
 
 A drum engine after the concept of Korg's volca drum (our own design and sounds; spec: [docs/VDRUM_DBOX_SPEC.md](docs/VDRUM_DBOX_SPEC.md)).
@@ -191,13 +220,37 @@ the BEAT pattern plays on them.
 
 ## Other changes to Felucca's workflow
 
+- **SELECT turns the pages:** on any page SELECT goes to its family's next (or previous) page, round and round; the
+  page's button tapped again goes HOME. The tempo is HOME's: SELECT sets it on HOME and on HOME's MIXER and CLOCK (HOME
+  taps go round those as before). GLO + SELECT no longer sets it. A double tap still locks a layer over the page shown.
+
+- **JAN3000 v0.8 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
+  like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
+  the accent and theme colour beside it and a band torn sideways now and then. Then the version with a blinking block
+  cursor, a sine settling under it, "based on Felucca" below.
+- **SAVE opens PROJECT, played on the keys:** F3 G3 A3 B3 pick project A..D (the keys are silent there and lit),
+  OCT+ saves into it (the NAME screen; a used one asks OVERWRITE? first), OCT- loads it (LOAD PROJECT? first). F#5,
+  the highest black key, is **NEW**: OCT+ starts a new project (the power-on sounds with empty steps, the default
+  tempo, no song, FX TRACKS, KEY or scenes, no slot), stopped only (STOP FIRST). SELECT goes on to USER, PRESETS,
+  PHRASES, TOOLS.
+- **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
+  change in the same hold is put back by OCT- as before.
+- **Another track opens each family at its first page:** turn ALGORITHM, then FX (SCL, ENV ..) starts at its first
+  card again; the page shown when the track changes stays.
+- **DRUM, every sound its own: EDIT > SOUNDS** (after LANES 2). A key picks the sound (it plays as everywhere), KNOB
+  1..4 set that sound's TUNE (-12..+12 semitones), DECAY and TONE (-6..+6 steps around the kit) and SOUND (KIT, or the
+  piece of STD / 808 / 10 / 66 / 55 / 77: an 808 kick under a 10 snare). The screen lists all eight. Projects and user
+  presets keep them (in track parameters the retired DIGITAL engine left free); a preset load sets them back.
+- **DRUM, SEQ grid:** a lane's black key lights for a moment whenever that lane plays (a hi-hat's key flashes with
+  each hit).
+
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
-  the cards in place of the scope: every page's values, the row the knobs edit raised. A tap of EDIT goes to the next
+  the cards in place of the scope: every page's values, the row the knobs edit raised. SELECT goes to the next
   row. WHEEL, SAMPLE and FM6 keep their pictures.
 - **FX in seven cards, six drawn as effect pedals** (each in the colours of a classic of its kind: an orange drive,
   a light blue chorus, a magenta flanger, a teal vibrato, a green delay or a purple CLOUD box, a blue room, a brown
   spring, a silver hall, a pearl shimmer, a yellow slicer): the knobs where KNOB 1..4 sit (turned: the value under
-  it), a window with the effect moving, the name, the LED and the footswitch. A tap of FX the next: **1 SEND** (not a
+  it), a window with the effect moving, the name, the LED and the footswitch. SELECT the next: **1 SEND** (not a
   pedal: four mixer faders, the track's DST CHO DLY REV), **2 INSERT** (TYPE A B MIX), **3 CHORUS** (TYPE CHORUS /
   FLANGER / VIBRATO, RATE, DEPTH, FDBK), **4 DELAY** (TYPE DELAY: TIME FDBK MIX; CLOUD, the granular: SIZE PITCH
   DENS), **5 REVERB** (TYPE ROOM / SPRING / HALL / SHIMMER, SIZE, DAMP), **6 SLICER**, **7 FX TRACKS**.
@@ -207,7 +260,7 @@ the BEAT pattern plays on them.
 - **REVERB SHIMMER:** the HALL with its tail shifted an octave up and fed back into it, so the tail climbs an octave
   a pass (each one darker and quieter: it dies away at any SIZE).
 - **ARP on one screen:** ARP and ARP 2 show both their rows (MODE RATE OCT GATE, SWING PROB HOLD ORDER; the row the
-  knobs edit raised, an ARP tap goes to the other) and under them a keyboard: the notes the arp runs through lit (the
+  knobs edit raised, SELECT goes to the other) and under them a keyboard: the notes the arp runs through lit (the
   keys held brighter, the octaves OCT adds quieter), the note sounding in the accent.
 - **REC held:** F#3 clears both FX TRACKS, G#3 the selected track's automation (its recorded knob moves), each after
   OCT+; the notes stay (F3 CLEAR clears the notes and the automation, as before).
@@ -238,6 +291,10 @@ more). Felucca projects load as before (with empty FX TRACKS, as scene 1).
 
 ## Documents
 
+- **First flash on a real FM-1** (German checklists): [docs/ERSTER_FLASH.md](docs/ERSTER_FLASH.md), then
+  [docs/TESTLISTE.md](docs/TESTLISTE.md). The installer as a ZIP to start on your computer:
+  `dist/M-Vave-OP1-Installer.zip` (`sh tools/make_installer_zip.sh`); it can return the FM-1 to M-VAVE's official
+  V15 without a separate download (`vendor/m-vave/`, Apache-2.0)
 - Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 - OP-1 and FM-1 compared, with the step-by-step plan (German): [docs/OP1_COMPARISON.md](docs/OP1_COMPARISON.md)
 - The plan for new effects (granular CLOUD and the OP-Z punch-ins done, track inserts next; German):

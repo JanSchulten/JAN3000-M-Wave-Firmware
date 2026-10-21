@@ -1358,7 +1358,7 @@ static void setup(int s)
         int16_t *vp;
         song.playing = 0;
         if (s == S_MOMENTARY_EDIT)
-            open_family(FAM_EDIT);
+            fam_next(FAM_EDIT);
         if (s == S_MOMENTARY) home_param(0, &vp);
         else page_desc(cur_page(), 0, &vp);
         mom.n = 1; mom.vp[0] = vp; mom.v[0] = *vp;
@@ -1628,44 +1628,28 @@ static void draw(int s)
         setup_show("TURN RIGHT", "ALGORITHM");
         return;
     }
-    if (s == S_SPLASH) {                          /* the power-on splash (main.c, before the UI): its lines, the version
-                                                   * shown FELUCCA_VERSION (run_tests.sh: src/felucca.c's) */
-        static const char WANT[] = "Felucca|" FELUCCA_VERSION "|H\xFCgelton Instruments|with community";
+    if (s == S_SPLASH) {                          /* the power-on splash (main.c, before the UI), M-Vave-OP1's JAN3000: at
+                                                   * its end the version and the credit (the name is bars, not text:
+                                                   * ui_draw.c spl_glyph); half way through the name's boot no text */
+        static const char WANT[] = JAN_VERSION "|based on Felucca";
+        splash_seen[0] = 0;
+        in_splash = 1;
+        draw_splash_at(SPL_WIPE / 2u);
+        in_splash = 0;
+        if (splash_seen[0]) {
+            if (rep) fprintf(rep, "FIND %-26s the splash half way shows '%s', not the name alone\n", cur_name, splash_seen);
+            nfind++;
+        }
         splash_seen[0] = 0;
         in_splash = 1;
         draw_splash();
         in_splash = 0;
-        {   /* the square whole on the screen (176 x 176 at 32,32, more than the canvas): its edges and square corners
-             * RAISE, BG just outside; its text's ink 16 px in from the left and the top (the bottom: AL_B, the hook) */
-            const int32_t q0 = 32, q1 = 32 + 176 - 1;
-            uint16_t bg = host_screen[0], ra = host_screen[(uint32_t)(q0 + 1) * 240u + (uint32_t)q0 + 1];
-            int32_t i, x, y, ix = 999, iy = 999, bad = ra == bg;
-            for (i = q0 - 1; i <= q1 + 1; i++) {
-                int32_t in = i >= q0 && i <= q1;
-                bad |= host_screen[(uint32_t)(q0 - 1) * 240u + (uint32_t)i] != bg || host_screen[(uint32_t)(q1 + 1) * 240u + (uint32_t)i] != bg
-                    || host_screen[(uint32_t)i * 240u + (uint32_t)(q0 - 1)] != bg || host_screen[(uint32_t)i * 240u + (uint32_t)(q1 + 1)] != bg;
-                if (in)
-                    bad |= host_screen[(uint32_t)q0 * 240u + (uint32_t)i] != ra || host_screen[(uint32_t)q1 * 240u + (uint32_t)i] != ra
-                        || host_screen[(uint32_t)i * 240u + (uint32_t)q0] != ra || host_screen[(uint32_t)i * 240u + (uint32_t)q1] != ra;
-            }
-            for (y = q0; y <= q1; y++)
-                for (x = q0; x <= q1; x++)
-                    if (host_screen[(uint32_t)y * 240u + (uint32_t)x] != ra) {
-                        if (x - q0 < ix) ix = x - q0;
-                        if (y - q0 < iy) iy = y - q0;
-                    }
-            if (bad || ix != 16 || iy != 16) {
-                if (rep) fprintf(rep, "FIND %-26s the splash square not whole (edges %s) or its text not 16 px in (left %d, top %d)\n",
-                                 cur_name, bad ? "off" : "ok", (int)ix, (int)iy);
-                nfind++;
-            }
-        }
         if (strcmp(splash_seen, WANT)) {
             if (rep) fprintf(rep, "FIND %-26s the splash shows '%s', not '%s'\n", cur_name, splash_seen, WANT);
             nfind++;
         } else {
             static uint8_t said;
-            if (!said++) printf("ui_render: the splash shows the version " FELUCCA_VERSION " (FELUCCA_VERSION) and its lines\n");
+            if (!said++) printf("ui_render: the splash shows " JAN_NAME " " JAN_VERSION ", based on Felucca\n");
         }
         return;
     }

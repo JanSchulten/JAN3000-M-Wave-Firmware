@@ -130,13 +130,21 @@ static uint32_t oct_leds(void)
 
 /* the key LEDs on the grid, bit k = key k: the white keys show where the selected lane hits on the page
  * shown (its accents while ACC is held), the step playing inverted (a light walks over them); the black keys
- * the lane selected, ACC while held, the page keys while there is more than one page */
+ * the lane selected, ACC while held, the page keys while there is more than one page. M-Vave-OP1: a lane's black key
+ * flashes as its drum plays (eng_drum.c drum_lit, lit GRID_FLASH ms; the lane selected stays lit) */
+#define GRID_FLASH 70u                                  /* ms */
+static uint32_t grid_flash[NLANE];                      /* (fm1_ms the flash ends: as often as it is asked, the same) */
 static uint32_t grid_leds(void)
 {
     const track_t *t = TSEL;
     uint32_t k, m = 0, len = (uint32_t)t->p[P_SLEN], b = detail_on() ? 0xFFu : 1u << ui.lane;   /* (DETAIL: any hit) */
     uint32_t acc = !detail_on() && black_held(GK_ACC);
     uint32_t ph = song.playing && t->seq_idx < len && t->seq_idx / 16u == ui.bank ? t->seq_idx % 16u : 0xFFu;
+    uint32_t lit = drum_lit[song.sel % NTRK];
+    drum_lit[song.sel % NTRK] = 0;                      /* (taken: the ISR sets the next) */
+    for (k = 0; k < NLANE; k++)
+        if ((lit >> k) & 1u)
+            grid_flash[k] = fm1_ms + GRID_FLASH;
     for (k = 0; k < 27u; k++) {
         uint32_t p = key_place(k), on;
         if (!key_black(k)) {
@@ -144,7 +152,7 @@ static uint32_t grid_leds(void)
             on = i < len && ((acc ? step_accents(&seq_steps(t)[i]) : step_lanes(&seq_steps(t)[i])) & b) != 0u;
             on ^= (uint32_t)(p == ph);
         } else {
-            on = p < NLANE ? p == ui.lane : p == GK_ACC ? acc : len > 16u;
+            on = p < NLANE ? p == ui.lane || (int32_t)(grid_flash[p] - fm1_ms) > 0 : p == GK_ACC ? acc : len > 16u;
         }
         m |= on << k;
     }
@@ -368,6 +376,42 @@ static void key_knob(uint32_t slot, int32_t steps)
 /* .. GLO > KEY's keys (song.grid 4: silent; key.c), each a root by its name: stopped, the cursor bar's (the cursor on,
  * round at LEN); running, the tracks move at once (key_live); with REC, into the run too: the bar playing, or the next
  * in its last quarter, the cursor there and KEY ON */
+/* M-Vave-OP1, SAVE > PROJECT: a white key F3 G3 A3 B3 picks project A..D, F#5 asks for a NEW one (stopped) */
+static void slots_keys(uint32_t notes)
+{
+    static const uint8_t WK[4] = {0, 2, 4, 6};
+    uint32_t k;
+    for (k = 0; k < 4u; k++)
+        if ((notes >> WK[k]) & 1u) {
+            song.g[G_SLOT] = (int16_t)(k + 1u);
+            ui.force = 1;
+        }
+    if ((notes >> SLOT_KEY_NEW) & 1u) {
+        if (transport_busy())
+            ui_message("STOP FIRST");
+        else
+            confirm_open(CF_NEW_PROJ, 0);
+    }
+}
+/* .. OCT+ saves into the picked project (the NAME screen; a used one: OVERWRITE? first), OCT- loads it (LOAD? first) */
+static void slots_oct(uint32_t oct)
+{
+    uint32_t k = ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
+    ui.act = 0;
+    if (oct & 2u) {
+        if (transport_busy())
+            ui_message("STOP TO SAVE");
+        else if (project_used(k))
+            confirm_open(CF_OVR_PROJ, k);
+        else
+            name_open(NK_PROJ_SAVE, k);
+    } else if (!project_used(k)) {
+        ui_message("EMPTY SLOT");
+    } else {
+        confirm_open(CF_LOAD_PROJ, k);
+    }
+}
+
 static void key_keys(uint32_t notes)
 {
     uint32_t k, pc, len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u;
@@ -411,6 +455,8 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
     uint32_t c;
     if (br)
         *br = 0;
+    if (!grid_on())                                     /* (M-Vave-OP1: a lane's flash only for hits the grid saw) */
+        memset((void *)drum_lit, 0, sizeof drum_lit);
     c = name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds(br) : grid_on() ? grid_leds() :
         orc_ui() ? (((fm1_in.notes & ~kb_layer) | play_leds() | step_leds()) & ~ORC_BLOCK) | orc_leds() :
                  (fm1_in.notes & ~kb_layer) | play_leds() | step_leds() | (song_keys_on() ? song_leds() : 0u);
@@ -418,6 +464,8 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
     if (!ui.layer && !ui.menu && !name_on() && slice_page_on())
         c |= slice_leds();                              /* SLICES: and the keys of the selected slice */
 #endif
+    if (slots_keys_on())                                /* M-Vave-OP1, PROJECT: the projects' keys and NEW */
+        c = 1u << 0 | 1u << 2 | 1u << 4 | 1u << 6 | 1u << SLOT_KEY_NEW;
     return c;
 }
 
@@ -713,6 +761,10 @@ static int rec_tap(void)                                /* 1: the arming changed
     }
     song.rec ^= bit;
     ui.force = 1;                                     /* also refresh the status on MENU / ABOUT */
+    if (song.rec & bit) {                             /* M-Vave-OP1: the track as it was before it records, for */
+        step_undo_take(TSEL, 0);                      /* REC + OCT- (undo) / OCT+ (redo): its steps and motion */
+        motion_undo_done(TSEL);
+    }
     if ((song.rec & bit) && !song.playing && !seq_counting() && roll_on()) {
         ui_message(ui_prefs2 & (PREF_CHORD_ADD >> 16) ? "KEYS ADD TO STEP" : "KEYS WRITE STEPS");   /* step recording:
                                                          * stopped, at the cursor (CHORD ENTRY ADD: adding) */
@@ -1257,6 +1309,19 @@ static void edit_param(uint32_t slot, int32_t steps)
         return;
     }
 #endif
+    if (pg->graph == GR_DLANE) {                          /* M-Vave-OP1, EDIT > SOUNDS: the lane's TUNE DECAY TONE SOUND */
+        if (drum_track(TSEL)) {
+            uint32_t v = dl_get(TSEL->p, ui.lane, slot);
+            int32_t n = clamp((int32_t)v + (steps > 0 ? 1 : -1), 0, DL_MAX[slot]);   /* (a step a detent: few steps) */
+            dl_set(TSEL->p, ui.lane, slot, (uint32_t)n);
+            TSEL->user = 0;
+            ui.hot_col = (uint8_t)slot;
+            ui.hot_t = 40;
+        }
+        return;
+    }
+    if (pg->graph == GR_SLOTS && slot)                    /* M-Vave-OP1, PROJECT: KNOB 1 the project, the rest say */
+        return;                                           /* where NEW, LOAD, SAVE are (F#5, OCT-, OCT+) */
     if ((act_cols() >> slot) & 1u) {                      /* an action's knob picks it (right) or drops it (left); */
         if (pg->graph != GR_PATS)                         /* OCT+ does it (act_do) */
             ui.act = steps > 0 ? (uint8_t)(slot + 1u) : ui.act == slot + 1u ? 0u : ui.act;
@@ -1362,6 +1427,13 @@ static void act_do(void)
             confirm_open(CF_OVR_USER, ui.uslot);
         else
             name_open(NK_USER_SAVE, ui.uslot);
+        return;
+    }
+    if (cur_page()->graph == GR_SLOTS && c == 1u) {       /* M-Vave-OP1: NEW, after the dialog */
+        if (transport_busy())
+            ui_message("STOP FIRST");
+        else
+            confirm_open(CF_NEW_PROJ, 0);
         return;
     }
     id = cur_page()->id[c & 3u];
@@ -1675,7 +1747,7 @@ static void ui_input(void)
     uint32_t home, rec, save;
     uint32_t oct;
     uint32_t lay, combo = 0, lytap, lkeys, glo, kq = 0;
-    int32_t s, sel = 0, ks[4] = {0, 0, 0, 0};
+    int32_t s, ks[4] = {0, 0, 0, 0};
     static uint32_t lock_ms;                            /* BPM LOCK: the last locked SELECT turn (fm1_ms | 1; 0 none) */
     midi_pc_poll();                                     /* MIDI Program Change (before fm6_poll: a bank voice) */
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
@@ -1724,7 +1796,8 @@ static void ui_input(void)
     if (((pressed >> panel.btn[B_REC]) & 1u) && ui.ly == LAYER_REC)
         ui.rec_t0 |= 2u;                                /* (REC is its layer's button now: its tap is layer_tap's) */
     layer_oct_open(pressed);                            /* (OCT± with a SET layer's button down: it opens now) */
-    oct = oct_taps(pressed, ui.menu || ui.confirm || act_cols() || name_on() || layer_set_open() || ui.ml.on);
+    oct = oct_taps(pressed, ui.menu || ui.confirm || act_cols() || slots_keys_on() || name_on() || layer_set_open() ||
+                            ui.ml.on);
     oct = layer_oct(pressed, oct);                      /* (a SET layer's OCT-: put back) */
     layer_masks();                                      /* seq.c: keys pressed with a layer's button are its own */
     lay = layer_held();
@@ -1772,8 +1845,8 @@ static void ui_input(void)
             fx_bank(s);
             combo = 1;
         }                                               /* (else nobody's: OCT- puts back the layer's track only) */
-        if (glo && (sel = panel_enc(EN_SELECT)) != 0)   /* GLO + SELECT: the tempo, a combo (OCT- puts it back) */
-            combo = 1;
+        if (glo && panel_enc(EN_SELECT) != 0)           /* GLO + SELECT: nothing (M-Vave-OP1: the tempo is HOME's), a */
+            combo = 1;                                  /* combo all the same (no tap of GLO) */
     } else if ((kq = (uint32_t)layer_knobs_quiet()) != 0) {   /* a layer letting go: KNOB 1..4 are nobody's (#39) */
         for (k = 0; k < 4u; k++)
             if (panel_enc(EN_K1 + k) != 0)
@@ -1834,7 +1907,12 @@ static void ui_input(void)
             uint32_t kind = ui.confirm;
             ui.confirm = 0;
             ui.force = 1;
-            if (kind == CF_OVR_PROJ) {                  /* overwrite: the NAME screen writes it */
+            if (kind == CF_NEW_PROJ) {                  /* M-Vave-OP1: everything as at power-on */
+                project_new();
+                ui.act = 0;
+            } else if (kind == CF_LOAD_PROJ) {          /* .. PROJECT's OCT- */
+                project_load(ui.confirm_trk & 3u);
+            } else if (kind == CF_OVR_PROJ) {           /* overwrite: the NAME screen writes it */
                 name_open(NK_PROJ_SAVE, ui.confirm_trk & 3u);
             } else if (kind == CF_OVR_USER) {
                 name_open(NK_USER_SAVE, ui.confirm_trk);
@@ -1942,7 +2020,9 @@ static void ui_input(void)
     for (id = 0; b; id++, b >>= 1)
         if (b & 1u)
             page_tap(panel_btn_of(id));
-    if (act_cols() && (oct & 2u)) {                     /* action pages: OCT+ does the picked action, */
+    if (slots_keys_on() && (oct & 3u)) {               /* M-Vave-OP1, PROJECT: OCT+ saves, OCT- loads the picked one */
+        slots_oct(oct);
+    } else if (act_cols() && (oct & 2u)) {              /* action pages: OCT+ does the picked action, */
         act_do();
     } else if (act_cols() && (oct & 1u)) {              /* OCT- drops it, or (none picked) goes HOME */
         if (cur_page()->graph != GR_PATS && ui.act)
@@ -1953,12 +2033,20 @@ static void ui_input(void)
         ml_oct(oct);
     }
     song.grid = (uint8_t)keys_mode();                 /* (seq.c: the keys are the grid's) */
+    if (notes && !ui.home && !ui.layer && cur_page()->graph == GR_DLANE && drum_track(TSEL)) {
+        for (k = 0; k < 27u && !((notes >> k) & 1u); k++)   /* M-Vave-OP1, SOUNDS: the key played picks its lane (it */
+            ;                                                /* sounds, as everywhere) */
+        if (k < 27u)
+            ui.lane = (uint8_t)drum_lane((uint32_t)drum_keys(TSEL, k));
+    }
 #if FELUCCA_SLICE
     if (notes && slice_page_on())                       /* SLICES: a key picks the slice it plays */
         slice_keys_pick(notes);
 #endif
     lock_keys();                                        /* (a grid key on a hit let go: the hit goes) */
-    if (song.grid == 4u) {
+    if (song.grid == 5u) {
+        slots_keys(notes);                              /* (M-Vave-OP1: SAVE > PROJECT) */
+    } else if (song.grid == 4u) {
         key_keys(notes);                                /* (M-Vave-OP1: GLO > KEY, key.c) */
     } else if (song.grid == 3u) {
         song_keys(notes);
@@ -1983,12 +2071,14 @@ static void ui_input(void)
         presets_turn(s);
     if (!lay && (s = panel_enc(EN_ALGO)) != 0)     /* ALGORITHM: the selected track, on every page */
         track_select((uint32_t)clamp((int32_t)song.sel + (s > 0 ? 1 : -1), 0, NTRK - 1));
-    if ((s = glo ? sel : panel_enc(EN_SELECT)) != 0) {   /* SELECT knob = global tempo; */
-        if (glo || !(ui_prefs & PREF_BPM_LOCK)) {
+    if ((s = panel_enc(EN_SELECT)) != 0 && !lay && !ui.home && cur_page()->fam != FAM_TRK) {
+        page_step(s);                                   /* M-Vave-OP1: SELECT turns the family's pages (wrapping) */
+    } else if (s && !lay) {                             /* .. and on HOME (its MIXER, CLOCK) the tempo */
+        if (!(ui_prefs & PREF_BPM_LOCK)) {
             song.g[G_BPM] = (int16_t)clamp(song.g[G_BPM] + accel(EN_SELECT, s, 200), GP[G_BPM].min, GP[G_BPM].max);
             ui.bpm_t = 40;                              /* the header's BPM lights up; no message over the header */
-        } else {                                        /* MENU > BPM LOCK ON (#58): only with GLO held (and on HOME >
-                                                         * CLOCK, GLO's F4 TAP); a turn burst says so once */
+        } else {                                        /* MENU > BPM LOCK ON (#58): only on HOME > CLOCK (GLO's F4
+                                                         * TAP); a turn burst says so once */
             if (!lock_ms || fm1_ms - lock_ms > 1000u)
                 ui_message("BPM LOCKED");
             lock_ms = fm1_ms | 1u;

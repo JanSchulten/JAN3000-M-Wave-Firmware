@@ -1086,6 +1086,42 @@ static void project_load(uint32_t slot)
     }
 }
 
+/* M-Vave-OP1, SAVE > PROJECT > NEW: a new project, everything as at power-on: the tracks' power-on sounds (the 808 kit
+ * too) with empty steps (PROJ_DEF_SOUND), the globals' defaults (BPM, the FX buses), no song, no motion, no name or slot;
+ * and the extras none has (FX TRACKS empty, FX1 the DELAY, ORCHID off, the CHORUS Felucca's, no KEY run), one scene.
+ * Through project_restore_runtime, as a load (the transport stopped, the ISR off while it changes). The slots stay */
+static void project_new(void)
+{
+    project_t *p = &proj_scratch;
+    proj_xtra_t none;
+    uint32_t i, k;
+    memset(p, 0, sizeof *p);
+    p->magic = PROJ_MAGIC;
+    p->size = sizeof *p;
+    for (i = 0; i < G_COUNT; i++)
+        p->g[i] = GP[i].def;
+    p->parts = NPART;
+    p->phys = PROJ_PHYS;
+    chain_defaults(&p->chain);
+    for (k = 0; k < NTRK; k++) {
+        uint32_t e = TRK_DEF[k][0];
+        p->t[k].engine = (uint8_t)e;
+        p->t[k].preset = PROJ_DEF_SOUND;               /* (restore: the power-on sound, track_defaults_steps) */
+        for (i = 0; i < P_COUNT; i++)
+            p->t[k].p[i] = param_desc_of(e, i)->def;
+        memcpy(p->fm6[k], FM6_INIT, sizeof p->fm6[k]);
+    }
+    p->sum = proj_sum(p);
+    if (project_restore_runtime(p))
+        return;
+    memset(&none, 0, sizeof none);
+    xtra_lanes(fxt_lane, &none, 0);
+    xtra_fx1(&none, 0);
+    xtra_orc(&none, 0);
+    ui.home = 1;
+    ui_message("NEW PROJECT");
+}
+
 /* settings + learned panel table: one flash object. The flash copy wins at
  * boot (the .noinit copies are garbage after a power-off). */
 #include "settings_persist.c"

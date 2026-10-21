@@ -69,14 +69,8 @@ static const char *const N_MSRC[] = {"OFF", "LFO", "ENV", "VEL", "KEY", "RAND", 
 static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN", "DIST", "CHO", "DLY", "REV", "RATE",
                                      "VIB", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "DEPTH"};
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN", "PHYS",
-                                             "DRUM", "NOISE", "FM6",
-#if FELUCCA_SLICE
-                                             "SLICE",
-#else
-                                             "-",    /* (13 reserved: VDRUM keeps its number) */
-#endif
-                                             "VDRUM", "DBOX",   /* M-Vave-OP1 */
-};
+                                             "DRUM", "NOISE", "FM6", FELUCCA_SLICE ? "SLICE" : "-", "ANLG2",
+                                             "VDRUM", "DBOX"};   /* (M-Vave-OP1: 14 .. 16) */
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0, 0}
 #define PE(l, n, df) {l, F_ENUM, 0, (int16_t)(sizeof(n) / sizeof(n[0]) - 1), df, n, 0}
@@ -232,6 +226,10 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
     }
     if (id >= P_IA && id <= P_IC)                     /* the INSERT's values as its TYPE names them */
         return ins_desc(t->p[P_ITYPE], id - P_IA);
+    if (a2_osc2_id(id) && ENGINES[eng_idx(t->eng_req)] == &ENG_ANALOG2)   /* ANALOG2's WAVE 2 (eng_analog2.c) */
+        return &A2_OSC2[id - P_A2_CUT2];
+    if (dl_id(id) && eng_idx(t->eng_req) == ENGI_DRUM)   /* DRUM's lanes' own values (eng_drum.c) */
+        return dl_desc(id);
     if (t->p[P_ESYNC] && (id == P_ATK || id == P_DEC || id == P_REL))   /* ENV SYNC: note values (1.5, #175) */
         return &ESYNC_DESC[id == P_ATK ? 0 : id == P_DEC ? 1 : 2];
     return &TP[id];
@@ -241,6 +239,10 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
  * only; range and default are the same): what the editor protocol, user presets and projects use */
 static const param_desc_t *param_desc_of(uint32_t e, uint32_t id)
 {
+    if (a2_osc2_id(id) && ENGINES[e % NENGINES] == &ENG_ANALOG2)
+        return &A2_OSC2[id - P_A2_CUT2];
+    if (dl_id(id) && e % NENGINES == ENGI_DRUM)
+        return dl_desc(id);
     return id >= P_E0 ? &ENGINES[e]->edit[id - P_E0] : &TP[id];
 }
 
@@ -440,6 +442,7 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_FX1, GR_CLOUD,                        /* .. FX > FX1 (the delay bus's TYPE), CLOUD (fx1.c, ui_graph.c graph_fx1) */
        GR_ORCH,                                 /* .. SCL > ORCHID (orchid.c, ui_graph.c graph_orc) */
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
+       GR_DLANE,                                /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
        GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2,     /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
        GR_DBO1, GR_DBO2, GR_DBHIT };            /* .. EDIT > DBOX's key pages (ui_dbox.c), in this order */
 
@@ -482,8 +485,11 @@ static const page_t PAGES[] = {
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E7}},   /* ANALOG only (1.5, #104): TYPE CUT RES KTR */
+    {"WAVE 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_A2_CUT2, P_A2_RES2, P_A2_LFO2, P_A2_RATE2}},   /* ANALOG2 only: its third row */
     {"LANES", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN0, P_LN1, P_LN2, P_LN3}},   /* DRUM only: the lane levels */
     {"LANES 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN4, P_LN5, P_LN6, P_LN7}},
+    {"SOUNDS", FAM_EDIT, SC_TRACK, GR_DLANE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* M-Vave-OP1, DRUM only: a key picks the lane,
+                                                                           * KNOB 1..4 its TUNE DECAY TONE SOUND */
     {"SLICES", FAM_EDIT, SC_TRACK, GR_SLICES, {0xFF, 0xFF, 0xFF, 0xFF}},   /* SLICE only: the slices by hand (ui_slice.c) */
     {"OPERATOR", FAM_EDIT, SC_TRACK, GR_FMOP, {0xFF, 0xFF, 0xFF, 0xFF}},    /* FM6 only: KNOB 1 the operator, then its */
     {"OP ENV", FAM_EDIT, SC_TRACK, GR_FMENV, {0xFF, 0xFF, 0xFF, 0xFF}},     /* bytes of the track's patch (ui_fm6op.c): */
@@ -513,11 +519,11 @@ static const page_t PAGES[] = {
     {"SONG", FAM_GLO, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},        /* (1.2; up to 1.1.5 SEQ's) */
     /* SAVE's taps (1.5, #173): USER (SAVE from another page: the quick save, SAVE OCT+ OCT+), PRESETS (the engines and
      * sounds one tap on; up to 1.4.1 the last), PHRASES, PROJECT, TOOLS */
+    {"PROJECT", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {G_SLOT, 0xFF, G_LOAD, G_SAVE}},   /* M-Vave-OP1: SAVE's first (the keys pick) */
     {"USER", FAM_SAVE, SC_GLOBAL, GR_USER, {0xFF, 0xFF, 0xFF, 0xFF}},       /* user presets: SLOT LOAD ERASE SAVE */
     {"PRESETS", FAM_SAVE, SC_GLOBAL, GR_BROWSE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* browser: PRESETS knob / KNOB 1 */
     {"PHRASES", FAM_SAVE, SC_GLOBAL, GR_PATS, {0xFF, 0xFF, 0xFF, 0xFF}},    /* pattern loader: PAT LOAD (ui.c pat_load);
                                                                              * the tap after PRESETS (up to 1.1.5 SEQ's) */
-    {"PROJECT", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {G_SLOT, 0xFF, G_LOAD, G_SAVE}},
     {"TOOLS", FAM_SAVE, SC_GLOBAL, GR_TOOLS, {G_CLRSEQ, G_INITSND, 0xFF, 0xFF}},
     {"ARP", FAM_ARP, SC_TRACK, GR_ARP, {P_AMODE, P_ARATE, P_AOCT, P_AGATE}},
     {"ARP 2", FAM_ARP, SC_TRACK, GR_ARP, {P_ASWING, P_APROB, P_AHOLD, P_AORDER}},   /* (M-Vave-OP1: one screen with ARP) */

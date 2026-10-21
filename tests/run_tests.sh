@@ -58,6 +58,9 @@
 #                   passing note, a root outside the scale, A minor, CHR, kits never; OFF, stopped, no root: as written),
 #                   a pattern under KEY bar by bar (the run round, LEN 1, each off its on), the arp's notes moved (not
 #                   while recording), live keys as they are; the page (GLO's first, the knobs, a key sets a root).
+# JAN (tests/jan_test.c, M-Vave-OP1 JAN3000 v0.8): another track (ALGORITHM) opens each family at its first page; REC
+#                   armed takes the track's copy, REC held + OCT- undoes the recording, OCT+ redoes it; SAVE > PROJECT >
+#                   NEW (asked first, not while playing): the power-on sounds, empty steps, no song / extras / slot.
 # STORES (tests/opstore_test.c, M-Vave-OP1): USR3's and USR2's flash (opstore.c) on a NOR image: a slot's FX TRACKS saved
 #                   and loaded with its project (a power-on, a project without extras or written by the editor: empty, a
 #                   rename keeps them, a failed write), the autosave's, a song's slots; the KEY's run with a project;
@@ -67,9 +70,11 @@
 # SCENES (tests/scene_test.c, M-Vave-OP1): 16 scenes a project (scene.c, the SEQ layer): the packed form (3000 random
 #                   scenes round-trip, the densest fits, damaged bytes refused), a pick stopped at once and playing at the
 #                   pattern's end (the longest track's loop, the remainder carried), taken back, the bank full (refused,
-#                   or dropped at the end: nothing lost), kept with the project, the SEQ layer (white keys scenes, OCT+ /
-#                   OCT- next / before, black keys the tools, EDIT put back, PRESETS the lane, LEDs, no song), the KO-II
-#                   flow (a punch-in held while SEQ picks); screens into build/scene_shots.
+#                   or dropped at the end: nothing lost), kept with the project, SEQ + OCT+ held the copy into the next
+#                   free scene (at once, the music byte for byte, a pick taken back, refusals change nothing, kept), the
+#                   SEQ layer (white keys scenes, OCT+ / OCT- next / before, black keys the tools, EDIT put back, PRESETS
+#                   the lane, LEDs, no song), the KO-II flow (a punch-in held while SEQ picks); screens into
+#                   build/scene_shots.
 # SCL > ORCHID (tests/orchid_test.c, M-Vave-OP1): the Orchid's chord block after ChoralRoot FM-1 (orchid.c): the
 #                   types, extensions, VOICE and names; through the real key input (F3 .. C#4 the block, silent; the roots
 #                   with their chord; a release ends its own notes; ORCHID off, a kit, a one-voice part as before; the
@@ -286,6 +291,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ratchet_test" tests/ratchet_test.c -lm
     run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/key_test" tests/key_test.c -lm
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/jan_test" tests/jan_test.c -lm
+    run "JAN3000 v0.8: another track opens the families' first pages, REC + OCT- / OCT+ undo / redo, SAVE > PROJECT > NEW" "$OUT/jan_test"
     run "KEY: the move in the scale, a pattern under KEY bar by bar, the arp, live keys, the page" "$OUT/key_test"
     mkdir -p build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
@@ -295,7 +302,7 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo
     mkdir -p build/scene_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/scene_test" tests/scene_test.c -lm
-    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
+    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT+ held copy, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
     mkdir -p build/orchid_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/orchid_test" tests/orchid_test.c -lm
     run "SCL > ORCHID (the Orchid's keyboard): types, extensions, VOICE, names, the key input, LOCK, the page, LEDs, STEP entry, kept" "$OUT/orchid_test" build/orchid_shots

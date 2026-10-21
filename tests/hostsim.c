@@ -104,6 +104,8 @@ static void host_preset_values(track_t *t, uint32_t e, uint32_t pi, const preset
     for (i = 0; i < 4u; i++)
         t->p[P_DIST + i] = (int16_t)(p->fx[i] ? p->fx[i] - 1 : FX_DEF[i]);
     fm6_track_loaded(t);                          /* FM6: the preset's patch (ui.c apply_preset_to) */
+    if (ENGINES[e % NENGINES] == &ENG_ANALOG2)    /* ANALOG2: WAVE 2's values (as apply_preset_to) */
+        a2_preset(t, pi);
 }
 static void host_preset_req(track_t *t, uint32_t e, uint32_t pi)
 {

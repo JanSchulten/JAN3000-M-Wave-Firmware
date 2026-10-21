@@ -190,7 +190,9 @@ static void fm1_main(void)
         settings_save();
     }
     autosave_boot(boot_clean);                /* (1.2) the last session's music, under the splash */
-    for (ms = 0; ms < 400u; ms += 10u) {      /* the splash; the pot followed (MIDI IN plays under it) */
+    for (ms = fm1_ms; fm1_ms - ms < SPL_MS + 240u;) {   /* the splash, animated (M-Vave-OP1: JAN3000, ui_draw.c) and
+                                                         * held a moment; the pot followed (MIDI IN plays under it) */
+        draw_splash_at(fm1_ms - ms);
         fm1_delay_ms(10);
         master_poll();
     }

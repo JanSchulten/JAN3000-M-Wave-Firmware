@@ -1705,6 +1705,9 @@ static uint32_t graph_signature(void)
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;
     if ((pg->graph == GR_NONE && !edit_rows(ui.page, rr)) || pg->graph == GR_ARP || fx_pedal()) h ^= ui.frame / 2u ^ (ui.hot_t ? ui.hot_col + 1u : 0u) * 7919u;
+    if (pg->graph == GR_DLANE)                       /* M-Vave-OP1, SOUNDS: the lane picked, every lane's values */
+        for (h ^= ui.lane * 40503u, i = 0; i < 16u; i++)
+            h = (h ^ (uint16_t)t->p[P_DL0 + i]) * 16777619u;
     if (pg->graph == GR_ORCH)                        /* M-Vave-OP1, SCL > ORCHID: the block, the last chord, ON */
         h ^= (orc.gen * 2654435761u) ^ (orc.lgen * 40503u) ^ ((uint32_t)orc.lock << 9) ^ ((uint32_t)(uint8_t)orc_voice[song.sel] << 17) ^
              (uint32_t)t->engine * 389u ^ (uint32_t)orc_en << 24;   /* (ROOT ONLY follows the sounding engine) */
@@ -1817,6 +1820,8 @@ static const char *eng_abbr(const char *name)
                                        {"SAMPLE", "SMPL"}, {"VOICE", "VOCL"}, {"TRIO", "TRIO"}, {"WHEEL", "WHEL"},
                                        {"GRAIN", "GRAN"}, {"PHYS", "PHYS"}, {"DRUM", "DRUM"},
                                        {"NOISE", "NOIS"}, {"FM6", "FM6"}, {"SLICE", "SLCE"},
+                                       {"ANLG2", "ANL2"},   /* (M-Vave-OP1: ANLG2 is 1 px too wide for the EDIT
+                                                             * layer's 20 px cells beside the engine's icon) */
                                        {"VDRUM", "VDRM"}, {"DBOX", "DBOX"}};
     uint32_t i;
     for (i = 0; i < sizeof A / sizeof A[0]; i++)
@@ -1830,16 +1835,21 @@ static const char *eng_abbr(const char *name)
 #define LIST_Y(k) (3 + 17 * (int32_t)(k))
 #define LIST_TY CAP_IN(M, 16)                           /* a row's text: its capitals rows 2 .. 12 of the row */
 #define LIST_NX 64
-static void list_row(int32_t y, int sel, const char *tag, uint16_t tc, const char *name, uint16_t nc, int32_t x1)
+static void list_row_w(int32_t y, int sel, const char *tag, uint16_t tc, const char *name, uint16_t nc, int32_t x1,
+                       int32_t w)   /* (w: the selection's width from x 6; 228 the panel's) */
 {
     uint16_t bg = sel ? T_THEME : T_SURF;
     if (sel)
-        cv_rrect(6, y, 228, 16, 4, T_THEME, T_SURF);
+        cv_rrect(6, y, w, 16, 4, T_THEME, T_SURF);
     GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
     cv_text_on(14, y + LIST_TY, &AF_M, tag, sel ? T_INK : tc, bg);
     if (name[0])
         GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
     cv_free_text(LIST_NX, y + LIST_TY, &AF_M, name, sel ? T_INK : nc, bg, x1 - LIST_NX);
+}
+static void list_row(int32_t y, int sel, const char *tag, uint16_t tc, const char *name, uint16_t nc, int32_t x1)
+{
+    list_row_w(y, sel, tag, tc, name, nc, x1, 228);
 }
 /* an empty list: a title and a hint, centred */
 static void note_line(int32_t y, const char *s, uint16_t fg)   /* centred S; "[K2] ADD PATTERN": a key hint */
@@ -1932,7 +1942,7 @@ static void graph_browse(void)
 }
 /* the EDIT layer (ui_layer.c): the sound loaded, as the browser's selected row: "03" (its place in KNOB 2's list,
  * the engine's sounds) or "U07", the name, the star of a favourite */
-static void engine_sound_row(int32_t y)
+static void engine_sound_row(int32_t y, int32_t x1)   /* (the name and its star end at x1: 232 the panel's) */
 {
     const engine_t *e = ENGINES[TSEL->eng_req % NENGINES];
     uint32_t total, cur = eng_list_pos(&total), u = user_of(TSEL);
@@ -1947,10 +1957,10 @@ static void engine_sound_row(int32_t y)
         tag[2] = 0;
         str_cpy(nm, e->npresets ? e->presets[TSEL->preset % e->npresets].name : "", sizeof nm);
     }
-    list_row(y, 1, tag, T_DIM, nm, T_TEXT, fav ? 212 : 232);
+    list_row_w(y, 1, tag, T_DIM, nm, T_TEXT, fav ? x1 - 22 : x1 - 2, x1 - 6);
     if (fav) {
         GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row star centred up/down");
-        cv_icon_in(214, y, 0, 16, 12, ICON_X_STAR, T_INK, T_THEME);
+        cv_icon_in(x1 - 20, y, 0, 16, 12, ICON_X_STAR, T_INK, T_THEME);
     }
     (void)total;
 }
@@ -2103,18 +2113,46 @@ static void graph_events(void)
     }
 }
 /* project slots: the name (none: USED) / EMPTY, the selected one filled */
-static void graph_slots(void)
+/* M-Vave-OP1, EDIT > SOUNDS: the eight lanes, each its name, TUNE DECAY TONE and SOUND in the cards' columns; the lane
+ * the knobs edit (the key played last) raised */
+static void graph_dlane(const track_t *t)
 {
+    uint32_t l, c;
+    for (l = 0; l < NLANE; l++) {
+        int32_t y = 2 + (int32_t)l * 15;
+        uint32_t on = l == ui.lane;
+        uint16_t bg = on ? T_RAISE : T_SURF;
+        if (on)
+            cv_rrect(6, y, 228, 15, 4, T_RAISE, T_SURF);
+        cv_text_on(12, y + 1, &AF_S, drum_lane_name(t, l), on ? T_TEXT : T_MID, bg);
+        for (c = 0; c < DL_N; c++) {
+            uint32_t v = dl_get(t->p, l, c);
+            char b[8];
+            if (c == DL_SOUND)
+                str_cpy(b, N_DL_SOUND[v], sizeof b);
+            else
+                fmt_int(b, (int32_t)v - (int32_t)DL_MAX[c] / 2);
+            cv_text_on(64 + (int32_t)c * 44, y + 1, &AF_S, b,
+                       on ? T_TEXT : (c == DL_SOUND ? v != 0u : v != DL_MAX[c] / 2u) ? T_MID : T_DIM, bg);
+        }
+    }
+}
+static void graph_slots(void)                       /* M-Vave-OP1: each row's key (F3 .. B3) on its right, F#5 NEW */
+{
+    static const char *const KEY[4] = {"F3", "G3", "A3", "B3"};
     uint32_t i;
     for (i = 0; i < 4u; i++) {
-        int32_t y = 12 + (int32_t)i * 26;
+        int32_t y = 4 + (int32_t)i * 21;
         char b[4];
         int sel = (int32_t)i + 1 == song.g[G_SLOT], used = graph_project_used(i);
         const char *n = graph_project_name(i);
         b[0] = (char)('A' + i);
         b[1] = 0;
-        list_row(y, sel, b, T_MID, !used ? "--" : n[0] ? n : "USED", used ? T_TEXT : T_DIM, 232);
+        list_row(y, sel, b, T_MID, !used ? "--" : n[0] ? n : "USED", used ? T_TEXT : T_DIM, 196);
+        cv_text_on(204, y + LIST_TY, &AF_S, KEY[i], sel ? T_INK : T_DIM, sel ? T_THEME : T_SURF);
     }
+    list_row(4 + 4 * 21, 0, "+", T_MID, "NEW PROJECT", T_TEXT, 196);
+    cv_text_on(204, 4 + 4 * 21 + LIST_TY, &AF_S, "F#5", T_DIM, T_SURF);
 }
 /* MIXER page: four SURF columns, one under each card: the track number on its cushion (in the accent:
  * the selected track) with a REC / ARM / MUTE badge (P_MUTE, KNOB 1), the sound's short name (a MUTE badge
@@ -3041,6 +3079,10 @@ static void draw_graph(void)
         case GR_BROWSE:
             cv_oy = 0;
             graph_browse();
+            break;
+        case GR_DLANE:
+            cv_oy = 0;
+            graph_dlane(t);
             break;
         case GR_SLOTS:
             cv_oy = 0;
