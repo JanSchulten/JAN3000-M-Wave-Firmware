@@ -12,8 +12,6 @@ static favorites_t favorites __attribute__((section(".pool")));
  * (M-Vave-OP1's VDRUM) keep theirs at the end of ANALOG's row: bytes 24..27 (ANALOG's presets 192..223, which
  * it never has: a _Static_assert in eng_vdrum.c), 32 presets each. 0 = no such favourite */
 #define FAV_HI_BYTE 24u
-_Static_assert(NELEM(VDRUM_PRESETS) <= 32u, "an engine from 14 on keeps 32 favourites");
-_Static_assert(NELEM(ANALOG_PRESETS) <= 8u * FAV_HI_BYTE, "ANALOG's row holds the favourites of the engines from 14 on");
 static uint8_t *favorite_cell(uint32_t engine, uint32_t preset)
 {
     if (engine < 14u)

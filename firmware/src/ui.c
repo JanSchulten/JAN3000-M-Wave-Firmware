@@ -37,6 +37,8 @@ static uint32_t user_of(const track_t *t)    /* user preset slot its sound came 
 }
 static uint32_t up_gen;                      /* bumped on every user bank change (redraws) */
 #include "favorites.c"
+_Static_assert(NELEM(VDRUM_PRESETS) <= 32u, "favorites.c: an engine from 14 on keeps 32 favourites");
+_Static_assert(NELEM(ANALOG_PRESETS) <= 8u * FAV_HI_BYTE, "favorites.c: ANALOG's row holds the favourites of 14 on");
 #include "category.c"                   /* sound categories (Discussion #90): PRESETS > LIST */
 /* MENU's two-valued settings (ui_menu.c MENU_FLAGS), a bit each in a byte no engine uses (as ui_layer.c layer_seen):
  * saved with the settings; 0 in older ones = every setting's default (append-only: a new setting takes a new bit,
