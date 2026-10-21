@@ -12,8 +12,13 @@
  *   MEMORY   picks are refused when the scene leaving would not fit, and one that grew past its room at the pattern's end
  *            is dropped there (SCENE MEMORY FULL): the music as it was, nothing lost.
  *   KEPT     a project saved and loaded brings its scenes and the one playing; another project's bank never applies.
- *   LAYER    SEQ held: the white keys pick scenes 1..16, OCT+ / OCT- the next / the one before (none past 16 or before 1,
- *            their LEDs lit where there is one),
+ *   COPY     SEQ + OCT-: the scene playing copied into the next free scene (the first empty one after it, round past 16),
+ *            which then plays: the tracks byte for byte as they were (playing: no step starts again, nothing released,
+ *            no switch at the pattern's end), the original in the bank, each scene its own after; a pick waiting taken
+ *            back; refused (nothing changed, a pick waiting still waits): an empty scene, none free, the bank full, a
+ *            song; the copy kept with the project, the autosave told.
+ *   LAYER    SEQ held: the white keys pick scenes 1..16, OCT+ the next (none past 16, lit where there is one), OCT- the
+ *            copy (lit when it can be made),
  *            the black keys are the tools (CLEAR .. lane RANDOM), EDIT puts the track back, PRESETS picks a DRUM lane; the
  *            LEDs (the scene playing lit, one waiting breathing); a song playing: no scenes. The KO-II flow: a punch-in
  *            held after FX is let go keeps sounding while SEQ picks the next scene; let go, it stops.
@@ -400,6 +405,209 @@ static void test_kept(void)
     scb_ram[2].h.proj ^= 0x55u;
 }
 
+/* ------------------------------------------------------------ COPY --- */
+static void seq_copy(void)                           /* SEQ held + OCT-, let go */
+{
+    btn_down(B_SEQ);
+    frame();
+    btn_down(B_OCTDN);
+    frame();
+    btn_up(B_OCTDN);
+    frame();
+    btn_up(B_SEQ);
+    frame();
+}
+static track_t trk_was[NTRK];
+static motion_store_t mo_was;
+static fxt_lane_t fx_was[FXT_N];
+static void music_keep(void)                         /* what the ISR plays from: the tracks, the automation, the lanes */
+{
+    memcpy(trk_was, trk, sizeof trk);
+    mo_was = motion;
+    memcpy(fx_was, fxt_lane, sizeof fx_was);
+}
+static int music_same(void)
+{
+    return !memcmp(trk_was, trk, sizeof trk) && !memcmp(&mo_was, &motion, sizeof motion) &&
+           !memcmp(fx_was, fxt_lane, sizeof fx_was);
+}
+static uint32_t packed_now(void)                     /* the bytes the scene playing packs to */
+{
+    scn_view_t v;
+    scn_view_trk(&v);
+    return scn_encode(&v, 0, 0);
+}
+static uint32_t seq_oct_leds(void)                   /* the OCT LEDs with SEQ held past HOLD (the map), let go */
+{
+    uint32_t m;
+    btn_down(B_SEQ);
+    frames(500);
+    m = ui.layer == LAYER_SEQ ? oct_leds() & 3u : 0xFFu;
+    btn_up(B_SEQ);
+    frames(400);
+    return m;
+}
+static void test_copy(void)
+{
+    chain_pattern_t s1, s2;
+    project_store_t slot;
+    uint32_t ok, b, k, used, gen, sig;
+    scene_setup();
+    capture(&s1);
+    music_keep();
+    sig = autosave_sig();
+    undo.trk = 1;                                     /* (an undo copy of the scene playing: it goes, as with a switch) */
+    seq_copy();
+    capture(&pa);
+    ok = msg_is("COPIED TO SCENE 2") && scn.cur == 1u && music_same() && same_pattern(&pa, &s1) && scb.len[0] > 0u &&
+         !scb.len[1] && scene_used(0) && scene_used(1) && !scene_used(2) && !undo.trk && autosave_sig() != sig;
+    ck("COPY: stopped, SEQ + OCT-: COPIED TO SCENE 2, the copy plays (the tracks byte for byte), scene 1 in the bank", ok);
+    seq_pick(0);
+    capture(&pa);
+    ok = scn.cur == 0u && same_pattern(&pa, &s1);
+    seq_pick(1);
+    capture(&pb);
+    ok &= scn.cur == 1u && same_pattern(&pb, &s1);
+    melody(&trk[0], 72, 12);                           /* the copy changed: the original stays as it was */
+    motion_set_lock(&trk[1], 3, P_DLY, 30);
+    fxt_lane[1].step[6] = PF_REV + 1u;
+    capture(&s2);
+    seq_pick(0);
+    capture(&pa);
+    ok &= same_pattern(&pa, &s1);
+    seq_pick(1);
+    capture(&pb);
+    ok &= same_pattern(&pb, &s2);
+    ck("  scene 1 and its copy: each exactly the scene copied, then each its own (steps, automation, FX TRACKS)", ok);
+
+    /* the next free: the first empty scene after the one playing, past a scene used, round past 16 */
+    seq_pick(3);
+    melody(&trk[0], 50, 8);                            /* (scene 4 used) */
+    seq_pick(1);
+    seq_copy();
+    ok = msg_is("COPIED TO SCENE 3") && scn.cur == 2u;
+    seq_copy();
+    ok &= msg_is("COPIED TO SCENE 5") && scn.cur == 4u && scene_used(3);   /* (past scene 4) */
+    seq_pick(15);
+    melody(&trk[1], 40, 4);
+    capture(&s2);
+    seq_copy();
+    ok &= msg_is("COPIED TO SCENE 6") && scn.cur == 5u && scene_used(15);  /* (16, then 1 .. 5 used) */
+    capture(&pa);
+    seq_pick(15);
+    capture(&pb);
+    ok &= same_pattern(&pa, &s2) && same_pattern(&pb, &s2);
+    ck("  the next free scene: 2 -> 3, 3 -> 5 (past 4, used), 16 -> 6 (round, past 1 .. 5)", ok);
+
+    /* refused, nothing changed (OCT- dark): the scene playing empty, none free, a song, the bank full */
+    seq_pick(9);
+    used = scb.used;
+    gen = scb.gen;
+    ok = !scene_used(9) && !(seq_oct_leds() & 1u);
+    seq_copy();
+    ok &= msg_is("NOTHING TO COPY") && scn.cur == 9u && scb.used == used && scb.gen == gen && !scene_used(10);
+    for (k = 0; k < SCN_N; k++) {                      /* every scene used */
+        seq_pick(k);
+        if (!scene_used(k))
+            melody(&trk[2], 30 + k, 2);
+    }
+    used = scb.used;
+    gen = scb.gen;
+    capture(&s2);
+    ok &= !(seq_oct_leds() & 1u);
+    seq_copy();
+    capture(&pa);
+    ok &= msg_is("NO FREE SCENE") && scn.cur == 15u && scb.used == used && scb.gen == gen && same_pattern(&pa, &s2);
+    scene_setup();
+    chain.armed = 1;
+    ok &= !(seq_oct_leds() & 1u);
+    seq_copy();
+    ok &= msg_is("STOP THE SONG FIRST") && scn.cur == 0u && !scb.used;
+    chain.armed = 0;
+    for (k = 1; k < 4u; k++) {                         /* dense scenes until a copy no longer fits */
+        dense_scene();
+        seq_copy();
+        if (msg_is("SCENE MEMORY FULL"))
+            break;
+    }
+    printf("  copy: %u B used of %u after %u dense copies\n", scb.used, SCN_CAP, k - 1u);
+    ok &= msg_is("SCENE MEMORY FULL") && k >= 2u && scn.cur == k - 1u && scb.used + packed_now() > SCN_CAP &&
+          !scene_used(k) && !(seq_oct_leds() & 1u);
+    used = scb.used;
+    gen = scb.gen;
+    capture(&s2);
+    seq_copy();                                        /* (again: nothing changes) */
+    capture(&pa);
+    ok &= msg_is("SCENE MEMORY FULL") && scn.cur == k - 1u && scb.used == used && scb.gen == gen && same_pattern(&pa, &s2);
+    ck("  refused, nothing changed, OCT- dark: NOTHING TO COPY, NO FREE SCENE, STOP THE SONG FIRST, SCENE MEMORY FULL", ok);
+
+    /* playing: the tracks play on (no step starts again, nothing released), no switch at the pattern's end */
+    scene_setup();
+    transport_req = 1;
+    for (b = 0; b < 700u; b++)
+        blk();
+    btn_down(B_SEQ);
+    frame();
+    music_keep();
+    btn_down(B_OCTDN);
+    frame();
+    btn_up(B_OCTDN);
+    frame();
+    ok = msg_is("COPIED TO SCENE 2") && scn.cur == 1u && music_same() && scn.req == SCN_IDLE && song.playing;
+    btn_up(B_SEQ);
+    frame();
+    ok &= blocks_to_switch(6000, 0) == 6000u && scn.cur == 1u;
+    ck("  playing: the copy at once, the music byte for byte as it was (steps, positions, voices), no switch after", ok);
+    seq_pick(4);                                       /* a pick waiting: taken back, the copy plays */
+    ok = scn.req == SCN_END && scn.next == 4u;
+    seq_copy();
+    ok &= msg_is("COPIED TO SCENE 3") && scn.cur == 2u && scn.req == SCN_IDLE && blocks_to_switch(6000, 4) == 6000u;
+    ck("  a pick waiting (scene 5): taken back by the copy, nothing switches after (the copy plays)", ok);
+    seq_pick(9);                                       /* .. refused: the pick still waits, and comes at the pattern's */
+    for (b = 0; b < 6000u && scn.req; b++)             /* end (scene 10: empty) */
+        blk();
+    frame();
+    seq_pick(0);
+    ok = scn.cur == 9u && !scene_used(9) && scn.req == SCN_END && scn.next == 0u;
+    seq_copy();
+    ok &= msg_is("NOTHING TO COPY") && scn.req == SCN_END && scn.next == 0u && blocks_to_switch(20000, 0) < 20000u;
+    ck("  refused with a pick waiting (NOTHING TO COPY): the pick still waits and switches at the pattern's end", ok);
+    stop_transport();
+    scene_setup();                                     /* the bank too full for a copy, a pick that fits waiting (its */
+    dense_scene();                                     /* own bytes make the room): SCENE MEMORY FULL, the pick waits */
+    seq_copy();
+    seq_copy();
+    transport_req = 1;
+    for (b = 0; b < 300u; b++)
+        blk();
+    seq_pick(0);
+    ok = scn.cur == 2u && scn.req == SCN_END && scn.next == 0u;
+    seq_copy();
+    ok &= msg_is("SCENE MEMORY FULL") && scn.req == SCN_END && scn.next == 0u && blocks_to_switch(20000, 0) < 20000u;
+    frame();
+    ok &= msg_is("SCENE 1") && scene_used(1) && scene_used(2) && !scene_used(3);
+    ck("  refused with a pick waiting (SCENE MEMORY FULL, the pick fits): the pick still waits and switches", ok);
+    stop_transport();
+
+    /* kept with the project */
+    scene_setup();
+    seq_copy();
+    melody(&trk[3], 36, 8);                            /* (the copy its own) */
+    capture(&s2);
+    ok = msg_is("COPIED TO SCENE 2") && project_save_as(1, "CPY") == 0;
+    slot = proj_slot[1];
+    scene_setup();                                     /* (another project now; the slot kept) */
+    proj_slot[1] = slot;
+    seq_pick(4);
+    project_load(1);
+    capture(&pa);
+    ok &= msg_is("LOADED") && scn.cur == 1u && same_pattern(&pa, &s2) && scene_used(0) && !scene_used(2);
+    seq_pick(0);
+    capture(&pb);
+    ok &= same_pattern(&pb, &s1);
+    ck("  kept: a project saved after a copy loads with both, the copy playing", ok);
+}
+
 /* ------------------------------------------------------------ LAYER --- */
 static void test_seq_layer(const char *dir)
 {
@@ -407,14 +615,14 @@ static void test_seq_layer(const char *dir)
     scene_setup();
     btn_down(B_SEQ);
     frames(500);
-    ok = ui.layer == LAYER_SEQ && str_eq(layer_head(), "[SEQ] SCENES") && (oct_leds() & 3u) == 2u;   /* (OCT+ lit) */
-    if (dir)
+    ok = ui.layer == LAYER_SEQ && str_eq(layer_head(), "[SEQ] SCENES") && (oct_leds() & 3u) == 3u;   /* (OCT- the copy, */
+    if (dir)                                                                                           /* OCT+ lit) */
         screen_save(dir, "seq_scenes_1");
     key_down(white(15));
     frame();
     key_up(white(15));
     frame();
-    ok &= scn.cur == 15u && msg_is("SCENE 16") && (oct_leds() & 3u) == 1u;   /* (OCT- lit, OCT+ dark: none after) */
+    ok &= scn.cur == 15u && msg_is("SCENE 16") && (oct_leds() & 3u) == 0u;   /* (empty: no copy; none after) */
     btn_down(B_OCTUP);
     frame();
     btn_up(B_OCTUP);
@@ -424,10 +632,20 @@ static void test_seq_layer(const char *dir)
     frame();
     btn_up(B_OCTDN);
     frame();
-    ok &= scn.cur == 14u && msg_is("SCENE 15") && song.octave == 0 && (oct_leds() & 3u) == 3u;
+    ok &= msg_is("NOTHING TO COPY") && scn.cur == 15u && song.octave == 0;
+    melody(TSEL, 60, 4);                              /* (scene 16 holds something: OCT- lit) */
+    frame();
+    ok &= (oct_leds() & 3u) == 1u;
+    btn_down(B_OCTDN);
+    frame();
+    btn_up(B_OCTDN);
+    frame();
+    ok &= msg_is("COPIED TO SCENE 2") && scn.cur == 1u && song.octave == 0 && (oct_leds() & 3u) == 3u;   /* (round) */
+    if (dir)
+        screen_save(dir, "seq_scenes_copied");
     btn_up(B_SEQ);
     frame();
-    ck("LAYER: SEQ held: [SEQ] SCENES; SEQ + G5: scene 16; OCT+: none past it; OCT-: scene 15 (no octave); OCT LEDs", ok);
+    ck("LAYER: SEQ held: [SEQ] SCENES; SEQ + G5: scene 16; OCT+: none past it; OCT-: the copy (no octave); OCT LEDs", ok);
     seq_pick(0);
     melody(TSEL, 60, 8);
     {
@@ -554,6 +772,7 @@ int main(int argc, char **argv)
     test_switch();
     test_memory();
     test_kept();
+    test_copy();
     test_seq_layer(argc > 1 ? argv[1] : 0);
     test_ko();
     if (bad) {

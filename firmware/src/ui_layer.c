@@ -38,8 +38,9 @@
  * MIDI, never recorded; keys held before stay notes. Only one layer at a time: a second layer button is ignored.
  * PLAY and REC work in every layer (GLO held + PLAY: RESTART; GLO's lock: PLAY as always, #183); SAVE, HOME, SEQ and
  * the other page buttons are swallowed. In SET layers OCT± do not shift the octave: OCT- (on release, not with OCT+)
- * puts back what the layer changed since it opened (SEQ: OCT± step the scenes, EDIT puts back). A HOLD key's effect
- * lasts until the key is let go, the map with it. No layer in the menu, a dialog, NAME or the UPDATE MODE countdown.
+ * puts back what the layer changed since it opened (SEQ: OCT- copies the scene, OCT+ the next; EDIT puts back). A
+ * HOLD key's effect lasts until the key is let go, the map with it. No layer in the menu, a dialog, NAME or the
+ * UPDATE MODE countdown.
  * After a tap, until the layer has been opened once: "HOLD [GLO] QUICK" (the seen bits are kept with the settings,
  * favorites.c spare byte).
  * The lock (Discussion #83): a double tap (the second press within LY_DTAP_MS of the first tap, both let go before
@@ -64,8 +65,9 @@ static const layer_t LAYERS[LAYER_N] = {
     {B_GLO, LK_SET, FAM_HOME, "[GLO] SET", {{KC_PLAY, "RESTART"}, {KC_OCTDN, "UNDO"}, {KC_GLO, "DONE"}}},
     {B_SCL, LK_SET, FAM_SCL, "[SCL] SET", {{KC_KEYS, "ROOT"}, {KC_OCTDN, "UNDO"}, {KC_SCL, "DONE"}}},
     {B_EDIT, LK_SET, FAM_HOME, "[EDIT] SET", {{KC_KEYS, "ENGINE"}, {KC_OCTDN, "UNDO"}, {KC_EDIT, "DONE"}}},
-    {B_SEQ, LK_SET, FAM_SEQ, "[SEQ] SCENES", {{KC_KEYS, "SCENE"}, {KC_OCTPM, "PREV NEXT"}, {KC_SEQ, "DONE"}}},   /* (M-Vave-OP1:
-                                                     * the scenes on the white keys, the tools on the black) */
+    {B_SEQ, LK_SET, FAM_SEQ, "[SEQ] SCENES", {{KC_KEYS, "SCENE"}, {KC_OCTPM, "COPY NEXT"}, {KC_SEQ, "DONE"}}},   /* (M-Vave-OP1:
+                                                     * the scenes on the white keys, the tools on the black; OCT- copies
+                                                     * the scene playing into the next free one, OCT+ the next) */
     {B_REC, LK_SET, FAM_HOME, "[REC] SET", {{KC_KEYS, "RECORDING"}, {KC_OCTPM, "UNDO REDO"}, {KC_REC, "DONE"}}},   /* (M-Vave-OP1:
                                                      * OCT- undoes the recording, OCT+ redoes it: rec_undo) */
 };
@@ -500,15 +502,31 @@ static void seq_lane(int32_t s)
     ui_say("LANE ", drum_lane_abbr(TSEL, ui.lane));
     ui.force = 1;
 }
-/* SEQ + OCT+ / OCT-: the scene after / before the one picked last (waiting, else playing); none past 16 or before 1 */
-static void scene_step(int32_t d)
+/* SEQ + OCT+: the scene after the one picked last (waiting, else playing); none past 16 */
+static void scene_next(void)
 {
-    int32_t t = (int32_t)scene_target() + d;
-    if (t < 0 || t >= (int32_t)SCN_N) {
-        ui_message(t < 0 ? "SCENE 1 IS THE FIRST" : "SCENE 16 IS THE LAST");
+    uint32_t t = scene_target() + 1u;
+    if (t >= SCN_N) {
+        ui_message("SCENE 16 IS THE LAST");
         return;
     }
-    scene_key((uint32_t)t);
+    scene_key(t);
+}
+/* SEQ + OCT- (M-Vave-OP1, in place of the scene before): the scene playing copied into the next free one, which plays
+ * from here on (scene.c scene_copy: at once, nothing heard; a pick waiting taken back) */
+static void scene_copy_key(void)
+{
+    char n[4];
+    uint32_t r = scene_copy();
+    if (scn.moved)
+        scene_switched_ui();
+    fmt_int(n, (int32_t)scn.cur + 1);
+    if (r == SC_OK)
+        ui_say("COPIED TO SCENE ", n);
+    else
+        ui_message(r == SC_EMPTY ? "NOTHING TO COPY" : r == SC_NONE ? "NO FREE SCENE" :
+                   r == SC_FULL ? "SCENE MEMORY FULL" : "STOP THE SONG FIRST");
+    ui.force = 1;
 }
 
 /* REC: CLEAR, the selected track's steps and automation (and ARP's latched chord): one undo (SAVE held), no dialog,
@@ -888,8 +906,11 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
     if (layer_set_open())
         lys.oct |= (uint8_t)(((pressed >> dn) & 1u) | ((pressed >> up) & 1u) << 1);
     mine = oct & lys.oct;
-    if (lys.l == LAYER_SEQ && (mine & 3u)) {            /* M-Vave-OP1: SEQ's OCT- / OCT+ the scene before / after */
-        scene_step((mine & 1u) ? -1 : 1);
+    if (lys.l == LAYER_SEQ && (mine & 3u)) {            /* M-Vave-OP1: SEQ's OCT- copies the scene, OCT+ the next */
+        if (mine & 1u)
+            scene_copy_key();
+        else
+            scene_next();
     } else if (lys.l == LAYER_REC && (mine & 2u)) {     /* .. REC's OCT+ redoes it */
         rec_undo(1);
     } else if (mine & 1u) {                             /* OCT-: back to when it opened */

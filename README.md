@@ -118,8 +118,13 @@ current sounds), as the OP-Z chains its patterns.
 GATE and QUANTIZE, the automation and the locks, and the two FX TRACKS. The sounds, the mixer, ARP, SCL, FX1 and the
 song stay the project's.
 
-- Hold **SEQ**: the layer says **[SEQ] SCENES**. The **white keys F3 .. G5 are scenes 1 .. 16**; **OCT+ / OCT-** pick the
-  next / the one before (from the scene waiting, else the one playing).
+- Hold **SEQ**: the layer says **[SEQ] SCENES**. The **white keys F3 .. G5 are scenes 1 .. 16**; **OCT+** picks the
+  next (from the scene waiting, else the one playing).
+- **SEQ + OCT- copies the scene playing into the next free scene** (the first empty one after it, round past 16 to
+  1) and goes on with the copy: COPIED TO SCENE n. It is at once, playing too, and nothing is heard: the music plays on
+  where it was; from then on every edit changes the copy, the original waits in its scene. A pick waiting is taken
+  back. OCT- is lit while a copy can be made; else it says NOTHING TO COPY (the scene is empty), NO FREE SCENE or
+  SCENE MEMORY FULL.
 - Stopped, a scene comes at once. **Playing, it comes at the end of the pattern**: the end of the loop of the longest
   track that plays something, on the grid, as a SONG section ends. The scene playing picked again takes the pick
   back (SCENE n STAYS). STOP with one waiting: it comes at once.

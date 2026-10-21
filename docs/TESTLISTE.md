@@ -86,6 +86,8 @@ kann nur das echte Gerät zeigen.
 
 - [ ] Pattern-Ketten in SONG anlegen und abspielen.
 - [ ] SEQ halten: Szenen wechseln am Pattern-Ende.
+- [ ] SEQ halten + OCT− während es läuft: COPIED TO SCENE 2, die Musik läuft ohne Sprung oder Knacken weiter. Etwas
+      ändern, dann SEQ + F3: Szene 1 ist unverändert, SEQ + G3: die geänderte Kopie.
 
 ## J. Speichern (sehr wichtig)
 

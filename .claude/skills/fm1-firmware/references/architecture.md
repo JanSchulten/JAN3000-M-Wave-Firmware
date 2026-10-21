@@ -96,6 +96,10 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
 - `scene_poll` (ui_input.c, every pass) packs the scene left into the bank, recomputes the clock track while one waits
   and reports `SP_SWITCHED` / `SP_FULL`; `scn.moved` tells the UI to drop the undo copy and re-snap the layer's put back
   (`scene_switched_ui`). `scene_settle` before a song starts (`chain_prepare`) and before a save.
+- SEQ + OCT- copies (`scene_copy`): no swap; the tracks are copied into `SCN_BUF` with the interrupts off (live
+  recording writes them in the ISR; never pack the live tracks into the bank), packed into the bank at `scn.cur`'s
+  place, and `scn.cur` becomes the free scene. Read and clear `scn.req` with the interrupts off when a refusal must give
+  a pick back: between a plain read and the clear the ISR may have swapped.
 - opstore.c: the banks in USR2 (`scb_write`, `scb_load`, `scb_retag`), tagged with `xtra_id` like the extras; the
   autosave's signature hashes the bank's bytes, so a pick and back again writes nothing.
 
