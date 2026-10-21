@@ -7,6 +7,7 @@
 static int project_save(uint32_t slot);
 static void panel_setup(void);
 static void project_load(uint32_t slot);
+static void project_new(void);                  /* (M-Vave-OP1: SAVE > PROJECT > NEW) */
 static int project_used(uint32_t slot);
 static uint32_t chain_prepare(void);
 static int up_used(uint32_t k);              /* user presets: upreset.c */
@@ -208,9 +209,9 @@ static struct {
 
 enum { CF_NONE, CF_CLEAR_SEQ, CF_CLEAR_TRK, CF_OVR_PROJ, CF_OVR_USER, CF_LOAD_PAT,
        CF_DEL_ROW, CF_CLEAR_SONG, CF_INIT_SOUND, CF_CLEAR_MOTION, CF_ERASE_USER,
-       CF_FXT_LANE, CF_FXT_ALL };     /* ui.confirm: TOOLS' clears;
+       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ };     /* ui.confirm: TOOLS' clears;
                                    * SAVE over a used slot; a pattern over the user's steps;
-                                   * USER ERASE; FX TRACKS 2's CLEAR (a lane, both) */
+                                   * USER ERASE; FX TRACKS 2's CLEAR (a lane, both); PROJECT's NEW */
 
 /* MENU > DISPLAY > SCREEN OFF (1.1.5): after a while with no input on the panel the screen goes dark (the backlight
  * stays on: lcd.c lcd_power)
@@ -796,6 +797,7 @@ static struct {
     uint32_t from_h;             /* pat_from_h[], pat_from[] of the copy (the header's slot letter) */
     uint8_t from;
     uint32_t t_ms;               /* time of the last load (the editor's SETs after it belong to it) */
+    uint8_t undone;              /* M-Vave-OP1: the copy is swapped in (undo_swap once more: redo; REC + OCT- / OCT+) */
 } undo __attribute__((section(".pool")));   /* (main loop only: off the audio code's .bss) */
 static uint8_t undo_depth;       /* loads nest (an engine jump loads its first preset): the outer one counts;
                                   * felucca_init / project_load raise it to take no copy at all */
@@ -908,6 +910,7 @@ static void load_begin(track_t *t, uint32_t what)
     }
     undo.trk = (uint8_t)(i + 1u);
     undo.what = (uint8_t)what;
+    undo.undone = 0;
     undo.eng = t->eng_req;
     undo.preset = t->preset;
     undo.user = t->user;
@@ -966,6 +969,7 @@ static void edit_undo_take(track_t *t, uint32_t tag, uint32_t what)
     undo_mot_tag = tag;
     undo.trk = (uint8_t)(i + 1u);
     undo.what = (uint8_t)what;
+    undo.undone = 0;
     undo.eng = t->eng_req;
     undo.preset = t->preset;
     undo.user = t->user;
@@ -1068,6 +1072,7 @@ static void undo_swap(void)
         undo.fm6_slot = sl;
     }
     undo.keep = 0;                                /* the next load copies the track as it is now */
+    undo.undone ^= 1u;
     if (t == TSEL)
         sync_reload = 1;
     b[1] = (char)('1' + trk_index(t));
@@ -1617,9 +1622,13 @@ static const param_desc_t *home_param(uint32_t k, int16_t **vp)
 /* select track i (KNOB 1 on TRACKS, the editor): its sound, pages and pattern from now on */
 static void track_select(uint32_t i)
 {
+    uint32_t f;
     if (i >= NTRK || i == song.sel)
         return;
     song.sel = (uint8_t)i;
+    for (f = 0; f < FAM_COUNT; f++)              /* M-Vave-OP1: another track opens each family at its first page (FX: */
+        if (ui.home || f != cur_page()->fam)     /* SEND), not where the last track was left; the family shown stays */
+            ui.fam_last[f] = 0;
     ui.entry_open = 0;
     ui.hot_t = 0;
     ui.ev_keep = 0;                              /* (AUTOMATION: a row kept at its default was the other track's) */
@@ -1657,6 +1666,8 @@ static uint32_t act_cols(void)                   /* the columns that are actions
         return 14u;                              /* LOAD ERASE SAVE */
     if (pg->graph == GR_SLICES)
         return slice_page_ok() ? 12u : 0u;       /* SPLIT JOIN (a SLICE track only) */
+    if (pg->graph == GR_SLOTS)
+        m = 2u;                                  /* M-Vave-OP1: KNOB 2 NEW (project.c project_new) */
     if (pg->scope == SC_GLOBAL)
         for (c = 0; c < 4u; c++)
             if (go_id(pg->id[c]))
@@ -1691,6 +1702,8 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
         return UP_GO[(c + 2u) % 3u];
     if (cur_page()->graph == GR_SLICES)
         return c == 3u ? "JOIN" : "SPLIT";
+    if (cur_page()->graph == GR_SLOTS && (c & 3u) == 1u)
+        return "NEW";
     return id == G_CLRSEQ ? "CLEAR" : id == G_INITSND ? "INIT" : id == G_LOAD ? "LOAD" : "SAVE";
 }
 
@@ -1717,6 +1730,8 @@ static int act_ready(void)
     if (cur_page()->graph == GR_SLICES)
         return slice_act_ready(c);
 #endif
+    if (cur_page()->graph == GR_SLOTS && c == 1u)       /* NEW: stopped (the whole song changes) */
+        return !transport_busy();
     id = cur_page()->id[c & 3u];
     if (id == G_LOAD)
         return project_used((uint32_t)song.g[G_SLOT] - 1u);

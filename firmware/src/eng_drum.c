@@ -99,6 +99,9 @@ static uint32_t drum_gm(const int16_t *p, uint32_t note, int32_t *st)
  * engine: DRUM strikes its lanes, a synth plays the pitches. Each is the designed pitch of
  * its lane (st 0 in DRUM_GM) */
 static const uint8_t DRUM_LANE_NOTE[NLANE] = {36, 38, 39, 42, 46, 45, 37, 56};
+/* M-Vave-OP1: the grid lanes each track's drums hit since the UI looked (bit l: lane l, DRUM_LANE_NOTE), set by the ISR
+ * as a lane plays (drum_note_on), taken by the DRUM grid's LEDs (ui_input.c grid_leds: its black key flashes) */
+static volatile uint8_t drum_lit[NTRK];
 
 /* the lane a note strikes (KIT-proof: a kit plays its own piece inside the lane) */
 static uint32_t drum_lane(uint32_t note)
@@ -232,6 +235,11 @@ static void drum_note_on(track_t *t, voice_t *v)
                                                           * a key-off before the first block (zero-length MIDI
                                                           * notes) would end a fresh voice at env 0 in env_tick */
     dv_trigger(&L->v);
+    for (i = 0; i < NLANE; i++)                          /* (M-Vave-OP1: the grid's lane, for its key's LED) */
+        if (DRUM_LANE_NOTE[i] == v->note) {
+            drum_lit[(uint32_t)(t - trk) % NTRK] |= (uint8_t)(1u << i);
+            break;
+        }
     if (lane == DV_HATC && K[DV_HATO].v.live)            /* a closed hat chokes the open one */
         dv_choke(&K[DV_HATO].v);
 }

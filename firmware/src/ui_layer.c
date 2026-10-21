@@ -66,7 +66,8 @@ static const layer_t LAYERS[LAYER_N] = {
     {B_EDIT, LK_SET, FAM_HOME, "[EDIT] SET", {{KC_KEYS, "ENGINE"}, {KC_OCTDN, "UNDO"}, {KC_EDIT, "DONE"}}},
     {B_SEQ, LK_SET, FAM_SEQ, "[SEQ] SCENES", {{KC_KEYS, "SCENE"}, {KC_OCTPM, "PREV NEXT"}, {KC_SEQ, "DONE"}}},   /* (M-Vave-OP1:
                                                      * the scenes on the white keys, the tools on the black) */
-    {B_REC, LK_SET, FAM_HOME, "[REC] SET", {{KC_KEYS, "RECORDING"}, {KC_OCTDN, "UNDO"}, {KC_REC, "DONE"}}},
+    {B_REC, LK_SET, FAM_HOME, "[REC] SET", {{KC_KEYS, "RECORDING"}, {KC_OCTPM, "UNDO REDO"}, {KC_REC, "DONE"}}},   /* (M-Vave-OP1:
+                                                     * OCT- undoes the recording, OCT+ redoes it: rec_undo) */
 };
 static const uint8_t LY_KC[LAYER_N] = {0, KC_FX, KC_GLO, KC_SCL, KC_EDIT, KC_SEQ, KC_REC};
 /* SCL's knobs: the key and its chord (cur_page() while the layer edits or draws them: page_over) */
@@ -861,6 +862,25 @@ static void layer_oct_open(uint32_t pressed)
     }
 }
 
+/* M-Vave-OP1, REC held: OCT- undoes the last recording (the track as it was when REC armed it, or the last edit the undo
+ * copy holds: ui.c undo), OCT+ (redo) puts it back; each only once in a row (undo.undone) */
+static void rec_undo(int redo)
+{
+    if (!undo.trk) {
+        ui_message("NOTHING TO UNDO");
+        return;
+    }
+    if (chain_busy()) {
+        ui_message("STOP TO EDIT");
+        return;
+    }
+    if (!redo == (undo.undone != 0u)) {
+        ui_message(redo ? "NOTHING TO REDO" : "ALREADY UNDONE");
+        return;
+    }
+    undo_swap();
+}
+
 /* OCT- / OCT+ in a SET layer: no octave; OCT- let go puts back what the layer changed. Returns the taps left */
 static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
 {
@@ -870,6 +890,8 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
     mine = oct & lys.oct;
     if (lys.l == LAYER_SEQ && (mine & 3u)) {            /* M-Vave-OP1: SEQ's OCT- / OCT+ the scene before / after */
         scene_step((mine & 1u) ? -1 : 1);
+    } else if (lys.l == LAYER_REC && (mine & 2u)) {     /* .. REC's OCT+ redoes it */
+        rec_undo(1);
     } else if (mine & 1u) {                             /* OCT-: back to when it opened */
         if (lys.l == LAYER_FX) {                        /* (FX LATCH) every effect and macro off */
             perf_latched = 0;
@@ -882,8 +904,11 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
             lys.loaded = 0;
             if (eqa_put_back() && !ld)                  /* (the quick actions: the lanes' mutes) */
                 ui_message("MUTES PUT BACK");
-        } else if (lys.l == LAYER_REC) {
-            seq_put_back();
+        } else if (lys.l == LAYER_REC) {               /* M-Vave-OP1: OCT- puts back what this hold changed (a */
+            if (lys.loaded || ui_rec_prefs != (uint8_t)lys.v[0])   /* clear, CLICK ..), else undoes the */
+                seq_put_back();                                     /* recording (rec_undo) */
+            else
+                rec_undo(0);
         } else if (lys.l == LAYER_GLO) {
             for (k = 0; k < NTRK; k++) {
                 trk[k].p[P_MUTE] = lys.v[k];

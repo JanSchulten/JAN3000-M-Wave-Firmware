@@ -1329,6 +1329,10 @@ static void draw_columns(void)
     for (c = 0; c < 4u; c++) {
         int16_t *vp;
         const param_desc_t *d = page_desc(cur_page(), c, &vp);
+        if (cur_page()->graph == GR_SLOTS && c == 1u) {   /* M-Vave-OP1: PROJECT's NEW */
+            draw_act_column(c, "NEW", T_THEME, ICON_X_FOLDER);
+            continue;
+        }
         if (!d || !d->label || d->label[0] == '-') {
             draw_column(c, "", "", "", T_THEME, -1, ICON_AUTO);
             continue;
@@ -1349,41 +1353,57 @@ static void draw_columns(void)
 }
 
 
-/* The power-on splash (main.c fm1_main, web/emu felucca_web.c; 1.1.5): a RAISE square centred on the screen, square
- * corners (in every style; LINE too: RAISE from the palette's SURF), in it in AF_M, the ink SPL_PAD in from the left:
- * at the top the name and the version, the first line's capitals' top SPL_PAD down; at the bottom the maker and
- * "with community", the last line's capitals' bottom (its baseline) SPL_PAD up from the square's bottom. Both
- * margins are measured to the capitals (the descender of "community" hangs into the bottom one, as off a baseline).
- * The square (176 x 176) is more than the canvas (CV_MAX, 240 x 124): it is filled straight on the screen and its
- * two text bands drawn on it as canvases, the top one from the square's top edge, the bottom one to its bottom edge.
- * In the saved palette (settings_init before it) */
-#define SPL_SQ 176                                  /* the square (even: centred exactly) */
-#define SPL_X0 ((240u - SPL_SQ) / 2u)               /* its top-left on the screen (x and y) */
-#define SPL_PAD 16                                  /* the text's inset: left (its ink), top and bottom (the capitals) */
-#define SPL_PITCH 20                                /* line to line */
-static const char *const SPLASH_LINES[] = {"Felucca", FELUCCA_VERSION, "H\xFCgelton Instruments", "with community"};
-/* a band of two lines, h tall, at y on the screen: the first line's top at ly; the two lines' capitals declared
- * against al0..al1 (mode: AL_V the band centred there, AL_B the last baseline on al1) */
-static void splash_band(uint32_t y, uint32_t h, int32_t ly, const char *const *l, uint32_t mode, int32_t al0,
-                        int32_t al1, const char *tag)
+/* The power-on splash (main.c fm1_main, web/emu felucca_web.c), M-Vave-OP1's: JAN3000, animated over SPL_MS. A band
+ * of 240 x SPL_H in the middle of the screen: the name in L wiped in from the left behind a line in the accent (its
+ * first SPL_WIPE ms), a line growing out from under its middle, then the version in M in the accent and, small, "based
+ * on Felucca"; under them a sine that grows and runs (an oscillator settling). draw_splash_at(ms) draws the band as it
+ * is ms after the start (main.c: as often as the panel takes it, during the boot's wait); draw_splash, the screen
+ * cleared and the band at its end (the emulator's first frame, the tests). In the saved palette */
+#define JAN_NAME "JAN3000"
+#define JAN_VERSION "v0.8"
+#define SPL_H 120                                   /* the band (the canvas holds 124 rows) */
+#define SPL_Y ((240u - SPL_H) / 2u)
+#define SPL_WIPE 360u                               /* the name's wipe */
+#define SPL_MS 760u                                 /* the whole animation */
+static void draw_splash_at(uint32_t ms)
 {
-    cv_begin(SPL_SQ, h, T_RAISE);
-    GFX_HOOK_ALIGN(0, al0, 0, al1, mode | AL_N(2), tag);
-    cv_text_on(SPL_PAD, ly, &AF_M, l[0], T_TEXT, T_RAISE);
-    cv_text_on(SPL_PAD, ly + SPL_PITCH, &AF_M, l[1], T_TEXT, T_RAISE);
-    cv_blit(SPL_X0, y);
+    int32_t tw = text_w(&AF_L, JAN_NAME), tx = (240 - tw) / 2, ty = 10, rv, k, x, py = 0;
+    uint32_t amp = ms < 300u ? 0u : ms >= SPL_MS ? 10u : (ms - 300u) * 10u / (SPL_MS - 300u);
+    cv_begin(240, SPL_H, T_BG);
+    GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "splash name centred");
+    cv_text_on(tx, ty, &AF_L, JAN_NAME, T_TEXT, T_BG);
+    rv = ms >= SPL_WIPE ? tw + 4 : (int32_t)(ms * (uint32_t)(tw + 4) / SPL_WIPE);   /* (the rest still hidden) */
+    if (rv < tw + 4) {
+        cv_rect(tx + rv, ty - 2, tw + 8 - rv, AF_L.h + 4, T_BG);
+        cv_rect(tx + rv, ty, 2, AF_L.h - 4, T_ACCENT);
+    }
+    if (ms > SPL_WIPE / 2u) {                       /* the line, out from the middle */
+        uint32_t t = ms - SPL_WIPE / 2u, half = (uint32_t)tw / 2u;
+        int32_t w = (int32_t)(t >= 300u ? half : t * half / 300u);
+        cv_rect(120 - w, ty + AF_L.h + 2, 2 * w, 2, T_ACCENT);
+    }
+    if (ms >= SPL_WIPE + 40u) {
+        GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "splash version centred");
+        cv_text_in(0, ty + AF_L.h + 8, 240, &AF_M, JAN_VERSION, T_ACCENT, T_BG);
+    }
+    for (k = 0, x = 40; x < 200; x++, k++) {        /* the oscillator: 3 cycles, running */
+        int32_t y = 92 + sine_i((uint32_t)k * 80530637u + ms * 0x1000000u) * (int32_t)amp / 32768;   /* (2^32 x 3 / 160
+                                                                                                  * a pixel; 4 Hz) */
+        if (x > 40)
+            cv_line(x - 1, py, x, y, x < 120 ? T_MID : T_THEME);
+        py = y;
+    }
+    if (ms >= SPL_WIPE + 120u) {
+        GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "splash credit centred");
+        cv_text_in(0, SPL_H - 16, 240, &AF_S, "based on Felucca", T_MID, T_BG);
+    }
+    cv_blit(0, SPL_Y);
+    lcd_sync();
 }
 static void draw_splash(void)
 {
-    int32_t h = SPL_PAD - AF_M_CAP_Y + SPL_PITCH + AF_M.h;     /* a band: its two lines, the descenders in */
-    int32_t lb = h - SPL_PAD - AF_M_CAP_H - AF_M_CAP_Y;         /* the bottom band's last line: its top */
     lcd_fill(0, 0, 240, 240, T_BG);
-    lcd_fill(SPL_X0, SPL_X0, SPL_SQ, SPL_SQ, T_RAISE);
-    splash_band(SPL_X0, (uint32_t)h, SPL_PAD - AF_M_CAP_Y, SPLASH_LINES, AL_V, SPL_PAD,
-                SPL_PAD + SPL_PITCH + AF_M_CAP_H, "splash name + version SPL_PAD from the top");
-    splash_band(SPL_X0 + SPL_SQ - (uint32_t)h, (uint32_t)h, lb - SPL_PITCH, SPLASH_LINES + 2, AL_B, 0, h - SPL_PAD,
-                "splash maker's baseline SPL_PAD from the bottom");
-    lcd_sync();
+    draw_splash_at(SPL_MS);
 }
 
 /* UPDATE MODE countdown (main.c: OCT- + OCT+ held): over everything, the menu and the dialogs too */
@@ -1473,6 +1493,10 @@ static void confirm_text(char *a, char *b)
     case CF_CLEAR_TRK:
         str_cpy(a, "CLEAR TRACK 1?", 24);
         a[12] = (char)('1' + k % NTRK);
+        break;
+    case CF_NEW_PROJ:                                /* M-Vave-OP1: PROJECT's NEW (project.c project_new) */
+        str_cpy(a, "START A NEW PROJECT?", 24);
+        str_cpy(b, "UNSAVED MUSIC IS LOST", 24);
         break;
     case CF_OVR_PROJ:
         str_cpy(a, "OVERWRITE PROJECT A?", 24);

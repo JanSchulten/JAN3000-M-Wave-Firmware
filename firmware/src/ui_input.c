@@ -130,13 +130,21 @@ static uint32_t oct_leds(void)
 
 /* the key LEDs on the grid, bit k = key k: the white keys show where the selected lane hits on the page
  * shown (its accents while ACC is held), the step playing inverted (a light walks over them); the black keys
- * the lane selected, ACC while held, the page keys while there is more than one page */
+ * the lane selected, ACC while held, the page keys while there is more than one page. M-Vave-OP1: a lane's black key
+ * flashes as its drum plays (eng_drum.c drum_lit, lit GRID_FLASH ms; the lane selected stays lit) */
+#define GRID_FLASH 70u                                  /* ms */
+static uint32_t grid_flash[NLANE];                      /* (fm1_ms the flash ends: as often as it is asked, the same) */
 static uint32_t grid_leds(void)
 {
     const track_t *t = TSEL;
     uint32_t k, m = 0, len = (uint32_t)t->p[P_SLEN], b = detail_on() ? 0xFFu : 1u << ui.lane;   /* (DETAIL: any hit) */
     uint32_t acc = !detail_on() && black_held(GK_ACC);
     uint32_t ph = song.playing && t->seq_idx < len && t->seq_idx / 16u == ui.bank ? t->seq_idx % 16u : 0xFFu;
+    uint32_t lit = drum_lit[song.sel % NTRK];
+    drum_lit[song.sel % NTRK] = 0;                      /* (taken: the ISR sets the next) */
+    for (k = 0; k < NLANE; k++)
+        if ((lit >> k) & 1u)
+            grid_flash[k] = fm1_ms + GRID_FLASH;
     for (k = 0; k < 27u; k++) {
         uint32_t p = key_place(k), on;
         if (!key_black(k)) {
@@ -144,7 +152,7 @@ static uint32_t grid_leds(void)
             on = i < len && ((acc ? step_accents(&seq_steps(t)[i]) : step_lanes(&seq_steps(t)[i])) & b) != 0u;
             on ^= (uint32_t)(p == ph);
         } else {
-            on = p < NLANE ? p == ui.lane : p == GK_ACC ? acc : len > 16u;
+            on = p < NLANE ? p == ui.lane || (int32_t)(grid_flash[p] - fm1_ms) > 0 : p == GK_ACC ? acc : len > 16u;
         }
         m |= on << k;
     }
@@ -411,6 +419,8 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
     uint32_t c;
     if (br)
         *br = 0;
+    if (!grid_on())                                     /* (M-Vave-OP1: a lane's flash only for hits the grid saw) */
+        memset((void *)drum_lit, 0, sizeof drum_lit);
     c = name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds(br) : grid_on() ? grid_leds() :
         orc_ui() ? (((fm1_in.notes & ~kb_layer) | play_leds() | step_leds()) & ~ORC_BLOCK) | orc_leds() :
                  (fm1_in.notes & ~kb_layer) | play_leds() | step_leds() | (song_keys_on() ? song_leds() : 0u);
@@ -713,6 +723,10 @@ static int rec_tap(void)                                /* 1: the arming changed
     }
     song.rec ^= bit;
     ui.force = 1;                                     /* also refresh the status on MENU / ABOUT */
+    if (song.rec & bit) {                             /* M-Vave-OP1: the track as it was before it records, for */
+        step_undo_take(TSEL, 0);                      /* REC + OCT- (undo) / OCT+ (redo): its steps and motion */
+        motion_undo_done(TSEL);
+    }
     if ((song.rec & bit) && !song.playing && !seq_counting() && roll_on()) {
         ui_message(ui_prefs2 & (PREF_CHORD_ADD >> 16) ? "KEYS ADD TO STEP" : "KEYS WRITE STEPS");   /* step recording:
                                                          * stopped, at the cursor (CHORD ENTRY ADD: adding) */
@@ -1356,6 +1370,13 @@ static void act_do(void)
             name_open(NK_USER_SAVE, ui.uslot);
         return;
     }
+    if (cur_page()->graph == GR_SLOTS && c == 1u) {       /* M-Vave-OP1: NEW, after the dialog */
+        if (transport_busy())
+            ui_message("STOP FIRST");
+        else
+            confirm_open(CF_NEW_PROJ, 0);
+        return;
+    }
     id = cur_page()->id[c & 3u];
     if (id != G_LOAD)
         ui.act = 0;
@@ -1826,7 +1847,10 @@ static void ui_input(void)
             uint32_t kind = ui.confirm;
             ui.confirm = 0;
             ui.force = 1;
-            if (kind == CF_OVR_PROJ) {                  /* overwrite: the NAME screen writes it */
+            if (kind == CF_NEW_PROJ) {                  /* M-Vave-OP1: everything as at power-on */
+                project_new();
+                ui.act = 0;
+            } else if (kind == CF_OVR_PROJ) {           /* overwrite: the NAME screen writes it */
                 name_open(NK_PROJ_SAVE, ui.confirm_trk & 3u);
             } else if (kind == CF_OVR_USER) {
                 name_open(NK_USER_SAVE, ui.confirm_trk);

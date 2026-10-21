@@ -1177,6 +1177,11 @@ static int test_grid(void)
     tap_key(key_at(0, 4));
     bad += check("white key 5: SNARE on step 5, the cursor there", t->step[4].hit == 1u << DV_SNARE && t->step[4].time == ST_NOTE &&
                  !t->step[4].n && ui.cursor == 4u);
+    {   /* M-Vave-OP1: the step's preview (KICK, SNARE) flashes their lanes' black keys a moment */
+        uint32_t fl = grid_leds();
+        bad += check("a lane's black key flashes as its drum plays (the preview's KICK), then goes dark",
+                     (fl >> key_at(1, 0) & 1u) && (frames(100), !(grid_leds() >> key_at(1, 0) & 1u)));
+    }
     leds = grid_leds();
     bad += check("LEDs: white key 5 lit, black key 2 lit, ACC and the page keys dark (LEN 16)",
                  (leds >> key_at(0, 4) & 1u) && (leds >> key_at(1, 1) & 1u) && !(leds >> key_at(0, 3) & 1u) &&

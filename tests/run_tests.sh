@@ -58,6 +58,9 @@
 #                   passing note, a root outside the scale, A minor, CHR, kits never; OFF, stopped, no root: as written),
 #                   a pattern under KEY bar by bar (the run round, LEN 1, each off its on), the arp's notes moved (not
 #                   while recording), live keys as they are; the page (GLO's first, the knobs, a key sets a root).
+# JAN (tests/jan_test.c, M-Vave-OP1 JAN3000 v0.8): another track (ALGORITHM) opens each family at its first page; REC
+#                   armed takes the track's copy, REC held + OCT- undoes the recording, OCT+ redoes it; SAVE > PROJECT >
+#                   NEW (asked first, not while playing): the power-on sounds, empty steps, no song / extras / slot.
 # STORES (tests/opstore_test.c, M-Vave-OP1): USR3's and USR2's flash (opstore.c) on a NOR image: a slot's FX TRACKS saved
 #                   and loaded with its project (a power-on, a project without extras or written by the editor: empty, a
 #                   rename keeps them, a failed write), the autosave's, a song's slots; the KEY's run with a project;
@@ -277,6 +280,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ratchet_test" tests/ratchet_test.c -lm
     run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/key_test" tests/key_test.c -lm
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/jan_test" tests/jan_test.c -lm
+    run "JAN3000 v0.8: another track opens the families' first pages, REC + OCT- / OCT+ undo / redo, SAVE > PROJECT > NEW" "$OUT/jan_test"
     run "KEY: the move in the scale, a pattern under KEY bar by bar, the arp, live keys, the page" "$OUT/key_test"
     mkdir -p build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
