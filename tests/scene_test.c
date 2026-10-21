@@ -12,13 +12,14 @@
  *   MEMORY   picks are refused when the scene leaving would not fit, and one that grew past its room at the pattern's end
  *            is dropped there (SCENE MEMORY FULL): the music as it was, nothing lost.
  *   KEPT     a project saved and loaded brings its scenes and the one playing; another project's bank never applies.
- *   COPY     SEQ + OCT-: the scene playing copied into the next free scene (the first empty one after it, round past 16),
- *            which then plays: the tracks byte for byte as they were (playing: no step starts again, nothing released,
- *            no switch at the pattern's end), the original in the bank, each scene its own after; a pick waiting taken
- *            back; refused (nothing changed, a pick waiting still waits): an empty scene, none free, the bank full, a
- *            song; the copy kept with the project, the autosave told.
- *   LAYER    SEQ held: the white keys pick scenes 1..16, OCT+ the next (none past 16, lit where there is one), OCT- the
- *            copy (lit when it can be made),
+ *   COPY     SEQ + OCT+ held 0.7 s: the scene playing copied into the next free scene (the first empty one after it,
+ *            round past 16), which then plays: the tracks byte for byte as they were (playing: no step starts again,
+ *            nothing released, no switch at the pattern's end), the original in the bank, each scene its own after; once
+ *            while held, its release steps no scene; a pick waiting taken back; refused (nothing changed, a pick waiting
+ *            still waits): an empty scene, none free, the bank full, a song; the copy kept with the project, the
+ *            autosave told.
+ *   LAYER    SEQ held: the white keys pick scenes 1..16, OCT+ / OCT- the next / the one before (none past 16 or before 1,
+ *            their LEDs lit where there is one), OCT+ held the copy (once, while held; its release steps none),
  *            the black keys are the tools (CLEAR .. lane RANDOM), EDIT puts the track back, PRESETS picks a DRUM lane; the
  *            LEDs (the scene playing lit, one waiting breathing); a song playing: no scenes. The KO-II flow: a punch-in
  *            held after FX is let go keeps sounding while SEQ picks the next scene; let go, it stops.
@@ -406,13 +407,13 @@ static void test_kept(void)
 }
 
 /* ------------------------------------------------------------ COPY --- */
-static void seq_copy(void)                           /* SEQ held + OCT-, let go */
+static void seq_copy(void)                           /* SEQ held + OCT+ held past SEQ_COPY_MS, let go */
 {
     btn_down(B_SEQ);
     frame();
-    btn_down(B_OCTDN);
-    frame();
-    btn_up(B_OCTDN);
+    btn_down(B_OCTUP);
+    frames(SEQ_COPY_MS + 64u);
+    btn_up(B_OCTUP);
     frame();
     btn_up(B_SEQ);
     frame();
@@ -437,16 +438,6 @@ static uint32_t packed_now(void)                     /* the bytes the scene play
     scn_view_trk(&v);
     return scn_encode(&v, 0, 0);
 }
-static uint32_t seq_oct_leds(void)                   /* the OCT LEDs with SEQ held past HOLD (the map), let go */
-{
-    uint32_t m;
-    btn_down(B_SEQ);
-    frames(500);
-    m = ui.layer == LAYER_SEQ ? oct_leds() & 3u : 0xFFu;
-    btn_up(B_SEQ);
-    frames(400);
-    return m;
-}
 static void test_copy(void)
 {
     chain_pattern_t s1, s2;
@@ -461,7 +452,7 @@ static void test_copy(void)
     capture(&pa);
     ok = msg_is("COPIED TO SCENE 2") && scn.cur == 1u && music_same() && same_pattern(&pa, &s1) && scb.len[0] > 0u &&
          !scb.len[1] && scene_used(0) && scene_used(1) && !scene_used(2) && !undo.trk && autosave_sig() != sig;
-    ck("COPY: stopped, SEQ + OCT-: COPIED TO SCENE 2, the copy plays (the tracks byte for byte), scene 1 in the bank", ok);
+    ck("COPY: stopped, SEQ + OCT+ held: COPIED TO SCENE 2, the copy plays (the tracks byte for byte), scene 1 in the bank", ok);
     seq_pick(0);
     capture(&pa);
     ok = scn.cur == 0u && same_pattern(&pa, &s1);
@@ -479,6 +470,44 @@ static void test_copy(void)
     capture(&pb);
     ok &= same_pattern(&pb, &s2);
     ck("  scene 1 and its copy: each exactly the scene copied, then each its own (steps, automation, FX TRACKS)", ok);
+
+    /* the gesture: the copy once while OCT+ is still held, its release steps no scene; OCT+ / OCT- tapped step */
+    scene_setup();
+    btn_down(B_SEQ);
+    frame();
+    btn_down(B_OCTUP);
+    frames(SEQ_COPY_MS - 64u);
+    ok = scn.cur == 0u && !scb.used;                  /* (not yet) */
+    frames(128);
+    ok &= msg_is("COPIED TO SCENE 2") && scn.cur == 1u;
+    frames(1500);                                      /* (held on: once) */
+    ok &= scn.cur == 1u && !scene_used(2);
+    btn_up(B_OCTUP);
+    frame();
+    ok &= scn.cur == 1u && !scn.req && !ui.msg_t;     /* (let go: no step, nothing said) */
+    btn_down(B_OCTUP);
+    frame();
+    btn_up(B_OCTUP);
+    frame();
+    ok &= scn.cur == 2u && msg_is("SCENE 3");
+    btn_down(B_OCTDN);
+    frame();
+    btn_up(B_OCTDN);
+    frame();
+    ok &= scn.cur == 1u && msg_is("SCENE 2");
+    btn_down(B_OCTDN);                                 /* (OCT+ held with OCT- down: no copy, no step) */
+    frame();
+    btn_down(B_OCTUP);
+    frames(SEQ_COPY_MS + 200u);
+    btn_up(B_OCTUP);
+    btn_up(B_OCTDN);
+    frame();
+    ok &= scn.cur == 1u && !scene_used(2) && song.octave == 0;
+    btn_up(B_SEQ);
+    frame();
+    ok &= !ui.layer;
+    ck("  OCT+ held 0.7 s: the copy once, while still held; let go: no step; OCT+ / OCT- tapped: the next / the one "
+       "before; with OCT- down: nothing", ok);
 
     /* the next free: the first empty scene after the one playing, past a scene used, round past 16 */
     seq_pick(3);
@@ -503,7 +532,7 @@ static void test_copy(void)
     seq_pick(9);
     used = scb.used;
     gen = scb.gen;
-    ok = !scene_used(9) && !(seq_oct_leds() & 1u);
+    ok = !scene_used(9);
     seq_copy();
     ok &= msg_is("NOTHING TO COPY") && scn.cur == 9u && scb.used == used && scb.gen == gen && !scene_used(10);
     for (k = 0; k < SCN_N; k++) {                      /* every scene used */
@@ -514,13 +543,11 @@ static void test_copy(void)
     used = scb.used;
     gen = scb.gen;
     capture(&s2);
-    ok &= !(seq_oct_leds() & 1u);
     seq_copy();
     capture(&pa);
     ok &= msg_is("NO FREE SCENE") && scn.cur == 15u && scb.used == used && scb.gen == gen && same_pattern(&pa, &s2);
     scene_setup();
     chain.armed = 1;
-    ok &= !(seq_oct_leds() & 1u);
     seq_copy();
     ok &= msg_is("STOP THE SONG FIRST") && scn.cur == 0u && !scb.used;
     chain.armed = 0;
@@ -532,14 +559,14 @@ static void test_copy(void)
     }
     printf("  copy: %u B used of %u after %u dense copies\n", scb.used, SCN_CAP, k - 1u);
     ok &= msg_is("SCENE MEMORY FULL") && k >= 2u && scn.cur == k - 1u && scb.used + packed_now() > SCN_CAP &&
-          !scene_used(k) && !(seq_oct_leds() & 1u);
+          !scene_used(k);
     used = scb.used;
     gen = scb.gen;
     capture(&s2);
     seq_copy();                                        /* (again: nothing changes) */
     capture(&pa);
     ok &= msg_is("SCENE MEMORY FULL") && scn.cur == k - 1u && scb.used == used && scb.gen == gen && same_pattern(&pa, &s2);
-    ck("  refused, nothing changed, OCT- dark: NOTHING TO COPY, NO FREE SCENE, STOP THE SONG FIRST, SCENE MEMORY FULL", ok);
+    ck("  refused, nothing changed: NOTHING TO COPY, NO FREE SCENE, STOP THE SONG FIRST, SCENE MEMORY FULL", ok);
 
     /* playing: the tracks play on (no step starts again, nothing released), no switch at the pattern's end */
     scene_setup();
@@ -549,9 +576,9 @@ static void test_copy(void)
     btn_down(B_SEQ);
     frame();
     music_keep();
-    btn_down(B_OCTDN);
-    frame();
-    btn_up(B_OCTDN);
+    btn_down(B_OCTUP);
+    frames(SEQ_COPY_MS + 64u);
+    btn_up(B_OCTUP);
     frame();
     ok = msg_is("COPIED TO SCENE 2") && scn.cur == 1u && music_same() && scn.req == SCN_IDLE && song.playing;
     btn_up(B_SEQ);
@@ -615,14 +642,19 @@ static void test_seq_layer(const char *dir)
     scene_setup();
     btn_down(B_SEQ);
     frames(500);
-    ok = ui.layer == LAYER_SEQ && str_eq(layer_head(), "[SEQ] SCENES") && (oct_leds() & 3u) == 3u;   /* (OCT- the copy, */
-    if (dir)                                                                                           /* OCT+ lit) */
+    ok = ui.layer == LAYER_SEQ && str_eq(layer_head(), "[SEQ] SCENES") && (oct_leds() & 3u) == 2u;   /* (OCT+ lit) */
+    if (dir)
         screen_save(dir, "seq_scenes_1");
+    btn_down(B_OCTDN);
+    frame();
+    btn_up(B_OCTDN);
+    frame();
+    ok &= msg_is("SCENE 1 IS THE FIRST") && scn.cur == 0u;
     key_down(white(15));
     frame();
     key_up(white(15));
     frame();
-    ok &= scn.cur == 15u && msg_is("SCENE 16") && (oct_leds() & 3u) == 0u;   /* (empty: no copy; none after) */
+    ok &= scn.cur == 15u && msg_is("SCENE 16") && (oct_leds() & 3u) == 1u;   /* (OCT- lit, OCT+ dark: none after) */
     btn_down(B_OCTUP);
     frame();
     btn_up(B_OCTUP);
@@ -632,20 +664,21 @@ static void test_seq_layer(const char *dir)
     frame();
     btn_up(B_OCTDN);
     frame();
-    ok &= msg_is("NOTHING TO COPY") && scn.cur == 15u && song.octave == 0;
-    melody(TSEL, 60, 4);                              /* (scene 16 holds something: OCT- lit) */
+    ok &= scn.cur == 14u && msg_is("SCENE 15") && song.octave == 0 && (oct_leds() & 3u) == 3u;
+    seq_pick(0);
+    btn_down(B_SEQ);
     frame();
-    ok &= (oct_leds() & 3u) == 1u;
-    btn_down(B_OCTDN);
-    frame();
-    btn_up(B_OCTDN);
-    frame();
-    ok &= msg_is("COPIED TO SCENE 2") && scn.cur == 1u && song.octave == 0 && (oct_leds() & 3u) == 3u;   /* (round) */
+    btn_down(B_OCTUP);
+    frames(SEQ_COPY_MS + 64u);
+    ok &= msg_is("COPIED TO SCENE 2") && scn.cur == 1u && song.octave == 0;   /* (scene 1 holds the setup's) */
     if (dir)
         screen_save(dir, "seq_scenes_copied");
+    btn_up(B_OCTUP);
+    frame();
     btn_up(B_SEQ);
     frame();
-    ck("LAYER: SEQ held: [SEQ] SCENES; SEQ + G5: scene 16; OCT+: none past it; OCT-: the copy (no octave); OCT LEDs", ok);
+    ck("LAYER: SEQ held: [SEQ] SCENES; OCT-: none before 1; G5: scene 16; OCT+: none past it; OCT-: scene 15 (no octave); "
+       "OCT+ held: the copy; OCT LEDs", ok);
     seq_pick(0);
     melody(TSEL, 60, 8);
     {

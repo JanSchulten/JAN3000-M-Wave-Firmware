@@ -41,7 +41,7 @@ And from the OP-Z (M2b):
 | FX1 / FX2 tracks | **FX TRACKS**: two lanes of the FX layer's effects, 64 steps of a 1/16, own lengths | **done (M2b)** |
 | Punch-in FX, recorded with REC | REC arms a lane, FX held + keys record (quantised, held on, overdub, punch) | **done (M2b)** |
 | Pattern chains, cue the next pattern | SONG: REC + A..D types a chain, LOOP, changes while it plays | **done (M2b)** |
-| 16 patterns a project, switched with a key | **SCENES**: 16 a project, SEQ + a white key (OCT+ the next; OCT- copies the scene into the next free one), at the pattern's end while playing | **done (M2c)** |
+| 16 patterns a project, switched with a key | **SCENES**: 16 a project, SEQ + a white key (OCT+ / OCT- the next / the one before; OCT+ held copies the scene into the next free one), at the pattern's end while playing | **done (M2c)** |
 | Punch-ins DUCK, STEREO, PITCH, RAMP UP, RANDOM .. | **MAP B** of the FX layer (FX + ALGORITHM): DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH, in the OP-Z's order | **done (E2)** |
 
 And from the Telepathic Instruments Orchid, after ChoralRoot FM-1 (M2d):
@@ -106,9 +106,10 @@ SONG section plays: the four tracks' steps, timing and QUANTIZE, the automation 
   plays something, the remainder carried so the grid does not drift (`scene_due`, O(1) a block while one waits).
   The swap first measures the scene that leaves; one that grew past what the bank has for it is dropped there
   (SCENE MEMORY FULL), nothing lost.
-- The SEQ layer: white keys the scenes, OCT+ the next, the SEQ TOOLS on the black keys, SEQ + EDIT puts the track
-  back, PRESETS picks a DRUM lane. A punch-in held after FX is let go stays on while SEQ picks (the KO-II's flow).
-- SEQ + OCT- (in place of the scene before): the scene playing copied into the next free scene, which plays from then
+- The SEQ layer: white keys the scenes, OCT+ / OCT- the next / the one before, the SEQ TOOLS on the black keys, SEQ +
+  EDIT puts the track back, PRESETS picks a DRUM lane. A punch-in held after FX is let go stays on while SEQ picks
+  (the KO-II's flow).
+- SEQ + OCT+ held 0.7 s: the scene playing copied into the next free scene, which plays from then
   on (`scene_copy`). Nothing is swapped: the scene's bytes go into the bank in its own place, the tracks are the copy,
   so it is at once and silent, playing too. The tracks are copied into the buffer with the interrupts off (live
   recording writes them in the ISR) and packed from there; a pick waiting is taken back.

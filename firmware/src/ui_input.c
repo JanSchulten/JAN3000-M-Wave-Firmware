@@ -113,8 +113,8 @@ static uint32_t oct_leds(void)
     if (name_on() && !ui.confirm && !ui.menu)           /* NAME: OCT- cancels, OCT+ (breathing) writes */
         return 1u | OCT_BREATH;
     if (layer_set_open())                               /* a SET layer: OCT- puts back (UNDO), OCT+ nothing; M-Vave-OP1 */
-        return ui.ly != LAYER_SEQ ? 1u :                /* SEQ: OCT- the copy, lit when it can be made, OCT+ the scene */
-               (scene_copy_can() ? 1u : 0u) | (scene_target() + 1u < SCN_N ? 2u : 0u);   /* after, where there is one */
+        return ui.ly != LAYER_SEQ ? 1u :                /* SEQ: the scene before / after, lit where there is one */
+               (scene_target() > 0u ? 1u : 0u) | (scene_target() + 1u < SCN_N ? 2u : 0u);
     if (ui.menu && !ui.confirm)
         return ui.menu >= 2u ? 1u :                    /* (INFO, ABOUT: OCT- back, lit) */
                ui.menu_sel == MI_LCLEAR ? (ml_count() ? OCT_BREATH : 0u) :   /* LEARN CLEAR: while CCs are learned */

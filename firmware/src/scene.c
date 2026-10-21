@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
 /* SCENES (M-Vave-OP1): 16 patterns in a project, as the OP-Z's, picked while they play (SEQ held + a white key; SEQ +
- * OCT+ the next; SEQ + OCT- a copy into the next free one: ui_layer.c). A scene is what the SONG chain calls a pattern
- * (song_chain.c chain_pattern_t): the four tracks' steps, their LEN DIV SWING GATE and QUANTIZE, the automation and the
- * locks, and the two FX TRACKS. The sounds, the mixer, ARP, SCL, FX1 and the song stay the project's.
+ * OCT+ / OCT- the next / the one before; SEQ + OCT+ held a copy into the next free one: ui_layer.c). A scene is what
+ * the SONG chain calls a pattern (song_chain.c chain_pattern_t): the four tracks' steps, their LEN DIV SWING GATE and
+ * QUANTIZE, the automation and the locks, and the two FX TRACKS. The sounds, the mixer, ARP, SCL, FX1 and the song stay
+ * the project's.
  * The scene playing is where the music always was (trk[].step and p[], motion, fxt_lane): every page, tool, undo,
  * recording, save and the autosave work on it as before, and a project saved by Felucca or an older M-Vave-OP1 is its
  * scene 1. The other fifteen wait in the bank (scb, in the pool), packed one after the other in scene order
@@ -492,7 +493,7 @@ static uint32_t scene_queue(uint32_t k)
     scn_irq_on();
     return SQ_END;
 }
-/* the scene a pick counts from: the one waiting, else the one playing (OCT+ steps from it) */
+/* the scene a pick counts from: the one waiting, else the one playing (OCT+ / OCT- step from it) */
 static uint32_t scene_target(void) { return scn.req == SCN_END ? scn.next : scn.cur; }
 /* scene k holds something (its cell on the layer); the one playing: the tracks */
 static int scene_used(uint32_t k)
@@ -503,8 +504,8 @@ static int scene_used(uint32_t k)
     scn_view_trk(&v);
     return scn_encode(&v, 0, 0) != 0u;
 }
-/* SEQ + OCT- (main loop): the scene playing copied into the next free scene (the first empty one after it, round past
- * 16 to 1), which then plays. Nothing is swapped: the copy is the same music, so the tracks play on as they are (no
+/* SEQ + OCT+ held (main loop): the scene playing copied into the next free scene (the first empty one after it, round
+ * past 16 to 1), which then plays. Nothing is swapped: the copy is the same music, so the tracks play on as they are (no
  * step starts again, nothing is heard, playing or stopped); the bank takes the scene's bytes in its own place instead,
  * and from here on the tracks are the copy (every page, tool and recording works on it). A pick waiting is taken back
  * (the copy is what plays). The results: */
@@ -520,12 +521,6 @@ static uint32_t scene_copy_to(uint32_t *n)
         if (!scb.len[f = (scn.cur + k) % SCN_N])
             return f;
     return SCN_N;
-}
-/* a copy can be made now (the SEQ layer's OCT- lit) */
-static int scene_copy_can(void)
-{
-    uint32_t n;
-    return !chain.running && !chain.armed && scene_copy_to(&n) < SCN_N && n && scb.used + n <= SCN_CAP;
 }
 static uint32_t scene_copy(void)
 {

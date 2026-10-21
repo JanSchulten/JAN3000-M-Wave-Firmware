@@ -121,7 +121,7 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | Transponieren einer Sequenz mit der Tastatur | 🟡 SCL > TRN, nicht per Taste | Schritt 8 |
 | – | ARP mit vielen Modi; SCL > ORCHID, die Akkord-Tastatur des Orchid (nach ChoralRoot FM-1: Akkordblock F3 .. C#4, Grundtöne D4 .. G5, VOICE, LOCK); Akkord-Tasten (CHRD), SONG-Kette | Extras des FM-1 |
 | (OP-Z) Pattern-Ketten, nächstes Pattern vormerken | SONG: REC + A–D tippt eine Kette, LOOP, Änderungen im laufenden Song | ✅ seit M2b |
-| (OP-Z) 16 Patterns pro Projekt | SZENEN: SEQ halten + weiße Taste, OCT+ die nächste, OCT− kopiert die Szene in die nächste freie; im Spiel am Ende des Patterns | ✅ seit M2c |
+| (OP-Z) 16 Patterns pro Projekt | SZENEN: SEQ halten + weiße Taste, OCT+ / OCT− die nächste / vorige, OCT+ halten kopiert die Szene in die nächste freie; im Spiel am Ende des Patterns | ✅ seit M2c |
 | (OP-Z) FX-Spuren FX1/FX2 und aufgenommene Punch-in-FX | FX > FX TRACKS: zwei Effekt-Spuren, REC + FX halten + Tasten nimmt auf | ✅ seit M2b |
 
 ### Tape (entfernt in M6, durch GLO > KEY ersetzt)

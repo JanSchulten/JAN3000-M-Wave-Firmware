@@ -70,10 +70,11 @@
 # SCENES (tests/scene_test.c, M-Vave-OP1): 16 scenes a project (scene.c, the SEQ layer): the packed form (3000 random
 #                   scenes round-trip, the densest fits, damaged bytes refused), a pick stopped at once and playing at the
 #                   pattern's end (the longest track's loop, the remainder carried), taken back, the bank full (refused,
-#                   or dropped at the end: nothing lost), kept with the project, SEQ + OCT- the copy into the next free
-#                   scene (at once, the music byte for byte, a pick taken back, refusals change nothing, kept), the SEQ
-#                   layer (white keys scenes, OCT+ next, black keys the tools, EDIT put back, PRESETS the lane, LEDs, no
-#                   song), the KO-II flow (a punch-in held while SEQ picks); screens into build/scene_shots.
+#                   or dropped at the end: nothing lost), kept with the project, SEQ + OCT+ held the copy into the next
+#                   free scene (at once, the music byte for byte, a pick taken back, refusals change nothing, kept), the
+#                   SEQ layer (white keys scenes, OCT+ / OCT- next / before, black keys the tools, EDIT put back, PRESETS
+#                   the lane, LEDs, no song), the KO-II flow (a punch-in held while SEQ picks); screens into
+#                   build/scene_shots.
 # SCL > ORCHID (tests/orchid_test.c, M-Vave-OP1): the Orchid's chord block after ChoralRoot FM-1 (orchid.c): the
 #                   types, extensions, VOICE and names; through the real key input (F3 .. C#4 the block, silent; the roots
 #                   with their chord; a release ends its own notes; ORCHID off, a kit, a one-voice part as before; the
@@ -292,7 +293,7 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo
     mkdir -p build/scene_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/scene_test" tests/scene_test.c -lm
-    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT- copy, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
+    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT+ held copy, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
     mkdir -p build/orchid_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/orchid_test" tests/orchid_test.c -lm
     run "SCL > ORCHID (the Orchid's keyboard): types, extensions, VOICE, names, the key input, LOCK, the page, LEDs, STEP entry, kept" "$OUT/orchid_test" build/orchid_shots

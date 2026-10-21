@@ -38,9 +38,9 @@
  * MIDI, never recorded; keys held before stay notes. Only one layer at a time: a second layer button is ignored.
  * PLAY and REC work in every layer (GLO held + PLAY: RESTART; GLO's lock: PLAY as always, #183); SAVE, HOME, SEQ and
  * the other page buttons are swallowed. In SET layers OCT± do not shift the octave: OCT- (on release, not with OCT+)
- * puts back what the layer changed since it opened (SEQ: OCT- copies the scene, OCT+ the next; EDIT puts back). A
- * HOLD key's effect lasts until the key is let go, the map with it. No layer in the menu, a dialog, NAME or the
- * UPDATE MODE countdown.
+ * puts back what the layer changed since it opened (SEQ: OCT- / OCT+ step the scenes, OCT+ held copies the scene; EDIT
+ * puts back). A HOLD key's effect lasts until the key is let go, the map with it. No layer in the menu, a dialog, NAME
+ * or the UPDATE MODE countdown.
  * After a tap, until the layer has been opened once: "HOLD [GLO] QUICK" (the seen bits are kept with the settings,
  * favorites.c spare byte).
  * The lock (Discussion #83): a double tap (the second press within LY_DTAP_MS of the first tap, both let go before
@@ -65,9 +65,10 @@ static const layer_t LAYERS[LAYER_N] = {
     {B_GLO, LK_SET, FAM_HOME, "[GLO] SET", {{KC_PLAY, "RESTART"}, {KC_OCTDN, "UNDO"}, {KC_GLO, "DONE"}}},
     {B_SCL, LK_SET, FAM_SCL, "[SCL] SET", {{KC_KEYS, "ROOT"}, {KC_OCTDN, "UNDO"}, {KC_SCL, "DONE"}}},
     {B_EDIT, LK_SET, FAM_HOME, "[EDIT] SET", {{KC_KEYS, "ENGINE"}, {KC_OCTDN, "UNDO"}, {KC_EDIT, "DONE"}}},
-    {B_SEQ, LK_SET, FAM_SEQ, "[SEQ] SCENES", {{KC_KEYS, "SCENE"}, {KC_OCTPM, "COPY NEXT"}, {KC_SEQ, "DONE"}}},   /* (M-Vave-OP1:
-                                                     * the scenes on the white keys, the tools on the black; OCT- copies
-                                                     * the scene playing into the next free one, OCT+ the next) */
+    {B_SEQ, LK_SET, FAM_SEQ, "[SEQ] SCENES", {{KC_OCTPM, "PREV NEXT"}, {KC_OCTUP, "HOLD: COPY"}, {0, 0}}},   /* (M-Vave-OP1:
+                                                     * the scenes on the white keys, their cells numbered, the tools on
+                                                     * the black; OCT+ held copies the scene playing into the next free
+                                                     * one; three hints do not fit) */
     {B_REC, LK_SET, FAM_HOME, "[REC] SET", {{KC_KEYS, "RECORDING"}, {KC_OCTPM, "UNDO REDO"}, {KC_REC, "DONE"}}},   /* (M-Vave-OP1:
                                                      * OCT- undoes the recording, OCT+ redoes it: rec_undo) */
 };
@@ -98,6 +99,8 @@ static struct {
     uint8_t l, trk, loaded, oct;       /* SET: the layer and the track of the snapshot; EDIT: a sound loaded since
                                         * it opened (SEQ: a tool used); OCT- / OCT+ pressed in a SET layer (bits) */
     uint8_t cook;                      /* SEQ: COOK pressed since it opened */
+    uint8_t cp;                        /* SEQ: OCT+ held into a copy (its release steps no scene) */
+    uint32_t up_ms;                    /* SEQ: when OCT+ went down in the layer (fm1_ms) */
     uint8_t rp_dirty;                  /* REC: a setting changed (settings_save when the layer lets go); FX: the key map */
     uint8_t fxk;                       /* FX: the white key pressed last in the layer (+ 1; 0 none): PRESETS assigns it */
     uint8_t mute[NPART];               /* EDIT: the DRUM lanes' mutes when it opened (eng_drum.c drum_mute; OCT-) */
@@ -502,18 +505,18 @@ static void seq_lane(int32_t s)
     ui_say("LANE ", drum_lane_abbr(TSEL, ui.lane));
     ui.force = 1;
 }
-/* SEQ + OCT+: the scene after the one picked last (waiting, else playing); none past 16 */
-static void scene_next(void)
+/* SEQ + OCT+ / OCT-: the scene after / before the one picked last (waiting, else playing); none past 16 or before 1 */
+static void scene_step(int32_t d)
 {
-    uint32_t t = scene_target() + 1u;
-    if (t >= SCN_N) {
-        ui_message("SCENE 16 IS THE LAST");
+    int32_t t = (int32_t)scene_target() + d;
+    if (t < 0 || t >= (int32_t)SCN_N) {
+        ui_message(t < 0 ? "SCENE 1 IS THE FIRST" : "SCENE 16 IS THE LAST");
         return;
     }
-    scene_key(t);
+    scene_key((uint32_t)t);
 }
-/* SEQ + OCT- (M-Vave-OP1, in place of the scene before): the scene playing copied into the next free one, which plays
- * from here on (scene.c scene_copy: at once, nothing heard; a pick waiting taken back) */
+/* SEQ + OCT+ held (M-Vave-OP1): the scene playing copied into the next free one, which plays from here on (scene.c
+ * scene_copy: at once, nothing heard; a pick waiting taken back) */
 static void scene_copy_key(void)
 {
     char n[4];
@@ -900,17 +903,27 @@ static void rec_undo(int redo)
 }
 
 /* OCT- / OCT+ in a SET layer: no octave; OCT- let go puts back what the layer changed. Returns the taps left */
+#define SEQ_COPY_MS 700u                                /* SEQ + OCT+ held this long: the copy (as SAVE's hold) */
 static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
 {
     uint32_t dn = panel.btn[B_OCTDN], up = panel.btn[B_OCTUP], k, mine;
     if (layer_set_open())
         lys.oct |= (uint8_t)(((pressed >> dn) & 1u) | ((pressed >> up) & 1u) << 1);
-    mine = oct & lys.oct;
-    if (lys.l == LAYER_SEQ && (mine & 3u)) {            /* M-Vave-OP1: SEQ's OCT- copies the scene, OCT+ the next */
-        if (mine & 1u)
+    if (lys.l == LAYER_SEQ && layer_set_open()) {      /* M-Vave-OP1: SEQ + OCT+ held SEQ_COPY_MS (alone): the copy, */
+        if ((pressed >> up) & 1u) {                     /* once; its release then steps no scene */
+            lys.up_ms = fm1_ms;
+            lys.cp = 0;
+        }
+        if ((lys.oct & 2u) && !lys.cp && ((fm1_in.buttons >> up) & 1u) && !((fm1_in.buttons >> dn) & 1u) &&
+            fm1_ms - lys.up_ms >= SEQ_COPY_MS) {
+            lys.cp = 1;
             scene_copy_key();
-        else
-            scene_next();
+        }
+    }
+    mine = oct & lys.oct;
+    if (lys.l == LAYER_SEQ && (mine & 3u)) {            /* .. OCT- / OCT+ tapped: the scene before / after */
+        if ((mine & 1u) || !lys.cp)
+            scene_step((mine & 1u) ? -1 : 1);
     } else if (lys.l == LAYER_REC && (mine & 2u)) {     /* .. REC's OCT+ redoes it */
         rec_undo(1);
     } else if (mine & 1u) {                             /* OCT-: back to when it opened */
@@ -946,6 +959,8 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
         }
     }
     lys.oct &= (uint8_t)(((fm1_in.buttons >> dn) & 1u) | ((fm1_in.buttons >> up) & 1u) << 1);
+    if (!((fm1_in.buttons >> up) & 1u))
+        lys.cp = 0;
     return oct & ~mine;
 }
 
