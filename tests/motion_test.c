@@ -613,7 +613,7 @@ static int lock_ui(void)
     track_defaults_steps(t);
     t->p[P_SLEN] = 16;
     go_home();
-    open_family(FAM_SEQ);
+    fam_next(FAM_SEQ);
     frame();
     k0 = key_at(0, 0); k4 = key_at(0, 4);
     grid_hit(t, 0, 0, 1);                                /* a KICK on step 1 */
@@ -650,8 +650,8 @@ static int lock_ui(void)
         !motion_lock_get(t, 4, P_E1, &v) && motion_lock_get(t, 0, P_E4, &v) && (t->step[4].hit & 1u) &&
         str_eq(ui.msg, "LOCKS CLEARED"));
     bad += check("the steps with a lock (the grid marks them): step 1", motion_lock_steps(3) == 1u);
-    open_family(FAM_FX);                                 /* the lock's knobs: the sound page shown last */
-    open_family(FAM_SEQ);
+    fam_next(FAM_FX);                                 /* the lock's knobs: the sound page shown last */
+    fam_next(FAM_SEQ);
     frame();
     bad += check("from FX: the knobs lock DIST CHO DLY REV", lock_id(0) == P_DIST && lock_id(3) == P_REV);
     lk_down(k4); turn(EN_K4, 5); lk_up(k4);
@@ -664,7 +664,7 @@ static int lock_ui(void)
     t = &trk[0];
     track_defaults_steps(t);
     go_home();
-    open_family(FAM_SEQ);
+    fam_next(FAM_SEQ);
     frame();
     for (kn = 0; kn < 27u && kb_map(t, kn) > 127u; kn++)
         ;
@@ -705,7 +705,7 @@ static int lock_undo(void)
     track_defaults_steps(t);
     t->p[P_SLEN] = 16;
     go_home();
-    open_family(FAM_SEQ);
+    fam_next(FAM_SEQ);
     frame();
     k4 = key_at(0, 4);
     lk_down(k4);

@@ -1358,7 +1358,7 @@ static void setup(int s)
         int16_t *vp;
         song.playing = 0;
         if (s == S_MOMENTARY_EDIT)
-            open_family(FAM_EDIT);
+            fam_next(FAM_EDIT);
         if (s == S_MOMENTARY) home_param(0, &vp);
         else page_desc(cur_page(), 0, &vp);
         mom.n = 1; mom.vp[0] = vp; mom.v[0] = *vp;

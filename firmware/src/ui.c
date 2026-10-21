@@ -710,15 +710,30 @@ static void note_name(char *b, uint32_t n)
  * to 1.4.1 the last); HOME: home_tap). From another
  * family the family's page shown last (SAVE: USER); one that is not the family's any more (a page that moved, as GLOBAL
  * and SYSTEM in 1.2), or not shown for this track, gives the family's first */
+static void go_home(void);
+/* the family's next (dir > 0) or previous visible page, wrapping (SELECT on a page; HOME's taps over its own) */
+static void page_step(int32_t dir)
+{
+    uint32_t n, i = ui.page, fam = cur_page()->fam;
+    for (n = 0; n < NPAGES; n++) {
+        i = (i + (dir > 0 ? 1u : NPAGES - 1u)) % NPAGES;
+        if (PAGES[i].fam == fam && page_visible(i)) break;
+    }
+    ui.page = (uint8_t)i;
+    ui.fam_last[fam] = ui.page;
+    page_entered();
+}
+/* a page button: its family (the page last used there, else its first); M-Vave-OP1: the same button again goes HOME
+ * (SELECT turns the family's pages: ui_input.c), HOME's own family (its taps: home_tap) the next of its pages */
 static void open_family(uint32_t fam)
 {
-    if (!ui.home && cur_page()->fam == fam) {          /* same button again: next page */
-        uint32_t n, i = ui.page;
-        for (n = 0; n < NPAGES; n++) {
-            i = (i + 1u) % NPAGES;
-            if (PAGES[i].fam == fam && page_visible(i)) break;
+    if (!ui.home && cur_page()->fam == fam) {
+        if (fam != FAM_TRK) {
+            go_home();
+            return;
         }
-        ui.page = (uint8_t)i;
+        page_step(1);
+        return;
     } else if (fam == FAM_SAVE) {
         uint32_t i;
         for (i = 0; i < NPAGES; i++)

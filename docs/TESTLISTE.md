@@ -21,6 +21,8 @@ kann nur das echte Gerät zeigen.
 
 - [ ] Alle 27 Tasten spielen. OCT− und OCT+ verschieben die Oktave.
 - [ ] Alle Knöpfe öffnen ihre Seiten (FX, SCL, ENV, LFO, EDIT, GLO, HOME, SAVE, ARP, SEQ).
+- [ ] **SELECT blättert** die Fenster der Seite (am Ende wieder von vorn), das Tempo bleibt dabei gleich. Dieselbe
+      Taste nochmal: zurück zu HOME. Auf HOME (und MIXER, CLOCK) ändert SELECT das Tempo.
 - [ ] KNOB 1–4, SELECT, ALGORITHM (Spur wählen) und PRESETS reagieren ohne Sprünge.
 - [ ] LEDs der Knöpfe und Tasten leuchten passend, nicht flackernd.
 - [ ] Ein Knopf **gehalten** öffnet die Ebene (Layer). Ein Doppeltipp hält sie offen.

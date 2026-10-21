@@ -22,7 +22,7 @@ melodic track's sequenced notes and its arp move to the bar's root **inside the 
 SCALE): a pattern written in C major plays under KEY **Am F C G** as A minor, F major, C major and G major, the
 scale's own chords. The keys you play live stay as they are, so you can play along; drums and other kits never move.
 
-- **GLO** opens **KEY** (tap GLO again: SONG). The 16 bars show the chord each root makes in the selected track's
+- **GLO** opens **KEY** (SELECT: SONG). The 16 bars show the chord each root makes in the selected track's
   scale; the bar playing is lit.
 - **The keys play roots, not notes** (on this page they sound nothing, as on the OP-Z's key track; each key is its
   name, whatever the octave):
@@ -186,6 +186,10 @@ its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows
 
 ## Other changes to Felucca's workflow
 
+- **SELECT turns the pages:** on any page SELECT goes to its family's next (or previous) page, round and round; the
+  page's button tapped again goes HOME. The tempo is HOME's: SELECT sets it on HOME and on HOME's MIXER and CLOCK (HOME
+  taps go round those as before). GLO + SELECT no longer sets it. A double tap still locks a layer over the page shown.
+
 - **JAN3000 v0.8 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
   like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
   the accent and theme colour beside it and a band torn sideways now and then. Then the version with a blinking block
@@ -200,12 +204,12 @@ its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows
   each hit).
 
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
-  the cards in place of the scope: every page's values, the row the knobs edit raised. A tap of EDIT goes to the next
+  the cards in place of the scope: every page's values, the row the knobs edit raised. SELECT goes to the next
   row. WHEEL, SAMPLE and FM6 keep their pictures.
 - **FX in seven cards, six drawn as effect pedals** (each in the colours of a classic of its kind: an orange drive,
   a light blue chorus, a magenta flanger, a teal vibrato, a green delay or a purple CLOUD box, a blue room, a brown
   spring, a silver hall, a pearl shimmer, a yellow slicer): the knobs where KNOB 1..4 sit (turned: the value under
-  it), a window with the effect moving, the name, the LED and the footswitch. A tap of FX the next: **1 SEND** (not a
+  it), a window with the effect moving, the name, the LED and the footswitch. SELECT the next: **1 SEND** (not a
   pedal: four mixer faders, the track's DST CHO DLY REV), **2 INSERT** (TYPE A B MIX), **3 CHORUS** (TYPE CHORUS /
   FLANGER / VIBRATO, RATE, DEPTH, FDBK), **4 DELAY** (TYPE DELAY: TIME FDBK MIX; CLOUD, the granular: SIZE PITCH
   DENS), **5 REVERB** (TYPE ROOM / SPRING / HALL / SHIMMER, SIZE, DAMP), **6 SLICER**, **7 FX TRACKS**.
@@ -215,7 +219,7 @@ its own sine LFO on the cutoff, summed. EDIT shows it on one screen of four rows
 - **REVERB SHIMMER:** the HALL with its tail shifted an octave up and fed back into it, so the tail climbs an octave
   a pass (each one darker and quieter: it dies away at any SIZE).
 - **ARP on one screen:** ARP and ARP 2 show both their rows (MODE RATE OCT GATE, SWING PROB HOLD ORDER; the row the
-  knobs edit raised, an ARP tap goes to the other) and under them a keyboard: the notes the arp runs through lit (the
+  knobs edit raised, SELECT goes to the other) and under them a keyboard: the notes the arp runs through lit (the
   keys held brighter, the octaves OCT adds quieter), the note sounding in the accent.
 - **REC held:** F#3 clears both FX TRACKS, G#3 the selected track's automation (its recorded knob moves), each after
   OCT+; the notes stay (F3 CLEAR clears the notes and the automation, as before).

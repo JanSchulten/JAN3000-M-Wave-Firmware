@@ -8,6 +8,8 @@
  *            those back as before
  *   NEW      SAVE > PROJECT, KNOB 2 NEW, OCT+ asks, OCT+ again: the power-on sounds (808 kit) with empty steps, the
  *            default BPM, no song, FX TRACKS, KEY or CHORUS TYPE, no slot or name; while playing: STOP FIRST
+ *   SELECT   on a page SELECT turns its family's pages (wrapping), the tempo stays; the page's button again: HOME;
+ *            on HOME (and its MIXER, CLOCK) SELECT is the tempo, HOME's taps go round its pages as before
  *   SPLASH   JAN3000 in bars of its own (no text): booting left to right, its colour copies beside it, torn now and
  *            then early on, still at the end; the version and the credit as text
  *   ANALOG2  engine 14, after ANALOG in the list; EDIT's rows on one screen: WAVE TUNE WAVE2 TUNE2 / CUT RES LFO RATE /
@@ -47,6 +49,47 @@ static void test_pages(void)
     turn(EN_ALGO, -1);
     frame();
     ck("  the family shown when the track changes stays on its page (CHORUS)", str_eq(cur_page()->title, "CHORUS"));
+}
+
+static void test_select(void)
+{
+    int ok;
+    int16_t b0;
+    uint32_t n, first;
+    ui_power_on();
+    frames(320);
+    press_raw = 1;                                     /* (the taps as they are: tests/ui_test.c press) */
+    b0 = song.g[G_BPM];
+    press(B_FX); frames(400);
+    first = ui.page;
+    ok = str_eq(cur_page()->title, "FX");
+    turn(EN_SELECT, 1); frame();
+    ok &= str_eq(cur_page()->title, "INSERT") && song.g[G_BPM] == b0;
+    turn(EN_SELECT, -1); frame();
+    turn(EN_SELECT, -1); frame();
+    ok &= str_eq(cur_page()->title, "FX TRACKS");      /* (back past the first: the last, FX's seventh card) */
+    for (n = 0; n < 8u && ui.page != first; n++) {
+        turn(EN_SELECT, 1); frame();
+    }
+    ok &= ui.page == first && n == 1u && song.g[G_BPM] == b0 && !ui.home;
+    ck("SELECT on a page: the family's next / previous page, wrapping; the tempo stays", ok);
+    press(B_FX); frames(400);
+    ok = ui.home;
+    turn(EN_SELECT, 2); frame();
+    ok &= song.g[G_BPM] == b0 + 2;
+    ck("  the page's button again: HOME; SELECT on HOME: the tempo", ok);
+    press(B_HOME); frames(400);
+    ok = !ui.home && str_eq(cur_page()->title, "MIXER");
+    turn(EN_SELECT, 1); frame();
+    ok &= song.g[G_BPM] == b0 + 3 && str_eq(cur_page()->title, "MIXER");
+    press(B_HOME); frames(400);
+    ok &= str_eq(cur_page()->title, "CLOCK");
+    btn_down(B_GLO); frame();
+    turn(EN_SELECT, 3);
+    btn_up(B_GLO); frames(400);
+    ok &= song.g[G_BPM] == b0 + 3;
+    press_raw = 0;
+    ck("  HOME's taps go round its pages (MIXER, CLOCK); SELECT there the tempo; GLO + SELECT: nothing", ok);
 }
 
 static void rec_hold_oct(uint32_t b)                  /* REC held (its layer), OCT- or OCT+, let go */
@@ -241,6 +284,7 @@ static void test_analog2(void)
 int main(void)
 {
     test_pages();
+    test_select();
     test_undo();
     test_new();
     test_analog2();
