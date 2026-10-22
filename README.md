@@ -259,6 +259,9 @@ the BEAT pattern plays on them.
   page, with a step held it still clears that step's locks.
 - **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
   change in the same hold is put back by OCT- as before.
+- **REC held + F#5 (the highest black key): BACK**, one step back from the last change, whatever it was (a recording,
+  a step turned OFF, a sound or pattern load, a SEQ tool), as SAVE held. Pressed again: ALREADY UNDONE (OCT+ redoes
+  it). Its key breathes while there is a step to go back; the layer's map shows it as its last row.
 - **Another track opens each family at its first page:** turn ALGORITHM, then FX (SCL, ENV ..) starts at its first
   card again; the page shown when the track changes stays.
 - **DRUM, every sound its own: EDIT > SOUNDS** (after LANES 2). A key picks the sound (it plays as everywhere), KNOB
@@ -296,11 +299,13 @@ the BEAT pattern plays on them.
 - **DRUM starts with the 808 kit** (KIT 808, the 808 model kit Felucca calls 80): power-on, a track switched to DRUM,
   its preset. Projects and sounds saved before keep their kit.
 - **SYNC OUT PO** (MENU > AUDIO > SYNC OUT: OFF, PO): Pocket Operator sync on the headphone jack while playing. The
-  left channel carries a 5 ms pulse each eighth note (2 a quarter, as the POs' SY modes and the Volcas expect) at
-  the DAC's full scale, twice the music's ceiling, whatever MASTER; the right one the mono mix. A stereo to two mono
-  cable: left into the PO's or Volca's sync input, right as audio. On the PO a sync-in mode: SY2 (sync only) or SY4
-  (left sync, right audio through). USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is the
-  way out for a clock.
+  left channel carries a 15 ms pulse each eighth note (2 a quarter, as the POs' SY modes and the Volcas expect): 7.5 ms
+  at the DAC's +full scale, then 7.5 ms at its -full scale (the widest swing the jack gives, and one half rises
+  whichever way the output stage puts it), whatever MASTER; the right one the mono mix. A stereo cable into the PO's
+  line in, or a stereo to two mono cable: left into the PO's or Volca's sync input, right as audio. On the PO a sync-in
+  mode: SY2 (sync only) or SY4 (left sync, right audio through); **press PLAY on the PO first** (it waits for the
+  clock), then PLAY on the FM-1. USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is the way
+  out for a clock.
 
 ## Try it in the browser
 

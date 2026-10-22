@@ -499,8 +499,9 @@ static void ext_clock(void)
     check("external clock: PLAY on the FM-1 starts as before (as a Start), never a count-in", song.playing && !seq_counting());
 }
 
-/* M-Vave-OP1, MENU > AUDIO > SYNC OUT PO: the left channel a 5 ms pulse on every eighth (the first with PLAY, in the
- * click's blocks, no drift) at the DAC's full scale (PO_HIGH: twice the mix's ceiling, still inside the 24-bit word),
+/* M-Vave-OP1, MENU > AUDIO > SYNC OUT PO: the left channel a pulse on every eighth (the first with PLAY, in the
+ * click's blocks, no drift): 7.5 ms at the DAC's +full scale, then 7.5 ms at its -full scale (PO_HIGH: twice the mix's
+ * ceiling, still inside the 24-bit word; the swing both halves, whichever way the output stage puts it),
  * the right the mix in mono (bit for bit the two channels' average); stopped no pulse; OFF: the stereo as before (USB
  * audio is tapped before it, as the click) */
 static int32_t po_l[1500u * CTL], po_r[1500u * CTL];
@@ -533,30 +534,36 @@ static void po_sync_out(void)
         if (po_l[i] && (!i || !po_l[i - 1u]) && k < 16u)
             at[k++] = i;
         w += po_l[i] != 0;
-        okmono &= po_r[i] == (l0[i] + r0[i]) >> 1 && (po_l[i] == 0 || po_l[i] == PO_HIGH);
+        okmono &= po_r[i] == (l0[i] + r0[i]) >> 1 && (po_l[i] == 0 || po_l[i] == PO_HIGH || po_l[i] == -PO_HIGH);
     }
     {
-        int ok = k >= 4u && at[0] == 0u && w == k * 220u;
+        int ok = k >= 4u && at[0] == 0u && w == k * 2u * PO_HALF && PO_HALF * 1000u / 44100u == 7u;
+        for (i = 0; i < k; i++)                        /* (+ then -, then nothing) */
+            ok &= po_l[at[i]] == PO_HIGH && po_l[at[i] + PO_HALF - 1u] == PO_HIGH && po_l[at[i] + PO_HALF] == -PO_HIGH &&
+                  po_l[at[i] + 2u * PO_HALF - 1u] == -PO_HIGH && po_l[at[i] + 2u * PO_HALF] == 0;
         if (!ok || getenv("PO_DEBUG"))
             printf("    po: %u pulses, %u samples high, at %u %u %u %u (eighth %u)\n", k, w, at[0], at[1], at[2], at[3], E);
         for (i = 1; i < k; i++)                        /* eighth k at the first sample of block ceil(k E / CTL) */
             ok &= at[i] == ceil_div((uint64_t)i * E, CTL) * CTL;
-        check("SYNC OUT PO: a 5 ms full-scale pulse on the left every eighth (2 a quarter) from PLAY, no drift", ok);
+        check("SYNC OUT PO: a 15 ms pulse on the left (7.5 ms +full scale, 7.5 ms -full scale) every eighth (2 a "
+              "quarter) from PLAY, no drift", ok);
     }
     {                                                  /* the 24-bit word the DAC gets: its top, not the mix's -6 dB */
         int32_t out[2 * CTL];
         uint32_t b, i2;
-        int32_t top = 0;
+        int32_t top = 0, bot = 0;
         fresh(); grid_track();
         po_sync = 1;
         transport_req = 1;
-        for (b = 0; b < 8u; b++) {
+        for (b = 0; b < 24u; b++) {
             audio_block(out, CTL);
-            for (i2 = 0; i2 < CTL; i2++)
+            for (i2 = 0; i2 < CTL; i2++) {
                 top = out[2u * i2] > top ? out[2u * i2] : top;
+                bot = out[2u * i2] < bot ? out[2u * i2] : bot;
+            }
         }
-        check("  the pulse at the DAC's full scale: 0 dBFS of the 24-bit word, not the mix's -6 dBFS ceiling",
-              top > 0x7F0000 && top <= 0x7FFFFF);
+        check("  the pulse at the DAC's full scale both ways: 0 dBFS of the 24-bit word, + and -, not the mix's -6 dBFS",
+              top > 0x7F0000 && top <= 0x7FFFFF && bot < -0x7F0000 && bot >= -0x800000);
     }
     check("  the right channel the mix in mono (the average of what OFF plays, bit for bit)", okmono);
     po_sync = 0;

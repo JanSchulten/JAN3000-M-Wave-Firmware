@@ -772,6 +772,7 @@ static uint32_t eqa_sig(void)
 }
 
 /* a key pressed in layer l (k: 0 = F3 .. 26 = G5) */
+static void rec_undo(int redo);                         /* (REC: OCT- / OCT+, F#5 BACK) */
 static void layer_key(uint32_t l, uint32_t k)
 {
     uint32_t p = key_place(k), i;
@@ -809,6 +810,8 @@ static void layer_key(uint32_t l, uint32_t k)
             rec_key(p);
         else if (key_black(k) && p < 2u)
             rec_clear_more(p);                          /* (M-Vave-OP1: F#3 the FX TRACKS, G#3 the automation) */
+        else if (key_black(k) && p == LY_INIT_B)
+            rec_undo(0);                                /* (.. F#5 BACK: one step back, as OCT-'s undo) */
     } else if (l == LAYER_SEQ) {
         if (!key_black(k))
             scene_key(p);                               /* (M-Vave-OP1: the white keys pick scenes 1..16, scene.c) */
@@ -896,6 +899,8 @@ static void layer_oct_open(uint32_t pressed)
 
 /* M-Vave-OP1, REC held: OCT- undoes the last recording (the track as it was when REC armed it, or the last edit the undo
  * copy holds: ui.c undo), OCT+ (redo) puts it back; each only once in a row (undo.undone) */
+/* M-Vave-OP1: F#5 BACK (REC held) has a step to go back: the undo copy there and not taken back yet */
+static int rec_back_can(void) { return undo.trk && !undo.undone && !chain_busy(); }
 static void rec_undo(int redo)
 {
     if (!undo.trk) {
@@ -1016,6 +1021,8 @@ static uint32_t layer_leds(uint32_t *br)
             can = p ? 1u : !chain_busy() && rec_clearable();
         } else if (l == LAYER_REC && b && p < 2u) {     /* M-Vave-OP1: F#3 / G#3 breathe with something to clear */
             can = !chain_busy() && (p == 0u ? rec_fxt_any() : motion_count(TSEL) != 0u);
+        } else if (l == LAYER_REC && b && p == LY_INIT_B) {   /* .. F#5 BACK with a step to go back */
+            can = rec_back_can();
         }
         m |= on << k;
         n |= (can & !on) << k;
@@ -1261,14 +1268,27 @@ static void layer_seq(void)
  * or the setting's three values, the one now with the selection's fill (as MENU > AUDIO steps them) */
 #define LR_KW 78                                         /* the key's cell; the values 46 px each: x 6 .. 234 */
 #define LR_VW 46
-#define LR_H 17                                          /* (M-Vave-OP1: six rows, F#3 and G#3 too) */
+#define LR_H 14                                          /* (M-Vave-OP1: seven rows, F#3 G#3 and F#5 too) */
 static void layer_rec(void)
 {
-    static const char *const KN[6] = {"F", "G", "A", "B", "F#", "G#"};
+    static const char *const KN[7] = {"F", "G", "A", "B", "F#3", "G#3", "F#5"};
     uint32_t r, v;
     char b[20];
-    for (r = 0; r < 6u; r++) {
+    for (r = 0; r < 7u; r++) {
         int32_t y = 2 + (LR_H + 3) * (int32_t)r, x = 6, vx = 6 + LR_KW + 4, w = 234 - vx;
+        if (r == 6u) {                                   /* M-Vave-OP1: F#5 BACK, one step (rec_undo, as OCT-) */
+            uint32_t can = rec_back_can();
+            uint16_t ink, fill = lc_box(x, y, LR_KW, LR_H, lc_fill(can ? LS_OFF : LS_DIM, &ink));
+            GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");
+            cv_text_on(x + 5, y + CAP_IN(S, LR_H), &AF_S, KN[r], fill == T_RAISE || fill == T_SURF ? T_MID : ink, fill);
+            GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");
+            cv_text_r(x + LR_KW - 5, y + CAP_IN(S, LR_H), &AF_S, "BACK", ink, fill);
+            fill = lc_box(vx, y, w, LR_H, lc_fill(can ? LS_OFF : LS_DIM, &ink));
+            GFX_HOOK_ALIGN(vx, y, vx + w, y + LR_H, AL_HV, "rec layer clear cell centred");
+            cv_text_in(vx, y + CAP_IN(S, LR_H), w, &AF_S, chain_busy() ? "STOP TO EDIT" : !undo.trk ? "NOTHING TO UNDO" :
+                       undo.undone ? "ALREADY BACK" : "ONE STEP BACK", ink, fill);
+            continue;
+        }
         uint32_t clr = r == 0u || r >= 4u, any = r == 0u ? rec_clearable() : r == 4u ? rec_fxt_any() :
                                                r == 5u ? motion_count(TSEL) != 0u : 1u;
         uint32_t dim = clr && (chain_busy() || !any);
@@ -1374,7 +1394,8 @@ static void draw_layer(void)
     else if (l == LAYER_SCL)
         sig += (uint32_t)TSEL->p[P_SCALE] * 31u;
     else if (l == LAYER_REC)
-        sig += (uint32_t)ui_rec_prefs * 31u + (uint32_t)chain_busy() * 3u + (uint32_t)rec_clearable() * 5u + song.sel * 977u;
+        sig += (uint32_t)ui_rec_prefs * 31u + (uint32_t)chain_busy() * 3u + (uint32_t)rec_clearable() * 5u + song.sel * 977u +
+               (uint32_t)undo.trk * 7u + (uint32_t)undo.undone * 104729u;   /* (M-Vave-OP1: F#5 BACK) */
     else if (l == LAYER_SEQ) {
         uint32_t p;
         sig += kit_track(TSEL) * 31u + ui.lane * 5u + (uint32_t)chain_busy() * 3u + (uint32_t)TSEL->p[P_E0] * 131u + song.sel * 977u;

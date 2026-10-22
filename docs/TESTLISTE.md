@@ -49,6 +49,9 @@ kann nur das echte Gerät zeigen.
 - [ ] PLAY und STOP. Tempo im CLOCK-Bereich ändern.
 - [ ] REC und live einspielen: Die Noten landen im Pattern.
 - [ ] REC halten + OCT−: Die Aufnahme wird rückgängig gemacht. REC halten + OCT+: Sie ist wieder da.
+- [ ] **REC halten + F#5 (oberste schwarze Taste) = ZURÜCK:** macht die letzte Änderung rückgängig (eine Aufnahme,
+      ein Step auf OFF, ein geladener Sound …). Die Taste atmet, solange es etwas zurückzunehmen gibt; nochmal
+      gedrückt: ALREADY UNDONE. Auf der REC-Ebene steht unten „F#5 BACK“.
 - [ ] DRUM, SEQ: Bei jedem Hi-Hat-Schlag (und jeder anderen Spur) blinkt die schwarze Taste der Spur kurz auf.
 - [ ] **VDRUM im Raster:** eine Spur auf VDRUM, SEQ > STEP zeigt das Raster mit **6 Lanes** (BD SD CP CH OH TM).
       Schwarze Tasten 1–6 wählen die Lane und spielen sie, 7 und 8 bleiben dunkel und tun nichts. Weiße Tasten setzen
@@ -135,8 +138,10 @@ kann nur das echte Gerät zeigen.
 - [ ] USB-MIDI: Noten vom Computer spielen das FM-1. Das FM-1 sendet Noten an den Computer.
 - [ ] Externe MIDI-Clock über USB: Das FM-1 folgt dem Tempo, Start und Stop.
 - [ ] TRS-MIDI IN, falls du ein Kabel hast: Noten kommen an.
-- [ ] MENU > AUDIO > SYNC OUT = PO, falls du einen Pocket Operator oder Volca hast: Stereo-auf-2×-Mono-Kabel, links in
-      den Sync-Eingang. Läuft synchron?
+- [ ] MENU > AUDIO > SYNC OUT = PO, falls du einen Pocket Operator oder Volca hast: Stereokabel in den Line-In des PO
+      (oder Stereo-auf-2×-Mono, links in den Sync-Eingang). PO auf SY2 oder SY4, **zuerst PLAY am PO drücken** (er
+      wartet dann auf den Takt), dann PLAY am FM-1. Läuft synchron? Falls nicht: Läuft der PO gar nicht, stolpert er
+      oder läuft er im falschen Tempo? Der Puls ist jetzt 15 ms lang und nutzt den vollen Spannungshub (+ und −).
 
 ## M. Dauer und Akku
 

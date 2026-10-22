@@ -5,7 +5,7 @@
  *            again: SEND (the family shown stays where it is)
  *   UNDO     REC armed takes the track's copy; REC held: OCT- undoes what was recorded since, OCT+ redoes it, each
  *            once in a row (NOTHING TO REDO / ALREADY UNDONE); a clear or CLICK changed in the same hold: OCT- puts
- *            those back as before
+ *            those back as before; F#5 (the highest black key) is BACK: one step, the last change whatever it was
  *   NEW      SAVE > PROJECT, F#5 (NEW) asks, OCT+: empty steps, the default BPM, no song, FX TRACKS, KEY or CHORUS
  *            TYPE, no slot or name, the sounds drawn (newproj.c: T1 a BASS, T2 the power-on pad, T3 a LEAD, T4 a kit;
  *            newproj_test.c draws them over and over); while playing: STOP FIRST
@@ -244,6 +244,35 @@ static void test_undo(void)
     rec_hold_oct(B_OCTUP);
     ok &= t->step[4].n == 1u && t->step[4].note[0] == 67u && t->step[0].note[0] == 62u && !undo.undone;
     ck("  REC + OCT- again: already undone; REC + OCT+ redoes it", ok);
+    {   /* REC held + F#5 (the highest black key): BACK, one step, as OCT-; the key breathes with a step to go back,
+         * its row on the layer's map (F#5 BACK) */
+        uint32_t f5 = key_at(1, LY_INIT_B), a, b2;
+        btn_down(B_REC); frames(500);
+        a = leds_at(0); b2 = leds_at(250);
+        ok = ui.layer == LAYER_REC && rec_back_can() && (((a ^ b2) >> f5) & 1u);
+        key_down(f5); frame(); key_up(f5); frame();
+        ok &= t->step[4].n == 0u && t->step[0].note[0] == 60u && undo.undone && ui.layer == LAYER_REC;
+        a = leds_at(0); b2 = leds_at(250);
+        ok &= !rec_back_can() && !(((a | b2) >> f5) & 1u);
+        key_down(f5); frame(); key_up(f5); frame();
+        ok &= msg_is("ALREADY UNDONE") && t->step[4].n == 0u;
+        btn_up(B_REC); frames(400);
+        ck("REC held + F#5: BACK, one step (the recording undone), again: already back; its LED breathes while it can", ok);
+        rec_hold_oct(B_OCTUP);
+        ok = t->step[4].n == 1u && !undo.undone;
+        go_page(GR_ROLL);
+        frames(400);
+        cursor_set(4);
+        frame();
+        turn(EN_K2, -128);                               /* (STEP: the note turned OFF, the step to go back now) */
+        turn(EN_K2, -1);
+        ok &= t->step[4].time == ST_REST && rec_back_can();
+        btn_down(B_REC); frames(500);
+        key_down(f5); frame(); key_up(f5); frame();
+        btn_up(B_REC); frames(400);
+        ok &= t->step[4].time == ST_NOTE && t->step[4].n == 1u && t->step[4].note[0] == 1u;
+        ck("  BACK takes back the last change, whatever it was (a step turned OFF here, as SAVE held)", ok);
+    }
 }
 
 static void test_new(void)
