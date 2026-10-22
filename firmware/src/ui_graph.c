@@ -251,10 +251,12 @@ static void graph_roll(const track_t *t, uint16_t c)
             pr_bars(st, x + 2, 9, col, (st->flags & SF_ACCENT) != 0u, &y, step_ratchet(st));
         else                                          /* a TIE: the bars on through the gap before */
             pr_bars(st, x - 1, 12, col, (st->flags & SF_ACCENT) != 0u, &y, 1u);
-        if ((st->flags & SF_SLIDE) && step_ratchet(st) == 1u &&   /* (a ratcheted step never slides out) */
+        if (((st->flags & SF_SLIDE) || step_leg(ns)) && step_ratchet(st) == 1u &&   /* (a ratcheted step never slides
+                                                     * out; M-Vave-OP1: nor holds into a LEGATO one) */
             ns->time == ST_NOTE && ns->n && y >= PR_Y0 && y < ybot) {
             int32_t ny = clamp(pr_row_y(ns->note[0]), PR_Y0, ybot - PR_RH);
-            cv_line(x + 10, y + 2, x + 14, ny + 2, T_TEXT);   /* the slide into the next note */
+            cv_line(x + 10, y + 2, x + 14, ny + 2, st->flags & SF_SLIDE ? T_TEXT : T_MID);   /* the slide into the next
+                                                     * note (LEGATO: dimmer, no glide) */
         }
     }
 }

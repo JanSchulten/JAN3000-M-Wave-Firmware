@@ -50,6 +50,10 @@ kann nur das echte Gerät zeigen.
 - [ ] **REC drücken startet nichts**, es macht nur scharf (Meldung REC ARMED: PRESS PLAY). Erst PLAY startet, mit
       Count-in, wenn COUNT-IN an ist (REC halten: COUNT-IN auf 1 BAR / 2 BARS).
 - [ ] REC und live einspielen: Die Noten landen im Pattern.
+- [ ] **Legato:** Einen Mono-Sound (VOICE LEG, z. B. SAW LEAD) aufnehmen und dabei überlappend spielen (die nächste
+      Taste drücken, bevor die vorige losgelassen ist). Beim Abspielen startet die Hüllkurve an diesen Stellen nicht
+      neu, genau wie beim Einspielen. Im Piano-Roll verbindet eine dunkle Linie die beiden Noten. Lässt du vorher
+      los, startet die nächste Note wie bisher neu.
 - [ ] REC halten + OCT−: Die Aufnahme wird rückgängig gemacht. REC halten + OCT+: Sie ist wieder da.
 - [ ] **REC halten + F#5 (oberste schwarze Taste) = ZURÜCK:** macht die letzte Änderung rückgängig (eine Aufnahme,
       ein Step auf OFF, ein geladener Sound …). Die Taste atmet, solange es etwas zurückzunehmen gibt; nochmal

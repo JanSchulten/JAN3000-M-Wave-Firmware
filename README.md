@@ -260,6 +260,14 @@ the BEAT pattern plays on them.
 - **REC arms, PLAY starts.** A REC tap only arms the recording (the pattern's, GLO > KEY's, an FX TRACK's): REC ARMED:
   PRESS PLAY. PLAY then starts it, with the count-in first when MENU / REC layer COUNT-IN is set (Felucca's REC
   started the transport at once).
+- **Legato is recorded as played.** On a LEG or UNI track (VOICE; the mono presets are LEG) a note pressed while the
+  one before is still held plays legato: no new envelope, a glide only if GLIDE is set. Live recording now keeps
+  that: the step is LEGATO, the step before holds its note into it, and playback sounds as you played it (before, it
+  started a new envelope there). The roll draws the join as a dim line (a SLIDE's is bright, and still glides).
+  REVERSE keeps the legato between the same two notes. A note pressed after letting go, or any note on a MONO / POLY
+  track, starts its own envelope as before. LEGATO is saved with the project (its extras): an older firmware loads
+  the project with every note starting its envelope; a scene bank with LEGATO steps it cannot read (it loads the
+  project's current scene only).
 - **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
   change in the same hold is put back by OCT- as before.
 - **REC held + F#5 (the highest black key): BACK**, one step back from the last change, whatever it was (a recording,

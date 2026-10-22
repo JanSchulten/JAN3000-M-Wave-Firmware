@@ -595,7 +595,8 @@ static int proj_pack(project_store_t *out, const project_t *q)
             const step_t *s = &q->t[t].step[i];
             uint32_t r = step_ratchet(s) - 1u;          /* RATCH: bit 7 of the velocity and chance bytes (see the top) */
             uint32_t nd = (uint32_t)step_nudge(s) & 15u;   /* NUDGE (FUN10): bit j in bit 7 of note j */
-            if (s->n > 4u || s->time > ST_REST || (s->flags & ~(3u | SF_RATCH | SF_NUDGE)) || s->probability > 101u)
+            if (s->n > 4u || s->time > ST_REST || (s->flags & ~(3u | SF_RATCH | SF_NUDGE)) ||
+                (s->probability & ~STEP_LEG) > 101u)    /* (M-Vave-OP1: LEGATO is in the extras, opstore.c) */
                 return 0;
             for (uint32_t j = 0; j < 4u; j++)           /* what proj_unpack checks, so a saved project always loads: */
                 b[pos++] = (uint8_t)((s->note[j] > 127u ? 127u : s->note[j]) | (nd >> j & 1u) << 7);   /* notes and
@@ -603,7 +604,7 @@ static int proj_pack(project_store_t *out, const project_t *q)
             b[pos++] = (uint8_t)(s->n | s->time << 3 | (s->flags & 3u) << 5);   /* only on hits */
             b[pos++] = (uint8_t)((s->vel > 127u ? 127u : s->vel) | (r & 1u) << 7); b[pos++] = s->hit;
             b[pos++] = s->acc & s->hit;
-            b[pos++] = (uint8_t)(s->probability | (r >> 1) << 7);
+            b[pos++] = (uint8_t)((s->probability & ~STEP_LEG) | (r >> 1) << 7);
         }
     }
     if (pos + sizeof q->chain + sizeof q->motion > PROJ_FM6_OFF) return 0;
@@ -785,7 +786,7 @@ static void proj_bound(project_t *q)
             step_t *s = &q->t[t].step[i];
             s->flags &= 3u | SF_RATCH | SF_NUDGE;
             s->vel &= 127u;
-            if (s->probability > 101u) s->probability = 0;
+            if ((s->probability & ~STEP_LEG) > 101u) s->probability &= STEP_LEG;
         }
         for (i = 0; i < P_COUNT; i++) {
             const param_desc_t *d = param_desc_of(q->t[t].engine % NENGINES, i);
@@ -1234,6 +1235,7 @@ static uint32_t chain_prepare(void)
             for (k = 0; k < NTRK; k++) {
                 memcpy(chain.source[i].step[k], p->t[k].step, sizeof p->t[k].step);
                 proj_steps(chain.source[i].step[k]);
+                xtra_leg(chain.source[i].step[k], k, &xtra_slot[i], xtra_proj_id(i));   /* (M-Vave-OP1: LEGATO) */
                 chain.source[i].qnt[k] = p->t[k].p[P_SQNT] != 0;
                 for (j = 0; j < 4u; j++)
                     chain.source[i].timing[k][j] = (int16_t)clamp(p->t[k].p[P_SLEN + j],

@@ -206,7 +206,7 @@ static void arp_remove(track_t *t, uint32_t note)
 }
 
 #define ND_NONE 0u                      /* track_t nd_late / nd_early: nothing latched (seq_tick; else its seq_pos + 1) */
-static void rec_note(track_t *t, uint32_t note, uint32_t vel);
+static void rec_note(track_t *t, uint32_t note, uint32_t vel, int leg);
 static void rec_release(track_t *t, uint32_t note);
 static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) && song.playing && !chain.running; }
 
@@ -259,7 +259,7 @@ static __attribute__((noinline)) void arp_chord(track_t *t, const uint32_t *list
         else
             t->arp_ch[i - 1u] = (uint8_t)nt;
         if (rec_on(t))
-            rec_note(t, nt, 100);
+            rec_note(t, nt, 100, 0);
         trk_note_on(t, nt, 100);
     }
 }
@@ -417,7 +417,7 @@ static __attribute__((noinline)) void arp_fire(track_t *t, uint32_t period)
         }
         t->arp_note = (uint8_t)list[j];
         if (rec_on(t))
-            rec_note(t, t->arp_note, 100);           /* recording: what the arp plays */
+            rec_note(t, t->arp_note, 100, 0);        /* recording: what the arp plays */
         trk_note_on(t, t->arp_note, 100);
     }
 }
@@ -472,8 +472,10 @@ static __attribute__((noinline)) int32_t rec_nudge(int32_t off, uint32_t period)
  * held becomes a TIE (rec_hold), up to the pattern length; a release before the middle
  * of the last one puts that step back (rec_release), so a short note stays one step.
  * A note recorded into another step ends the hold before (the step model ties the
- * notes of one step only). */
-static void rec_note(track_t *t, uint32_t note, uint32_t vel)
+ * notes of one step only). M-Vave-OP1: leg, the note played legato (a LEG / UNI track, a note sounding: input_on):
+ * pressed while the hold of a step before is still on, its step is LEGATO (core.h STEP_LEG), so it plays back as it
+ * was heard, the envelope going on (seq_step); a fresh step is no LEGATO. */
+static void rec_note(track_t *t, uint32_t note, uint32_t vel, int leg)
 {
     uint32_t len = t->p[P_SLEN] > 0 ? (uint32_t)t->p[P_SLEN] : 1u, idx = t->seq_idx % len, k;
     uint32_t period = div_samples((uint32_t)t->p[P_SDIV]), cur = step_samples(t, period, t->seq_idx);
@@ -492,6 +494,7 @@ static void rec_note(track_t *t, uint32_t note, uint32_t vel)
             s->n = s->hit = s->acc = 0;
             s->flags = 0;
             s->vel = 0;
+            s->probability &= (uint8_t)~STEP_LEG;
             step_set_nudge(s, off);
         }
         s->time = ST_NOTE;
@@ -526,6 +529,7 @@ static void rec_note(track_t *t, uint32_t note, uint32_t vel)
         s->n = 0;                                   /* a fresh step */
         s->flags = 0;
         s->vel = 0;
+        s->probability &= (uint8_t)~STEP_LEG;
         step_set_nudge(s, off);
     }
     for (k = 0; k < s->n && s->note[k] != note; k++)
@@ -548,6 +552,8 @@ static void rec_note(track_t *t, uint32_t note, uint32_t vel)
         if (t->rskip_n < 4u)
             t->rskip[t->rskip_n++] = (uint8_t)note;
     }
+    if (leg && t->rh_n && t->rh_start != idx)        /* (M-Vave-OP1) legato from the hold of a step before: LEGATO */
+        s->probability |= STEP_LEG;
     if (!t->rh_n || t->rh_start != idx) {           /* a new hold (one in another step ends) */
         t->rh_n = 0;
         t->rh_start = (uint8_t)idx;
@@ -583,6 +589,7 @@ static void rec_hold(track_t *t, uint32_t idx, uint32_t len)
     s->flags = 0;
     s->vel = 0;
     s->hit = s->acc = 0;
+    s->probability &= (uint8_t)~STEP_LEG;
 }
 
 /* a key of a recorded note is up: the hold ends with the last one */
@@ -629,8 +636,10 @@ static void input_on(track_t *t, uint32_t note, uint32_t vel)
     }
     if (cin_left)
         cin_keep(t, note, vel);
-    if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes) */
-        rec_note(t, note, vel);
+    if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes; M-Vave-OP1: LEG / UNI with a
+                                                     * note sounding plays this one legato, trk_note_on: so it is kept) */
+        rec_note(t, note, vel, (trk_vmode(t) == V_LEGATO || trk_vmode(t) == V_UNISON) && t->mono_note &&
+                                   t->v[0].active && t->v[0].gate);
     if (t->p[P_AMODE])
         arp_add(t, note);
     else
@@ -902,7 +911,9 @@ static void seq_stop(void)
 
 /* play one step: TIE extends, REST releases, NOTE (re)triggers its notes, then its lane hits (their GM
  * notes, DRUM_LANE_NOTE; DBOX's own, kitlane.c kit_notes; an accented hit at 127); a SLIDE on the previous step
- * makes this one legato with a glide (acid style). skip: bit k = note k, bit 8 + l = the hit of lane l already
+ * makes this one legato with a glide (acid style). M-Vave-OP1: a LEGATO step (core.h STEP_LEG, live recording's) is
+ * legato too, the step before holding its notes into it, but glides only as GLIDE says (seq_hold: bit 0 hold the notes
+ * to the next step, bit 1 slide into it). skip: bit k = note k, bit 8 + l = the hit of lane l already
  * sounds from live recording (not triggered, not released here); SEQ_REP: a RATCH repeat (seq_ratchet).
  * RATCH x2..x4 (core.h step_ratchet): a NOTE step plays all of it again in equal parts of its swung length, each
  * part retriggered with GATE of the part; the chance is rolled once for the whole step (a failed roll: no part),
@@ -915,9 +926,10 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
 {
     uint32_t i, j, gate = period * (uint32_t)t->p[P_SGATE] / 128u;
     uint32_t vel = (s->flags & SF_ACCENT) ? 127u : (s->vel ? s->vel : 96u);
-    uint32_t slide_in = t->seq_hold && t->seq_n && !(skip & SEQ_REP);
+    uint32_t slide_in = t->seq_hold && t->seq_n && !(skip & SEQ_REP), glide_in = slide_in && (t->seq_hold & 2u);
     uint32_t len = t->p[P_SLEN] ? (uint32_t)t->p[P_SLEN] : 1u;
-    uint32_t next_tie = seq_steps(t)[(idx + 1u) % len].time == ST_TIE;
+    const step_t *ns = &seq_steps(t)[(idx + 1u) % len];
+    uint32_t next_tie = ns->time == ST_TIE || step_leg(ns);   /* (a LEGATO step next: held into it as into a TIE) */
     uint32_t hits = step_ratchet(s);
     uint8_t nn[4 + NLANE], vv[4 + NLANE];           /* the notes it plays: its notes, then its hits */
     uint32_t m = 0, sk = 0;
@@ -937,7 +949,7 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
     if (s->time == ST_TIE) {
         if (t->seq_n) {
             t->seq_off = gate + period / 2u;
-            t->seq_hold = (s->flags & SF_SLIDE) != 0 || next_tie;   /* chains hold at any GATE / swing */
+            t->seq_hold = (uint8_t)((s->flags & SF_SLIDE) ? 3u : next_tie);   /* chains hold at any GATE / swing */
         }
         return;
     }
@@ -971,7 +983,7 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
             sk |= ((skip >> (8u + i)) & 1u) << m;
             m++;
         }
-    t->slide_glide = (uint8_t)slide_in;
+    t->slide_glide = (uint8_t)glide_in;
     if (!slide_in)
         seq_release(t);
     for (i = 0; i < m; i++)
@@ -989,7 +1001,8 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
         if (!((sk >> i) & 1u))
             t->seq_notes[t->seq_n++] = nn[i];
     t->seq_off = gate;
-    t->seq_hold = hits == 1u && ((s->flags & SF_SLIDE) != 0 || next_tie);   /* next step a TIE: keep the notes to it */
+    t->seq_hold = (uint8_t)(hits != 1u ? 0u : (s->flags & SF_SLIDE) ? 3u : next_tie);   /* next step a TIE: keep the
+                                                     * notes to it */
 }
 
 /* MENU > CONTROL > STEP PREVIEW (1.2, Discussion #169): the UI asks for a step of a track to sound once (aud_req: step
@@ -1197,7 +1210,7 @@ static __attribute__((noinline)) void cin_record(void)
         track_t *t = &trk[i];
         for (k = 0; k < cin_n[i]; k++)
             if (rec_on(t)) {
-                rec_note(t, cin_note[i][k], cin_vel[i][k]);
+                rec_note(t, cin_note[i][k], cin_vel[i][k], 0);
                 if ((cin_up[i] >> k) & 1u)
                     rec_release(t, cin_note[i][k]);
             }

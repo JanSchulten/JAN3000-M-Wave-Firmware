@@ -1110,6 +1110,7 @@ static void step_edit(uint32_t slot, int32_t steps)
             st->note[0] = last_note;
             st->n = 1;
             st->time = ST_NOTE;
+            st->probability &= (uint8_t)~STEP_LEG;        /* (a note of its own: no LEGATO from before) */
             note_off.step = 0;
         } else {
             for (i = 0; i < st->n; i++) {
@@ -1182,6 +1183,7 @@ static void step_oct(int up)
     if (st->time != ST_NOTE || !st->n) {
         st->n = 0;
         st->time = ST_NOTE;
+        st->probability &= (uint8_t)~STEP_LEG;
     }
     for (i = 0; i < st->n && st->note[i] != last_note; i++)
         ;
@@ -1542,6 +1544,7 @@ static void step_toggle(const track_t *t, step_t *st, const uint8_t *ch, uint32_
     if (st->time != ST_NOTE) {
         st->n = 0;
         st->time = ST_NOTE;
+        st->probability &= (uint8_t)~STEP_LEG;
     }
     for (j = 0; j < st->n && st->note[j] != ch[0]; j++)
         ;
@@ -1597,6 +1600,7 @@ static void seq_entry(uint32_t pressed)
             if (!add) {
                 st->n = 0;
                 st->time = ST_NOTE;
+                st->probability &= (uint8_t)~STEP_LEG;   /* (M-Vave-OP1: notes written anew, no LEGATO) */
             }
         }
         if (orc_k)                                     /* M-Vave-OP1, SCL > ORCHID: the Orchid's chord (orchid.c) */

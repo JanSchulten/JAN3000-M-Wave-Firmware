@@ -9,7 +9,8 @@
  *   0xC8000..0xCFFFF  each project slot's extras, A/B (OBJ_XPROJ0 + slot, storage.c): the FX TRACKS' lanes (fxtrack.c),
  *                     FX1's TYPE and the CLOUD's settings (fx1.c), SCL > ORCHID's ON and VOICE per track (orchid.c),
  *                     the CHORUS's TYPE and FDBK (fx.c), GLO > KEY's run (key.c: the scene in the project's; every other
- *                     scene's KEY is in the scene, scene.c)
+ *                     scene's KEY is in the scene, scene.c), the LEGATO steps (core.h STEP_LEG: the other scenes' are in
+ *                     their steps)
  *   0xD0000..0xD1FFF  the autosave's extras, A/B (OBJ_XAUTO)
  *   0xD2000..0xDBFFF  free (the TAPE's until it was dropped for GLO > KEY)
  * Extras (proj_xtra_t): written after their project, with the id of the project as written (xtra_id: the CRC its commit
@@ -32,12 +33,16 @@ typedef struct {
     uint8_t key_root[16];                        /* .. each bar's root (KEY_NONE: none) */
     uint8_t key_own;                             /* (M-Vave-OP1, 0x80 | key.c key_own; written 0 before: not known) */
     uint8_t rsv2;
+    uint8_t leg[NTRK][NSTEP / 8u];               /* (XTRA_V5) the LEGATO steps (core.h STEP_LEG): step i, bit i % 8 of
+                                                  * byte i / 8 (Felucca's step format has no bit left for it) */
 } proj_xtra_t;
 #define XTRA_V1 (12u + FXT_N * (uint32_t)sizeof(fxt_lane_t))   /* the first extras: the FX TRACKS only */
 #define XTRA_V2 (XTRA_V1 + 8u)                   /* .. and FX1's (E1) */
 #define XTRA_V3 (XTRA_V2 + 8u)                   /* .. ORCHID's, the CHORUS's */
 #define XTRA_V4 (XTRA_V3 + 20u)                  /* .. the KEY's */
-_Static_assert(sizeof(proj_xtra_t) == XTRA_V4 && KEY_BARS == 16u, "project extras layout (stored, append-only)");
+#define XTRA_V5 (XTRA_V4 + NTRK * NSTEP / 8u)    /* .. the LEGATO steps */
+_Static_assert(sizeof(proj_xtra_t) == XTRA_V5 && KEY_BARS == 16u && NSTEP % 8u == 0u,
+               "project extras layout (stored, append-only)");
 static proj_xtra_t xtra_slot[4] __attribute__((section(".pool")));   /* each project slot's (magic 0: none) */
 
 /* a project store's id: the CRC its commit record holds (storage.c st_save) */
@@ -61,6 +66,7 @@ static uint32_t xtra_proj_id(uint32_t s)
 }
 static void xtra_capture(proj_xtra_t *x, uint32_t proj)
 {
+    uint32_t k, i;
     memset(x, 0, sizeof *x);
     x->magic = XTRA_MAGIC;
     x->size = sizeof *x;
@@ -83,6 +89,10 @@ static void xtra_capture(proj_xtra_t *x, uint32_t proj)
     x->key_len = keyt.len;
     memcpy(x->key_root, (const void *)keyt.root, sizeof x->key_root);
     x->key_own = (uint8_t)(0x80u | (key_own & 1u));
+    for (k = 0; k < NTRK; k++)
+        for (i = 0; i < NSTEP; i++)
+            if (trk[k].step[i].probability & STEP_LEG)
+                x->leg[k][i / 8u] |= (uint8_t)(1u << (i % 8u));
 }
 static int xtra_ok(const proj_xtra_t *x, uint32_t proj)
 {
@@ -136,6 +146,21 @@ static void xtra_orc(const proj_xtra_t *x, uint32_t proj)
     key_own = ok4 && (x->key_own & 0x80u) ? x->key_own & 1u   /* (M-Vave-OP1: the scene in the project's own KEY, */
                                            : !key_is_default();   /* as saved; extras of before: one in use is) */
 }
+/* the LEGATO steps x holds for track k onto its steps s (as loaded: none); x of another project, an older one, or none:
+ * none (each note starts its envelope, as that firmware played it) */
+static void xtra_leg(step_t *s, uint32_t k, const proj_xtra_t *x, uint32_t proj)
+{
+    uint32_t i, ok = xtra_ok(x, proj) && x->size >= XTRA_V5;
+    for (i = 0; i < NSTEP; i++)
+        s[i].probability = (uint8_t)((s[i].probability & ~STEP_LEG) |
+                                     (ok && ((x->leg[k % NTRK][i / 8u] >> (i % 8u)) & 1u) ? STEP_LEG : 0u));
+}
+static void xtra_legs(const proj_xtra_t *x, uint32_t proj)   /* .. for the four tracks */
+{
+    uint32_t k;
+    for (k = 0; k < NTRK; k++)
+        xtra_leg(trk[k].step, k, x, proj);
+}
 #if FELUCCA_FLASH
 /* object obj's newest copy into x (as much as it knows); 0: there is none */
 static int xtra_read(uint32_t obj, proj_xtra_t *x)
@@ -175,6 +200,7 @@ static void xtra_loaded(uint32_t s)
     xtra_lanes(fxt_lane, &xtra_slot[s & 3u], id);
     xtra_fx1(&xtra_slot[s & 3u], id);
     xtra_orc(&xtra_slot[s & 3u], id);
+    xtra_legs(&xtra_slot[s & 3u], id);
 }
 /* project_rename: slot s was written again as id; its extras (if they were its project's: was) follow it */
 static void xtra_renamed(uint32_t s, uint32_t was, uint32_t id)
@@ -208,6 +234,7 @@ static void xtra_autoloaded(uint32_t id)
     xtra_lanes(fxt_lane, &x, id);
     xtra_fx1(&x, id);
     xtra_orc(&x, id);
+    xtra_legs(&x, id);
 #else
     (void)id;
 #endif

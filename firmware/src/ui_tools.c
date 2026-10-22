@@ -85,10 +85,13 @@ static void tl_order(track_t *t, uint32_t len, const uint8_t *src)
     motion_unguard(f);
 }
 
-/* REVERSE: the mirror order; a note's ties (after it) would come before it, so the note goes first again */
+/* REVERSE: the mirror order; a note's ties (after it) would come before it, so the note goes first again.
+ * M-Vave-OP1: a LEGATO step (core.h STEP_LEG: played legato from the note before) hands it to that note, which now
+ * follows it */
 static void tl_reverse(track_t *t, uint32_t len)
 {
-    uint8_t src[NSTEP], h;
+    uint8_t src[NSTEP], h, to[NSTEP];
+    uint64_t leg = 0;
     uint32_t j, e, x;
     for (j = 0; j < len; j++)
         src[j] = (uint8_t)(len - 1u - j);
@@ -105,6 +108,18 @@ static void tl_reverse(track_t *t, uint32_t len)
         j = e;                                          /* (past the run and its note) */
     }
     tl_order(t, len, src);
+    for (j = 0; j < len; j++)
+        to[src[j]] = (uint8_t)j;
+    for (j = 0; j < len; j++) {                         /* the note before each LEGATO step (over its ties): LEGATO */
+        if (!step_leg(&undo.step[j]))
+            continue;
+        for (e = (j + len - 1u) % len, x = 0; x < len && undo.step[e].time == ST_TIE; x++)
+            e = (e + len - 1u) % len;
+        if (undo.step[e].time == ST_NOTE && undo.step[e].n)
+            leg |= (uint64_t)1 << to[e];
+    }
+    for (j = 0; j < len; j++)
+        t->step[j].probability = (uint8_t)((t->step[j].probability & ~STEP_LEG) | ((leg >> j) & 1u ? STEP_LEG : 0u));
 }
 
 /* SHIFT: rotated by one step inside LEN, d = 1 later (>), len - 1 earlier (<) */
