@@ -27,7 +27,8 @@
  * stored; the GM notes play the same drums).
  * Version 3 (UP_VER_GRID, since the DRUM grid) is the same record with a drum grid as its pattern: note[i] is
  * step i's lane hits (bit l = lane l), flags[i] their accents. A DRUM track whose first 16 steps strike a
- * lane is stored so (its notes on their lanes); every other sound as version 2, which older firmware reads.
+ * lane is stored so (its notes on their lanes; M-Vave-OP1: a VDRUM or DBOX track too, kitlane.c); every other sound
+ * as version 2, which older firmware reads.
  * Older firmware shows a version 3 record as empty and keeps its bytes.
  * A note pattern keeps each step's RATCH in its flags (core.h SF_RATCH, 8 | 16; 0 = x1, every older record):
  * bits firmware before RATCH drops when it loads the pattern, so the record is the same version. A drum grid
@@ -410,15 +411,15 @@ static int up_store_cat(uint32_t k, const char *name, uint32_t cat)
         up_set_value(&r, i, motion_base_value(TSEL, i));
     up_pat_from(&r, TSEL->step);
     up_set_cat(&r, cat ? cat : track_cat(TSEL));
-    if (drum_track(TSEL)) {                             /* a DRUM track that strikes a lane: its grid */
-        uint32_t any = 0;
+    if (kit_track(TSEL)) {                              /* a kit track (DRUM, VDRUM, DBOX) striking a lane: its grid */
+        uint32_t any = 0, e = TSEL->eng_req;
         for (i = 0; i < 16u; i++)
-            any |= step_lanes(&TSEL->step[i]);
+            any |= step_lanes(e, &TSEL->step[i]);
         if (any) {
             r.ver = UP_VER_GRID;
             for (i = 0; i < 16u; i++) {
-                r.note[i] = (uint8_t)step_lanes(&TSEL->step[i]);
-                r.flags[i] = (uint8_t)step_accents(&TSEL->step[i]);
+                r.note[i] = (uint8_t)step_lanes(e, &TSEL->step[i]);
+                r.flags[i] = (uint8_t)step_accents(e, &TSEL->step[i]);
             }
         }
     }

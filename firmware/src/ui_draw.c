@@ -1302,9 +1302,10 @@ static void draw_columns(void)
         }
         return;
     }
-    if (cur_page()->scope == SC_STEP && drum_track(TSEL)) {   /* the grid: STEP LANE HIT ACC */
+    if (cur_page()->scope == SC_STEP && kit_track(TSEL)) {    /* the grid: STEP LANE HIT ACC */
         const step_t *st = &seq_steps(TSEL)[ui.cursor];
-        uint32_t b = 1u << ui.lane, on = (step_lanes(st) & b) != 0u, ac = (step_accents(st) & b) != 0u;
+        uint32_t b = 1u << ui.lane, on = (step_lanes(TSEL->eng_req, st) & b) != 0u;
+        uint32_t ac = (step_accents(TSEL->eng_req, st) & b) != 0u;
         char sn[8], sl[8];
         fmt_int(sn, (int32_t)ui.cursor + 1);
         str_cpy(sl, "/", 8);
@@ -1324,7 +1325,7 @@ static void draw_columns(void)
             if ((st->hit >> l) & 1u) {
                 cnt++;
                 if (!st->n)
-                    first = DRUM_LANE_NOTE[l];
+                    first = kit_notes(TSEL->eng_req)[l];
             }
         if (cnt) {
             note_name(val, first);

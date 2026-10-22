@@ -131,14 +131,15 @@ static uint32_t oct_leds(void)
 /* the key LEDs on the grid, bit k = key k: the white keys show where the selected lane hits on the page
  * shown (its accents while ACC is held), the step playing inverted (a light walks over them); the black keys
  * the lane selected, ACC while held, the page keys while there is more than one page. M-Vave-OP1: a lane's black key
- * flashes as its drum plays (eng_drum.c drum_lit, lit GRID_FLASH ms; the lane selected stays lit) */
+ * flashes as its drum plays (eng_drum.c drum_lit, lit GRID_FLASH ms; the lane selected stays lit); VDRUM's 7 and 8
+ * (no lane: six parts) stay dark */
 #define GRID_FLASH 70u                                  /* ms */
 static uint32_t grid_flash[NLANE];                      /* (fm1_ms the flash ends: as often as it is asked, the same) */
 static uint32_t grid_leds(void)
 {
     const track_t *t = TSEL;
     uint32_t k, m = 0, len = (uint32_t)t->p[P_SLEN], b = detail_on() ? 0xFFu : 1u << ui.lane;   /* (DETAIL: any hit) */
-    uint32_t acc = !detail_on() && black_held(GK_ACC);
+    uint32_t acc = !detail_on() && black_held(GK_ACC), lanes = kit_track(t), e = t->eng_req;
     uint32_t ph = song.playing && t->seq_idx < len && t->seq_idx / 16u == ui.bank ? t->seq_idx % 16u : 0xFFu;
     uint32_t lit = drum_lit[song.sel % NTRK];
     drum_lit[song.sel % NTRK] = 0;                      /* (taken: the ISR sets the next) */
@@ -149,10 +150,11 @@ static uint32_t grid_leds(void)
         uint32_t p = key_place(k), on;
         if (!key_black(k)) {
             uint32_t i = ui.bank * 16u + p;
-            on = i < len && ((acc ? step_accents(&seq_steps(t)[i]) : step_lanes(&seq_steps(t)[i])) & b) != 0u;
+            on = i < len && ((acc ? step_accents(e, &seq_steps(t)[i]) : step_lanes(e, &seq_steps(t)[i])) & b) != 0u;
             on ^= (uint32_t)(p == ph);
         } else {
-            on = p < NLANE ? p == ui.lane || (int32_t)(grid_flash[p] - fm1_ms) > 0 : p == GK_ACC ? acc : len > 16u;
+            on = p < lanes ? p == ui.lane || (int32_t)(grid_flash[p] - fm1_ms) > 0
+                 : p < NLANE ? 0u : p == GK_ACC ? acc : len > 16u;
         }
         m |= on << k;
     }
@@ -168,25 +170,26 @@ static uint32_t grid_beats(void)
 {
     const track_t *t = TSEL;
     uint32_t k, m = 0, len = (uint32_t)t->p[P_SLEN], b = detail_on() ? 0xFFu : 1u << ui.lane;
-    uint32_t acc = !detail_on() && black_held(GK_ACC);
+    uint32_t acc = !detail_on() && black_held(GK_ACC), e = t->eng_req;
     uint32_t ph = song.playing && t->seq_idx < len && t->seq_idx / 16u == ui.bank ? t->seq_idx % 16u : 0xFFu;
     for (k = 0; k < 27u; k++) {
         uint32_t p = key_place(k), i = ui.bank * 16u + p;
         if (key_black(k) || p % 4u || i >= len || p == ph)
             continue;
-        m |= (uint32_t)(((acc ? step_accents(&seq_steps(t)[i]) : step_lanes(&seq_steps(t)[i])) & b) == 0u) << k;
+        m |= (uint32_t)(((acc ? step_accents(e, &seq_steps(t)[i]) : step_lanes(e, &seq_steps(t)[i])) & b) == 0u) << k;
     }
     return m;
 }
 
 /* the DRUM grid's keys that do something, bit k = key k (they glow with the idle LEDs, ui_leds): the page's steps
- * within LEN, the lane keys, ACC, the page keys while there is more than one page */
+ * within LEN, the lane keys (the kit's: VDRUM six), ACC, the page keys while there is more than one page */
 static uint32_t grid_glow(void)
 {
-    uint32_t k, m = 0, len = (uint32_t)TSEL->p[P_SLEN];
+    uint32_t k, m = 0, len = (uint32_t)TSEL->p[P_SLEN], lanes = kit_track(TSEL);
     for (k = 0; k < 27u; k++) {
         uint32_t p = key_place(k);
-        m |= (uint32_t)(!key_black(k) ? ui.bank * 16u + p < len : p < NLANE || p == GK_ACC || len > 16u) << k;
+        m |= (uint32_t)(!key_black(k) ? ui.bank * 16u + p < len
+                                      : p < lanes || p == GK_ACC || (p > GK_ACC && len > 16u)) << k;
     }
     return m;
 }
@@ -628,7 +631,7 @@ static void tracks_edit(uint32_t slot, int32_t steps)
 /* SEQ > STEP's piano roll (not the DRUM grid, whose white keys stay its steps): where step recording writes */
 static int roll_on(void)
 {
-    return !ui.home && !ui.menu && !ui.confirm && song.seq_mode && cur_page()->graph == GR_ROLL && !drum_track(TSEL);
+    return !ui.home && !ui.menu && !ui.confirm && song.seq_mode && cur_page()->graph == GR_ROLL && !kit_track(TSEL);
 }
 
 /* SONG: + ADD selected (song_row == count < CHAIN_ROWS): a section there, copying the one before it (the first: every
@@ -826,7 +829,7 @@ static void grid_edit(uint32_t slot, int32_t steps)
     if (slot == 0u)
         cursor_move(ui.cursor + steps);
     else if (slot == 1u)
-        ui.lane = (uint8_t)clamp((int32_t)ui.lane + (steps > 0 ? 1 : -1), 0, NLANE - 1);
+        ui.lane = (uint8_t)clamp((int32_t)ui.lane + (steps > 0 ? 1 : -1), 0, (int32_t)kit_track(TSEL) - 1);
     else if (slot == 2u)
         grid_hit(TSEL, ui.cursor, ui.lane, steps > 0);
     else
@@ -834,7 +837,8 @@ static void grid_edit(uint32_t slot, int32_t steps)
 }
 
 /* the keys on the grid (presses): a white key toggles the selected lane at its step of the page (its accent
- * while ACC is held) and puts the cursor there; a lane key selects the lane (seq.c plays it); the page keys */
+ * while ACC is held) and puts the cursor there; a lane key selects the lane (seq.c plays it; VDRUM's 7 and 8 none);
+ * the page keys */
 static void grid_keys(uint32_t pressed)
 {
     uint32_t k, len = (uint32_t)TSEL->p[P_SLEN];
@@ -855,7 +859,7 @@ static void grid_keys(uint32_t pressed)
                 const step_t *st = &TSEL->step[i];
                 uint64_t b = (uint64_t)1 << i;
                 uint32_t acc = (uint32_t)black_held(GK_ACC);
-                if (((acc ? step_accents(st) : step_lanes(st)) >> ui.lane) & 1u) {
+                if (((acc ? step_accents(TSEL->eng_req, st) : step_lanes(TSEL->eng_req, st)) >> ui.lane) & 1u) {
                     ui.plk_rm |= b;
                     ui.plk_acc = acc ? ui.plk_acc | b : ui.plk_acc & ~b;
                     ui.plk_lane = ui.lane;
@@ -868,7 +872,8 @@ static void grid_keys(uint32_t pressed)
             }
             cursor_set((int32_t)i);
         } else if (p < NLANE) {
-            ui.lane = (uint8_t)p;
+            if (p < kit_track(TSEL))
+                ui.lane = (uint8_t)p;
         } else if (p != GK_ACC) {
             page_go(p == GK_PGUP ? 1 : -1);
         }
@@ -1068,7 +1073,7 @@ static void step_edit(uint32_t slot, int32_t steps)
         sd_turn(slot, steps);
         return;
     }
-    if (drum_track(TSEL)) {
+    if (kit_track(TSEL)) {
         grid_edit(slot, steps);
         return;
     }
@@ -1115,7 +1120,7 @@ static void step_edit(uint32_t slot, int32_t steps)
 static int step_oct_on(void)
 {
     return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_ROLL && !detail_on() &&
-           !drum_track(TSEL) && !song.playing && !chain_busy();
+           !kit_track(TSEL) && !song.playing && !chain_busy();
 }
 static void step_oct(int up)
 {
@@ -1754,6 +1759,8 @@ static void ui_input(void)
     static uint32_t lock_ms;                            /* BPM LOCK: the last locked SELECT turn (fm1_ms | 1; 0 none) */
     midi_pc_poll();                                     /* MIDI Program Change (before fm6_poll: a bank voice) */
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
+    if (kit_track(TSEL) && ui.lane >= kit_track(TSEL))  /* (M-Vave-OP1: a VDRUM track's six lanes; lane 7 or 8 picked */
+        ui.lane = (uint8_t)(kit_track(TSEL) - 1u);      /* on a DRUM or DBOX track) */
 #if !FELUCCA_FM4
     for (k = 0; k < NTRK; k++)                          /* a DIGITAL sound any other way (the paths convert it */
         if (trk[k].eng_req == ENGI_DIGITAL)             /* already): FM6 (fm4_convert.c) */

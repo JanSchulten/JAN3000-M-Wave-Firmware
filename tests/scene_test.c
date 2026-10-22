@@ -722,7 +722,7 @@ static void test_seq_layer(const char *dir)
         {
             uint32_t i, c = 0;
             for (i = 0; i < 16u; i++)
-                c += (step_lanes(&TSEL->step[i]) >> 1) & 1u;
+                c += (step_lanes(TSEL->eng_req, &TSEL->step[i]) >> 1) & 1u;
             ok &= c > 0u;
         }
         if (dir)

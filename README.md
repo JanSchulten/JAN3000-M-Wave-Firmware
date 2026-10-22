@@ -204,6 +204,10 @@ BEAT pattern and MIDI drum parts play on it.
   PART 2. The first edit makes the kit the track's own (KIT OWN); SAVE held undoes. Projects and user presets keep the
   own kit (in the place an FM6 track keeps its patch).
 - Eight factory kits: INIT, ELECTRO, TUBES, STRINGS, METAL, DUB, CRUSH, WOOD.
+- **On the sequencer as DRUM:** SEQ > STEP is the drum grid with a lane per part (BD SD CP CH OH TM: black keys 1..6;
+  7 and 8 stay dark). Live recording writes hits, EDIT held + a black key mutes a part (its resonator send too), SEQ
+  TOOLS has BEAT and the lane tools. A DRUM beat moved onto VDRUM keeps its lanes (its RIM and BELL hits play and show
+  on CLAP and HAT OP).
 
 ## DBOX: twelve keys of two oscillators
 
@@ -217,6 +221,12 @@ the BEAT pattern plays on them.
 - **HOME's KNOB 1..4:** TUNE, DECY, TONE, DRV on every sound at once; EDIT 1: KIT TUNE DECY TONE, EDIT 2: ACC DRV.
 - **Editing a key:** strike it, then EDIT > OSC 1 (PITCH WAVE ENV XMOD), OSC 2 (PITCH WAVE ENV CUT), SOUND (MODE LVL);
   KIT OWN, undo and storage as on VDRUM.
+- **On the sequencer as DRUM:** SEQ > STEP is the drum grid with DRUM's eight lanes on the keys the kits give those
+  drums: C kick, D snare, D# clap, F# closed hat, A# open hat, A tom, C# rim, and B the cowbell (CB). A note of the other
+  keys shows on the lane of its drum (E on SD, F G on TM, G# on CH). Live recording, the lane mutes (EDIT held + a black
+  key) and SEQ TOOLS' BEAT and lane tools as on DRUM.
+- **Steps written as notes before the grid** (on VDRUM or DBOX) become hits when the project loads or the scene is
+  picked: the same notes at the same velocities, nothing sounds different; other notes stay notes, shown on their lane.
 
 ## Other changes to Felucca's workflow
 
@@ -246,7 +256,7 @@ the BEAT pattern plays on them.
   piece of STD / 808 / 10 / 66 / 55 / 77: an 808 kick under a 10 snare). The screen lists all eight. Projects and user
   presets keep them (in track parameters the retired DIGITAL engine left free); a preset load sets them back.
 - **DRUM, SEQ grid:** a lane's black key lights for a moment whenever that lane plays (a hi-hat's key flashes with
-  each hit).
+  each hit). VDRUM and DBOX have the grid too (above).
 
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
   the cards in place of the scope: every page's values, the row the knobs edit raised. SELECT goes to the next

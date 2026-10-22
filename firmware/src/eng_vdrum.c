@@ -7,6 +7,8 @@
  *   1 KICK 35 36   2 SNARE 38 40   3 CLAP 37 39   4 HAT CL 42 44   5 HAT OP 46 49 51..59   6 TOM 41 43 45 47 48 50
  * and every other note; part 6 is pitched by the note's distance from 45 (the toms of one part), the others are not.
  * One voice a part (vd_part_t.owner, as DRUM's lanes): a new hit of the part restarts it, the others ring on.
+ * The parts are the lanes of the SEQ grid (kitlane.c): a part struck lights its lane's key (drum_lit), a lane muted on
+ * the EDIT layer (drum_mute) silences its part, its resonator send too.
  *
  * A layer (the kit's 7 bytes, VK_L*): SRC sine, saw (polyBLEP), or white noise through a high-, low- or band-pass
  * at PITCH; a pitch modulator MOD: EXP a sweep down from MAMT (up to 48 semitones) that decays in MRAT's time, TRI a
@@ -288,6 +290,7 @@ static void vd_note_on(track_t *t, voice_t *v)
     v->s[0] = (int32_t)k;
     v->env_out = v->vel * 258;                       /* the hit starts at its level (no ramp from 0) */
     v->env = 1 << 24;                                /* the ADSR held at full (drum_note_on says why) */
+    drum_lit[(uint32_t)(t - trk) % NTRK] |= (uint8_t)(1u << k);   /* (the grid's lane k: its key's LED, kitlane.c) */
     chok = K[VK_PART(k) + VK_PCHOK] & 3u;
     if (chok)
         for (j = 0; j < VD_NP; j++)
@@ -445,6 +448,9 @@ static void vd_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vm
     }
     if (!live)
         return;
+    if ((drum_mute[(uint32_t)(t - trk) % NPART] >> k) & 1u)
+        return;                                      /* (a muted part, the EDIT layer's lane mute: rings on unheard, no
+                                                      * send either; ui_layer.c EQA) */
     sh = (B[VK_PBIT] & 127) * 12 / 127;              /* BIT: bits dropped */
     fg = 4096 + (B[VK_PFOLD] & 127) * 7 * 4096 / 127;   /* FOLD: x1 .. x8 into the folder (Q12) */
     if (B[VK_PDRV] & 127) {                          /* DRV: x1 .. x4 into the soft clip, the level kept (Q12) */

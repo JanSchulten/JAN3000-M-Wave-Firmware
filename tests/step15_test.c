@@ -152,9 +152,9 @@ static int len_edit(void)
     frame();
     grid_hit(t, 2, 0, 1);
     turn(EN_K3, 1);
-    ok = drum_track(t) && t->step[3].time != ST_TIE && (step_lanes(&t->step[2]) & 1u);
+    ok = drum_track(t) && t->step[3].time != ST_TIE && (step_lanes(t->eng_req, &t->step[2]) & 1u);
     turn(EN_K3, -1);
-    ok &= !(step_lanes(&t->step[2]) & 1u) && t->step[3].time != ST_TIE;
+    ok &= !(step_lanes(t->eng_req, &t->step[2]) & 1u) && t->step[3].time != ST_TIE;
     bad += check("  the DRUM grid: KNOB 3 HIT as before, no TIE written", ok);
     return bad;
 }

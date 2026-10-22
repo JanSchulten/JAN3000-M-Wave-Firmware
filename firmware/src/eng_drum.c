@@ -147,8 +147,8 @@ static uint32_t drum_gm(const int16_t *p, uint32_t note, int32_t *st)
 
 /* ----------------------------------------------------- the grid's lanes --- */
 /* A step's lane hits (step_t.hit / acc, the DRUM grid: SEQ > STEP on a DRUM track) play these GM notes, on any
- * engine: DRUM strikes its lanes, a synth plays the pitches. Each is the designed pitch of
- * its lane (st 0 in DRUM_GM) */
+ * engine: DRUM strikes its lanes, a synth plays the pitches (M-Vave-OP1: DBOX its own BELL, kitlane.c kit_notes). Each
+ * is the designed pitch of its lane (st 0 in DRUM_GM) */
 static const uint8_t DRUM_LANE_NOTE[NLANE] = {36, 38, 39, 42, 46, 45, 37, 56};
 /* M-Vave-OP1: the grid lanes each track's drums hit since the UI looked (bit l: lane l, DRUM_LANE_NOTE), set by the ISR
  * as a lane plays (drum_note_on), taken by the DRUM grid's LEDs (ui_input.c grid_leds: its black key flashes) */
@@ -161,11 +161,12 @@ static uint32_t drum_lane(uint32_t note)
     return DV_TYPE_LANE[DRUM_GM[n - 35u][0]];
 }
 
-/* KIT's swaps of lanes 6..8 (1 TOM -> CONGA, 2 RIM -> CLAVE, 4 BELL -> CYM) */
+/* KIT's swaps of lanes 6..8 (1 TOM -> CONGA, 2 RIM -> CLAVE, 4 BELL -> CYM); a VDRUM or DBOX track (M-Vave-OP1:
+ * kitlane.c, their lanes named as DRUM's, VDRUM's six its parts) none */
 static uint32_t drum_swaps(const track_t *t)
 {
     uint32_t kit = drum_kit_plays(t->p[P_E0]);
-    return kit >= DK_80 ? DK_SWAP[kit - DK_80] : 0u;
+    return t->eng_req == ENGI_DRUM && kit >= DK_80 ? DK_SWAP[kit - DK_80] : 0u;
 }
 
 /* the lane's name as the track's KIT plays it (5 characters at most) */
@@ -193,44 +194,7 @@ static const char *drum_lane_abbr(const track_t *t, uint32_t l)
     return (kit & 4u) && l == DV_BELL ? "CY" : N[l];
 }
 
-/* the lanes step s strikes: its hits, and its notes on their lanes (a NOTE step only) */
-static uint32_t step_lanes(const step_t *s)
-{
-    uint32_t m = 0, i;
-    if (s->time != ST_NOTE)
-        return 0;
-    for (i = 0; i < s->n && i < 4u; i++)
-        m |= 1u << drum_lane(s->note[i]);
-    return m | s->hit;
-}
-
-/* .. and which of them are accented */
-static uint32_t step_accents(const step_t *s) { return s->flags & SF_ACCENT ? step_lanes(s) : s->acc & step_lanes(s); }
-
-/* a step's notes that are a lane's note become that lane's hits (the same note, the same velocity: nothing
- * sounds different). Other notes (a low tom 41, a crash 49) stay notes, shown on their lane. A step accent
- * of a step left with hits only becomes the hits' accents. Pattern loads into a DRUM track, projects of
- * before the grid, the grid's edits */
-static void step_to_grid(step_t *s)
-{
-    uint32_t i, k = 0;
-    if (s->time != ST_NOTE)
-        return;
-    for (i = 0; i < s->n && i < 4u; i++) {
-        uint32_t l = drum_lane(s->note[i]);
-        if (s->note[i] == DRUM_LANE_NOTE[l])
-            s->hit |= (uint8_t)(1u << l);
-        else
-            s->note[k++] = s->note[i];
-    }
-    for (i = k; i < 4u; i++)
-        s->note[i] = 0;
-    s->n = (uint8_t)k;
-    if (!k && (s->flags & SF_ACCENT)) {
-        s->acc |= s->hit;
-        s->flags &= (uint8_t)~SF_ACCENT;
-    }
-}
+/* (a step's lanes, its accents, its notes as hits: kitlane.c, for every kit) */
 
 static drum_lane_t *drum_kit_of(const track_t *t)
 {
