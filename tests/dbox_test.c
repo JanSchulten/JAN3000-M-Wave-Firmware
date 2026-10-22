@@ -5,6 +5,7 @@
  *            reaches DB_PEAK_MAX, DC under 2 % of the peak, it sounds, the voice frees itself within its ENV's time +
  *            0.3 s; a second hit from rest renders the same samples; each MODE (1..7) renders a sound of its own and
  *            stays bounded at XMOD 127; the next octave sounds an octave up (the kick's sine: its fundamental x2).
+ *            M-Vave-OP1: the sine kicks' tails clean (no sawtooth at the block rate from the level ramps: tail_test).
  *   KEYS     note n plays sound n mod 12; KIT OWN without an own kit plays INIT.
  *   PAGES    EDIT > OSC 1, OSC 2, SOUND on a DBOX track only; HOME's KNOB 1..4 are TUNE DECY TONE DRV; a key struck by
  *            hand picks the sound the pages edit; a detent makes the kit the track's own (KIT OWN) and writes one byte;
@@ -345,9 +346,36 @@ static void demo(const char *dir)
     }
 }
 
+/* M-Vave-OP1: the kick's tail without the block rate's sawtooth: the C (the kick) of the kits whose kick is a sine
+ * (INIT 808-ISH METAL; CHIP's is a chip wave, its high end its own) struck at 127, from 0.1 to 0.6 s the RMS of the
+ * second difference (the high end) under -78 dBFS. The level ramps (dbx_block g1 d1, g2 d2) fell short of the next
+ * block's start in Q15, the level jumped back up at every block: a sawtooth at the block rate (1378 Hz) on the
+ * decaying sine, heard as a hiss (as VDRUM's, vdrum_test): -72.4 -69.9 -70.5 dBFS then, its lines at k x 1378 Hz
+ * ~-72 dB, now ~-110 */
+static void tail_test(void)
+{
+    static const uint8_t SINE_KICK[] = {0, 1, 3};    /* INIT 808-ISH METAL */
+    uint32_t j, i, a = FS / 10, e = FS * 6 / 10, ok = 1;
+    for (j = 0; j < NELEM(SINE_KICK); j++) {
+        uint32_t k = SINE_KICK[j];
+        double s = 0, db;
+        db_track(k);
+        hit(36, 127, FS);
+        for (i = a; i < e; i++) {
+            double d = (double)yb[i] - 2.0 * yb[i - 1u] + yb[i - 2u];
+            s += d * d;
+        }
+        db = 10 * log10(s / (e - a) / (32768.0 * 32768.0) + 1e-20);
+        printf("dbox: %-8s KICK tail 0.1 .. 0.6 s: the high end (2nd difference) %6.1f dBFS, level %6.1f dBFS\n",
+               DBOX_PRESETS[k].name, db, rms_db(a, e));
+        ok &= db < -78.0;
+    }
+    ck("the sine kicks' tails: no sawtooth at the block rate (the high end under -78 dBFS)", ok);
+}
 int main(int argc, char **argv)
 {
     sound_test();
+    tail_test();
     pages_test();
     store_test();
     if (argc > 1)

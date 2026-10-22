@@ -64,6 +64,8 @@ kann nur das echte Gerät zeigen.
       Hits, ACC (schwarze Taste 9) gehalten setzt Akzente, die Lanes blinken beim Abspielen.
 - [ ] **DBOX im Raster:** wie DRUM mit **8 Lanes**; schwarze Taste 8 (CB) ist die Cowbell (Taste B des Kits).
 - [ ] VDRUM / DBOX: REC und live einspielen (auf dem Raster oder mit den normalen Tasten): Die Schläge landen als Hits.
+- [ ] **VDRUM / DBOX Kick ohne Rauschen:** Kick mit Kopfhörern laut anhören (VDRUM INIT, TUBES, DUB; DBOX INIT,
+      808-ISH): Das Ausklingen ist sauber, kein helles Zischen mehr darunter.
 - [ ] VDRUM / DBOX: EDIT halten + schwarze Taste: die Lane stumm (Display „SNARE MUTED“), nochmal: wieder an.
 - [ ] VDRUM / DBOX: SEQ halten: BEAT, RANDOM, COOK und die Lane-Werkzeuge (CLR, REV, FILL, RND der gewählten Lane).
 - [ ] Ein altes Projekt mit VDRUM/DBOX-Noten laden: klingt **genau wie vorher**, die Schläge stehen jetzt als Hits im

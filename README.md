@@ -214,6 +214,10 @@ BEAT pattern and MIDI drum parts play on it.
   7 and 8 stay dark). Live recording writes hits, EDIT held + a black key mutes a part (its resonator send too), SEQ
   TOOLS has BEAT and the lane tools. A DRUM beat moved onto VDRUM keeps its lanes (its RIM and BELL hits play and show
   on CLAP and HAT OP).
+- **Clean tails:** a layer's level ramp now lands exactly on the next block's level. It used to fall a little short
+  and jump back every 32 samples, a sawtooth at 1378 Hz under the decaying sound (around -70 dBFS whatever its level),
+  heard as a hiss on the kicks. Above 4 kHz the kicks' tails are now about 10 to 20 dB lower (INIT: from -74..-79 to
+  -89..-96 dBFS), as clean as DRUM's 808; the attack and body (the first 400 ms) are unchanged.
 
 ## DBOX: twelve keys of two oscillators
 
@@ -231,6 +235,8 @@ the BEAT pattern plays on them.
   drums: C kick, D snare, D# clap, F# closed hat, A# open hat, A tom, C# rim, and B the cowbell (CB). A note of the other
   keys shows on the lane of its drum (E on SD, F G on TM, G# on CH). Live recording, the lane mutes (EDIT held + a black
   key) and SEQ TOOLS' BEAT and lane tools as on DRUM.
+- **Clean tails:** the same level-ramp fix as VDRUM's: the block-rate lines under a decaying sound (k x 1378 Hz, around
+  -72 dB) are now around -110 dB on the sine kicks (INIT, 808-ISH, METAL).
 - **Steps written as notes before the grid** (on VDRUM or DBOX) become hits when the project loads or the scene is
   picked: the same notes at the same velocities, nothing sounds different; other notes stay notes, shown on their lane.
 

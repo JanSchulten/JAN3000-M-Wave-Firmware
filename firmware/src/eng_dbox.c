@@ -222,7 +222,7 @@ static inline int32_t dbx_wave(uint32_t w, uint32_t ph, uint32_t inc, int32_t *n
 /* a block's control values (dbx_render: the divides out of the samples) */
 typedef struct {
     uint32_t inc1, inc2, w1, w2, mode, sync;
-    int32_t g1, d1, g2, d2, x, lv;
+    int32_t g1, d1, g2, d2, x, lv;               /* (g, d: the level ramps, Q23) */
     tsvf_t c;
     int32_t cut;
 } dbx_blk_t;
@@ -245,14 +245,14 @@ static __attribute__((noinline)) void dbx_block(const track_t *t, voice_t *v, co
     B->x = (int32_t)(b[DK_XMOD] & 127u) * 258;
     l = (int32_t)(b[DK_LVL] & 127u);
     B->lv = l * l * 2;
-    e0 = v->s[0];
-    e1 = v->s[0] = dbx_env(v, e0, b[DK_ENV1], p[P_E2], 1u);
-    B->g1 = e0 >> 9;
-    B->d1 = ((e1 - e0) >> 9) >> CTL_LOG2;
-    e0 = v->s[1];
-    e1 = v->s[1] = dbx_env(v, e0, b[DK_ENV2], p[P_E2], 2u);
-    B->g2 = e0 >> 9;
-    B->d2 = ((e1 - e0) >> 9) >> CTL_LOG2;
+    e0 = v->s[0];                                /* the level ramps, Q23 (the envelope Q24 >> 1), from the level at */
+    e1 = v->s[0] = dbx_env(v, e0, b[DK_ENV1], p[P_E2], 1u);   /* the block's start to the one at its end. M-Vave-OP1: */
+    B->g1 = e0 >> 1;                             /* Q15 steps a sample fell short of the next block's start by up to */
+    B->d1 = ((e1 >> 1) - B->g1) >> CTL_LOG2;     /* ~32 units, the level jumped back up at every block: a sawtooth at */
+    e0 = v->s[1];                                /* the block rate on the decaying kick, heard as a hiss (as VDRUM's, */
+    e1 = v->s[1] = dbx_env(v, e0, b[DK_ENV2], p[P_E2], 2u);   /* eng_vdrum.c vd_layer_ctl) */
+    B->g2 = e0 >> 1;
+    B->d2 = ((e1 >> 1) - B->g2) >> CTL_LOG2;
     B->cut = clamp((int32_t)(b[DK_CUT] & 127u) + (p[P_E3] - 64) + (m->cutoff >> 8), 0, 127);
     tsvf_coef_k(&B->c, B->cut << 8, 3000);
 }
@@ -285,12 +285,12 @@ static void dbx_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const v
     ic2 = v->s[3];
     nz = v->s[4];
     for (i = 0; i < n; i++) {
-        int32_t o2 = mulq15(dbx_wave(B.w2, ph2, B.inc2, &nz), g2), o1, s, pm = 0;
+        int32_t o2 = mulq15(dbx_wave(B.w2, ph2, B.inc2, &nz), g2 >> 8), o1, s, pm = 0;
         if (B.mode == DM_FM)
             pm = mulq15(o2, B.x) << 3;               /* (an index up to ~4: x8 of a cycle's 1/8) */
         else if (B.mode == DM_NOISE)
             pm = mulq15((int32_t)noise32(&nz) >> 16, B.x) << 3;
-        o1 = mulq15(dbx_wave(B.w1, ph1 + ((uint32_t)pm << 13), B.inc1, &nz), g1);
+        o1 = mulq15(dbx_wave(B.w1, ph1 + ((uint32_t)pm << 13), B.inc1, &nz), g1 >> 8);
         switch (B.mode) {
         case DM_RING: s = o1 + mulq15(mulq15(o1, o2) * 2 - o1, B.x); break;
         case DM_AM: s = mulq15(o1, 32768 - (B.x >> 1) + mulq15(o2, B.x >> 1)); break;
