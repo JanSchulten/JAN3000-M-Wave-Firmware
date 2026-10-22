@@ -68,6 +68,7 @@ static void fresh(void)
     fm1_in.notes = kb_prev = 0;
     fm1_ms = 0;
     song.sel = 0;
+    po_req = 0; po_left = 0;
     nb = 0;
 }
 static void run(uint32_t n)                            /* n blocks through audio_block */
@@ -499,12 +500,11 @@ static void ext_clock(void)
     check("external clock: PLAY on the FM-1 starts as before (as a Start), never a count-in", song.playing && !seq_counting());
 }
 
-/* M-Vave-OP1, MENU > AUDIO > SYNC OUT PO: the left channel a pulse on every eighth (the first with PLAY, in the
- * click's blocks, no drift): 7.5 ms at the DAC's +full scale, then 7.5 ms at its -full scale, then a 5 ms ramp back to
- * 0 (PO_HIGH: twice the mix's
- * ceiling, still inside the 24-bit word; the swing both halves, whichever way the output stage puts it),
- * the right the mix in mono (bit for bit the two channels' average); stopped no pulse; OFF: the stereo as before (USB
- * audio is tapped before it, as the click) */
+/* M-Vave-OP1, MENU > AUDIO > SYNC OUT PO / PO INV: the left channel a pulse on every eighth (the first with PLAY, in
+ * the click's blocks, no drift): 20 ms at the DAC's +full scale (PO_HIGH: twice the mix's ceiling, still inside the
+ * 24-bit word), between the pulses -1 % of it, never 0 (PocketSync's shape: the DAC's channel stays live); PO INV the
+ * same upside down, sample for sample. The right the mix in mono (bit for bit the two channels' average); stopped no
+ * pulse (the idle level only); OFF: the stereo as before (USB audio is tapped before it, as the click) */
 static int32_t po_l[1500u * CTL], po_r[1500u * CTL];
 static void po_run(uint32_t n, int on, int32_t *l, int32_t *r)
 {
@@ -526,60 +526,67 @@ static void po_run(uint32_t n, int on, int32_t *l, int32_t *r)
 }
 static void po_sync_out(void)
 {
-    static int32_t l0[1500u * CTL], r0[1500u * CTL];
-    uint32_t n = 1500u, i, k = 0, at[16], w = 0, okmono = 1;
+    static int32_t l0[1500u * CTL], r0[1500u * CTL], li[1500u * CTL], ri[1500u * CTL];
+    uint32_t n = 1500u, i, k = 0, at[16], w = 0, okmono = 1, okinv = 1;
     uint32_t E = click_beat_len() / 2u;
     po_run(n, 0, l0, r0);
     po_run(n, 1, po_l, po_r);
+    po_run(n, 2, li, ri);
     for (i = 0; i < n * CTL; i++) {
-        if (po_l[i] && (!i || !po_l[i - 1u]) && k < 16u)
+        if (po_l[i] == PO_HIGH && (!i || po_l[i - 1u] != PO_HIGH) && k < 16u)
             at[k++] = i;
-        w += po_l[i] != 0;
-        okmono &= po_r[i] == (l0[i] + r0[i]) >> 1 && (po_l[i] == 0 || po_l[i] == PO_HIGH || po_l[i] == -PO_HIGH ||
-                                                      (po_l[i] < 0 && -po_l[i] % PO_STEP == 0));
+        w += po_l[i] == PO_HIGH;
+        okmono &= po_r[i] == (l0[i] + r0[i]) >> 1 && (po_l[i] == PO_HIGH || po_l[i] == -PO_IDLE);
+        okinv &= li[i] == -po_l[i] && ri[i] == po_r[i];
     }
     {
-        int ok = k >= 4u && at[0] == 0u && w == k * (2u * PO_HALF + PO_RAMP) && PO_HALF * 1000u / 44100u == 7u;
-        for (i = 0; i < k; i++) {                      /* (+ then -, then a ramp up to 0, never a step up) */
-            uint32_t j, e0 = at[i] + 2u * PO_HALF;
-            ok &= po_l[at[i]] == PO_HIGH && po_l[at[i] + PO_HALF - 1u] == PO_HIGH && po_l[at[i] + PO_HALF] == -PO_HIGH &&
-                  po_l[e0 - 1u] == -PO_HIGH && po_l[e0 + PO_RAMP] == 0;
-            for (j = e0; j < e0 + PO_RAMP; j++)
-                ok &= po_l[j + 1u] - po_l[j] == PO_STEP;
-        }
+        int ok = k >= 4u && at[0] == 0u && w == k * PO_PULSE && PO_PULSE * 1000u / 44100u == 20u &&
+                 PO_IDLE * 100 / PO_HIGH == 0 && PO_IDLE * 100 / (PO_HIGH - 300) == 1;
+        for (i = 0; i < k; i++)                        /* (each pulse whole: PO_PULSE samples up, then the idle level) */
+            ok &= po_l[at[i] + PO_PULSE - 1u] == PO_HIGH && po_l[at[i] + PO_PULSE] == -PO_IDLE &&
+                  (!at[i] || po_l[at[i] - 1u] == -PO_IDLE);
         if (!ok || getenv("PO_DEBUG"))
             printf("    po: %u pulses, %u samples high, at %u %u %u %u (eighth %u)\n", k, w, at[0], at[1], at[2], at[3], E);
         for (i = 1; i < k; i++)                        /* eighth k at the first sample of block ceil(k E / CTL) */
             ok &= at[i] == ceil_div((uint64_t)i * E, CTL) * CTL;
-        check("SYNC OUT PO: a pulse on the left (7.5 ms +full scale, 7.5 ms -full scale, a 5 ms ramp back to 0, no step "
-              "up) every eighth (2 a quarter) from PLAY, no drift", ok);
+        check("SYNC OUT PO: a pulse on the left (20 ms at +full scale, between the pulses -1 %, never 0) every eighth "
+              "(2 a quarter) from PLAY, no drift", ok);
     }
+    check("  PO INV: the left channel the same upside down, sample for sample (the right as PO's)", okinv);
     {                                                  /* the 24-bit word the DAC gets: its top, not the mix's -6 dB */
         int32_t out[2 * CTL];
-        uint32_t b, i2;
-        int32_t top = 0, bot = 0;
-        fresh(); grid_track();
-        po_sync = 1;
-        transport_req = 1;
-        for (b = 0; b < 24u; b++) {
-            audio_block(out, CTL);
-            for (i2 = 0; i2 < CTL; i2++) {
-                top = out[2u * i2] > top ? out[2u * i2] : top;
-                bot = out[2u * i2] < bot ? out[2u * i2] : bot;
+        uint32_t b, i2, v;
+        int32_t top[3] = {0, INT32_MIN, INT32_MIN}, bot[3] = {0, INT32_MAX, INT32_MAX};
+        for (v = 1; v <= 2u; v++) {                    /* (40 blocks: a pulse and some of the idle after it) */
+            fresh(); grid_track();
+            po_sync = (uint8_t)v;
+            transport_req = 1;
+            for (b = 0; b < 40u; b++) {
+                audio_block(out, CTL);
+                for (i2 = 0; i2 < CTL; i2++) {
+                    top[v] = out[2u * i2] > top[v] ? out[2u * i2] : top[v];
+                    bot[v] = out[2u * i2] < bot[v] ? out[2u * i2] : bot[v];
+                }
             }
         }
-        check("  the pulse at the DAC's full scale both ways: 0 dBFS of the 24-bit word, + and -, not the mix's -6 dBFS",
-              top > 0x7F0000 && top <= 0x7FFFFF && bot < -0x7F0000 && bot >= -0x800000);
+        check("  the pulse at the DAC's full scale: 0 dBFS of the 24-bit word (PO up, PO INV down), not the mix's -6 dBFS",
+              top[1] > 0x7F0000 && top[1] <= 0x7FFFFF && bot[1] == -PO_IDLE * (1 << OUT_SHIFT) &&
+              bot[2] < -0x7F0000 && bot[2] >= -0x800000 && top[2] == PO_IDLE * (1 << OUT_SHIFT));
     }
     check("  the right channel the mix in mono (the average of what OFF plays, bit for bit)", okmono);
-    po_sync = 0;
-    fresh();
-    run(200);
-    {
+    {                                                  /* stopped: the idle level, no pulse */
         uint32_t z = 1;
+        fresh();
+        po_sync = 1;
+        run(200);
+        for (i = 0; i < 200u * CTL; i++)
+            z &= dac[i] == -PO_IDLE;
+        po_sync = 0;
+        fresh();
+        run(200);
         for (i = 0; i < 200u * CTL; i++)
             z &= dac[i] == 0;
-        check("  stopped: no pulse; OFF: as before", z);
+        check("  stopped: no pulse, the left at -1 % (never 0); OFF: as before", z);
     }
 }
 /* M-Vave-OP1: around a flash erase (storage_hw.c audio_fade_out; main.c gives the sound back) the audio ISR fades the

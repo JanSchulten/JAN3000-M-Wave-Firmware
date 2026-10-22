@@ -7933,12 +7933,16 @@ static int test_click_menu(void)
     turn(EN_K4, 1); ok &= cin_bars == 2u;
     turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_TUNE;     /* (1.2: TUNE) */
     turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_SYNC;     /* (M-Vave-OP1: SYNC OUT, AUDIO's last) */
-    turn(EN_K1, 1); frame(); ok &= po_sync == 1u;
-    turn(EN_K1, -1); frame(); ok &= po_sync == 0u;
+    turn(EN_K1, 1); frame(); ok &= po_sync == 1u && !strcmp(menu_vname(MI_SYNC, menu_get(MI_SYNC)), "PO");
+    turn(EN_K1, 1); frame(); ok &= po_sync == 2u && !strcmp(menu_vname(MI_SYNC, menu_get(MI_SYNC)), "PO INV") &&
+                                   (ui_prefs2 & 0x30u) == 0x30u;
+    turn(EN_K1, 1); frame(); ok &= po_sync == 2u;      /* (stops at the end) */
+    turn(EN_K1, -1); frame(); ok &= po_sync == 1u && (ui_prefs2 & 0x30u) == 0x10u;
+    turn(EN_K1, -1); frame(); ok &= po_sync == 0u && !(ui_prefs2 & 0x30u);
     turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LOWCUT;   /* (wraps within AUDIO) */
     press(B_HOME);
     ok &= !ui.menu;
-    bad += check("MENU > AUDIO: PRESETS to CLICK, CLICK LEVEL, COUNT-IN, TUNE, SYNC OUT; knobs / OCT step them, applied at once", ok);
+    bad += check("MENU > AUDIO: PRESETS to CLICK, CLICK LEVEL, COUNT-IN, TUNE, SYNC OUT (OFF PO PO INV); knobs / OCT step them, applied at once", ok);
     {
         persist_t p;
         settings_export(&p);

@@ -301,15 +301,17 @@ the BEAT pattern plays on them.
   While playing, and on every other page, OCT shifts the keyboard's octave as before.
 - **DRUM starts with the 808 kit** (KIT 808, the 808 model kit Felucca calls 80): power-on, a track switched to DRUM,
   its preset. Projects and sounds saved before keep their kit.
-- **SYNC OUT PO** (MENU > AUDIO > SYNC OUT: OFF, PO): Pocket Operator sync on the headphone jack while playing. The
-  left channel carries a pulse each eighth note (2 a quarter, as the POs' SY modes and the Volcas expect): 7.5 ms
-  at the DAC's +full scale, then 7.5 ms at its -full scale (the widest swing the jack gives, and one half rises
-  whichever way the output stage puts it), then a 5 ms ramp back to 0 (no second step up), whatever MASTER; the
-  right one the mono mix. A stereo cable into the PO's
-  line in, or a stereo to two mono cable: left into the PO's or Volca's sync input, right as audio. On the PO a sync-in
-  mode: SY2 (sync only) or SY4 (left sync, right audio through); **press PLAY on the PO first** (it waits for the
-  clock), then PLAY on the FM-1. USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is the way
-  out for a clock.
+- **SYNC OUT PO** (MENU > AUDIO > SYNC OUT: OFF, PO, PO INV): Pocket Operator sync on the headphone jack. The left
+  channel carries a pulse each eighth note while playing (2 a quarter, as the POs' SY modes and the Volcas expect):
+  20 ms at the DAC's +full scale, whatever MASTER; between the pulses (and while stopped) it sits at -1 % of full
+  scale, never at 0. That is the shape of [PocketSync](https://github.com/chr15m/PocketSync), a phone app the POs
+  follow: a DAC channel held at digital 0 can be auto-muted, and a pulse out of a muted channel comes out ramped, a
+  tick in the headphones but no edge for the PO. PO INV is the same pulse upside down, for an output stage that
+  inverts it. The right channel is the mono mix. A stereo cable into the PO's line in, or a stereo to two mono cable:
+  left into the PO's or Volca's sync input, right as audio. On the PO a sync-in mode: SY2 (sync only) or SY4 (left
+  sync, right audio through); **press PLAY on the PO first** (it waits for the clock), then PLAY on the FM-1. If the
+  PO does not follow on PO, try PO INV. USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is
+  the way out for a clock.
 
 ## Try it in the browser
 

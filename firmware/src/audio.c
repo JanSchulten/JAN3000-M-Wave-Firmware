@@ -9,9 +9,8 @@
 #define DAC_TICKS 544u            /* TIMER4 ticks per I2S frame (24 MHz / 44,117.6 Hz) */
 #define CPU_AVG (4096u / HALF_FRAMES)   /* halves the load meter averages: ~93 ms whatever the half */
 #define OUT_SHIFT 7               /* Q15 -> 24-bit, -6 dBFS ceiling (M0f ran clean at -18 dBFS) */
-_Static_assert(((int64_t)PO_HIGH << OUT_SHIFT) <= 0x7FFFFF && -((int64_t)PO_HIGH << OUT_SHIFT) >= -0x800000 &&
-               PO_STEP * PO_RAMP <= PO_HIGH && PO_STEP * (PO_RAMP + 1) > PO_HIGH,
-               "SYNC OUT PO (click.c): the pulse, both halves and its ramp, fits the 24-bit word");
+_Static_assert(((int64_t)PO_HIGH << OUT_SHIFT) <= 0x7FFFFF && -((int64_t)PO_HIGH << OUT_SHIFT) >= -0x800000,
+               "SYNC OUT PO / PO INV (click.c): the pulse, either way up, fits the 24-bit word");
 
 static int32_t abuf[2u * HALF_WORDS] __attribute__((aligned(4)));
 
@@ -41,7 +40,7 @@ static void audio_block(int32_t *out, uint32_t n)       /* mix (fx.c), then Q15 
             scope_buf[scope_w++ & (SCOPE_N - 1u)] = (int16_t)out[2u * i];
     click_render(out, n);                               /* the metronome (click.c): the DAC only, not USB */
     if (po_sync)
-        po_render(out, n);                              /* M-Vave-OP1: SYNC OUT PO, left the pulses, right mono */
+        po_render(out, n);                              /* M-Vave-OP1: SYNC OUT PO / PO INV, left the pulses, right mono */
     for (i = 0; i < n; i++) {
         out[2u * i] *= 1 << OUT_SHIFT;
         out[2u * i + 1u] *= 1 << OUT_SHIFT;

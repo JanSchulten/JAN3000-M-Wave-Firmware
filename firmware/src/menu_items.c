@@ -95,13 +95,14 @@ static const menu_flag_t MENU_FLAGS[] = {
     {MI_PREVIEW, PREF_PREVIEW, {"OFF", "ON"}},         /* 1.2, Discussion #169: ON, the cursor's step sounds (ui_input.c) */
     {MI_CHADD, PREF_CHORD_ADD, {"HOLD", "ADD"}},       /* 1.2, #155: ADD, keys add to the cursor step (ui_input.c) */
     {MI_HELP, PREF_HELP, {"OFF", "ON"}},               /* 1.5, Discussion #156: ON, a hint per page / layer (ui_help.c) */
-    {MI_SYNC, PREF_SYNC_OUT, {"OFF", "PO"}},           /* M-Vave-OP1: PO, the Pocket Operators' sync (click.c po_render) */
 };
 /* SPEAKER EQ (settings.lowcut, fx.c fx_lowcut): an EQ on the master for the small speaker, not a speaker switch
  * (#42: "OFF" read as the speaker off). FLAT is the old OFF (0, stored as before). The built-in speaker cannot be
  * turned off from the firmware (no amp enable or mute line is known); the EQ reaches
  * the headphone / line out and USB audio too (one DAC, uac_tap reads the master) */
 static const char *const SPK_EQ[3] = {"FLAT", "LOWCUT", "BASS+"};
+/* M-Vave-OP1: SYNC OUT (ui_prefs2 PREF_SYNC_OUT, PREF_SYNC_INV): the Pocket Operators' sync, either way up (click.c) */
+static const char *const SYNC_N[3] = {"OFF", "PO", "PO INV"};
 static const char *const HOLD_N[4] = {"0.3 s", "0.4 s", "0.5 s", "0.6 s"};   /* (the editor's names; the menu draws its own) */
 /* 1.1 (Discussion #131): the metronome (click.c) and the count-in (seq.c); ui.c ui_rec_prefs holds them */
 static const char *const CLICK_N[3] = {"OFF", "REC", "ON"};          /* REC: while a track is armed and playing */
@@ -147,7 +148,7 @@ static const menu_flag_t *menu_flag(uint32_t row)
 /* a row's value as 0..menu_n(row) - 1 in the order the menu steps it (LEDS: OFF DIM LO DIM HI INV, LEDS_MENU) */
 static uint32_t menu_n(uint32_t row)
 {
-    return row == MI_COLOR ? NPALETTES : row == MI_LOWCUT || (row >= MI_CLICK && row <= MI_COUNTIN) ? 3u :
+    return row == MI_COLOR ? NPALETTES : row == MI_LOWCUT || row == MI_SYNC || (row >= MI_CLICK && row <= MI_COUNTIN) ? 3u :
            row == MI_HOLD ? 4u : row == MI_LEDS ? LEDS_COUNT : row == MI_SCROFF ? NELEM(SCROFF_N) :
            row == MI_TUNE ? TUNE_N : row == MI_MIDIIN ? NELEM(N_ROUTE) : row == MI_ANIM ? 3u : row == MI_HOME ? HVM_COUNT : 2u;
 }
@@ -161,6 +162,7 @@ static uint32_t menu_get(uint32_t row)
     case MI_COLOR: return settings.palette % NPALETTES;
     case MI_STYLE: return ui_style == ST_LINE;
     case MI_LOWCUT: return settings.lowcut % 3u;
+    case MI_SYNC: return !(ui_prefs2 & (PREF_SYNC_OUT >> 16)) ? 0u : (ui_prefs2 & (PREF_SYNC_INV >> 16)) ? 2u : 1u;
     case MI_HOLD: return settings_hold % 4u;
     case MI_SCROFF: return scr_get();
     case MI_ANIM: return ui_prefs & PREF_ANIM_OFF ? 1u : (ui_idle & 1u) ? 2u : 0u;
@@ -184,6 +186,7 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     case MI_COLOR: return UI_PALETTES[v % NPALETTES].name;
     case MI_STYLE: return STYLE_N[v & 1u];
     case MI_LOWCUT: return SPK_EQ[v % 3u];
+    case MI_SYNC: return SYNC_N[v % 3u];
     case MI_HOLD: return HOLD_N[v & 3u];
     case MI_CLICK: return CLICK_N[v % 3u];
     case MI_CLKLVL: return CLKLVL_N[v % 3u];
@@ -230,6 +233,10 @@ static void menu_put(uint32_t row, uint32_t v)
         break;
     case MI_STYLE: ui_style = (uint8_t)(v ? ST_LINE : ST_FLAT); break;   /* (drawn so from the next frame) */
     case MI_LOWCUT: settings.lowcut = v; fx_lowcut = (uint8_t)v; break;
+    case MI_SYNC:                                      /* (click.c po_sync: rp_apply, every frame) */
+        ui_prefs2 = (uint8_t)((ui_prefs2 & ~((PREF_SYNC_OUT | PREF_SYNC_INV) >> 16)) | (v ? PREF_SYNC_OUT >> 16 : 0u) |
+                              (v == 2u ? PREF_SYNC_INV >> 16 : 0u));
+        break;
     case MI_HOLD: settings_hold = (uint8_t)v; break;
     case MI_SCROFF: scr_put(v); break;                 /* (read every frame: ui.c scr_frame) */
     case MI_ANIM:                                      /* (read where they are used, every frame) */

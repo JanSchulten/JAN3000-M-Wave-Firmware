@@ -142,8 +142,10 @@ kann nur das echte Gerät zeigen.
 - [ ] TRS-MIDI IN, falls du ein Kabel hast: Noten kommen an.
 - [ ] MENU > AUDIO > SYNC OUT = PO, falls du einen Pocket Operator oder Volca hast: Stereokabel in den Line-In des PO
       (oder Stereo-auf-2×-Mono, links in den Sync-Eingang). PO auf SY2 oder SY4, **zuerst PLAY am PO drücken** (er
-      wartet dann auf den Takt), dann PLAY am FM-1. Läuft synchron? Falls nicht: Läuft der PO gar nicht, stolpert er
-      oder läuft er im falschen Tempo? Der Puls ist jetzt 15 ms lang und nutzt den vollen Spannungshub (+ und −).
+      wartet dann auf den Takt), dann PLAY am FM-1. Läuft synchron? Neu: 20 ms Puls, dazwischen bleibt der linke Kanal
+      knapp unter 0 (nie ganz still), wie bei der App PocketSync.
+- [ ] Falls nicht: dasselbe mit SYNC OUT = PO INV (der Puls andersherum). Bitte melden, welche Einstellung klappt.
+      Klappt keine: Läuft der PO gar nicht, stolpert er oder läuft er im falschen Tempo?
 
 ## M. Dauer und Akku
 
