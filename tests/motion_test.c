@@ -685,7 +685,14 @@ static int lock_ui(void)
         motion_lock_count(t) == 1u && motion_lock_steps(0) == 1u);
     cursor_set(0);
     press(B_EDIT);
-    bad += check("  [EDIT] alone clears the step and its locks", !t->step[0].n && !motion_lock_count(t));
+    ok = t->step[0].n == 1u && motion_lock_count(t) == 1u && cur_page()->fam == FAM_EDIT;
+    fam_next(FAM_SEQ);                                   /* (back on the roll) */
+    frame();
+    cursor_set(0);
+    turn(EN_K2, -128);                                   /* (to the lowest note) */
+    turn(EN_K2, -1);                                     /* (past it: OFF) */
+    bad += check("  [EDIT] alone clears no step any more (M-Vave-OP1); KNOB 2 past the lowest note: OFF, its locks gone",
+                 ok && !t->step[0].n && t->step[0].time == ST_REST && !motion_lock_count(t));
     song.playing = 1; chain.running = 1;
     lk_down(kn); turn(EN_K3, 1); lk_up(kn);
     bad += check("  a song playing: STOP TO EDIT, no lock", !motion_lock_count(t));

@@ -1274,8 +1274,12 @@ static int test_grid(void)
     ok &= t->step[2].hit == 1u << DV_CLAP && t->step[2].acc == 1u << DV_CLAP;
     bad += check("KNOB 1 STEP, 2 LANE, 3 HIT on / off, 4 ACC (an accent adds the hit)", ok);
     press(B_EDIT);
-    bad += check("EDIT: the cursor step cleared, on to the next", t->step[2].time == ST_REST && !t->step[2].hit && ui.cursor == 3u &&
-                 grid_on());
+    ok = t->step[2].hit == 1u << DV_CLAP && !grid_on() && cur_page()->fam == FAM_EDIT;
+    fam_next(FAM_SEQ);
+    frame();
+    ok &= grid_on() && ui.cursor == 2u;
+    bad += check("EDIT clears no step (M-Vave-OP1): the hit stays, EDIT's page opens; SEQ: the grid as it was", ok);
+    turn(EN_K1, 1);
     /* pages: LEN 32, the page keys */
     t->p[P_SLEN] = 32;
     leds = grid_leds();
@@ -3401,9 +3405,10 @@ static int test_layer(void)
     ui_power_on();
     go_page(GR_ROLL); my_steps(TSEL); ui.cursor = 0;
     btn_down(B_EDIT); frame();
-    ok = step_on(&TSEL->step[0]) && ui.cursor == 0;
+    ok = step_on(&TSEL->step[0]) && ui.cursor == 0 && cur_page()->graph == GR_ROLL;
     btn_up(B_EDIT); frame();
-    bad += check("EDIT on STEP clears the step when let go (not on press)", ok && !step_on(&TSEL->step[0]) && ui.cursor == 1);
+    bad += check("EDIT on STEP acts when let go (M-Vave-OP1: no step cleared, its page opens)",
+                 ok && step_on(&TSEL->step[0]) && ui.cursor == 0 && cur_page()->fam == FAM_EDIT);
     ui_power_on(); hold(B_HOME);
     ok = ui.menu == 1; hold(B_HOME); ok &= !ui.menu;
     go_home(); hold(B_SEQ); ok &= ui.home && !ui.layer;
@@ -4789,8 +4794,10 @@ static int test_step_preview_chord_entry(void)
     key_up(7); key_up(11); frame();
     ok = ui.cursor == 8u && t->step[8].n == 2u;
     press(B_EDIT);
-    ok &= !t->step[8].n && ui.cursor == 9u;             /* (EDIT still clears the step and moves on) */
-    bad += check("#155 ADD: keys held together add each; EDIT clears the step and moves on as before", ok);
+    ok &= t->step[8].n == 2u && ui.cursor == 8u && cur_page()->graph != GR_ROLL;   /* (M-Vave-OP1: EDIT clears no */
+    go_page(GR_ROLL);                                                         /* step, its page opens) */
+    frame();
+    bad += check("#155 ADD: keys held together add each; EDIT clears no step any more (M-Vave-OP1)", ok);
     song.rec = 0;
     memcpy(before, t->step, sizeof before);
     tap_k(7);
@@ -7122,16 +7129,20 @@ static int test_layer_lock(void)
     ok &= ui.lock == LAYER_FX;
     stop_transport();
     bad += check("  another button between the taps: no lock; PLAY in a locked layer plays, the lock stays", ok);
-    {   /* EDIT on STEP clears a step: two quick taps clear two (no lock) */
+    {   /* M-Vave-OP1: EDIT on STEP clears no step: two quick taps lock its layer as on any page, the steps stay */
         track_t *t;
+        step_t s0[2];
         ui_power_on();
         t = TSEL;
         my_steps(t);
         go_page(GR_ROLL); frame();
         ui.cursor = 0;
+        memcpy(s0, t->step, sizeof s0);
         press(B_EDIT); press(B_EDIT); frames(100);
-        bad += check("  EDIT on STEP (it clears the step): two quick taps clear two steps, no lock",
-                     !ui.lock && !ui.layer && ui.cursor == 2u && t->step[0].time == ST_REST);
+        ok = ui.lock == LAYER_EDIT && !memcmp(s0, t->step, sizeof s0) && ui.cursor == 0u;
+        press(B_EDIT); frames(16);
+        bad += check("  EDIT on STEP (no step cleared): two quick taps lock its layer as on any page, the steps stay",
+                     ok && !ui.lock);
     }
     return bad;
 }
@@ -8217,6 +8228,54 @@ static int test_step_oct(void)
     ok &= song.octave == -1;
     song.octave = 0;
     bad += check("  playing, or another page: OCT the keyboard's octave as before", ok);
+    return bad;
+}
+/* M-Vave-OP1: on STEP KNOB 2 (NOTE) turns past the lowest (1) or the highest note (127): the step OFF (a rest, its
+ * locks gone, NOTE OFF on its card, SAVE held undoes it); a fast turn stops at the end first, a chord keeps its shape;
+ * from OFF a turn puts in the note played last. EDIT clears no step any more (with a step held: its locks) */
+static int test_step_note_off(void)
+{
+    int bad = 0, ok;
+    track_t *t;
+    ui_power_on();
+    stop_transport();
+    t = TSEL;
+    t->p[P_VOICE] = V_POLY;
+    track_defaults_steps(t);
+    go_page(GR_ROLL);
+    cursor_set(4);
+    t->step[4] = (step_t){{20, 0, 0, 0}, 1, ST_NOTE, 0, 100};
+    (void)motion_set_lock(t, 4, P_E0 + 3, 90);
+    frame();
+    turn(EN_K2, -30);                                   /* (fast: to the lowest note, not past it) */
+    ok = t->step[4].n == 1u && t->step[4].note[0] == 1u && t->step[4].time == ST_NOTE && !msg_is("STEP OFF");
+    turn(EN_K2, -1);
+    ok &= t->step[4].time == ST_REST && !t->step[4].n && msg_is("STEP OFF") && !((motion_lock_steps(trk_index(t)) >> 4) & 1u);
+    frame();
+    hold(B_SAVE);
+    ok &= t->step[4].time == ST_NOTE && t->step[4].n == 1u && t->step[4].note[0] == 1u;
+    bad += check("M-Vave-OP1 STEP: KNOB 2 down to the lowest note (a fast turn stops there), once more: OFF (locks gone); "
+                 "SAVE held undoes", ok);
+    t->step[4] = (step_t){{120, 124, 0, 0}, 2, ST_NOTE, 0, 100};
+    frame();
+    turn(EN_K2, 10);
+    ok = t->step[4].n == 2u && t->step[4].note[0] == 123u && t->step[4].note[1] == 127u;
+    turn(EN_K2, 1);
+    ok &= t->step[4].time == ST_REST && !t->step[4].n;
+    key_down(9); frame(); key_up(9); frame();          /* (D4 played: the note a turn from OFF puts in) */
+    turn(EN_K2, -1);
+    ok &= step_on(&t->step[4]) && t->step[4].n == 1u && t->step[4].note[0] == last_note;
+    {
+        uint32_t n0 = last_note;
+        turn(EN_K2, 2);
+        ok &= t->step[4].note[0] == n0 + 2u && last_note == n0 + 2u;
+    }
+    bad += check("  a chord up to the highest note (its shape kept), once more: OFF; from OFF a turn: the note played last", ok);
+    t->step[4] = (step_t){{60, 0, 0, 0}, 1, ST_NOTE, 0, 100};
+    frame();
+    press(B_EDIT);
+    ok = t->step[4].time == ST_NOTE && t->step[4].note[0] == 60u && !msg_is("STEP CLEARED") && cur_page()->graph != GR_ROLL;
+    bad += check("  EDIT clears no step any more: its page opens", ok);
     return bad;
 }
 static int test_large(void)
@@ -9826,6 +9885,7 @@ int main(void)
     bad += test_bpm_lock();
     bad += test_large();
     bad += test_step_oct();
+    bad += test_step_note_off();
     bad += test_browse_no_pattern();
     bad += test_name();
     bad += test_edit_cycle();

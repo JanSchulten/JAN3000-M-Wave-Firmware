@@ -886,7 +886,7 @@ static void grid_keys(uint32_t pressed)
  * cards show those four while a step is held, a locked value bright, the sound's own DIM). The step held: on the
  * DRUM grid its white keys (several at once: each gets the lock; a press on a hit takes it away only when let go,
  * and not at all when it was held for a lock), on the roll the step being entered (its note keys held). [EDIT]
- * tapped meanwhile clears the held steps' locks (EDIT alone still clears the step, its locks with it). Not while a
+ * tapped meanwhile clears the held steps' locks (M-Vave-OP1: EDIT alone clears no step any more). Not while a
  * song plays (STOP TO EDIT). A lock is a motion record (motion.c): AUTOMATION's PLAY plays it, CLEAR clears it */
 static uint64_t lock_held(void)
 {
@@ -1081,18 +1081,33 @@ static void step_edit(uint32_t slot, int32_t steps)
     case 0:                                               /* STEP: the cursor */
         cursor_move(ui.cursor + steps);
         break;
-    case 1:                                               /* NOTE: transpose the step */
-        if (!st->n) {
+    case 1: {                                             /* NOTE: transpose the step (a chord whole) */
+        int32_t lo = 127, hi = 1, d;
+        if (!st->n || st->time == ST_REST) {              /* OFF: the note played last */
             st->note[0] = last_note;
             st->n = 1;
             st->time = ST_NOTE;
             break;
         }
+        for (i = 0; i < st->n; i++) {
+            lo = st->note[i] < lo ? st->note[i] : lo;
+            hi = st->note[i] > hi ? st->note[i] : hi;
+        }
+        if ((steps < 0 && lo <= 1) || (steps > 0 && hi >= 127)) {   /* M-Vave-OP1: a turn past the lowest or the */
+            step_undo_take(TSEL, 0x2600u | ui.cursor);   /* highest note: OFF (a rest, its locks gone; SAVE held */
+            step_clear(st);                              /* undoes it). A fast turn stops at the end first */
+            (void)motion_clear_locks(TSEL, ui.cursor);
+            motion_undo_done(TSEL);
+            ui_message("STEP OFF");
+            break;
+        }
+        d = steps < 0 ? (steps < 1 - lo ? 1 - lo : steps) : (steps > 127 - hi ? 127 - hi : steps);
         for (i = 0; i < st->n; i++)
-            st->note[i] = (uint8_t)clamp(st->note[i] + steps, 1, 127);
+            st->note[i] = (uint8_t)(st->note[i] + d);
         st->time = ST_NOTE;
         last_note = st->note[0];
         break;
+    }
     case 2:                                               /* TIME; a note's LEN (1.5: ui.c note_set_len) */
         if (step_on(st)) {
             uint32_t was = note_len(TSEL, ui.cursor), n;
@@ -1677,17 +1692,11 @@ static int page_tap(uint32_t b)
             sd_reset();
         return 1;
     }
-    if (b == B_EDIT && song.seq_mode && !ui.home && cur_page()->graph == GR_ROLL) {   /* STEP: EDIT clears the step */
-        uint64_t held = lock_held();
-        if (chain_busy()) { ui_message("STOP TO EDIT"); return 1; }
-        if (held) {                                     /* a step held: its locks (the step stays) */
-            lock_clear(held);
-            return 1;
-        }
-        step_clear(&TSEL->step[ui.cursor]);
-        (void)motion_clear_locks(TSEL, ui.cursor);
-        cursor_set(ui.cursor + 1);
-        ui_message("STEP CLEARED");
+    if (b == B_EDIT && song.seq_mode && !ui.home && cur_page()->graph == GR_ROLL && lock_held()) {
+        if (chain_busy())                               /* STEP, a step held: EDIT clears its locks (the step stays). */
+            ui_message("STOP TO EDIT");                 /* M-Vave-OP1: alone it clears no step (KNOB 2 past the */
+        else                                            /* last note: OFF; the grid: its keys, HIT); its page opens */
+            lock_clear(lock_held());
         return 1;
     }
     if (b == B_EDIT && !ui.home && cur_page()->graph == GR_EVENTS) {   /* AUTOMATION: EDIT deletes the row's record */
