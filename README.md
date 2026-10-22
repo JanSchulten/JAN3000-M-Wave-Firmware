@@ -247,6 +247,10 @@ the BEAT pattern plays on them.
   kit (one of DRUM's six, STD 808 10 66 55 77, or a VDRUM or DBOX kit); T2 keeps its pad. So does power-on when
   nothing is restored (RESTORE LAST OFF, the first start). A DRUM track is named after its kit ("66 KIT") in the
   footer and on HOME.
+- **STEP: a note turned OFF with KNOB 2.** Turning NOTE past the lowest note (or the highest) sets the step OFF (a
+  rest; a fast turn stops at the end first, a chord keeps its shape); from OFF a turn brings in the note played last.
+  SAVE held undoes it. EDIT no longer clears the step on STEP (nor on the drum grid): a tap opens EDIT as on every
+  page, with a step held it still clears that step's locks.
 - **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
   change in the same hold is put back by OCT- as before.
 - **Another track opens each family at its first page:** turn ALGORITHM, then FX (SCL, ENV ..) starts at its first

@@ -1335,7 +1335,7 @@ static void draw_columns(void)
                 fmt_int(u + 1, (int32_t)cnt - 1);
             }
         } else {
-            str_cpy(val, "--", 12);
+            str_cpy(val, st->time == ST_REST ? "OFF" : "--", 12);   /* (M-Vave-OP1: KNOB 2 turns a note on / OFF) */
             u[0] = 0;
         }
         {

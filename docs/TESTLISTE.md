@@ -42,6 +42,10 @@ kann nur das echte Gerät zeigen.
 ## D. Sequencer
 
 - [ ] STEP: Noten eingeben. Gestoppt fügt OCT+ eine Note hinzu, OCT− entfernt eine.
+- [ ] STEP: KNOB 2 (NOTE) nach links bis zur tiefsten Note, noch eine Raste weiter: Die Karte zeigt **OFF**, der Step
+      ist leer. Genauso nach rechts über die höchste Note hinaus. Aus OFF eine Raste drehen: die zuletzt gespielte
+      Note ist wieder da. SAVE halten macht das OFF rückgängig.
+- [ ] STEP: **EDIT löscht keinen Step mehr**, ein Tipp öffnet die EDIT-Seite (auch im Drum-Raster).
 - [ ] PLAY und STOP. Tempo im CLOCK-Bereich ändern.
 - [ ] REC und live einspielen: Die Noten landen im Pattern.
 - [ ] REC halten + OCT−: Die Aufnahme wird rückgängig gemacht. REC halten + OCT+: Sie ist wieder da.
