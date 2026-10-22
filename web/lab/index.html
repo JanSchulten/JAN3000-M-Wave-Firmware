@@ -347,6 +347,7 @@ function boot() {
     if (v.length === 4096 && AREAS.some(([a, e]) => off >= a && off + 4096 <= e)) nor.set(v, off);
   }
   ex.web_master(master);
+  if (ex.web_seed) ex.web_seed((Math.random() * 4294967296) >>> 0);   // power-on's sounds drawn (newproj.c)
   ex.web_boot();
   writes = ex.web_flash_writes_count();
 }

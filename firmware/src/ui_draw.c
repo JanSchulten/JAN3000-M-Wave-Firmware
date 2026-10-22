@@ -720,7 +720,7 @@ static void sound_name(const track_t *t, char *b)
     if (user_of(t) < UP_SLOTS)
         up_name(user_of(t), b);
     else if (e->npresets)
-        str_cpy(b, e->presets[t->preset % e->npresets].name, 16);
+        preset_name_of(t, b, 16);                       /* (M-Vave-OP1: a DRUM track's, its KIT's) */
 }
 
 static void draw_foot(void)
@@ -1372,9 +1372,10 @@ static void draw_columns(void)
             draw_column(c, L[c], val, unit, VAL(c), c == DL_SOUND ? -1 : (int32_t)v * 1000 / DL_MAX[c], ICON_AUTO);
             continue;
         }
-        if (cur_page()->graph == GR_SLOTS && c) {         /* M-Vave-OP1: PROJECT's NEW LOAD SAVE: where they are */
+        if (cur_page()->graph == GR_SLOTS && c) {         /* M-Vave-OP1: PROJECT's NEW LOAD SAVE: where they are; */
             static const char *const L[3] = {"NEW", "LOAD", "SAVE"}, *const K[3] = {"F#5", "OCT-", "OCT+"};
-            draw_column(c, L[c - 1u], K[c - 1u], "", T_THEME, -1, ICON_AUTO);
+            const char *l = c == 2u && !project_used(((uint32_t)song.g[G_SLOT] - 1u) & 3u) ? "NEW" : L[c - 1u];
+            draw_column(c, l, K[c - 1u], "", T_THEME, -1, ICON_AUTO);   /* (an empty slot: OCT- makes a new one) */
             continue;
         }
         if (!d || !d->label || d->label[0] == '-') {
@@ -1610,8 +1611,13 @@ static void confirm_text(char *a, char *b)
         str_cpy(a, "CLEAR TRACK 1?", 24);
         a[12] = (char)('1' + k % NTRK);
         break;
-    case CF_NEW_PROJ:                                /* M-Vave-OP1: PROJECT's NEW (project.c project_new) */
-        str_cpy(a, "START A NEW PROJECT?", 24);
+    case CF_NEW_PROJ:                                /* M-Vave-OP1: PROJECT's NEW (project.c project_new); k: an empty */
+        if (k) {                                     /* slot's OCT- (+ 1), 0 F#5 */
+            str_cpy(a, "NEW PROJECT IN SLOT A?", 24);
+            a[20] = (char)('A' + (k - 1u) % 4u);
+        } else {
+            str_cpy(a, "START A NEW PROJECT?", 24);
+        }
         str_cpy(b, "UNSAVED MUSIC IS LOST", 24);
         break;
     case CF_LOAD_PROJ:                               /* M-Vave-OP1: PROJECT's OCT- */

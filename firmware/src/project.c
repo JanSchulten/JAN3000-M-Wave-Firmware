@@ -1086,11 +1086,15 @@ static void project_load(uint32_t slot)
     }
 }
 
-/* M-Vave-OP1, SAVE > PROJECT > NEW: a new project, everything as at power-on: the tracks' power-on sounds (the 808 kit
- * too) with empty steps (PROJ_DEF_SOUND), the globals' defaults (BPM, the FX buses), no song, no motion, no name or slot;
- * and the extras none has (FX TRACKS empty, FX1 the DELAY, ORCHID off, the CHORUS Felucca's, no KEY run), one scene.
- * Through project_restore_runtime, as a load (the transport stopped, the ISR off while it changes). The slots stay */
-static void project_new(void)
+#include "newproj.c"                                  /* M-Vave-OP1: a new project's sounds, drawn at random */
+
+/* M-Vave-OP1, SAVE > PROJECT > NEW: a new project, everything as at power-on: empty steps (PROJ_DEF_SOUND), the
+ * globals' defaults (BPM, the FX buses), no song, no motion, no name; and the extras none has (FX TRACKS empty, FX1 the
+ * DELAY, ORCHID off, the CHORUS Felucca's, no KEY run), one scene; its sounds drawn (newproj.c: T1 a bass, T3 a lead,
+ * T4 a drum kit, T2 the power-on pad). Through project_restore_runtime, as a load (the transport stopped, the ISR off
+ * while it changes). slot: the empty slot it was asked for on (OCT- there: SAVE goes to it, its letter in the header),
+ * else (F#5) none; the slots stay */
+static void project_new(uint32_t slot)
 {
     project_t *p = &proj_scratch;
     proj_xtra_t none;
@@ -1118,6 +1122,15 @@ static void project_new(void)
     xtra_lanes(fxt_lane, &none, 0);
     xtra_fx1(&none, 0);
     xtra_orc(&none, 0);
+    np_sounds();
+    for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
+        pat_sig[k] = steps_sig(&trk[k]);
+        pat_last[k] = 0;
+    }
+    if (slot < 4u) {
+        proj_cur = (uint8_t)slot;
+        pat_from_set(slot + 1u);
+    }
     ui.home = 1;
     ui_message("NEW PROJECT");
 }

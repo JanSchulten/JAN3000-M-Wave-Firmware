@@ -7,7 +7,7 @@
 static int project_save(uint32_t slot);
 static void panel_setup(void);
 static void project_load(uint32_t slot);
-static void project_new(void);                  /* (M-Vave-OP1: SAVE > PROJECT > NEW) */
+static void project_new(uint32_t slot);         /* (M-Vave-OP1: SAVE > PROJECT > NEW; slot 0..3, else none) */
 static int project_used(uint32_t slot);
 static uint32_t chain_prepare(void);
 static int up_used(uint32_t k);              /* user presets: upreset.c */
@@ -1429,6 +1429,22 @@ static void track_defaults(track_t *t)
     for (i = 0; i < P_E0; i++)
         t->p[i] = TP[i].def;
     track_defaults_steps(t);
+}
+
+/* the name of the factory sound on t into b (n bytes): its preset's. M-Vave-OP1: a DRUM track's is its KIT's ("66 KIT",
+ * "808 KIT" as the preset): DRUM has one preset, and a new project draws the kit (newproj.c). The footer and HOME
+ * TRACKS show it; the PRESETS list lists the presets */
+static void preset_name_of(const track_t *t, char *b, uint32_t n)
+{
+    const engine_t *e = ENGINES[t->eng_req % NENGINES];
+    b[0] = 0;
+    if (e == &ENG_DRUM) {
+        const param_desc_t *d = &e->edit[0];
+        str_cpy(b, d->names[clamp(t->p[P_E0], d->min, d->max)], n);
+        str_cpy(b + str_len(b), " KIT", n - str_len(b));
+    } else if (e->npresets) {
+        str_cpy(b, e->presets[t->preset % e->npresets].name, n);
+    }
 }
 
 /* switch engine (its defaults + first preset) and say so */

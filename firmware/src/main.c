@@ -189,7 +189,9 @@ static void fm1_main(void)
         panel_setup();                        /* OCT- + OCT+ held at power-on */
         settings_save();
     }
-    autosave_boot(boot_clean);                /* (1.2) the last session's music, under the splash */
+    if (!autosave_boot(boot_clean))           /* (1.2) the last session's music, under the splash; none: */
+        project_boot_new(felucca_dbg.boots ^ (uint32_t)fm1_adc_read(FM1_ADC_BATT) << 16);   /* a new project's
+                                                 * sounds drawn (M-Vave-OP1, newproj.c) */
     for (ms = fm1_ms; fm1_ms - ms < SPL_MS + 240u;) {   /* the splash, animated (M-Vave-OP1: JAN3000, ui_draw.c) and
                                                          * held a moment; the pot followed (MIDI IN plays under it) */
         draw_splash_at(fm1_ms - ms);

@@ -6,8 +6,9 @@
  *   UNDO     REC armed takes the track's copy; REC held: OCT- undoes what was recorded since, OCT+ redoes it, each
  *            once in a row (NOTHING TO REDO / ALREADY UNDONE); a clear or CLICK changed in the same hold: OCT- puts
  *            those back as before
- *   NEW      SAVE > PROJECT, F#5 (NEW) asks, OCT+: the power-on sounds (808 kit) with empty steps, the
- *            default BPM, no song, FX TRACKS, KEY or CHORUS TYPE, no slot or name; while playing: STOP FIRST
+ *   NEW      SAVE > PROJECT, F#5 (NEW) asks, OCT+: empty steps, the default BPM, no song, FX TRACKS, KEY or CHORUS
+ *            TYPE, no slot or name, the sounds drawn (newproj.c: T1 a BASS, T2 the power-on pad, T3 a LEAD, T4 a kit;
+ *            newproj_test.c draws them over and over); while playing: STOP FIRST
  *   SELECT   on a page SELECT turns its family's pages (wrapping), the tempo stays; the page's button again: HOME;
  *            on HOME (and its MIXER, CLOCK) SELECT is the tempo, HOME's taps go round its pages as before
  *   SOUNDS   DRUM's EDIT > SOUNDS: a key picks its lane, KNOB 1..4 that lane's TUNE DECAY TONE SOUND (the other lanes as
@@ -67,13 +68,16 @@ static void test_slots(void)
     ok = !ui.home && cur_page()->graph == GR_SLOTS && song.grid == 5u;
     key_down(2); frame(); key_up(2); frame();         /* G3: B */
     ok &= song.g[G_SLOT] == 2 && !gates() && (key_leds(0) & 0x55u) == 0x55u && ((key_leds(0) >> SLOT_KEY_NEW) & 1u);
-    press(B_OCTDN); frame();
-    ok &= msg_is("EMPTY SLOT") && !ui.confirm;
+    press(B_OCTDN); frame();                            /* (M-Vave-OP1: an empty slot's OCT-, a new project there) */
+    ok &= ui.confirm == CF_NEW_PROJ && ui.confirm_trk == 2u;
+    press(B_OCTDN); frame();                            /* (OCT-: no) */
+    ok &= !ui.confirm && !project_used(1);
     press(B_OCTUP); frame();
     ok &= name_on() && nm.kind == NK_PROJ_SAVE;
     press(B_OCTUP); frames(50);
     ok &= !name_on() && project_used(1);
-    ck("SAVE opens PROJECT: G3 picks B (silent, the keys lit); OCT- on an empty one: EMPTY SLOT; OCT+: NAME, saved", ok);
+    ck("SAVE opens PROJECT: G3 picks B (silent, the keys lit); OCT- on an empty one asks NEW PROJECT IN SLOT B?; OCT+: "
+       "NAME, saved", ok);
     trk[0].p[P_LEVEL] = 11;
     press(B_OCTDN); frame();
     ok = ui.confirm == CF_LOAD_PROJ && trk[0].p[P_LEVEL] == 11;
@@ -271,9 +275,11 @@ static void test_new(void)
         notes += !seq_is_empty(&trk[k]);
     ok &= !ui.confirm && msg_is("NEW PROJECT") && !notes && song.g[G_BPM] == GP[G_BPM].def && !keyt.on &&
           keyt.root[0] == KEY_NONE && chos.type == CHO_CHORUS && !fxt_lane[0].len && !chain_config.count &&
-          proj_cur == PROJ_NO_SLOT && !proj_name[0] && trk[3].eng_req == ENGI_DRUM && str_eq(N_DRUM_KIT[trk[3].p[P_E0]], "808");
-    ck("SAVE > PROJECT > NEW (F#5, OCT+): power-on sounds (808), empty steps, default BPM, no song / FX TRACKS / "
-       "KEY / CHORUS TYPE, no slot; while playing: STOP FIRST", ok);
+          proj_cur == PROJ_NO_SLOT && !proj_name[0] && preset_cat(trk[0].eng_req, trk[0].preset) == CAT_BASS &&
+          trk[1].eng_req == TRK_DEF[1][0] && preset_cat(trk[2].eng_req, trk[2].preset) == CAT_LEAD &&
+          (trk[3].eng_req == ENGI_DRUM || np_fits(trk[3].eng_req, trk[3].preset, NP_DRUMS));
+    ck("SAVE > PROJECT > NEW (F#5, OCT+): the sounds drawn (a bass, the pad, a lead, a kit), empty steps, default BPM, "
+       "no song / FX TRACKS / KEY / CHORUS TYPE, no slot; while playing: STOP FIRST", ok);
 }
 
 static uint32_t splash_px(uint32_t ms, uint16_t c, uint32_t *hash)   /* the name's band: pixels of colour c */

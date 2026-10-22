@@ -97,7 +97,10 @@ kann nur das echte Gerät zeigen.
 - [ ] Ohne SAVE etwas ändern, ein paar Sekunden warten, aus- und einschalten: RESTORE LAST bringt den Stand zurück.
 - [ ] SAVE öffnet PROJECT: F3 G3 A3 B3 wählen Projekt A–D (leuchten, kein Ton). OCT+ speichert (Name eingeben),
       OCT− lädt (mit Rückfrage). F#5 (höchste schwarze Taste) = NEW, dann OCT+: ein neues, leeres Projekt.
-- [ ] Während des Speicherns kurzes Stocken im Ton ist normal (~40 ms). Mehr nicht.
+- [ ] Neues Projekt: T1 ein Bass, T3 ein Lead, T4 ein Drum-Kit, jedes Mal andere (T2 bleibt das Pad). Ebenso OCT− auf
+      einem leeren Projekt (Rückfrage NEW PROJECT IN SLOT …?) und Einschalten mit RESTORE LAST OFF.
+- [ ] Speichern blendet den Ton kurz aus und wieder ein, kein Knacken. Settings (MENU schließen) werden erst
+      gespeichert, wenn nichts mehr klingt (höchstens 8 s später).
 
 ## K. Last-Test (sehr wichtig)
 

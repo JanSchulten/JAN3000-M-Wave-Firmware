@@ -405,8 +405,11 @@ static void slots_oct(uint32_t oct)
             confirm_open(CF_OVR_PROJ, k);
         else
             name_open(NK_PROJ_SAVE, k);
-    } else if (!project_used(k)) {
-        ui_message("EMPTY SLOT");
+    } else if (!project_used(k)) {                    /* M-Vave-OP1: an empty one, a new project there (asked) */
+        if (transport_busy())
+            ui_message("STOP FIRST");
+        else
+            confirm_open(CF_NEW_PROJ, k + 1u);
     } else {
         confirm_open(CF_LOAD_PROJ, k);
     }
@@ -1907,8 +1910,8 @@ static void ui_input(void)
             uint32_t kind = ui.confirm;
             ui.confirm = 0;
             ui.force = 1;
-            if (kind == CF_NEW_PROJ) {                  /* M-Vave-OP1: everything as at power-on */
-                project_new();
+            if (kind == CF_NEW_PROJ) {                  /* M-Vave-OP1: everything as at power-on, the sounds drawn */
+                project_new(ui.confirm_trk ? ui.confirm_trk - 1u : 0xFFu);   /* (an empty slot's OCT-: + 1) */
                 ui.act = 0;
             } else if (kind == CF_LOAD_PROJ) {          /* .. PROJECT's OCT- */
                 project_load(ui.confirm_trk & 3u);

@@ -230,9 +230,13 @@ the BEAT pattern plays on them.
   cursor, a sine settling under it, "based on Felucca" below.
 - **SAVE opens PROJECT, played on the keys:** F3 G3 A3 B3 pick project A..D (the keys are silent there and lit),
   OCT+ saves into it (the NAME screen; a used one asks OVERWRITE? first), OCT- loads it (LOAD PROJECT? first). F#5,
-  the highest black key, is **NEW**: OCT+ starts a new project (the power-on sounds with empty steps, the default
-  tempo, no song, FX TRACKS, KEY or scenes, no slot), stopped only (STOP FIRST). SELECT goes on to USER, PRESETS,
-  PHRASES, TOOLS.
+  the highest black key, is **NEW**: OCT+ starts a new project (empty steps, the default tempo, no song, FX TRACKS,
+  KEY or scenes, no slot), stopped only (STOP FIRST). OCT- on an empty project asks NEW PROJECT IN SLOT C? and starts
+  the new one there (SAVE goes to it). SELECT goes on to USER, PRESETS, PHRASES, TOOLS.
+- **A new project draws its sounds:** T1 a bass, T3 a lead (any factory preset of those categories, any engine), T4 a
+  kit (one of DRUM's six, STD 808 10 66 55 77, or a VDRUM or DBOX kit); T2 keeps its pad. So does power-on when
+  nothing is restored (RESTORE LAST OFF, the first start). A DRUM track is named after its kit ("66 KIT") in the
+  footer and on HOME.
 - **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
   change in the same hold is put back by OCT- as before.
 - **Another track opens each family at its first page:** turn ALGORITHM, then FX (SCL, ENV ..) starts at its first

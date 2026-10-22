@@ -201,6 +201,8 @@ static void ui_power_on(void)
     kb_orc = 0;
     orc_en = 0;
     orc_lock_req = 0;
+    chos.type = CHO_CHORUS;                       /* (M-Vave-OP1: the chorus bus's TYPE and FDBK, as at power-on) */
+    chos.fdbk = 0;
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
     memset(&chain.source, 0, sizeof chain.source);
     for (i = 0; i < G_COUNT; i++)

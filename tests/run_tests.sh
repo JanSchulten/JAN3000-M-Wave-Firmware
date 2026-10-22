@@ -60,6 +60,10 @@
 #                   passing note, a root outside the scale, A minor, CHR, kits never; OFF, stopped, no root: as written),
 #                   a pattern under KEY bar by bar (the run round, LEN 1, each off its on), the arp's notes moved (not
 #                   while recording), live keys as they are; the page (GLO's first, the knobs, a key sets a root).
+# NEW PROJECT (tests/newproj_test.c, M-Vave-OP1): a new project's sounds drawn (newproj.c): F#5 NEW (START A NEW
+#                   PROJECT?), OCT- on an empty slot (NEW PROJECT IN SLOT C?, the new project there), power-on with nothing
+#                   restored; T1 a factory BASS, T3 a LEAD, T4 a kit (DRUM's six, VDRUM / DBOX but INIT), T2 the pad;
+#                   nothing of the old music left; 900 draws: every bass, lead and kit comes up, nothing else ever.
 # JAN (tests/jan_test.c, M-Vave-OP1 JAN3000 v0.8): another track (ALGORITHM) opens each family at its first page; REC
 #                   armed takes the track's copy, REC held + OCT- undoes the recording, OCT+ redoes it; SAVE > PROJECT >
 #                   NEW (asked first, not while playing): the power-on sounds, empty steps, no song / extras / slot.
@@ -301,6 +305,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/key_test" tests/key_test.c -lm
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/jan_test" tests/jan_test.c -lm
     run "JAN3000 v0.8: another track opens the families' first pages, REC + OCT- / OCT+ undo / redo, SAVE > PROJECT > NEW" "$OUT/jan_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/newproj_test" tests/newproj_test.c -lm
+    run "NEW PROJECT's sounds drawn: F#5, OCT- on an empty slot, power-on; every bass, lead and kit comes up, nothing else" "$OUT/newproj_test"
     run "KEY: the move in the scale, a pattern under KEY bar by bar, the arp, live keys, the page" "$OUT/key_test"
     mkdir -p build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
