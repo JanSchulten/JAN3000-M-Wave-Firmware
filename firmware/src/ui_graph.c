@@ -1668,6 +1668,10 @@ static void page_title(char *ti)
                 k = n;
         }
     str_cpy(ti, pt ? pt : grid_on() && !detail_on() ? "GRID" : pg->title, 12);
+    if (pg->graph == GR_KEY) {                        /* M-Vave-OP1: the scene whose KEY it is ("KEY S3", scene.c) */
+        str_cpy(ti + str_len(ti), " S", 4);
+        fmt_int(ti + str_len(ti), (int32_t)scn.cur + 1);
+    }
     if (n > 1) {
         str_cpy(ti + str_len(ti), " ", 4);
         fmt_int(ti + str_len(ti), (int32_t)k);
@@ -1743,6 +1747,7 @@ static uint32_t graph_signature(void)
         h = (h ^ (keyt.on | (uint32_t)keyt.len << 8 | (uint32_t)key_cur << 16 | (uint32_t)key_bar << 24)) * 16777619u;
         h = (h ^ ((uint32_t)song.playing | (uint32_t)TSEL->p[P_ROOT] << 8 | (uint32_t)TSEL->p[P_SCALE] << 16 |
                   (uint32_t)key_arm << 24 | (uint32_t)(key_live & 31u) << 25)) * 16777619u;
+        h = (h ^ (scn.cur + 1u)) * 16777619u;        /* (M-Vave-OP1: the scene in the title) */
     }
     if (pg->graph == GR_FXT || pg->graph == GR_FXT2) {     /* the lanes, the cursor, the play heads (fxtrack.c) */
         uint32_t l;

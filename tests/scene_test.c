@@ -12,6 +12,12 @@
  *   MEMORY   picks are refused when the scene leaving would not fit, and one that grew past its room at the pattern's end
  *            is dropped there (SCENE MEMORY FULL): the music as it was, nothing lost.
  *   KEPT     a project saved and loaded brings its scenes and the one playing; another project's bank never applies.
+ *   KEY      (M-Vave-OP1) each scene its own GLO > KEY (the title says whose: KEY S2): set on the page it is the scene's;
+ *            an empty scene takes the KEY it is reached from, and visited without an edit stays empty; one with only a
+ *            KEY of its own is kept; KEY OFF in one scene stays there; a scene packed before (no KEY bytes) takes the KEY
+ *            playing and is packed with it after; playing, the switch starts the new scene's run at bar 1 (where its
+ *            tracks start step 1); a copy has the KEY copied, each its own after; a project saved and loaded: every
+ *            scene's KEY as it was.
  *   COPY     SEQ + OCT+ held 0.7 s: the scene playing copied into the next free scene (the first empty one after it,
  *            round past 16), which then plays: the tracks byte for byte as they were (playing: no step starts again,
  *            nothing released, no switch at the pattern's end), the original in the bank, each scene its own after; once
@@ -104,12 +110,17 @@ static void rnd_pattern(chain_pattern_t *p, uint32_t density)
             if (density >= 90u || rnd(5) == 0)
                 p->fx[k].step[i] = (uint8_t)(1 + rnd(255));
     }
+    p->key[0] = (uint8_t)rnd(2);                         /* (M-Vave-OP1: a KEY, its own or not) */
+    p->key[1] = (uint8_t)(1 + rnd(KEY_BARS));
+    for (i = 0; i < KEY_BARS; i++)
+        p->key[2 + i] = rnd(3) ? (uint8_t)rnd(12) : KEY_NONE;
+    p->key_own = (uint8_t)rnd(2);
 }
 static int same_pattern(const chain_pattern_t *a, const chain_pattern_t *b)
 {
     return !memcmp(a->step, b->step, sizeof a->step) && !memcmp(a->timing, b->timing, sizeof a->timing) &&
            !memcmp(a->qnt, b->qnt, sizeof a->qnt) && !memcmp(&a->motion, &b->motion, sizeof a->motion) &&
-           !memcmp(a->fx, b->fx, sizeof a->fx);
+           !memcmp(a->fx, b->fx, sizeof a->fx) && !memcmp(a->key, b->key, sizeof a->key);
 }
 static uint8_t enc[8192], dmg[8192];
 static void test_codec(void)
@@ -135,7 +146,7 @@ static void test_codec(void)
         scn_view_pat(&v, &pa);
         n = scn_encode(&v, 0, 0);
         m = scn_encode(&v, enc, sizeof enc);
-        ok &= n == m && n <= sizeof enc && scn_decode(enc, n, &pb, tm) && same_pattern(&pa, &pb);
+        ok &= n == m && n <= sizeof enc && scn_decode(enc, n, &pb, tm) && same_pattern(&pa, &pb) && pb.key_own;
         sizes += n;
         maxn = n > maxn ? n : maxn;
     }
@@ -204,6 +215,8 @@ static void capture(chain_pattern_t *p)              /* the scene playing, in th
     }
     p->motion = motion;
     memcpy(p->fx, fxt_lane, sizeof p->fx);
+    memcpy(p->key, (const void *)&keyt, sizeof p->key);   /* (M-Vave-OP1: its KEY) */
+    p->key_own = key_own;
 }
 static void scene_setup(void)
 {
@@ -799,12 +812,143 @@ static void test_ko(void)
     stop_transport();
 }
 
+/* ------------------------------------------------------------- KEY --- */
+static const uint8_t AM_F_C_G[4] = {9, 5, 0, 7}, D_G[2] = {2, 7};
+static void key_set(const uint8_t *roots, uint32_t len)   /* GLO > KEY by hand, stopped: LEN, the roots from bar 1, ON */
+{
+    uint32_t i;
+    go_page(GR_KEY);
+    frames(400);                                     /* (a knob just after the SEQ layer let go is the layer's) */
+    turn(EN_K3, (int32_t)len - (int32_t)keyt.len);
+    turn(EN_K1, -16);
+    for (i = 0; i < len; i++) {                      /* (a key: the cursor bar's root, the cursor on) */
+        key_down((roots[i] + 7u) % 12u);
+        frame();
+        key_up((roots[i] + 7u) % 12u);
+        frame();
+    }
+    turn(EN_K4, 1);
+}
+static int key_is(const uint8_t *r, uint32_t len, uint32_t on)
+{
+    uint32_t i, ok = keyt.len == len && keyt.on == on;
+    for (i = 0; i < len; i++)
+        ok &= keyt.root[i] == r[i];
+    return (int)ok;
+}
+static void test_key(void)
+{
+    uint32_t ok, b, off, n, cp;
+    char ti[20];
+    scene_setup();
+    key_set(AM_F_C_G, 4);
+    page_title(ti);
+    ok = key_own && key_is(AM_F_C_G, 4, 1) && str_eq(ti, "KEY S1 1/2");
+    seq_pick(1);
+    go_page(GR_KEY);
+    frame();
+    page_title(ti);
+    ok &= scn.cur == 1u && key_is(AM_F_C_G, 4, 1) && !key_own && str_eq(ti, "KEY S2 1/2");
+    ck("KEY: scene 1's set on GLO > KEY (KEY S1) is its own; an empty scene 2 takes it (KEY S2, not its own yet)", ok);
+    key_set(D_G, 2);
+    ok = key_own && key_is(D_G, 2, 1);
+    seq_pick(0);
+    ok &= scn.cur == 0u && key_is(AM_F_C_G, 4, 1) && key_own && scb.len[1] > 0u && scene_used(1);
+    seq_pick(1);
+    ok &= key_is(D_G, 2, 1) && key_own && seq_is_empty(&trk[0]);
+    ck("  scene 2's KEY set (no notes): kept with it (the scene used); scene 1's back on 1, scene 2's on 2", ok);
+    seq_pick(2);
+    ok = scn.cur == 2u && key_is(D_G, 2, 1) && !key_own;
+    seq_pick(0);
+    ok &= !scb.len[2] && !scene_used(2) && key_is(AM_F_C_G, 4, 1);
+    ck("  an empty scene visited without an edit: the KEY it is reached from, and it stays empty", ok);
+    seq_pick(3);
+    melody(&trk[0], 64, 8);
+    go_page(GR_KEY);
+    frames(400);
+    turn(EN_K4, -1);
+    ok = !keyt.on && key_own;
+    seq_pick(0);
+    ok &= keyt.on && key_is(AM_F_C_G, 4, 1);
+    seq_pick(3);
+    ok &= key_is(AM_F_C_G, 4, 0) && key_own;
+    seq_pick(0);
+    ck("  KEY OFF in scene 4 (with notes): OFF there, ON in scene 1", ok);
+    off = scb_off(3);                                /* scene 4 as packed before KEY was a scene's: no KEY bytes */
+    n = scb.len[3];
+    ok = n > 18u && (scb.data[off] & SCN_F_KEY) && scn.cur == 0u;
+    memcpy(enc, scb.data + off, n);
+    enc[0] &= (uint8_t)~SCN_F_KEY;
+    off = scb_resize(3, n - 18u);
+    memcpy(scb.data + off, enc, n - 18u);
+    seq_pick(3);
+    ok &= scn.cur == 3u && key_is(AM_F_C_G, 4, 1) && !key_own && !seq_is_empty(&trk[0]);
+    seq_pick(0);
+    off = scb_off(3);
+    ok &= scb.len[3] == n && (scb.data[off] & SCN_F_KEY);
+    ck("  a scene packed before (no KEY bytes): the KEY playing (a project of before plays as it did); kept with it after", ok);
+
+    /* playing: the switch at the pattern's end starts the new scene's run at bar 1 */
+    transport_req = 1;
+    for (b = 0; b < 40000u && !(song.playing && key_bar == 2u); b++)
+        blk();
+    ok = song.playing && key_bar == 2u && scn.cur == 0u;
+    seq_pick(1);
+    ok &= scn.req == SCN_END && scn.cur == 0u && key_is(AM_F_C_G, 4, 1);
+    b = blocks_to_switch(40000u, 1u);
+    ok &= b < 40000u && key_is(D_G, 2, 1) && key_own && key_bar == 0u && keyr.step == 0u;
+    for (n = 0; n < 40000u && key_bar == 0u; n++)
+        blk();
+    ok &= key_bar == 1u && n * CTL + CTL >= 16u * div_samples(2) - CTL && n * CTL <= 16u * div_samples(2) + CTL;
+    transport_req = 2;
+    blk();
+    ck("  playing: at the switch (the pattern's end) the new scene's KEY from bar 1, a bar of 1/16s later bar 2", ok);
+
+    /* a copy: the KEY copied, then each its own */
+    seq_pick(0);
+    seq_copy();
+    cp = scn.cur;
+    ok = cp != 0u && key_is(AM_F_C_G, 4, 1) && key_own && !seq_is_empty(&trk[0]);
+    go_page(GR_KEY);
+    frames(400);
+    turn(EN_K1, -16);
+    turn(EN_K2, -5);                                 /* (bar 1: A -> E) */
+    ok &= keyt.root[0] == 4u;
+    seq_pick(0);
+    ok &= key_is(AM_F_C_G, 4, 1);
+    seq_pick(cp);
+    ok &= keyt.root[0] == 4u && keyt.root[1] == 5u;
+    ck("  COPY: the copy plays the KEY copied; its bar 1 edited, scene 1 keeps its own", ok);
+
+    /* kept with the project */
+    {
+        project_store_t slot;
+        ok = project_save_as(2, "KEYS") == 0;
+        slot = proj_slot[2];
+        scene_setup();
+        proj_slot[2] = slot;
+        ok &= key_is_default() && !key_own;
+        project_load(2);
+        ok &= msg_is("LOADED") && scn.cur == cp && keyt.root[0] == 4u && key_own;
+        seq_pick(0);
+        ok &= key_is(AM_F_C_G, 4, 1) && key_own;
+        seq_pick(1);
+        ok &= key_is(D_G, 2, 1) && key_own;
+        seq_pick(3);                                 /* (scene 4: the KEY it took as a scene of before, ON) */
+        ok &= key_is(AM_F_C_G, 4, 1) && key_own;
+        seq_pick(2);
+        ok &= keyt.root[0] == 4u;
+        ck("KEY KEPT: a project saved and loaded, every scene's KEY as it was (the one playing in the project's extras)", ok);
+    }
+}
+
 int main(int argc, char **argv)
 {
     test_codec();
     test_switch();
     test_memory();
     test_kept();
+    test_key();
     test_copy();
     test_seq_layer(argc > 1 ? argv[1] : 0);
     test_ko();

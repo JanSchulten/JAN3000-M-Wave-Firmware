@@ -8,7 +8,8 @@
  *                     (OBJ_SCENES, below)
  *   0xC8000..0xCFFFF  each project slot's extras, A/B (OBJ_XPROJ0 + slot, storage.c): the FX TRACKS' lanes (fxtrack.c),
  *                     FX1's TYPE and the CLOUD's settings (fx1.c), SCL > ORCHID's ON and VOICE per track (orchid.c),
- *                     the CHORUS's TYPE and FDBK (fx.c), GLO > KEY's run (key.c)
+ *                     the CHORUS's TYPE and FDBK (fx.c), GLO > KEY's run (key.c: the scene in the project's; every other
+ *                     scene's KEY is in the scene, scene.c)
  *   0xD0000..0xD1FFF  the autosave's extras, A/B (OBJ_XAUTO)
  *   0xD2000..0xDBFFF  free (the TAPE's until it was dropped for GLO > KEY)
  * Extras (proj_xtra_t): written after their project, with the id of the project as written (xtra_id: the CRC its commit
@@ -130,6 +131,8 @@ static void xtra_orc(const proj_xtra_t *x, uint32_t proj)
         for (k = 0; k < KEY_BARS; k++)
             keyt.root[k] = x->key_root[k] < 12u ? x->key_root[k] : KEY_NONE;
     }
+    key_own = !key_is_default();                    /* (M-Vave-OP1: the scene in the project, scene 1, has it as its
+                                                     * own; one set nowhere: none, the scenes picked take theirs) */
 }
 #if FELUCCA_FLASH
 /* object obj's newest copy into x (as much as it knows); 0: there is none */

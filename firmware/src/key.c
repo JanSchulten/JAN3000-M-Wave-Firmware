@@ -20,7 +20,12 @@
  * REC on the page (key_arm) records it too: into the bar playing, or the next one in its last quarter (a key played a
  * little early is meant for the bar coming), and KEY goes ON.
  * Kept with the project (its extras, opstore.c). The ISR reads key, the UI writes it (bytes: a root or LEN changes
- * whole). */
+ * whole).
+ * Each scene has its own (M-Vave-OP1, scene.c): keyt is the scene playing's, as the tracks hold its steps; GLO > KEY
+ * edits it. A scene packed into the bank keeps its KEY when it holds anything, or when its KEY was set for it (key_own:
+ * edited on GLO > KEY, or the scene came with one). A scene with none of its own (empty, or packed before KEY was a
+ * scene's) takes the KEY playing when it is picked, so a project of before plays as it did. A switch starts the new
+ * scene's run at bar 1, as its tracks start at step 1 (key_scene). */
 #define KEY_BARS 16u
 #define KEY_NONE 0xFFu                          /* a bar with no root of its own */
 static volatile struct {
@@ -37,6 +42,8 @@ static struct {
 static volatile uint8_t key_bar;                /* the bar playing (0..LEN-1): the UI's */
 static volatile uint8_t key_live = KEY_NONE;    /* a root played live (GLO > KEY, running), KEY_NONE none */
 static volatile uint8_t key_arm;                /* REC on GLO > KEY: the keys record into the run */
+static volatile uint8_t key_own;                /* M-Vave-OP1: the scene playing has a KEY of its own (see the top) */
+_Static_assert(sizeof keyt == 2u + KEY_BARS, "a scene's KEY: ON, LEN, the roots (scene.c packs these bytes)");
 
 static void key_defaults(void)
 {
@@ -47,6 +54,16 @@ static void key_defaults(void)
         keyt.root[i] = KEY_NONE;
 }
 
+/* the run as key_defaults leaves it (no KEY: OFF, 4 bars, no roots) */
+static int key_is_default(void)
+{
+    uint32_t i;
+    for (i = 0; i < KEY_BARS; i++)
+        if (keyt.root[i] != KEY_NONE)
+            return 0;
+    return !keyt.on && keyt.len == 4u;
+}
+
 /* seq_start / seq_stop: from bar 1 with the transport */
 static void key_start(void)
 {
@@ -55,6 +72,19 @@ static void key_start(void)
     keyr.started = 0;
     key_bar = 0;
     key_live = KEY_NONE;
+}
+
+/* scene.c scene_swap (events_block, before key_tick, at the pattern's end; or stopped): the new scene's run from bar 1,
+ * carry samples into its first 1/16 at the block's end as its tracks are into step 1 (started 0: this block's key_tick
+ * adds nothing more); its bar 1 with a root of its own ends a live one */
+static void key_scene(uint32_t carry)
+{
+    keyr.pos = carry;
+    keyr.step = 0;
+    keyr.started = 0;
+    key_bar = 0;
+    if (keyt.on && keyt.root[0] < 12u)
+        key_live = KEY_NONE;
 }
 
 /* each block, before the tracks' steps (seq.c events_block): n samples further on the 1/16 grid */

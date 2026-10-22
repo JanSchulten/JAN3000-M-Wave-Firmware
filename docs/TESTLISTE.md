@@ -94,6 +94,11 @@ kann nur das echte Gerät zeigen.
 - [ ] KNOB 4 auf ON, PLAY: Ein Pattern in C folgt den Akkorden.
 - [ ] Während es läuft: Eine Taste wechselt die Tonart sofort (LIVE).
 - [ ] REC auf der KEY-Seite: Die Tasten werden in die Takte geschrieben (REC in Rot).
+- [ ] **KEY pro Szene:** Der Titel zeigt die Szene (KEY S1). In Szene 1 Am F C G setzen, mit SEQ + weiße Taste auf
+      Szene 2: Dort steht zuerst dieselbe KEY (KEY S2). Szene 2 eine andere Folge geben (z. B. D G). Zwischen
+      Szene 1 und 2 wechseln: Jede hat ihre eigene KEY. Beim Wechsel im Spielen startet die KEY der neuen Szene bei
+      Takt 1.
+- [ ] Projekt mit mehreren Szenen speichern und neu laden: Jede Szene hat wieder ihre KEY.
 
 ## I. SONG und SCENES
 

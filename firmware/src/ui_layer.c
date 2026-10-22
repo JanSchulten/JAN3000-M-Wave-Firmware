@@ -478,6 +478,8 @@ static void scene_switched_ui(void)
 {
     scn.moved = 0;
     undo.trk = 0;
+    if (key_cur >= keyt.len)                            /* (M-Vave-OP1: GLO > KEY's cursor in the new scene's run) */
+        key_cur = 0;
     if (ui.layer == LAYER_SEQ || ui.layer == LAYER_REC || lys.l == LAYER_SEQ || lys.l == LAYER_REC)
         layer_snap();
     ui.force = 1;

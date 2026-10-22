@@ -40,6 +40,12 @@ scale's own chords. The keys you play live stay as they are, so you can play alo
   scale. A note between the scale's degrees keeps its distance above its degree.
 - The bars count from PLAY on the sequencer's grid. While a track records, its arp plays as played (the steps it
   writes move when they play). KEY is kept with the project.
+- **Each scene has its own KEY.** The page edits the KEY of the scene playing; its title says whose (**KEY S3**). A
+  new, empty scene starts with the KEY of the scene it is reached from; set it there and it is that scene's (even
+  before it holds notes). A scene switch starts the new scene's run at bar 1, as its tracks start at step 1. Scenes
+  saved before (or a project of before) take the KEY playing, so they sound as they did, and keep it from then on.
+  Firmware before this one cannot read a scene bank that holds a scene's KEY (it loads the project without its
+  other scenes).
 ## FX TRACKS
 
 Two lanes of effects next to the four instrument tracks, after the OP-Z's FX tracks. Two more synth tracks do not
@@ -115,8 +121,8 @@ current sounds), as the OP-Z chains its patterns.
 ## SCENES
 
 16 scenes in a project, as the OP-Z's 16 patterns. A scene is the four tracks' sequences: their steps, LEN DIV SWING
-GATE and QUANTIZE, the automation and the locks, and the two FX TRACKS. The sounds, the mixer, ARP, SCL, FX1 and the
-song stay the project's.
+GATE and QUANTIZE, the automation and the locks, the two FX TRACKS, and its **KEY** (GLO > KEY, above). The sounds,
+the mixer, ARP, SCL, FX1 and the song stay the project's.
 
 - Hold **SEQ**: the layer says **[SEQ] SCENES**. The **white keys F3 .. G5 are scenes 1 .. 16**; **OCT+ / OCT-** pick the
   next / the one before (from the scene waiting, else the one playing).

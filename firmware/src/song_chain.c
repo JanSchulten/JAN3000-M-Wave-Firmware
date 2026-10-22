@@ -29,6 +29,8 @@ typedef struct {
     uint8_t qnt[NTRK];                       /* each track's QUANTIZE (P_SQNT) as saved */
     motion_store_t motion;
     fxt_lane_t fx[FXT_N];                    /* M-Vave-OP1: its FX TRACKS as saved (opstore.c; none: empty) */
+    uint8_t key[18];                         /* M-Vave-OP1, a scene's: its KEY (key.c keyt: ON, LEN, 16 roots) */
+    uint8_t key_own;                         /* .. 1: it has one (0: it takes the KEY playing; scene.c) */
 } chain_pattern_t;
 static chain_config_t chain_config;
 static chain_config_t chain_next;            /* main (M-Vave-OP1): the chain the playing song takes next (chain_live) */

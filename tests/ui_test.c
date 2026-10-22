@@ -204,6 +204,9 @@ static void ui_power_on(void)
     chos.type = CHO_CHORUS;                       /* (M-Vave-OP1: the chorus bus's TYPE and FDBK, as at power-on) */
     chos.fdbk = 0;
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
+    key_defaults();                               /* (.. GLO > KEY: none, the scene's own neither) */
+    key_own = 0;
+    key_cur = 0;
     memset(&chain.source, 0, sizeof chain.source);
     for (i = 0; i < G_COUNT; i++)
         song.g[i] = GP[i].def;

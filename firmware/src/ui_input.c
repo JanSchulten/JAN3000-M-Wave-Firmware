@@ -357,10 +357,13 @@ static uint32_t orc_leds(void)
 }
 /* .. ORCHID's KNOB 1 ON / OFF (the selected track's), KNOB 2 its VOICE (-12..+12), KNOB 3 LOCK (the ISR takes it:
  * orc_lock_req) */
-/* .. GLO > KEY's knobs (key.c): KNOB 1 the bar (the cursor), 2 its ROOT (- before C .. B: - none), 3 LEN 1..16, 4 ON */
+/* .. GLO > KEY's knobs (key.c): KNOB 1 the bar (the cursor), 2 its ROOT (- before C .. B: - none), 3 LEN 1..16, 4 ON.
+ * M-Vave-OP1: an edit makes the KEY the scene playing's own (key_own: scene.c keeps it with the scene) */
 static void key_knob(uint32_t slot, int32_t steps)
 {
     uint32_t len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u;
+    if (slot)
+        key_own = 1;
     if (slot == 0u) {
         key_cur = (uint8_t)clamp((int32_t)key_cur + steps, 0, (int32_t)len - 1);
     } else if (slot == 1u) {
@@ -427,12 +430,14 @@ static void key_keys(uint32_t notes)
         return;
     pc = (5u + k) % 12u;                              /* (key 0: F3) */
     if (!song.playing) {
+        key_own = 1;                                  /* (M-Vave-OP1: the scene's own, key_knob) */
         keyt.root[key_cur % KEY_BARS] = (uint8_t)pc;
         key_cur = (uint8_t)((key_cur + 1u) % len);
         return;
     }
     if (key_arm) {
         uint32_t step = keyr.step, bar = step / 16u;
+        key_own = 1;
         if (step % 16u >= 12u)
             bar = (bar + 1u) % len;
         keyt.root[bar % KEY_BARS] = (uint8_t)pc;
