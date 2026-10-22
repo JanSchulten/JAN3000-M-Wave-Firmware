@@ -69,8 +69,12 @@ static __attribute__((noinline)) void click_render(int32_t *out, uint32_t n)
  * alone and the PO (SY2 / SY4, a stereo cable) still did not follow, so a pulse is now both halves of the scale:
  * PO_HALF at +full scale, then PO_HALF at -full scale (15 ms in all: longer than the ~8 ms a PO is reported to need,
  * far shorter than an eighth at 300 BPM). Its swing is twice the voltage again, and whichever way round the output
- * stage puts it, one half rises (the edge a PO takes; TE: "use the right sync polarity", not saying which) */
+ * stage puts it, one half rises (the edge a PO takes; TE: "use the right sync polarity", not saying which). It goes
+ * back to 0 on a 5 ms ramp (PO_RAMP), so the end of the low half is no second step up */
 #define PO_HALF 331u                                   /* samples: 7.5 ms up, then 7.5 ms down */
+#define PO_RAMP 221u                                   /* .. then 5 ms of a ramp back to 0 (no second rising edge: an
+                                                        * AC-coupled input sees no step up at the pulse's end) */
+#define PO_STEP 296                                    /* (PO_HIGH / PO_RAMP, the ramp's step a sample) */
 #define PO_HIGH 65535                                  /* the left channel during a pulse: 0 dBFS after OUT_SHIFT */
 static volatile uint8_t po_sync;                       /* SYNC OUT PO (ui.c rp_apply) */
 static volatile uint8_t po_req;                        /* seq.c: an eighth started; the next block starts its pulse */
@@ -80,11 +84,12 @@ static __attribute__((noinline)) void po_render(int32_t *out, uint32_t n)
     uint32_t i;
     if (po_req) {
         po_req = 0;
-        po_left = 2u * PO_HALF;
+        po_left = 2u * PO_HALF + PO_RAMP;
     }
     for (i = 0; i < n; i++) {
         int32_t m = (out[2u * i] + out[2u * i + 1u]) >> 1;   /* (a shift: no divide in the ISR) */
-        out[2u * i] = !po_left ? 0 : po_left > PO_HALF ? PO_HIGH : -PO_HIGH;
+        out[2u * i] = !po_left ? 0 : po_left > PO_HALF + PO_RAMP ? PO_HIGH : po_left > PO_RAMP ? -PO_HIGH
+                                                                                     : -(int32_t)po_left * PO_STEP;
         out[2u * i + 1u] = m;
         if (po_left)
             po_left--;

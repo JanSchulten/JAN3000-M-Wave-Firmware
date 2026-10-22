@@ -30,7 +30,7 @@ scale's own chords. The keys you play live stay as they are, so you can play alo
     A F C G for Am F C G;
   - **running:** a key moves the tracks **at once, live**. It holds until a bar of the run with a root of its own
     starts (KEY ON), or STOP;
-  - **REC** on this page records it too (the REC LED shows it; stopped, REC starts PLAY): into the bar playing, or
+  - **REC** on this page records it too (the REC LED shows it; stopped, PLAY starts it, the count-in first): into the bar playing, or
     the next one when played in a bar's last quarter (a little early for the coming bar), and KEY goes ON. REC
     again stops recording. The page shows LIVE or REC and the chord played.
 - **KNOB 1 BAR** moves the cursor, **KNOB 2 ROOT** changes its root (- C .. B; - plays as written), **KNOB 3 LEN**
@@ -45,7 +45,7 @@ scale's own chords. The keys you play live stay as they are, so you can play alo
   before it holds notes). A scene switch starts the new scene's run at bar 1, as its tracks start at step 1. Scenes
   saved before (or a project of before) take the KEY playing, so they sound as they did, and keep it from then on.
   Firmware before this one cannot read a scene bank that holds a scene's KEY (it loads the project without its
-  other scenes).
+  other scenes); a project that never used KEY writes none and stays readable there.
 ## FX TRACKS
 
 Two lanes of effects next to the four instrument tracks, after the OP-Z's FX tracks. Two more synth tracks do not
@@ -257,6 +257,9 @@ the BEAT pattern plays on them.
   rest; a fast turn stops at the end first, a chord keeps its shape); from OFF a turn brings in the note played last.
   SAVE held undoes it. EDIT no longer clears the step on STEP (nor on the drum grid): a tap opens EDIT as on every
   page, with a step held it still clears that step's locks.
+- **REC arms, PLAY starts.** A REC tap only arms the recording (the pattern's, GLO > KEY's, an FX TRACK's): REC ARMED:
+  PRESS PLAY. PLAY then starts it, with the count-in first when MENU / REC layer COUNT-IN is set (Felucca's REC
+  started the transport at once).
 - **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
   change in the same hold is put back by OCT- as before.
 - **REC held + F#5 (the highest black key): BACK**, one step back from the last change, whatever it was (a recording,
@@ -299,9 +302,10 @@ the BEAT pattern plays on them.
 - **DRUM starts with the 808 kit** (KIT 808, the 808 model kit Felucca calls 80): power-on, a track switched to DRUM,
   its preset. Projects and sounds saved before keep their kit.
 - **SYNC OUT PO** (MENU > AUDIO > SYNC OUT: OFF, PO): Pocket Operator sync on the headphone jack while playing. The
-  left channel carries a 15 ms pulse each eighth note (2 a quarter, as the POs' SY modes and the Volcas expect): 7.5 ms
+  left channel carries a pulse each eighth note (2 a quarter, as the POs' SY modes and the Volcas expect): 7.5 ms
   at the DAC's +full scale, then 7.5 ms at its -full scale (the widest swing the jack gives, and one half rises
-  whichever way the output stage puts it), whatever MASTER; the right one the mono mix. A stereo cable into the PO's
+  whichever way the output stage puts it), then a 5 ms ramp back to 0 (no second step up), whatever MASTER; the
+  right one the mono mix. A stereo cable into the PO's
   line in, or a stereo to two mono cable: left into the PO's or Volca's sync input, right as audio. On the PO a sync-in
   mode: SY2 (sync only) or SY4 (left sync, right audio through); **press PLAY on the PO first** (it waits for the
   clock), then PLAY on the FM-1. USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is the way

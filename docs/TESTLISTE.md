@@ -47,6 +47,8 @@ kann nur das echte Gerät zeigen.
       Note ist wieder da. SAVE halten macht das OFF rückgängig.
 - [ ] STEP: **EDIT löscht keinen Step mehr**, ein Tipp öffnet die EDIT-Seite (auch im Drum-Raster).
 - [ ] PLAY und STOP. Tempo im CLOCK-Bereich ändern.
+- [ ] **REC drücken startet nichts**, es macht nur scharf (Meldung REC ARMED: PRESS PLAY). Erst PLAY startet, mit
+      Count-in, wenn COUNT-IN an ist (REC halten: COUNT-IN auf 1 BAR / 2 BARS).
 - [ ] REC und live einspielen: Die Noten landen im Pattern.
 - [ ] REC halten + OCT−: Die Aufnahme wird rückgängig gemacht. REC halten + OCT+: Sie ist wieder da.
 - [ ] **REC halten + F#5 (oberste schwarze Taste) = ZURÜCK:** macht die letzte Änderung rückgängig (eine Aufnahme,

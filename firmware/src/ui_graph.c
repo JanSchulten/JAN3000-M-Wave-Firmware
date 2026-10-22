@@ -267,6 +267,11 @@ static void graph_grid(const track_t *t, uint16_t c)
 {
     uint32_t l, i, len = (uint32_t)t->p[P_SLEN], base = ui.bank * 16u, mute = drum_mute[trk_index(t) % NPART];
     uint32_t lanes = kit_track(t), e = t->eng_req;
+    uint8_t sl[16], sa[16];                          /* each step's lanes and accents, once (kitlane.c) */
+    for (i = 0; i < 16u && base + i < len; i++) {
+        sl[i] = (uint8_t)step_lanes(e, &seq_steps(t)[base + i]);
+        sa[i] = (uint8_t)step_accents(e, &seq_steps(t)[base + i]);
+    }
     uint64_t locks = motion_lock_steps(trk_index(t));
     int32_t y0 = 6;
     for (i = 0; i < 16u && base + i < len; i++) {   /* a parameter lock: a mark over the step; CHANCE / RATCH / */
@@ -293,10 +298,10 @@ static void graph_grid(const track_t *t, uint16_t c)
             const step_t *st = &seq_steps(t)[base + i];
             uint32_t b = 1u << l;
             int32_t x = 40 + (int32_t)i * 12;
-            if ((step_lanes(e, st) & b) && step_ratchet(st) > 1u)
-                pr_split(x, y + 2, 10, 10, (step_accents(e, st) & b) ? ac : hc, step_ratchet(st));
-            else if (step_lanes(e, st) & b)
-                cv_rrect(x, y + 2, 10, 10, 2, (step_accents(e, st) & b) ? ac : hc, row);
+            if ((sl[i] & b) && step_ratchet(st) > 1u)
+                pr_split(x, y + 2, 10, 10, (sa[i] & b) ? ac : hc, step_ratchet(st));
+            else if (sl[i] & b)
+                cv_rrect(x, y + 2, 10, 10, 2, (sa[i] & b) ? ac : hc, row);
             else
                 cv_rect(x + 4, y + 6, 2, 2, i % 4u == 0u || sel ? T_MID : T_DIM);
             if (sel && base + i == ui.cursor)          /* the cursor: a 1 px frame */

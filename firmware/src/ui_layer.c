@@ -1276,35 +1276,25 @@ static void layer_rec(void)
     char b[20];
     for (r = 0; r < 7u; r++) {
         int32_t y = 2 + (LR_H + 3) * (int32_t)r, x = 6, vx = 6 + LR_KW + 4, w = 234 - vx;
-        if (r == 6u) {                                   /* M-Vave-OP1: F#5 BACK, one step (rec_undo, as OCT-) */
-            uint32_t can = rec_back_can();
-            uint16_t ink, fill = lc_box(x, y, LR_KW, LR_H, lc_fill(can ? LS_OFF : LS_DIM, &ink));
-            GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");
-            cv_text_on(x + 5, y + CAP_IN(S, LR_H), &AF_S, KN[r], fill == T_RAISE || fill == T_SURF ? T_MID : ink, fill);
-            GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");
-            cv_text_r(x + LR_KW - 5, y + CAP_IN(S, LR_H), &AF_S, "BACK", ink, fill);
-            fill = lc_box(vx, y, w, LR_H, lc_fill(can ? LS_OFF : LS_DIM, &ink));
-            GFX_HOOK_ALIGN(vx, y, vx + w, y + LR_H, AL_HV, "rec layer clear cell centred");
-            cv_text_in(vx, y + CAP_IN(S, LR_H), w, &AF_S, chain_busy() ? "STOP TO EDIT" : !undo.trk ? "NOTHING TO UNDO" :
-                       undo.undone ? "ALREADY BACK" : "ONE STEP BACK", ink, fill);
-            continue;
-        }
         uint32_t clr = r == 0u || r >= 4u, any = r == 0u ? rec_clearable() : r == 4u ? rec_fxt_any() :
-                                               r == 5u ? motion_count(TSEL) != 0u : 1u;
+                                               r == 5u ? motion_count(TSEL) != 0u : r == 6u ? undo.trk && !undo.undone : 1u;
         uint32_t dim = clr && (chain_busy() || !any);
         uint16_t ink, fill = lc_box(x, y, LR_KW, LR_H, lc_fill(dim ? LS_DIM : LS_OFF, &ink));
         GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");
         cv_text_on(x + 5, y + CAP_IN(S, LR_H), &AF_S, KN[r], fill == T_RAISE || fill == T_SURF ? T_MID : ink, fill);
         GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");
-        cv_text_r(x + LR_KW - 5, y + CAP_IN(S, LR_H), &AF_S, r >= 1u && r <= 3u ? RL_LABEL[r - 1u] : "CLEAR", ink, fill);
-        if (clr) {                                       /* "T2 SEQUENCE" / "FX TRACKS" / "T2 AUTOMATION" (or EMPTY) */
-            b[0] = 'T';
+        cv_text_r(x + LR_KW - 5, y + CAP_IN(S, LR_H), &AF_S, r >= 1u && r <= 3u ? RL_LABEL[r - 1u] : r == 6u ? "BACK" : "CLEAR",
+                  ink, fill);
+        if (clr) {                                       /* "T2 SEQUENCE" / "FX TRACKS" / "T2 AUTOMATION" (or EMPTY); */
+            b[0] = 'T';                                  /* M-Vave-OP1: F#5 BACK, one step (rec_undo, as OCT-) */
             b[1] = (char)('1' + song.sel);
             b[2] = ' ';
             str_cpy(b + 3, r == 0u ? "SEQUENCE" : "AUTOMATION", sizeof b - 3);
             if (r == 4u)
                 str_cpy(b, "FX TRACKS", sizeof b);
-            if (!any)
+            if (r == 6u)
+                str_cpy(b, !undo.trk ? "NOTHING TO UNDO" : undo.undone ? "ALREADY BACK" : "ONE STEP BACK", sizeof b);
+            else if (!any)
                 str_cpy(r == 0u ? b + 3 : b, r == 0u ? "EMPTY" : r == 4u ? "NO FX TRACKS" : "NO AUTOMATION", sizeof b - 3);
             if (chain_busy())
                 str_cpy(b, "STOP TO EDIT", sizeof b);

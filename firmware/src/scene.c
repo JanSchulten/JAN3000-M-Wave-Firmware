@@ -59,7 +59,8 @@ typedef struct {                                 /* a scene where it is: the tra
 #define SCN_F_MO 0x10u                           /* the scene's packed flags: bit k track k has steps; its automation; */
 #define SCN_F_FX 0x20u                           /* .. its FX TRACKS */
 #define SCN_F_KEY 0x40u                          /* .. its KEY (18 bytes, key.c keyt; firmware before refuses a bank
-                                                  * holding one, as any other bank it cannot read) */
+                                                  * holding one, as any other bank it cannot read: one is written only
+                                                  * for a KEY of its own or one in use, scn_encode) */
 
 static uint8_t scn_u8(int32_t v) { return (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v); }
 /* the main loop's guard against the audio ISR (as motion.c's: the target's interrupts; the host builds run one thread) */
@@ -104,8 +105,19 @@ static void scn_view_pat(scn_view_t *v, const chain_pattern_t *b)
     v->key_own = b->key_own;
 }
 
+/* KEY bytes k as key_defaults leaves them: OFF, 4 bars, no root (none in use) */
+static int scn_key_none(const uint8_t *k)
+{
+    uint32_t i;
+    for (i = 0; i < KEY_BARS; i++)
+        if (k[2u + i] != KEY_NONE)
+            return 0;
+    return !k[0] && k[1] == 4u;
+}
+_Static_assert(sizeof(((chain_pattern_t *)0)->key) == sizeof keyt, "a scene's KEY bytes are key.c keyt's");
 /* scene v packed into out (cap bytes; out 0: only measured): its bytes, 0 for an empty scene (no step that differs from
- * SCN_REST, no automation, empty lanes, no KEY of its own). A scene that holds something keeps the KEY it plays with.
+ * SCN_REST, no automation, empty lanes, no KEY of its own). A scene that holds something keeps the KEY it plays with
+ * (none written when no KEY is in use: it takes the KEY playing, which is none then too).
  * noinline: the ISR measures with it once a switch (scene_due) */
 static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_t *out, uint32_t cap)
 {
@@ -123,7 +135,7 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
         for (i = 0; i < NSTEP + 1u; i++)
             if (i < NSTEP ? v->fx[l].step[i] != 0u : v->fx[l].len != 0u)
                 fl |= SCN_F_FX;
-    if (fl || v->key_own)
+    if (v->key_own || (fl && !scn_key_none(v->key)))   /* (no KEY in use: no bytes, a bank firmware before reads) */
         fl |= SCN_F_KEY;
     if (!fl)
         return 0;

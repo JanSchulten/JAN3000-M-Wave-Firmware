@@ -270,8 +270,8 @@ static void test_undo(void)
         btn_down(B_REC); frames(500);
         key_down(f5); frame(); key_up(f5); frame();
         btn_up(B_REC); frames(400);
-        ok &= t->step[4].time == ST_NOTE && t->step[4].n == 1u && t->step[4].note[0] == 1u;
-        ck("  BACK takes back the last change, whatever it was (a step turned OFF here, as SAVE held)", ok);
+        ok &= t->step[4].time == ST_NOTE && t->step[4].n == 1u && t->step[4].note[0] == 67u;
+        ck("  BACK takes back the last change, whatever it was (a step turned down and OFF in one turn: the note before)", ok);
     }
 }
 

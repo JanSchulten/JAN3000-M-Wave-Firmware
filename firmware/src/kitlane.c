@@ -14,9 +14,10 @@
  * A hit in lane l stays lane l on another engine, so a beat moves between DRUM, VDRUM and DBOX (a synth plays the lanes'
  * notes as pitches). A step's notes show on the lane of the drum they strike (lane_of: DRUM's GM map, a low tom 41 on
  * TOM; VDRUM's part, a crash 49 on HATOP; DBOX's key, E on SNARE, F and G on TOM, G# on HATCL). A note that is its lane's
- * own note becomes that lane's hit (step_to_grid: the same note at the same velocity, nothing sounds different): a
- * pattern loaded into the track (ui.c load_pat16), the grid's edits (grid_own), and on VDRUM and DBOX every load of
- * their steps (project.c project_restore_runtime, scene.c scene_queue: steps written as notes before this grid) */
+ * own note becomes that lane's hit (step_to_grid: the same note at the same velocity): a pattern loaded into the
+ * track (ui.c load_pat16), the grid's edits (grid_own), and on VDRUM and DBOX every load of their steps (project.c
+ * project_restore_runtime, scene.c scene_queue: steps written as notes before this grid), there only where the step
+ * plays exactly as it did (step_to_grid_kept: the order of its strikes kept) */
 static const uint8_t DBX_LANE_NOTE[NLANE] = {36, 38, 39, 42, 46, 45, 37, 47};
 static const uint8_t DBX_KEY_LANE[12] = {DV_KICK, DV_RIM, DV_SNARE, DV_CLAP, DV_SNARE, DV_TOM, DV_HATC, DV_TOM, DV_HATC,
                                          DV_TOM, DV_HATO, DV_BELL};   /* C .. B */
@@ -93,13 +94,39 @@ static void step_to_grid(uint32_t e, step_t *s)
     }
 }
 
-/* a VDRUM or DBOX track's steps loaded (a project, a scene): their lane notes as hits (DRUM converts only the
- * projects of before its grid: project.c proj_grid) */
+/* step s's lane notes as hits only where they play as they did: seq.c seq_step plays a step's notes, then its hits in
+ * lane order, so a step whose notes were in another order ([46 42]: the open hat, then the closed one that chokes it;
+ * [45 41]: a part's last pitch) keeps them as notes, shown on their lanes all the same */
+static void step_to_grid_kept(uint32_t e, step_t *s)
+{
+    const uint8_t *ln = kit_notes(e);
+    uint8_t a[4 + NLANE], b[4 + NLANE];
+    uint32_t na = 0, nb = 0, i;
+    step_t c = *s;
+    if (s->time != ST_NOTE || !s->n)
+        return;
+    step_to_grid(e, &c);
+    for (i = 0; i < s->n && i < 4u; i++)
+        a[na++] = s->note[i];
+    for (i = 0; i < NLANE; i++)
+        if ((s->hit >> i) & 1u)
+            a[na++] = ln[i];
+    for (i = 0; i < c.n && i < 4u; i++)
+        b[nb++] = c.note[i];
+    for (i = 0; i < NLANE; i++)
+        if ((c.hit >> i) & 1u)
+            b[nb++] = ln[i];
+    if (na == nb && !memcmp(a, b, na))
+        *s = c;
+}
+
+/* a VDRUM or DBOX track's steps loaded (a project, a scene): their lane notes as hits where they play the same
+ * (step_to_grid_kept; DRUM converts only the projects of before its grid: project.c proj_grid) */
 static void kit_steps_load(uint32_t e, step_t *s)
 {
     uint32_t i;
     if (e != ENGI_VDRUM && e != ENGI_DBOX)
         return;
     for (i = 0; i < NSTEP; i++)
-        step_to_grid(e, &s[i]);
+        step_to_grid_kept(e, &s[i]);
 }

@@ -74,7 +74,9 @@ static void pat_vdrum(step_t *s)
         step_clear(&s[i]);
     step_notes(&s[0], 36, 0);
     step_notes(&s[2], 42, 0);
-    step_notes(&s[4], 38, 42);
+    step_notes(&s[3], 46, 42);                           /* (out of lane order: the open hat, then the closed one */
+    step_notes(&s[4], 38, 42);                           /* choking it: kept as notes, it plays as it did) */
+    step_notes(&s[5], 45, 41);                           /* (two pitches of the TOM part: the last one sounds) */
     step_notes(&s[6], 42, 0);
     step_notes(&s[8], 36, 46);
     s[8].flags = SF_ACCENT;
@@ -443,9 +445,12 @@ static void kg_load(void)
                       conv[15].hit == 1u << DV_TOM
                 : conv[14].n == 1u && !conv[14].hit && step_lanes(eng, &conv[14]) == 1u << DV_HATO &&
                       conv[15].note[0] == 37u && step_lanes(eng, &conv[15]) == 1u << DV_CLAP &&
-                      step_lanes(eng, &conv[13]) == 1u << DV_TOM;
+                      step_lanes(eng, &conv[13]) == 1u << DV_TOM && !memcmp(&conv[3], &raw[3], sizeof conv[3]) &&
+                      !memcmp(&conv[5], &raw[5], sizeof conv[5]) &&
+                      step_lanes(eng, &conv[3]) == (1u << DV_HATC | 1u << DV_HATO);
         ck(e ? "DBOX: its lane notes (36 38 39 42 46 45 37 47) hits, G# E stay notes on their lanes"
-             : "VDRUM: its lane notes (36 38 39 42 46 45) hits, the accent the hits'; 41 49 37 stay notes on their lanes", ok);
+             : "VDRUM: its lane notes (36 38 39 42 46 45) hits, the accent the hits'; 41 49 37 stay notes on their lanes; "
+               "a step out of lane order ([46 42], [45 41]) stays as it was", ok);
         h0 = play_hash_fork(eng, raw);
         h1 = play_hash_fork(eng, conv);
         conv[2].hit = 0;                                 /* (a hat less: another sound) */

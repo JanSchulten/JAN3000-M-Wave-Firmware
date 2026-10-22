@@ -343,7 +343,7 @@ static const char *tl_do(track_t *t, uint32_t p, uint32_t l)
     uint64_t was = tl_used(t, len);
     uint32_t drum = kit_track(t);                       /* (a kit's lanes, 0: notes) */
     const char *msg = 0;
-    l %= drum ? drum : NLANE;
+    l = drum ? (l < drum ? l : drum - 1u) : l % NLANE;   /* (a lane past the kit's: its last, as ui_input.c's clamp) */
     if (p == TL_COOK) {                                 /* (nothing there: nothing to cook, no undo copy) */
         for (i = 0; i < len; i++)
             n += drum ? (uint32_t)__builtin_popcount(step_lanes(t->eng_req, &t->step[i]))

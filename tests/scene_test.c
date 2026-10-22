@@ -838,8 +838,13 @@ static int key_is(const uint8_t *r, uint32_t len, uint32_t on)
 }
 static void test_key(void)
 {
-    uint32_t ok, b, off, n, cp;
+    uint32_t ok, b, off, n, cp, i;
     char ti[20];
+    scene_setup();                                   /* no KEY in use: no KEY bytes (a bank firmware before reads) */
+    seq_pick(1);
+    seq_pick(2);
+    ok = scb.len[0] > 0u && scb.len[1] == 0u && !(scb.data[scb_off(0)] & SCN_F_KEY);
+    ck("KEY: none in use: the scenes packed without KEY bytes (a bank the firmware before reads)", ok);
     scene_setup();
     key_set(AM_F_C_G, 4);
     page_title(ti);
@@ -862,6 +867,23 @@ static void test_key(void)
     seq_pick(0);
     ok &= !scb.len[2] && !scene_used(2) && key_is(AM_F_C_G, 4, 1);
     ck("  an empty scene visited without an edit: the KEY it is reached from, and it stays empty", ok);
+    seq_pick(5);
+    go_page(GR_KEY);
+    frames(400);
+    turn(EN_K4, 1);                                  /* (KEY ON already: nothing changes) */
+    turn(EN_K3, -16);                                /* (LEN 4 down to 1 and back up to 4: a change each, but */
+    ok = key_own;                                    /* the scene's own then) */
+    seq_pick(0);
+    ok &= scene_used(5);
+    seq_pick(5);                                     /* (now its own: a no-op elsewhere checked below) */
+    seq_pick(7);
+    go_page(GR_KEY);
+    frames(400);
+    turn(EN_K4, 1);
+    ok &= !key_own;
+    seq_pick(0);
+    ok &= !scene_used(7) && !scb.len[7];
+    ck("  a knob turn that changes nothing (KEY ON again): not the scene's own, it stays empty; a change: its own", ok);
     seq_pick(3);
     melody(&trk[0], 64, 8);
     go_page(GR_KEY);
@@ -939,6 +961,27 @@ static void test_key(void)
         seq_pick(2);
         ok &= keyt.root[0] == 4u;
         ck("KEY KEPT: a project saved and loaded, every scene's KEY as it was (the one playing in the project's extras)", ok);
+        seq_pick(6);                                 /* an empty scene, its KEY set to none on purpose: its own */
+        go_page(GR_KEY);
+        frames(400);
+        turn(EN_K4, -1);
+        turn(EN_K1, -16);
+        for (i = 0; i < 4u; i++) {
+            turn(EN_K2, -12);
+            turn(EN_K1, 1);
+        }
+        ok = key_own && key_is_default() && scn.cur == 6u;
+        ok &= project_save_as(2, "KEYS") == 0;
+        slot = proj_slot[2];
+        scene_setup();
+        proj_slot[2] = slot;
+        project_load(2);
+        ok &= scn.cur == 6u && key_own && key_is_default();
+        seq_pick(0);
+        ok &= key_is(AM_F_C_G, 4, 1);
+        seq_pick(6);
+        ok &= key_is_default() && key_own;
+        ck("  an empty scene's KEY set to none on purpose: its own after a save and a load (not scene 1's)", ok);
     }
 }
 
