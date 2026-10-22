@@ -85,10 +85,10 @@ preset/VDRUM/04_METAL 8dacf3d6b153f8d8
 preset/VDRUM/05_DUB 50582af49eb416d4
 preset/VDRUM/06_CRUSH 583ef3445189d874
 preset/VDRUM/07_WOOD 4cb9806d528e60ec
-preset/DBOX/00_INIT 248a24ae515c5b5c
-preset/DBOX/01_808-ISH d16e1163b8c33970
-preset/DBOX/02_CHIP 2a6dad8aea35dda4
-preset/DBOX/03_METAL 09167ccd7fdf53e8
+preset/DBOX/00_INIT af32dbe455101840
+preset/DBOX/01_808-ISH 8b3c38b2a1b1c124
+preset/DBOX/02_CHIP 273e08807548afe0
+preset/DBOX/03_METAL e2c257e5d62f9654
 drums/drum_gm_kit d4e6f90ae4c094cc
 drums/kit_808 6b870bcf21fbdde8
 drums/kit_10 8afa3147da87a454
