@@ -61,10 +61,12 @@ perf_phaser 448
 perf_throw 52
 perf_duck 32
 perf_stereo 65
-rev_room 218
+rev_room 245
 rev_spring 126
 rev_hall 1995
 rev_side_mix 9
+dly_glide 106
+aud_fade_half 17
 hall_shimmer 45
 track_insert 3
 ins_drive 277

@@ -543,6 +543,34 @@ int main(void)
     bad += check("settings retry succeeds after 1000 ms", !persist_pending && erases == before + 1u &&
                   st_load(OBJ_SETTINGS, &p, sizeof p) == (int)sizeof p && p.palette == palette_to_stored(1));
 
+    /* M-Vave-OP1: a settings save waits for quiet as for STOP (an erase's ~45 ms gap is not heard): a voice
+     * sounding, then an effect's tail in the output (the scope's buffer above -54 dBFS), then nothing; and with
+     * something sounding for ever, SET_WAIT_MS at most */
+    settings.palette = 2;
+    before = erases;
+    trk[1].v[3].active = 1;
+    settings_save();
+    bad += check("a voice sounding: settings queued, no erase", persist_pending && erases == before);
+    trk[1].v[3].active = 0;
+    scope_buf[200] = -900;
+    fm1_ms += 2000u;
+    settings_poll();
+    bad += check("  its tail still in the output: still queued", persist_pending && erases == before);
+    scope_buf[200] = 40;                          /* (below SND_QUIET: quiet) */
+    settings_poll();
+    bad += check("  quiet: saved", !persist_pending && erases == before + 1u &&
+                  st_load(OBJ_SETTINGS, &p, sizeof p) == (int)sizeof p && p.palette == palette_to_stored(2));
+    settings.palette = 1;
+    scope_buf[200] = 5000;                        /* (a drone that never ends) */
+    settings_save();
+    fm1_ms += SET_WAIT_MS - 1u;
+    settings_poll();
+    bad += check("  something sounding for ever: queued until SET_WAIT_MS ..", persist_pending && erases == before + 1u);
+    fm1_ms += 1u;
+    settings_poll();
+    bad += check("  .. then saved all the same", !persist_pending && erases == before + 2u);
+    scope_buf[200] = 0;
+
     reset();
     trk[0].step[0] = (step_t){{60}, 1, ST_NOTE, 0, 96, 0, 0};
     project_save(0);

@@ -272,9 +272,11 @@ the BEAT pattern plays on them.
 - **DRUM starts with the 808 kit** (KIT 808, the 808 model kit Felucca calls 80): power-on, a track switched to DRUM,
   its preset. Projects and sounds saved before keep their kit.
 - **SYNC OUT PO** (MENU > AUDIO > SYNC OUT: OFF, PO): Pocket Operator sync on the headphone jack while playing. The
-  left channel carries a 5 ms pulse each eighth note (2 a quarter, as the POs' SY modes and the Volcas expect), the
-  right one the mono mix. A stereo to two mono cable: left into the PO's or Volca's sync input, right as audio.
-  USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is the way out for a clock.
+  left channel carries a 5 ms pulse each eighth note (2 a quarter, as the POs' SY modes and the Volcas expect) at
+  the DAC's full scale, twice the music's ceiling, whatever MASTER; the right one the mono mix. A stereo to two mono
+  cable: left into the PO's or Volca's sync input, right as audio. On the PO a sync-in mode: SY2 (sync only) or SY4
+  (left sync, right audio through). USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is the
+  way out for a clock.
 
 ## Try it in the browser
 

@@ -569,6 +569,70 @@ static void po_sync_out(void)
         check("  stopped: no pulse; OFF: as before", z);
     }
 }
+/* M-Vave-OP1: around a flash erase (storage_hw.c audio_fade_out; main.c gives the sound back) the audio ISR fades the
+ * DAC out over a half buffer and keeps it silent, then fades it in over the next half: no step in either ramp larger
+ * than the music's own plus 1/64 of its peak, the silent halves exactly 0, aud_quiet counting them (at two both halves
+ * of the buffer are silent: the erase may start) */
+static void erase_fade(void)
+{
+    uint32_t k, i;
+    int32_t pk = 0, dn = 0, dout = 0, din = 0, prev, endout, startin;
+    int zero1, zero2, after = 0;
+    fresh(); grid_track();
+    trk[0].p[P_LEVEL] = 100;
+    input_on(&trk[0], 45, 110);
+    for (k = 0; k < 30u; k++)
+        fm1_alnk0_irq();
+    prev = abuf[2u * (HALF_FRAMES - 1u)];
+    for (k = 0; k < 10u; k++) {                         /* the music's own: peak, largest step */
+        fm1_alnk0_irq();
+        for (i = 0; i < HALF_FRAMES; i++) {
+            int32_t x = abuf[2u * i];
+            pk = abs(x) > pk ? abs(x) : pk;
+            dn = abs(x - prev) > dn ? abs(x - prev) : dn;
+            prev = x;
+        }
+    }
+    aud_mute = 1;
+    fm1_alnk0_irq();                                    /* the fade out */
+    for (i = 0; i < HALF_FRAMES; i++) {
+        dout = abs(abuf[2u * i] - prev) > dout ? abs(abuf[2u * i] - prev) : dout;
+        prev = abuf[2u * i];
+    }
+    endout = abs(abuf[2u * (HALF_FRAMES - 1u)]);
+    fm1_alnk0_irq();
+    zero1 = aud_muted && aud_quiet == 1u;
+    for (i = 0; i < HALF_WORDS; i++)
+        zero1 &= abuf[i] == 0;
+    fm1_alnk0_irq();
+    zero2 = aud_quiet == 2u;
+    for (i = 0; i < HALF_WORDS; i++)
+        zero2 &= abuf[i] == 0;
+    aud_mute = 0;
+    prev = 0;
+    fm1_alnk0_irq();                                    /* the fade in */
+    startin = abs(abuf[0]);
+    for (i = 0; i < HALF_FRAMES; i++) {
+        din = abs(abuf[2u * i] - prev) > din ? abs(abuf[2u * i] - prev) : din;
+        prev = abuf[2u * i];
+    }
+    fm1_alnk0_irq();
+    for (i = 0; i < HALF_FRAMES; i++) {
+        din = abs(abuf[2u * i] - prev) > din ? abs(abuf[2u * i] - prev) : din;
+        prev = abuf[2u * i];
+        after = abs(abuf[2u * i]) > after ? abs(abuf[2u * i]) : after;
+    }
+    if (getenv("FADE_DEBUG"))
+        printf("    fade: peak %d, step %d; out: step %d, end %d; in: start %d, step %d; after %d\n", pk, dn, dout, endout,
+               startin, din, after);
+    check("flash erase: the DAC fades out over a half (steps as the music's), its end near 0",
+          pk > 100000 && dout <= dn + pk / 64 && endout <= pk / 64);
+    check("  then silent halves, exactly 0, counted (two: the erase may start)", zero1 && zero2);
+    check("  and back: a fade in over the next half from 0, then the music as before",
+          startin == 0 && din <= dn + pk / 64 && !aud_muted && after > pk / 2);
+    aud_mute = aud_muted = aud_quiet = 0;
+}
+
 int main(void)
 {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -581,6 +645,7 @@ int main(void)
     count_in_notes();
     ext_clock();
     po_sync_out();
+    erase_fade();
     printf(bad ? "click: %d FAILED\n" : "click: all passed\n", bad);
     return bad != 0;
 }

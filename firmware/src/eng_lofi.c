@@ -189,7 +189,7 @@ static void lofi_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
             if (q)                                      /* rounded, not floored (floor = DC) */
                 s = ((s + (1 << (15 - bits))) >> (16 - bits)) << (16 - bits);
             if (crush > 64)
-                s = (s >> 12) << 12;
+                s = ((s + 2048) >> 12) << 12;           /* (rounded as q: floored, a DC of half a step) */
             held = s;
         }
         ph0 += inc;

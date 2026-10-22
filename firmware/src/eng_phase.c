@@ -198,4 +198,6 @@ static const engine_t ENG_PHASE = {
     .note_on = phase_note_on,
     .render = phase_render,
     .knob = {P_E2, P_E3, P_E4, P_REL},
+    .keep = 0x03,                /* the WAVE / WAVE2 toggles: with the kept phases, a retrigger mid-cycle stays on
+                                  * the wave it was on (reset, half of them jumped to the other one) */
 };

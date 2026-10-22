@@ -1233,6 +1233,30 @@ static uint32_t chain_prepare(void)
     return 0;
 }
 
+/* M-Vave-OP1: nothing sounding that an erase's ~45 ms gap would be heard in: no voice, and the output's last 23 ms
+ * (the HOME scope's buffer, fx.c: the reverb's and the delay's tails too) below SND_QUIET (-54 dBFS of the mix) */
+#define SND_QUIET 64
+static int sound_quiet(void)
+{
+    uint32_t k, i;
+    for (k = 0; k < NTRK; k++)
+        for (i = 0; i < NVOICE; i++)
+            if (trk[k].v[i].active)
+                return 0;
+    for (i = 0; i < SCOPE_N; i++)
+        if (scope_buf[i] >= SND_QUIET || scope_buf[i] <= -SND_QUIET)
+            return 0;
+    return 1;
+}
+
+#if FELUCCA_FLASH
+/* M-Vave-OP1: a settings save (closing the MENU, a layer's first open, a learn, the editor) waits for sound_quiet as
+ * well as for STOP, SET_WAIT_MS at most from when it could have been made (a drone held for ever still gets its
+ * settings saved; the erase then fades out and in, storage_hw.c) */
+#define SET_WAIT_MS 8000u
+static uint32_t persist_since;
+#endif
+
 static void settings_poll(void)
 {
 #if FELUCCA_FLASH
@@ -1241,7 +1265,11 @@ static void settings_poll(void)
     slc_store_poll();                              /* SLICE's slices edited on the SLICES page */
 #endif
     if (!persist_pending || !flash_ok || transport_busy() ||
-        (persist_pending == 2u && (uint32_t)(fm1_ms - persist_retry_ms) < 1000u))
+        (persist_pending == 2u && (uint32_t)(fm1_ms - persist_retry_ms) < 1000u)) {
+        persist_since = fm1_ms;
+        return;
+    }
+    if (!sound_quiet() && fm1_ms - persist_since < SET_WAIT_MS)
         return;
     p = persist_saved;
     settings_export(&p);
@@ -1262,6 +1290,8 @@ static void settings_poll(void)
 static void settings_save(void)
 {
 #if FELUCCA_FLASH
+    if (!persist_pending)
+        persist_since = fm1_ms;                    /* (M-Vave-OP1: SET_WAIT_MS from here, settings_poll) */
     persist_pending = 1;
 #endif
     settings_poll();
@@ -1348,17 +1378,13 @@ static uint32_t autosave_sig(void)
     return as_mix(h, proj_name, sizeof proj_name);
 }
 
-/* nothing going on that an erase (the audio stopped ~40 ms) would be heard in, or would race */
+/* nothing going on that an erase (the audio stopped ~40 ms) would be heard in, or would race (M-Vave-OP1: the
+ * effects' tails too, sound_quiet) */
 static int autosave_quiet(void)
 {
-    uint32_t k, i;
     if (transport_busy() || fm1_in.notes || fm1_in.buttons)
         return 0;
-    for (k = 0; k < NTRK; k++)
-        for (i = 0; i < NVOICE; i++)
-            if (trk[k].v[i].active)
-                return 0;
-    return 1;
+    return sound_quiet();
 }
 
 static void autosave_hold(void) { as.t = fm1_ms; }   /* the editor's transfers: their staging RAM is proj_wire */

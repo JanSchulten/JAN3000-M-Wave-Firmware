@@ -233,8 +233,9 @@ static void sample_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, cons
             v->s[3] = sample_next(z, v, p[P_E3]);
         }
         s = v->s[2] + (((v->s[3] - v->s[2]) * (int32_t)(frac >> 1)) >> 15);
-        if (sh)                                       /* BITS: 0 = clean, up to 12 bits removed */
-            s = (s >> sh) << sh;
+        if (sh)                                       /* BITS: 0 = clean, up to 12 bits removed; to the nearest */
+            s = ((s + (1 << (sh - 1))) >> sh) << sh;  /* step (floored, the steps' mean was a DC that followed
+                                                       * the envelope: a thump at note on and off) */
         if (drv)
             s = softclip(s + (((s >> 2) * (drv * 150)) >> 11));   /* = s * drv * 600 / 32768, no overflow */
         v->s[7] += mulq15(s - v->s[7], lp);           /* gentle tone control (CUT) */
