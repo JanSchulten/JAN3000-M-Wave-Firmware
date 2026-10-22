@@ -9,7 +9,7 @@
  *            let go: nothing written (overdub); a punch inside an older take gives the rest of it back; FX LATCH; the
  *            lanes' own effects are never recorded; the black keys' mutes.
  *   UI       FX's pages (FX, FX TRACKS, FX TRACKS 2, SLICER ..), KNOB 1..4 (lane, STEP, EFFECT, LEN), REC arms the
- *            selected lane and starts PLAY, the FX layer's keys record end to end, CLEAR (a lane, both, nothing there);
+ *            selected lane (PLAY starts it), the FX layer's keys record end to end, CLEAR (a lane, both, nothing there);
  *            screens (with a directory argument).
  * Built and run by tests/run_tests.sh. */
 #define UI_TEST_NO_MAIN 1
@@ -297,18 +297,21 @@ static void test_ui(const char *dir)
     bad += check("KNOB 4: LEN 1..64 (the step follows it down)", ok);
     turn(EN_K1, 1);
     press(B_REC);
-    ok = fxt.arm == 2u && song.rec == 0u && transport_req == 1u && msg_is("FX2 ARMED: HOLD [FX]");
+    ok = fxt.arm == 2u && song.rec == 0u && transport_req == 0u && msg_is("FX2 ARMED: HOLD [FX]");
+    press(B_PLAY);                                  /* (M-Vave-OP1: armed only, PLAY starts) */
+    ok &= transport_req == 1u;
     blk();
     frames(400);
     press(B_REC);
     ok &= fxt.arm == 0u && msg_is("FX2 DISARMED");
     stop();
-    bad += check("REC on FX TRACKS: arms the selected lane (not the pattern), PLAY starts; again: disarmed", ok);
+    bad += check("REC on FX TRACKS: arms the selected lane (not the pattern), PLAY then starts; again: disarmed", ok);
     /* end to end: FX held, a white key, on an armed lane */
     fx_power_on();
     go_title("FX TRACKS");
     frames(400);
     press(B_REC);
+    press(B_PLAY);                                  /* (M-Vave-OP1: REC arms, PLAY starts) */
     frames(100);                                    /* (the UI's frames between the ISR's blocks, as on the unit) */
     blk();
     run_to(0, 1, 5);

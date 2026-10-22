@@ -3,8 +3,9 @@
 /* SCENES (M-Vave-OP1): 16 patterns in a project, as the OP-Z's, picked while they play (SEQ held + a white key; SEQ +
  * OCT+ / OCT- the next / the one before; SEQ + OCT+ held a copy into the next free one: ui_layer.c). A scene is what
  * the SONG chain calls a pattern (song_chain.c chain_pattern_t): the four tracks' steps, their LEN DIV SWING GATE and
- * QUANTIZE, the automation and the locks, and the two FX TRACKS. The sounds, the mixer, ARP, SCL, FX1 and the song stay
- * the project's.
+ * QUANTIZE, the automation and the locks, the two FX TRACKS, and GLO > KEY's run (key.c: a scene has one of its own when it
+ * holds anything or its KEY was set for it, key_own; one without takes the KEY playing). The sounds, the mixer, ARP,
+ * SCL, FX1 and the song stay the project's.
  * The scene playing is where the music always was (trk[].step and p[], motion, fxt_lane): every page, tool, undo,
  * recording, save and the autosave work on it as before, and a project saved by Felucca or an older M-Vave-OP1 is its
  * scene 1. The other fifteen wait in the bank (scb, in the pool), packed one after the other in scene order
@@ -52,9 +53,14 @@ typedef struct {                                 /* a scene where it is: the tra
     uint8_t tm[NTRK][5];                         /* LEN DIV SWING GATE QUANTIZE */
     const motion_store_t *mo;
     const fxt_lane_t *fx;
+    const uint8_t *key;                          /* its KEY (18 bytes) and whether it is its own */
+    uint8_t key_own;
 } scn_view_t;
 #define SCN_F_MO 0x10u                           /* the scene's packed flags: bit k track k has steps; its automation; */
 #define SCN_F_FX 0x20u                           /* .. its FX TRACKS */
+#define SCN_F_KEY 0x40u                          /* .. its KEY (18 bytes, key.c keyt; firmware before refuses a bank
+                                                  * holding one, as any other bank it cannot read: one is written only
+                                                  * for a KEY of its own or one in use, scn_encode) */
 
 static uint8_t scn_u8(int32_t v) { return (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v); }
 /* the main loop's guard against the audio ISR (as motion.c's: the target's interrupts; the host builds run one thread) */
@@ -81,6 +87,8 @@ static void scn_view_trk(scn_view_t *v)          /* the scene playing */
     }
     v->mo = &motion;
     v->fx = fxt_lane;
+    v->key = (const uint8_t *)&keyt;
+    v->key_own = key_own;
 }
 static void scn_view_pat(scn_view_t *v, const chain_pattern_t *b)
 {
@@ -93,10 +101,24 @@ static void scn_view_pat(scn_view_t *v, const chain_pattern_t *b)
     }
     v->mo = &b->motion;
     v->fx = b->fx;
+    v->key = b->key;
+    v->key_own = b->key_own;
 }
 
+/* KEY bytes k as key_defaults leaves them: OFF, 4 bars, no root (none in use) */
+static int scn_key_none(const uint8_t *k)
+{
+    uint32_t i;
+    for (i = 0; i < KEY_BARS; i++)
+        if (k[2u + i] != KEY_NONE)
+            return 0;
+    return !k[0] && k[1] == 4u;
+}
+_Static_assert(sizeof(((chain_pattern_t *)0)->key) == sizeof keyt, "a scene's KEY bytes are key.c keyt's");
 /* scene v packed into out (cap bytes; out 0: only measured): its bytes, 0 for an empty scene (no step that differs from
- * SCN_REST, no automation, empty lanes). noinline: the ISR measures with it once a switch (scene_due) */
+ * SCN_REST, no automation, empty lanes, no KEY of its own). A scene that holds something keeps the KEY it plays with
+ * (none written when no KEY is in use: it takes the KEY playing, which is none then too).
+ * noinline: the ISR measures with it once a switch (scene_due) */
 static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_t *out, uint32_t cap)
 {
     uint32_t n = 1, k, i, j, l, fl = 0;
@@ -113,6 +135,8 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
         for (i = 0; i < NSTEP + 1u; i++)
             if (i < NSTEP ? v->fx[l].step[i] != 0u : v->fx[l].len != 0u)
                 fl |= SCN_F_FX;
+    if (v->key_own || (fl && !scn_key_none(v->key)))   /* (no KEY in use: no bytes, a bank firmware before reads) */
+        fl |= SCN_F_KEY;
     if (!fl)
         return 0;
     if (out && cap)
@@ -178,6 +202,11 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
                 if (v->fx[l].step[i])
                     SCN_PUT(v->fx[l].step[i]);
         }
+    if (fl & SCN_F_KEY)
+        for (j = 0; j < 2u + KEY_BARS; j++) {    /* (written valid whatever it holds: a bank never fails for it) */
+            uint32_t x = v->key[j];
+            SCN_PUT(j == 0u ? x & 1u : j == 1u ? (x >= 1u && x <= KEY_BARS ? x : 4u) : x < 12u ? x : KEY_NONE);
+        }
 #undef SCN_PUT
     return n;
 }
@@ -207,7 +236,7 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
         return 1;
     }
     fl = in[0];
-    if (fl & ~0x3Fu)
+    if (fl & ~0x7Fu)
         return 0;
     for (k = 0; k < NTRK; k++) {
         uint32_t m[2] = {0, 0}, x;
@@ -277,6 +306,15 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
                         return 0;
                 }
         }
+    if (fl & SCN_F_KEY) {                        /* (M-Vave-OP1) its KEY: ON, LEN 1..16, the roots (KEY_NONE: none) */
+        for (j = 0; j < 2u + KEY_BARS; j++) {
+            SCN_GET(b->key[j]);
+            if (j == 0u ? b->key[j] > 1u : j == 1u ? b->key[j] < 1u || b->key[j] > KEY_BARS
+                                                 : b->key[j] >= 12u && b->key[j] != KEY_NONE)
+                return 0;
+        }
+        b->key_own = 1;
+    }
 #undef SCN_GET
     return pos == n;
 }
@@ -408,6 +446,17 @@ static __attribute__((noinline)) int scene_swap(uint32_t carry)
     }
     scn_swap(&motion, &b->motion, sizeof motion);
     scn_swap(fxt_lane, b->fx, sizeof fxt_lane);
+    {   /* (M-Vave-OP1) the KEY: the scene's own in, the one leaving out; a scene with none of its own plays the KEY
+         * playing on (the scene left keeps a copy). Its run from bar 1 (key.c) */
+        uint8_t own = b->key_own;
+        if (own)
+            scn_swap((void *)&keyt, b->key, sizeof b->key);
+        else
+            memcpy(b->key, (const void *)&keyt, sizeof b->key);
+        b->key_own = key_own;
+        key_own = own;
+        key_scene(carry);
+    }
     chain.carry = carry;
     fxt_section();
     scn.from = scn.cur;
@@ -549,6 +598,8 @@ static uint32_t scene_copy(void)
     }
     memcpy(&b->motion, &motion, sizeof motion);
     memcpy(b->fx, fxt_lane, sizeof b->fx);
+    memcpy(b->key, (const void *)&keyt, sizeof b->key);   /* (M-Vave-OP1: its KEY, the copy's the same) */
+    b->key_own = key_own;
     scn_irq_on();
     scn_view_pat(&v, b);
     n = scn_encode(&v, 0, 0);

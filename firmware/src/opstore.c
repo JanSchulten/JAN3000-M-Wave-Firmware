@@ -8,7 +8,8 @@
  *                     (OBJ_SCENES, below)
  *   0xC8000..0xCFFFF  each project slot's extras, A/B (OBJ_XPROJ0 + slot, storage.c): the FX TRACKS' lanes (fxtrack.c),
  *                     FX1's TYPE and the CLOUD's settings (fx1.c), SCL > ORCHID's ON and VOICE per track (orchid.c),
- *                     the CHORUS's TYPE and FDBK (fx.c), GLO > KEY's run (key.c)
+ *                     the CHORUS's TYPE and FDBK (fx.c), GLO > KEY's run (key.c: the scene in the project's; every other
+ *                     scene's KEY is in the scene, scene.c)
  *   0xD0000..0xD1FFF  the autosave's extras, A/B (OBJ_XAUTO)
  *   0xD2000..0xDBFFF  free (the TAPE's until it was dropped for GLO > KEY)
  * Extras (proj_xtra_t): written after their project, with the id of the project as written (xtra_id: the CRC its commit
@@ -29,7 +30,8 @@ typedef struct {
     uint8_t rsv;
     uint8_t key_on, key_len;                     /* (XTRA_V4) GLO > KEY (key.c keyt): ON, LEN */
     uint8_t key_root[16];                        /* .. each bar's root (KEY_NONE: none) */
-    uint8_t rsv2[2];
+    uint8_t key_own;                             /* (M-Vave-OP1, 0x80 | key.c key_own; written 0 before: not known) */
+    uint8_t rsv2;
 } proj_xtra_t;
 #define XTRA_V1 (12u + FXT_N * (uint32_t)sizeof(fxt_lane_t))   /* the first extras: the FX TRACKS only */
 #define XTRA_V2 (XTRA_V1 + 8u)                   /* .. and FX1's (E1) */
@@ -80,6 +82,7 @@ static void xtra_capture(proj_xtra_t *x, uint32_t proj)
     x->key_on = keyt.on;
     x->key_len = keyt.len;
     memcpy(x->key_root, (const void *)keyt.root, sizeof x->key_root);
+    x->key_own = (uint8_t)(0x80u | (key_own & 1u));
 }
 static int xtra_ok(const proj_xtra_t *x, uint32_t proj)
 {
@@ -130,6 +133,8 @@ static void xtra_orc(const proj_xtra_t *x, uint32_t proj)
         for (k = 0; k < KEY_BARS; k++)
             keyt.root[k] = x->key_root[k] < 12u ? x->key_root[k] : KEY_NONE;
     }
+    key_own = ok4 && (x->key_own & 0x80u) ? x->key_own & 1u   /* (M-Vave-OP1: the scene in the project's own KEY, */
+                                           : !key_is_default();   /* as saved; extras of before: one in use is) */
 }
 #if FELUCCA_FLASH
 /* object obj's newest copy into x (as much as it knows); 0: there is none */

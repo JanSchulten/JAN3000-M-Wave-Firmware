@@ -79,6 +79,7 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 #define PREF_CHORD_ADD (0x04u << 16)
 #define PREF_HELP (0x08u << 16)
 #define PREF_SYNC_OUT (0x10u << 16)            /* M-Vave-OP1: bit 4, MENU > AUDIO > SYNC OUT PO (click.c po_sync) */
+#define PREF_SYNC_INV (0x20u << 16)            /* .. bit 5, with it: PO INV (the pulses upside down) */
 /* 1.3 (Discussions #112, #134): MENU > DISPLAY > HOME, what the HOME page shows under its four cards: 0 SCOPE (the
  * oscilloscope, as before), 1 TRACKS (the four tracks as rows: ui_graph.c draw_home_tracks), 2 LEVELS (1.5, #134: the
  * rows of TRACKS, and KNOB 1..4 the LEVEL of T1..T4 in place of the engine's four: home_param). A byte of its own no
@@ -103,7 +104,8 @@ static void rp_apply(void)                             /* the settings into clic
     click_mode = (uint8_t)rp_get(RP_CLICK);
     click_lvl = (uint8_t)rp_get(RP_LEVEL);
     cin_bars = (uint8_t)rp_get(RP_COUNTIN);
-    po_sync = (ui_prefs2 & (PREF_SYNC_OUT >> 16)) != 0u;   /* (M-Vave-OP1: SYNC OUT, click.c) */
+    po_sync = !(ui_prefs2 & (PREF_SYNC_OUT >> 16)) ? 0u : (ui_prefs2 & (PREF_SYNC_INV >> 16)) ? 2u : 1u;   /* (M-Vave-OP1:
+                                                     * SYNC OUT OFF / PO / PO INV, click.c) */
 }
 static void rp_put(uint32_t f, uint32_t v)
 {

@@ -9,7 +9,7 @@
  *              LOAD; over the user's steps the REPLACE? dialog (OCT- / OCT+); the PRESETS hint.
  *   UNDO       a load keeps a copy of the track; SAVE held swaps back what the loads changed (again:
  *              redo); browsing keeps the copy from before the first load; power-on and projects: none.
- *   REC        a tap on every screen arms the selected track and starts PLAY, without navigation.
+ *   REC        a tap on every screen arms the selected track (M-Vave-OP1: PLAY starts it), without navigation.
  *              Long REC never clears. On STEP, armed and playing: keys do not write the
  *              cursor step. With the ARP on, the arp's notes are recorded, not the keys.
  *   MIDI IN    MENU > MIDI > MIDI IN (ROUT): CH1-4 (channels 5..16 ignored) / SEL, note-offs follow their note-ons.
@@ -204,6 +204,9 @@ static void ui_power_on(void)
     chos.type = CHO_CHORUS;                       /* (M-Vave-OP1: the chorus bus's TYPE and FDBK, as at power-on) */
     chos.fdbk = 0;
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
+    key_defaults();                               /* (.. GLO > KEY: none, the scene's own neither) */
+    key_own = 0;
+    key_cur = 0;
     memset(&chain.source, 0, sizeof chain.source);
     for (i = 0; i < G_COUNT; i++)
         song.g[i] = GP[i].def;
@@ -732,10 +735,11 @@ static int test_rec(void)
         track_select(2);
         fam_next(FAMS[k]);
         press(B_REC);
-        bad += check(k == 0 ? "REC on TRACKS: arms the selected track, PLAY starts" :
+        bad += check(k == 0 ? "REC on TRACKS: arms the selected track, PLAY does not start (M-Vave-OP1: PLAY does)" :
                      k == 1 ? "#133 REC on SEQ > STEP: arms the selected track for step recording, PLAY does not start" :
-                     "REC on ARP: arms the selected track, PLAY starts",
-                     song.rec == 4u && (k == 1u ? transport_req == 0u && msg_is("KEYS WRITE STEPS") : transport_req == 1u));
+                     "REC on ARP: arms the selected track, PLAY does not start (M-Vave-OP1: PLAY does)",
+                     song.rec == 4u && transport_req == 0u &&
+                     msg_is(k == 1u ? "KEYS WRITE STEPS" : "REC ARMED: PRESS PLAY"));
         song.playing = 1;
         transport_req = 0;
         frames(400);                                   /* (not a double tap: that locks the REC layer) */
@@ -749,7 +753,11 @@ static int test_rec(void)
     }
     ui_power_on();
     press(B_REC);
-    bad += check("REC on HOME records without changing the screen", ui.home && song.rec == 1u && transport_req == 1u);
+    bad += check("REC on HOME arms without changing the screen, PLAY not started (M-Vave-OP1)",
+                 ui.home && song.rec == 1u && transport_req == 0u && !song.playing);
+    press(B_PLAY);
+    bad += check("  PLAY then starts it (the count-in first when it is set: seq.c cin_begin)", transport_req == 1u);
+    transport_req = 0;
     /* STEP page: armed + playing -> the keys record live only */
     ui_power_on();
     fam_next(FAM_SEQ);
@@ -2898,13 +2906,13 @@ static int test_product_ux(void)
         press(B_REC);
         if (PAGES[i].graph == GR_SONG)
             ok &= song.rec == 0 && !transport_req && msg_is("NEW CHAIN: TAP A-D") && ui.song_rec;   /* (M-Vave-OP1) */
-        else if (PAGES[i].graph == GR_KEY)            /* (M-Vave-OP1: GLO > KEY's recording) */
-            ok &= song.rec == 0 && key_arm == 1u && transport_req == 1 && ui.page == i && msg_is("KEY REC: PLAY THE ROOTS");
+        else if (PAGES[i].graph == GR_KEY)            /* (M-Vave-OP1: GLO > KEY's recording; armed only) */
+            ok &= song.rec == 0 && key_arm == 1u && !transport_req && ui.page == i && msg_is("KEY REC: PRESS PLAY");
         else if (PAGES[i].graph == GR_FXT || PAGES[i].graph == GR_FXT2)     /* (.. the FX track's) */
-            ok &= song.rec == 0 && fxt.arm == 1u && transport_req == 1 && ui.page == i && msg_is("FX1 ARMED: HOLD [FX]");
+            ok &= song.rec == 0 && fxt.arm == 1u && !transport_req && ui.page == i && msg_is("FX1 ARMED: HOLD [FX]");
         else if (PAGES[i].graph == GR_ROLL)            /* #133: STEP's roll arms step recording, stopped */
             ok &= song.rec == 1 && !transport_req && ui.page == i && !ui.home;
-        else ok &= song.rec == 1 && transport_req == 1 && ui.page == i && !ui.home;
+        else ok &= song.rec == 1 && !transport_req && ui.page == i && !ui.home;   /* (M-Vave-OP1: armed only) */
     }
     bad += check("REC stays on every page, SONG types a chain (STEP: step recording, stopped; "
                  "KEY: its recording; FX TRACKS: the lane)", ok);
@@ -4407,7 +4415,7 @@ static int test_bughunt_ui(void)
     press(B_OCTUP);
     bad += check("TOOLS: DELETE ROW / CLEAR SONG / CLEAR PAT with nothing there: NOTHING TO ..; a song: its dialog",
                  ok && ui.confirm == CF_CLEAR_SONG);
-    /* 7: REC works in the layers, as PLAY: it arms the track (PLAY starts); the layer stays, no page */
+    /* 7: REC works in the layers, as PLAY: it arms the track (M-Vave-OP1: PLAY does not start); the layer stays */
     ok = 1;
     {
         static const uint8_t LB[4] = {B_FX, B_GLO, B_SCL, B_EDIT};
@@ -4416,12 +4424,12 @@ static int test_bughunt_ui(void)
             ui_power_on();
             btn_down(LB[i]); frame();
             press(B_REC);
-            ok &= song.rec == 1u && transport_req == 1u && ui.layer != 0u;
+            ok &= song.rec == 1u && transport_req == 0u && ui.layer != 0u;
             btn_up(LB[i]); frame();
             ok &= ui.home;
         }
     }
-    bad += check("REC in every layer: arms the track and starts PLAY; the layer stays, no page", ok);
+    bad += check("REC in every layer: arms the track (PLAY not started); the layer stays, no page", ok);
     /* 8: the OCT- LED lit in the SET layers (OCT- = UNDO), OCT+ dark; FX (HOLD): the octave as usual */
     ok = 1;
     {
@@ -4545,7 +4553,7 @@ static int pr_columns_match(const track_t *t, uint32_t *nbars)
 /* 1.2, Discussion #133: step recording on SEQ > STEP. Not armed, the keys only play (being on SEQ writes nothing);
  * REC there arms step recording without starting the transport; armed and stopped a key (keys held together: a
  * chord) writes the cursor step and letting go moves the cursor on one step, wrapping inside LEN; PLAY records live
- * (at the play head, not the cursor). The DRUM grid keeps its own keys (white keys = steps, REC starts PLAY) */
+ * (at the play head, not the cursor). The DRUM grid keeps its own keys (white keys = steps; REC arms, PLAY starts) */
 static int test_step_rec(void)
 {
     int bad = 0, ok;
@@ -4615,7 +4623,7 @@ static int test_step_rec(void)
     key_down(7); frame(); key_up(7); frame();
     bad += check("#133 REC again disarms: the keys only play, nothing written",
                  !song.rec && !memcmp(before, t->step, sizeof before) && ui.cursor == 4u);
-    /* the DRUM grid as before: white keys are the steps (armed or not), REC from stop starts PLAY */
+    /* the DRUM grid as before: white keys are the steps (armed or not); REC from stop arms only (M-Vave-OP1) */
     ui_power_on();
     t = TSEL;
     set_engine_of(t, ENGI_DRUM);
@@ -4625,12 +4633,11 @@ static int test_step_rec(void)
     tap_key(key_at(0, 4));
     ok = grid_on() && t->step[4].hit != 0u;
     press(B_REC);
-    ok &= song.rec == 1u && transport_req == 1u && msg_is("LANE KEYS RECORD");
-    transport_req = 0;                                                /* (armed, still stopped) */
+    ok &= song.rec == 1u && transport_req == 0u && msg_is("REC ARMED: PRESS PLAY");   /* (armed, still stopped) */
     tap_key(key_at(0, 6));
     tap_key(key_at(0, 4));
     ok &= t->step[6].hit != 0u && !t->step[4].hit && ui.cursor == 4u;
-    bad += check("#133 the DRUM grid unchanged: white keys toggle steps armed or not, REC from stop starts PLAY", ok);
+    bad += check("#133 the DRUM grid unchanged: white keys toggle steps armed or not; REC from stop arms only", ok);
     song.rec = 0;
     return bad;
 }
@@ -7192,15 +7199,15 @@ static int test_rec_layer(void)
     bad += check("  it opens after MENU > HOLD (0.3 .. 0.6 s), not the old 0.7 s", ok);
     ui_power_on();
     press(B_REC);
-    ok = ui.home && song.rec == 1u && transport_req == 1u && !ui.layer;
-    frames(400); transport_req = 0; song.playing = 1;
+    ok = ui.home && song.rec == 1u && transport_req == 0u && !ui.layer && msg_is("REC ARMED: PRESS PLAY");
+    frames(400); song.playing = 1;
     press(B_REC);
     ok &= song.rec == 0u && !ui.layer && song.playing;
     song.playing = 0;
     go_page(GR_ROLL); frame(); frames(400);
     press(B_REC);
     ok &= song.rec == 1u && transport_req == 0u && msg_is("KEYS WRITE STEPS");
-    bad += check("  a tap still arms / disarms when let go (HOME starts PLAY, STEP: step recording)", ok);
+    bad += check("  a tap still arms / disarms when let go (HOME: armed, PLAY starts; STEP: step recording)", ok);
     ui_power_on();
     rec_down(); frame();
     press(B_PLAY);                                      /* REC + PLAY: PLAY plays, REC let go arms (no map) */
@@ -7346,12 +7353,13 @@ static int test_rec_layer(void)
     go_title("ENV"); frame();
     n = ui.page;
     press(B_REC);
-    ok = song.rec == 1u && transport_req == 1u && msg_is("HOLD [REC] QUICK");   /* (until it has been opened once) */
+    ok = song.rec == 1u && transport_req == 0u && msg_is("REC ARMED: PRESS PLAY");   /* (M-Vave-OP1: said, not the
+                                                         * layer's HOLD [REC] QUICK hint, which waits for a silent tap) */
     frames(64);
     press(B_REC);
     frames(500);
     ok &= ui.lock == LAYER_REC && ui.layer == LAYER_REC && layer_locked() && song.rec == 0u && transport_req == 0u &&
-          ui.page == n && !fm1_in.buttons && !msg_is("HOLD [REC] QUICK") && ((layer_seen >> LAYER_REC) & 1u);
+          ui.page == n && !fm1_in.buttons && ((layer_seen >> LAYER_REC) & 1u);
     key_down(white(1)); frame(); key_up(white(1)); frame();
     turn(EN_K2, 1);
     ok &= click_mode == 1u && cin_bars == 1u && !gates() && ui.lock == LAYER_REC;
@@ -7925,12 +7933,16 @@ static int test_click_menu(void)
     turn(EN_K4, 1); ok &= cin_bars == 2u;
     turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_TUNE;     /* (1.2: TUNE) */
     turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_SYNC;     /* (M-Vave-OP1: SYNC OUT, AUDIO's last) */
-    turn(EN_K1, 1); frame(); ok &= po_sync == 1u;
-    turn(EN_K1, -1); frame(); ok &= po_sync == 0u;
+    turn(EN_K1, 1); frame(); ok &= po_sync == 1u && !strcmp(menu_vname(MI_SYNC, menu_get(MI_SYNC)), "PO");
+    turn(EN_K1, 1); frame(); ok &= po_sync == 2u && !strcmp(menu_vname(MI_SYNC, menu_get(MI_SYNC)), "PO INV") &&
+                                   (ui_prefs2 & 0x30u) == 0x30u;
+    turn(EN_K1, 1); frame(); ok &= po_sync == 2u;      /* (stops at the end) */
+    turn(EN_K1, -1); frame(); ok &= po_sync == 1u && (ui_prefs2 & 0x30u) == 0x10u;
+    turn(EN_K1, -1); frame(); ok &= po_sync == 0u && !(ui_prefs2 & 0x30u);
     turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LOWCUT;   /* (wraps within AUDIO) */
     press(B_HOME);
     ok &= !ui.menu;
-    bad += check("MENU > AUDIO: PRESETS to CLICK, CLICK LEVEL, COUNT-IN, TUNE, SYNC OUT; knobs / OCT step them, applied at once", ok);
+    bad += check("MENU > AUDIO: PRESETS to CLICK, CLICK LEVEL, COUNT-IN, TUNE, SYNC OUT (OFF PO PO INV); knobs / OCT step them, applied at once", ok);
     {
         persist_t p;
         settings_export(&p);
@@ -8251,11 +8263,14 @@ static int test_step_note_off(void)
     ok = t->step[4].n == 1u && t->step[4].note[0] == 1u && t->step[4].time == ST_NOTE && !msg_is("STEP OFF");
     turn(EN_K2, -1);
     ok &= t->step[4].time == ST_REST && !t->step[4].n && msg_is("STEP OFF") && !((motion_lock_steps(trk_index(t)) >> 4) & 1u);
+    turn(EN_K2, -1);                                    /* (turned on the same way: OFF stays, no flip back on) */
+    turn(EN_K2, -3);
+    ok &= t->step[4].time == ST_REST && !t->step[4].n;
     frame();
     hold(B_SAVE);
-    ok &= t->step[4].time == ST_NOTE && t->step[4].n == 1u && t->step[4].note[0] == 1u;
-    bad += check("M-Vave-OP1 STEP: KNOB 2 down to the lowest note (a fast turn stops there), once more: OFF (locks gone); "
-                 "SAVE held undoes", ok);
+    ok &= t->step[4].time == ST_NOTE && t->step[4].n == 1u && t->step[4].note[0] == 20u;
+    bad += check("M-Vave-OP1 STEP: KNOB 2 down to the lowest note (a fast turn stops there), once more: OFF (locks gone), "
+                 "on that way it stays OFF; SAVE held: the note before the turn", ok);
     t->step[4] = (step_t){{120, 124, 0, 0}, 2, ST_NOTE, 0, 100};
     frame();
     turn(EN_K2, 10);
@@ -8271,6 +8286,11 @@ static int test_step_note_off(void)
         ok &= t->step[4].note[0] == n0 + 2u && last_note == n0 + 2u;
     }
     bad += check("  a chord up to the highest note (its shape kept), once more: OFF; from OFF a turn: the note played last", ok);
+    t->step[4] = (step_t){{60, 64, 67, 0}, 3, ST_REST, 0, 100};   /* (a chord set to REST with KNOB 3: kept) */
+    frame();
+    turn(EN_K2, 1);
+    ok = t->step[4].time == ST_NOTE && t->step[4].n == 3u && t->step[4].note[0] == 61u && t->step[4].note[2] == 68u;
+    bad += check("  a chord set to REST (KNOB 3): KNOB 2 moves it and it plays again, the chord kept", ok);
     t->step[4] = (step_t){{60, 0, 0, 0}, 1, ST_NOTE, 0, 100};
     frame();
     press(B_EDIT);

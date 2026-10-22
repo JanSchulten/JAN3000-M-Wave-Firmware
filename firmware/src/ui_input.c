@@ -357,24 +357,35 @@ static uint32_t orc_leds(void)
 }
 /* .. ORCHID's KNOB 1 ON / OFF (the selected track's), KNOB 2 its VOICE (-12..+12), KNOB 3 LOCK (the ISR takes it:
  * orc_lock_req) */
-/* .. GLO > KEY's knobs (key.c): KNOB 1 the bar (the cursor), 2 its ROOT (- before C .. B: - none), 3 LEN 1..16, 4 ON */
+/* .. GLO > KEY's knobs (key.c): KNOB 1 the bar (the cursor), 2 its ROOT (- before C .. B: - none), 3 LEN 1..16, 4 ON.
+ * M-Vave-OP1: an edit makes the KEY the scene playing's own (key_own: scene.c keeps it with the scene) */
 static void key_knob(uint32_t slot, int32_t steps)
 {
-    uint32_t len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u;
+    uint32_t len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u, was;
     if (slot == 0u) {
         key_cur = (uint8_t)clamp((int32_t)key_cur + steps, 0, (int32_t)len - 1);
-    } else if (slot == 1u) {
+        return;
+    }
+    scn_irq_off();                                    /* (M-Vave-OP1: the edit and key_own whole against a scene switch in
+                                                       * the ISR, scene.c scene_swap) */
+    if (slot == 1u) {
         int32_t r = keyt.root[key_cur % KEY_BARS] >= 12u ? -1 : (int32_t)keyt.root[key_cur % KEY_BARS];
+        was = keyt.root[key_cur % KEY_BARS];
         r = clamp(r + steps, -1, 11);
         keyt.root[key_cur % KEY_BARS] = r < 0 ? KEY_NONE : (uint8_t)r;
+        key_own |= keyt.root[key_cur % KEY_BARS] != was;   /* (a turn that changes nothing: not the scene's own) */
     } else if (slot == 2u) {
         keyt.len = (uint8_t)clamp((int32_t)len + steps, 1, KEY_BARS);
+        key_own |= keyt.len != len;
         if (key_cur >= keyt.len)
             key_cur = (uint8_t)(keyt.len - 1u);
     } else {
+        was = keyt.on;
         keyt.on = steps > 0;
+        key_own |= keyt.on != was;
         ui_message(keyt.on ? "KEY ON" : "KEY OFF");
     }
+    scn_irq_on();
 }
 /* .. GLO > KEY's keys (song.grid 4: silent; key.c), each a root by its name: stopped, the cursor bar's (the cursor on,
  * round at LEN); running, the tracks move at once (key_live); with REC, into the run too: the bar playing, or the next
@@ -426,20 +437,25 @@ static void key_keys(uint32_t notes)
     if (k == 27u)
         return;
     pc = (5u + k) % 12u;                              /* (key 0: F3) */
+    scn_irq_off();                                    /* (M-Vave-OP1: whole against a scene switch, key_knob) */
     if (!song.playing) {
+        key_own |= keyt.root[key_cur % KEY_BARS] != pc;   /* (the scene's own, key_knob) */
         keyt.root[key_cur % KEY_BARS] = (uint8_t)pc;
         key_cur = (uint8_t)((key_cur + 1u) % len);
+        scn_irq_on();
         return;
     }
     if (key_arm) {
         uint32_t step = keyr.step, bar = step / 16u;
         if (step % 16u >= 12u)
             bar = (bar + 1u) % len;
+        key_own |= keyt.root[bar % KEY_BARS] != pc || !keyt.on;
         keyt.root[bar % KEY_BARS] = (uint8_t)pc;
         keyt.on = 1;
         key_cur = (uint8_t)bar;
     }
     key_live = (uint8_t)pc;
+    scn_irq_on();
 }
 static void orc_knob(uint32_t slot, int32_t steps)
 {
@@ -725,19 +741,19 @@ static uint32_t song_leds(void)
     return 0;
 }
 
-/* REC tap on every page: arm / disarm recording on the selected track without navigating; arming while stopped
- * starts the transport too (live recording), except on STEP's piano roll (1.2, Discussion #133): there it arms step
- * recording and the transport stays stopped: the keys write the cursor step (seq_entry), PLAY then records live.
- * Armed and playing, STEP's keys record live (at the play head) instead of writing the cursor step */
+/* REC tap on every page: arm / disarm recording on the selected track without navigating. M-Vave-OP1: arming never
+ * starts the transport (Felucca's did, but on STEP's piano roll); PLAY does, the count-in first when it is set (seq.c
+ * cin_begin), as on KEY's and FX TRACKS' recording. On STEP's piano roll (1.2, Discussion #133) armed and stopped is
+ * step recording: the keys write the cursor step (seq_entry), PLAY then records live. Armed and playing, STEP's keys
+ * record live (at the play head) instead of writing the cursor step */
 static int rec_tap(void)                                /* 1: the arming changed */
 {
     uint8_t bit = (uint8_t)(1u << song.sel);
     if (key_keys_on()) {                              /* M-Vave-OP1, GLO > KEY (key.c): its recording, not the pattern's; */
-        key_arm ^= 1u;                                /* arming while stopped starts PLAY (the count-in first, if set) */
+        key_arm ^= 1u;                                /* armed only: PLAY starts it (the count-in first, if set) */
         ui.force = 1;
-        if (key_arm && !song.playing && !seq_counting())
-            transport_req = 1;
-        ui_message(key_arm ? "KEY REC: PLAY THE ROOTS" : "KEY REC OFF");
+        ui_message(!key_arm ? "KEY REC OFF" : song.playing || seq_counting() ? "KEY REC: PLAY THE ROOTS"
+                                                                             : "KEY REC: PRESS PLAY");
         return 1;
     }
     if (fxt_page()) {                                 /* FX TRACKS (fxtrack.c): the selected lane's ARM, not the pattern's */
@@ -746,10 +762,8 @@ static int rec_tap(void)                                /* 1: the arming changed
             ui_message("STOP TO RECORD");
             return 0;
         }
-        fxt.arm ^= lb;
+        fxt.arm ^= lb;                                /* (M-Vave-OP1: armed only, PLAY starts it) */
         ui.force = 1;
-        if ((fxt.arm & lb) && !song.playing && !seq_counting())
-            transport_req = 1;
         ui_message(fxt.arm & lb ? (ui.fxt_sel ? "FX2 ARMED: HOLD [FX]" : "FX1 ARMED: HOLD [FX]")
                                 : (ui.fxt_sel ? "FX2 DISARMED" : "FX1 DISARMED"));
         return 1;
@@ -776,8 +790,10 @@ static int rec_tap(void)                                /* 1: the arming changed
                                                          * stopped, at the cursor (CHORD ENTRY ADD: adding) */
         return 1;
     }
-    if ((song.rec & bit) && !song.playing && !seq_counting())
-        transport_req = 1;
+    if ((song.rec & bit) && !song.playing && !seq_counting()) {   /* M-Vave-OP1: armed only; PLAY starts it, the */
+        ui_message("REC ARMED: PRESS PLAY");                     /* count-in first if set (seq.c cin_begin) */
+        return 1;
+    }
     if ((song.rec & bit) && grid_on())
         ui_message("LANE KEYS RECORD");               /* (the white keys stay the steps) */
     else if ((song.rec & bit) && !ui.home && cur_page()->graph == GR_ROLL)
@@ -1065,6 +1081,9 @@ static void sd_reset(void)
     ui_message("STEP RESET");
 }
 
+/* M-Vave-OP1: the step KNOB 2 turned OFF last (+ 1, 0 none), the way it went (1 up) and its track: a turn on that way
+ * keeps it OFF */
+static struct { uint8_t step, dir, trk; } note_off;
 static void step_edit(uint32_t slot, int32_t steps)
 {
     step_t *st = &TSEL->step[ui.cursor];
@@ -1083,29 +1102,36 @@ static void step_edit(uint32_t slot, int32_t steps)
         break;
     case 1: {                                             /* NOTE: transpose the step (a chord whole) */
         int32_t lo = 127, hi = 1, d;
-        if (!st->n || st->time == ST_REST) {              /* OFF: the note played last */
+        uint8_t dir = steps > 0;
+        if (!st->n && note_off.step == ui.cursor + 1u && note_off.dir == dir && note_off.trk == song.sel)
+            break;                                        /* (turned on past the end it went OFF at: OFF stays) */
+        step_undo_take(TSEL, 0x2600u | ui.cursor);       /* (M-Vave-OP1: a turn one undo, the step as before it) */
+        if (!st->n) {                                     /* none (OFF): the note played last */
             st->note[0] = last_note;
             st->n = 1;
             st->time = ST_NOTE;
-            break;
+            note_off.step = 0;
+        } else {
+            for (i = 0; i < st->n; i++) {
+                lo = st->note[i] < lo ? st->note[i] : lo;
+                hi = st->note[i] > hi ? st->note[i] : hi;
+            }
+            if ((steps < 0 && lo <= 1) || (steps > 0 && hi >= 127)) {   /* M-Vave-OP1: a turn past the lowest or */
+                step_clear(st);                          /* the highest note: OFF (a rest, its locks gone). A fast */
+                (void)motion_clear_locks(TSEL, ui.cursor);   /* turn stops at the end first, one on stays OFF */
+                note_off.step = (uint8_t)(ui.cursor + 1u);
+                note_off.dir = dir;
+                note_off.trk = song.sel;
+                ui_message("STEP OFF");
+            } else {
+                d = steps < 0 ? (steps < 1 - lo ? 1 - lo : steps) : (steps > 127 - hi ? 127 - hi : steps);
+                for (i = 0; i < st->n; i++)
+                    st->note[i] = (uint8_t)(st->note[i] + d);
+                st->time = ST_NOTE;
+                last_note = st->note[0];
+            }
         }
-        for (i = 0; i < st->n; i++) {
-            lo = st->note[i] < lo ? st->note[i] : lo;
-            hi = st->note[i] > hi ? st->note[i] : hi;
-        }
-        if ((steps < 0 && lo <= 1) || (steps > 0 && hi >= 127)) {   /* M-Vave-OP1: a turn past the lowest or the */
-            step_undo_take(TSEL, 0x2600u | ui.cursor);   /* highest note: OFF (a rest, its locks gone; SAVE held */
-            step_clear(st);                              /* undoes it). A fast turn stops at the end first */
-            (void)motion_clear_locks(TSEL, ui.cursor);
-            motion_undo_done(TSEL);
-            ui_message("STEP OFF");
-            break;
-        }
-        d = steps < 0 ? (steps < 1 - lo ? 1 - lo : steps) : (steps > 127 - hi ? 127 - hi : steps);
-        for (i = 0; i < st->n; i++)
-            st->note[i] = (uint8_t)(st->note[i] + d);
-        st->time = ST_NOTE;
-        last_note = st->note[0];
+        motion_undo_done(TSEL);
         break;
     }
     case 2:                                               /* TIME; a note's LEN (1.5: ui.c note_set_len) */

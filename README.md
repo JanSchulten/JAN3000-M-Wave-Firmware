@@ -30,7 +30,7 @@ scale's own chords. The keys you play live stay as they are, so you can play alo
     A F C G for Am F C G;
   - **running:** a key moves the tracks **at once, live**. It holds until a bar of the run with a root of its own
     starts (KEY ON), or STOP;
-  - **REC** on this page records it too (the REC LED shows it; stopped, REC starts PLAY): into the bar playing, or
+  - **REC** on this page records it too (the REC LED shows it; stopped, PLAY starts it, the count-in first): into the bar playing, or
     the next one when played in a bar's last quarter (a little early for the coming bar), and KEY goes ON. REC
     again stops recording. The page shows LIVE or REC and the chord played.
 - **KNOB 1 BAR** moves the cursor, **KNOB 2 ROOT** changes its root (- C .. B; - plays as written), **KNOB 3 LEN**
@@ -40,6 +40,12 @@ scale's own chords. The keys you play live stay as they are, so you can play alo
   scale. A note between the scale's degrees keeps its distance above its degree.
 - The bars count from PLAY on the sequencer's grid. While a track records, its arp plays as played (the steps it
   writes move when they play). KEY is kept with the project.
+- **Each scene has its own KEY.** The page edits the KEY of the scene playing; its title says whose (**KEY S3**). A
+  new, empty scene starts with the KEY of the scene it is reached from; set it there and it is that scene's (even
+  before it holds notes). A scene switch starts the new scene's run at bar 1, as its tracks start at step 1. Scenes
+  saved before (or a project of before) take the KEY playing, so they sound as they did, and keep it from then on.
+  Firmware before this one cannot read a scene bank that holds a scene's KEY (it loads the project without its
+  other scenes); a project that never used KEY writes none and stays readable there.
 ## FX TRACKS
 
 Two lanes of effects next to the four instrument tracks, after the OP-Z's FX tracks. Two more synth tracks do not
@@ -115,8 +121,8 @@ current sounds), as the OP-Z chains its patterns.
 ## SCENES
 
 16 scenes in a project, as the OP-Z's 16 patterns. A scene is the four tracks' sequences: their steps, LEN DIV SWING
-GATE and QUANTIZE, the automation and the locks, and the two FX TRACKS. The sounds, the mixer, ARP, SCL, FX1 and the
-song stay the project's.
+GATE and QUANTIZE, the automation and the locks, the two FX TRACKS, and its **KEY** (GLO > KEY, above). The sounds,
+the mixer, ARP, SCL, FX1 and the song stay the project's.
 
 - Hold **SEQ**: the layer says **[SEQ] SCENES**. The **white keys F3 .. G5 are scenes 1 .. 16**; **OCT+ / OCT-** pick the
   next / the one before (from the scene waiting, else the one playing).
@@ -251,8 +257,14 @@ the BEAT pattern plays on them.
   rest; a fast turn stops at the end first, a chord keeps its shape); from OFF a turn brings in the note played last.
   SAVE held undoes it. EDIT no longer clears the step on STEP (nor on the drum grid): a tap opens EDIT as on every
   page, with a step held it still clears that step's locks.
+- **REC arms, PLAY starts.** A REC tap only arms the recording (the pattern's, GLO > KEY's, an FX TRACK's): REC ARMED:
+  PRESS PLAY. PLAY then starts it, with the count-in first when MENU / REC layer COUNT-IN is set (Felucca's REC
+  started the transport at once).
 - **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
   change in the same hold is put back by OCT- as before.
+- **REC held + F#5 (the highest black key): BACK**, one step back from the last change, whatever it was (a recording,
+  a step turned OFF, a sound or pattern load, a SEQ tool), as SAVE held. Pressed again: ALREADY UNDONE (OCT+ redoes
+  it). Its key breathes while there is a step to go back; the layer's map shows it as its last row.
 - **Another track opens each family at its first page:** turn ALGORITHM, then FX (SCL, ENV ..) starts at its first
   card again; the page shown when the track changes stays.
 - **DRUM, every sound its own: EDIT > SOUNDS** (after LANES 2). A key picks the sound (it plays as everywhere), KNOB
@@ -289,12 +301,17 @@ the BEAT pattern plays on them.
   While playing, and on every other page, OCT shifts the keyboard's octave as before.
 - **DRUM starts with the 808 kit** (KIT 808, the 808 model kit Felucca calls 80): power-on, a track switched to DRUM,
   its preset. Projects and sounds saved before keep their kit.
-- **SYNC OUT PO** (MENU > AUDIO > SYNC OUT: OFF, PO): Pocket Operator sync on the headphone jack while playing. The
-  left channel carries a 5 ms pulse each eighth note (2 a quarter, as the POs' SY modes and the Volcas expect) at
-  the DAC's full scale, twice the music's ceiling, whatever MASTER; the right one the mono mix. A stereo to two mono
-  cable: left into the PO's or Volca's sync input, right as audio. On the PO a sync-in mode: SY2 (sync only) or SY4
-  (left sync, right audio through). USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is the
-  way out for a clock.
+- **SYNC OUT PO** (MENU > AUDIO > SYNC OUT: OFF, PO, PO INV): Pocket Operator sync on the headphone jack. The left
+  channel carries a pulse each eighth note while playing (2 a quarter, as the POs' SY modes and the Volcas expect):
+  20 ms at the DAC's +full scale, whatever MASTER; between the pulses (and while stopped) it sits at -1 % of full
+  scale, never at 0. That is the shape of [PocketSync](https://github.com/chr15m/PocketSync), a phone app the POs
+  follow: a DAC channel held at digital 0 can be auto-muted, and a pulse out of a muted channel comes out ramped, a
+  tick in the headphones but no edge for the PO. PO INV is the same pulse upside down, for an output stage that
+  inverts it. The right channel is the mono mix. A stereo cable into the PO's line in, or a stereo to two mono cable:
+  left into the PO's or Volca's sync input, right as audio. On the PO a sync-in mode: SY2 (sync only) or SY4 (left
+  sync, right audio through); **press PLAY on the PO first** (it waits for the clock), then PLAY on the FM-1. If the
+  PO does not follow on PO, try PO INV. USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is
+  the way out for a clock.
 
 ## Try it in the browser
 
