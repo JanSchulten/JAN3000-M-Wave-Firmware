@@ -499,9 +499,10 @@ static void ext_clock(void)
     check("external clock: PLAY on the FM-1 starts as before (as a Start), never a count-in", song.playing && !seq_counting());
 }
 
-/* M-Vave-OP1, MENU > AUDIO > SYNC OUT PO: the left channel a 5 ms full-scale pulse on every eighth (the first with
- * PLAY, in the click's blocks, no drift), the right the mix in mono (bit for bit the two channels' average); stopped
- * no pulse; OFF: the stereo as before (USB audio is tapped before it, as the click) */
+/* M-Vave-OP1, MENU > AUDIO > SYNC OUT PO: the left channel a 5 ms pulse on every eighth (the first with PLAY, in the
+ * click's blocks, no drift) at the DAC's full scale (PO_HIGH: twice the mix's ceiling, still inside the 24-bit word),
+ * the right the mix in mono (bit for bit the two channels' average); stopped no pulse; OFF: the stereo as before (USB
+ * audio is tapped before it, as the click) */
 static int32_t po_l[1500u * CTL], po_r[1500u * CTL];
 static void po_run(uint32_t n, int on, int32_t *l, int32_t *r)
 {
@@ -532,7 +533,7 @@ static void po_sync_out(void)
         if (po_l[i] && (!i || !po_l[i - 1u]) && k < 16u)
             at[k++] = i;
         w += po_l[i] != 0;
-        okmono &= po_r[i] == (l0[i] + r0[i]) >> 1 && (po_l[i] == 0 || po_l[i] == 32767);
+        okmono &= po_r[i] == (l0[i] + r0[i]) >> 1 && (po_l[i] == 0 || po_l[i] == PO_HIGH);
     }
     {
         int ok = k >= 4u && at[0] == 0u && w == k * 220u;
@@ -541,6 +542,21 @@ static void po_sync_out(void)
         for (i = 1; i < k; i++)                        /* eighth k at the first sample of block ceil(k E / CTL) */
             ok &= at[i] == ceil_div((uint64_t)i * E, CTL) * CTL;
         check("SYNC OUT PO: a 5 ms full-scale pulse on the left every eighth (2 a quarter) from PLAY, no drift", ok);
+    }
+    {                                                  /* the 24-bit word the DAC gets: its top, not the mix's -6 dB */
+        int32_t out[2 * CTL];
+        uint32_t b, i2;
+        int32_t top = 0;
+        fresh(); grid_track();
+        po_sync = 1;
+        transport_req = 1;
+        for (b = 0; b < 8u; b++) {
+            audio_block(out, CTL);
+            for (i2 = 0; i2 < CTL; i2++)
+                top = out[2u * i2] > top ? out[2u * i2] : top;
+        }
+        check("  the pulse at the DAC's full scale: 0 dBFS of the 24-bit word, not the mix's -6 dBFS ceiling",
+              top > 0x7F0000 && top <= 0x7FFFFF);
     }
     check("  the right channel the mix in mono (the average of what OFF plays, bit for bit)", okmono);
     po_sync = 0;

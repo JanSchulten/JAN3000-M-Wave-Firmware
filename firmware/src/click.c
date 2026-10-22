@@ -58,10 +58,16 @@ static __attribute__((noinline)) void click_render(int32_t *out, uint32_t n)
 
 /* M-Vave-OP1, MENU > AUDIO > SYNC OUT PO: the Pocket Operators' sync (their SY modes with a sync out) on the DAC's
  * output: the left channel a pulse on every eighth note while the transport runs (2 a quarter, as the POs and the
- * volcas take it; full scale, 5 ms, whatever MASTER), the right the mix in mono. A stereo-to-two-mono cable gives a PO /
+ * volcas take it; 5 ms, whatever MASTER), the right the mix in mono. A stereo-to-two-mono cable gives a PO /
  * volca its sync from the left and the mixer the sound from the right. Not on USB (as the click). seq.c's click_tick
- * asks for the pulses (po_req), on the same eighths the click counts */
+ * asks for the pulses (po_req), on the same eighths the click counts.
+ * The pulse's height is the DAC's own full scale, not the mix's: audio.c's OUT_SHIFT puts Q15's 32767 at -6 dBFS
+ * (the headroom the mix keeps), half the voltage the jack can give. A PO's own sync out is ~1 V for ~2.5 ms and its
+ * sync in wants more than ~0.6 Vpp (community measurements, no spec): a 3.3 V codec's half scale is about that, and
+ * the first build's pulses were heard but the PO did not follow. PO_HIGH is Q15 x 2, so OUT_SHIFT makes it 0x7FFF80,
+ * just under the 24-bit word's top (audio.c asserts it): twice the voltage */
 #define PO_PULSE 220u                                  /* samples: 5 ms */
+#define PO_HIGH 65535                                  /* the left channel during a pulse: 0 dBFS after OUT_SHIFT */
 static volatile uint8_t po_sync;                       /* SYNC OUT PO (ui.c rp_apply) */
 static volatile uint8_t po_req;                        /* seq.c: an eighth started; the next block starts its pulse */
 static uint32_t po_left;                               /* samples of the pulse still to come */
@@ -74,7 +80,7 @@ static __attribute__((noinline)) void po_render(int32_t *out, uint32_t n)
     }
     for (i = 0; i < n; i++) {
         int32_t m = (out[2u * i] + out[2u * i + 1u]) >> 1;   /* (a shift: no divide in the ISR) */
-        out[2u * i] = po_left ? 32767 : 0;
+        out[2u * i] = po_left ? PO_HIGH : 0;
         out[2u * i + 1u] = m;
         if (po_left)
             po_left--;
