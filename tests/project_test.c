@@ -71,7 +71,7 @@ static int steps_grid_same(const step_t *n, const step8_t *o)
         memset(&s, 0, sizeof s);
         memcpy(s.note, o[k].note, 4);
         s.n = o[k].n; s.time = o[k].time; s.flags = o[k].flags; s.vel = o[k].vel;
-        step_to_grid(&s);
+        step_to_grid(ENGI_DRUM, &s);
         if (memcmp(n[k].note, s.note, 4) || n[k].n != s.n || n[k].time != s.time || n[k].flags != s.flags ||
             n[k].vel != s.vel || n[k].hit != s.hit || n[k].acc != s.acc)
             return 0;
@@ -323,8 +323,8 @@ int main(void)
               s[0].vel == 96 && s[0].time == ST_NOTE;
         ok &= s[1].n == 0 && s[1].hit == ((1u << DV_HATC) | (1u << DV_SNARE)) && !s[1].acc && s[1].vel == 100;
         ok &= s[2].n == 1 && s[2].note[0] == 41 && s[2].hit == 1u << DV_KICK && (s[2].flags & SF_ACCENT) &&
-              step_lanes(&s[2]) == ((1u << DV_KICK) | (1u << DV_TOM)) && step_accents(&s[2]) == step_lanes(&s[2]);
-        ok &= s[3].n == 1 && s[3].note[0] == 49 && !s[3].hit && step_lanes(&s[3]) == 1u << DV_BELL;
+              step_lanes(ENGI_DRUM, &s[2]) == ((1u << DV_KICK) | (1u << DV_TOM)) && step_accents(ENGI_DRUM, &s[2]) == step_lanes(ENGI_DRUM, &s[2]);
+        ok &= s[3].n == 1 && s[3].note[0] == 49 && !s[3].hit && step_lanes(ENGI_DRUM, &s[3]) == 1u << DV_BELL;
         ok &= s[4].time == ST_TIE && !s[4].hit && s[5].time == ST_REST && s[5].n == 2 && !s[5].hit;
         ok &= steps_same(q2.t[0].step, v4.t[0].step);   /* (not DRUM: as it was) */
         bad += check("FUN4 -> FUN6: a DRUM track's lane notes -> hits (accents too), a low tom / crash kept", ok);

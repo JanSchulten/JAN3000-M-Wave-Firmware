@@ -55,6 +55,7 @@ static const engine_t ENG_SLICE_GONE = {         /* engine 13 without FELUCCA_SL
 };
 #endif
 #include "eng_vdrum.c"          /* VDRUM: six parts of two layers into a resonator (M-Vave-OP1) */
+#include "kitlane.c"            /* the kits' grid lanes: DRUM, VDRUM, DBOX (M-Vave-OP1) */
 #include "eng_dbox.c"           /* DBOX: twelve keys of two oscillators (M-Vave-OP1) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */

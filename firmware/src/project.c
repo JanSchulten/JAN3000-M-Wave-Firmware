@@ -263,7 +263,7 @@ static void proj_grid(project_t *q)
     for (k = 0; k < NTRK; k++)
         if (q->t[k].engine == ENGI_DRUM)
             for (i = 0; i < NSTEP; i++)
-                step_to_grid(&q->t[k].step[i]);
+                step_to_grid(ENGI_DRUM, &q->t[k].step[i]);
     q->sum = proj_sum(q);
 }
 static void proj_trk_from_v2(proj_trk_t *d, const proj_trk_v2_t *s)
@@ -1024,6 +1024,7 @@ static int project_restore_runtime(const project_t *input)
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset >= PROJ_DEF_KEEP ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
         proj_steps(t->step);
+        kit_steps_load(e, t->step);                     /* (M-Vave-OP1: a VDRUM or DBOX track's lane notes as hits) */
         {   /* the project's own FM6 patch, never reloaded from SLOT: F n if it is that factory patch, else OWN; a VDRUM
              * track's own kit (M-Vave-OP1: in the patch's place) and the init voice */
             uint8_t v[FP_SIZE + 1u];

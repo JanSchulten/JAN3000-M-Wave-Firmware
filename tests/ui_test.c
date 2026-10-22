@@ -1200,7 +1200,7 @@ static uint32_t lane_steps(const track_t *t, uint32_t l)   /* bit i: lane l stri
 {
     uint32_t i, m = 0;
     for (i = 0; i < 32u; i++)
-        m |= ((step_lanes(&t->step[i]) >> l) & 1u) << i;
+        m |= ((step_lanes(t->eng_req, &t->step[i]) >> l) & 1u) << i;
     return m;
 }
 
@@ -1293,12 +1293,12 @@ static int test_grid(void)
     t->p[P_SLEN] = 16;
     /* a step's GM notes on their lanes */
     t->step[8] = (step_t){{41, 49, 36, 0}, 3, ST_NOTE, SF_ACCENT, 96, 0, 0};
-    ok = step_lanes(&t->step[8]) == ((1u << DV_TOM) | (1u << DV_BELL) | (1u << DV_KICK)) &&
-         step_accents(&t->step[8]) == step_lanes(&t->step[8]);
+    ok = step_lanes(t->eng_req, &t->step[8]) == ((1u << DV_TOM) | (1u << DV_BELL) | (1u << DV_KICK)) &&
+         step_accents(t->eng_req, &t->step[8]) == step_lanes(t->eng_req, &t->step[8]);
     grid_hit(t, 8, DV_TOM, 0);
     ok &= t->step[8].n == 1 && t->step[8].note[0] == 49 && t->step[8].hit == 1u << DV_KICK && (t->step[8].flags & SF_ACCENT);
     grid_acc(t, 8, DV_KICK, 0);
-    ok &= !t->step[8].acc && !(t->step[8].flags & SF_ACCENT) && t->step[8].n == 1 && (step_lanes(&t->step[8]) >> DV_BELL & 1u);
+    ok &= !t->step[8].acc && !(t->step[8].flags & SF_ACCENT) && t->step[8].n == 1 && (step_lanes(t->eng_req, &t->step[8]) >> DV_BELL & 1u);
     grid_acc(t, 8, DV_BELL, 1);
     ok &= !t->step[8].n && t->step[8].hit == ((1u << DV_KICK) | (1u << DV_BELL)) && t->step[8].acc == 1u << DV_BELL;
     bad += check("GM notes on the grid: a low tom / crash on their lanes; an edit makes the lane its hit", ok);
@@ -1340,7 +1340,7 @@ static int test_grid(void)
     fm1_in.notes = 0;
     keyboard_block();
     ok = !song.grid && t->step[9].hit == ((1u << DV_KICK) | (1u << DV_HATC)) && t->step[9].n == 1 && t->step[9].note[0] == 35 &&
-         step_lanes(&t->step[9]) == ((1u << DV_KICK) | (1u << DV_HATC));
+         step_lanes(t->eng_req, &t->step[9]) == ((1u << DV_KICK) | (1u << DV_HATC));
     song.rec = 0;
     song.playing = 0;
     bad += check("REC on HOME: GM keys quantised into the grid (35 a note on the KICK lane)", ok);
@@ -6672,14 +6672,14 @@ static uint32_t tl_count(const track_t *t, uint32_t l)
 {
     uint32_t i, c = 0;
     for (i = 0; i < (uint32_t)t->p[P_SLEN]; i++)
-        c += (step_lanes(&t->step[i]) >> l) & 1u;
+        c += (step_lanes(t->eng_req, &t->step[i]) >> l) & 1u;
     return c;
 }
 static uint32_t tl_lanes_of(const track_t *t, uint32_t l)   /* lane l over steps 1..16, a bit each */
 {
     uint32_t i, m = 0;
     for (i = 0; i < 16u; i++)
-        m |= ((step_lanes(&t->step[i]) >> l) & 1u) << i;
+        m |= ((step_lanes(t->eng_req, &t->step[i]) >> l) & 1u) << i;
     return m;
 }
 static int tl_in_key(const track_t *t)                       /* every note of steps 1..LEN in the track's scale */
@@ -6892,8 +6892,8 @@ static int test_seq_tools(void)
     ui.lane = DV_SNARE;
     grid_acc(TSEL, 4, DV_SNARE, 1);
     tl_key(TL_LREV);                                    /* C#5: REVERSE the lane */
-    ok = tl_lanes_of(TSEL, DV_SNARE) == 0x0808u && ((step_accents(&TSEL->step[11]) >> DV_SNARE) & 1u) &&
-         !((step_accents(&TSEL->step[3]) >> DV_SNARE) & 1u) && tl_lanes_of(TSEL, DV_KICK) == 0x1111u;
+    ok = tl_lanes_of(TSEL, DV_SNARE) == 0x0808u && ((step_accents(TSEL->eng_req, &TSEL->step[11]) >> DV_SNARE) & 1u) &&
+         !((step_accents(TSEL->eng_req, &TSEL->step[3]) >> DV_SNARE) & 1u) && tl_lanes_of(TSEL, DV_KICK) == 0x1111u;
     tl_key(TL_LCLR);                                    /* A#4: CLEAR the lane */
     ok &= !tl_lanes_of(TSEL, DV_SNARE) && tl_lanes_of(TSEL, DV_HATC) == 0x5555u && msg_is("SNARE CLEARED");
     ui.lane = DV_TOM;
@@ -9592,17 +9592,19 @@ static int test_edit_quick_actions(void)
     double e_all, e_nokick, e_mute, e_again;
     int32_t o[2u * CTL];
 
-    /* the map per engine: DRUM 8 actions (the lanes), every other engine none */
+    /* the map per engine: DRUM 8 actions (the lanes), M-Vave-OP1's kits their lanes (VDRUM 6, DBOX 8), every other
+     * engine none */
     ui_power_on();
     ok = 1;
     for (i = 0; i < NENGINES; i++) {
+        uint32_t want = i == ENGI_DRUM || i == ENGI_DBOX ? NLANE : i == ENGI_VDRUM ? 6u : 0u;
         trk[0].eng_req = (uint8_t)i;
         n = eqa_count(&trk[0]);
-        ok &= i == ENGI_DRUM ? n == NLANE : n == 0u;
-        ok &= !eqa_of(&trk[0], i == ENGI_DRUM ? NLANE : 0u);
+        ok &= n == want;
+        ok &= !eqa_of(&trk[0], want);
     }
     ui_power_on();
-    bad += check("1.4.1 EDIT quick actions: DRUM 8 (black keys 1..8), every other engine none", ok);
+    bad += check("1.4.1 EDIT quick actions: DRUM 8 (black keys 1..8), VDRUM 6, DBOX 8, every other engine none", ok);
 
     /* DRUM (T4): EDIT held, a black key toggles its lane's mute (SET, latched); LEDs lit = sounding, dark = muted */
     ui_power_on();

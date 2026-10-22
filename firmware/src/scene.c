@@ -455,7 +455,7 @@ enum { SQ_NOW, SQ_END, SQ_SAME, SQ_CANCEL, SQ_FULL, SQ_SONG, SQ_BAD };
 static uint32_t scene_queue(uint32_t k)
 {
     uint8_t tm[NTRK][5];
-    uint32_t off, need, was = scn.req;
+    uint32_t off, need, was = scn.req, j;
     k %= SCN_N;
     if (chain.running || chain.armed)
         return SQ_SONG;
@@ -467,6 +467,8 @@ static uint32_t scene_queue(uint32_t k)
     off = scb_off(k);
     if (!scn_decode(scb.data + off, scb.len[k], SCN_BUF, tm))
         return SQ_BAD;
+    for (j = 0; j < NTRK; j++)                   /* (a VDRUM or DBOX track's lane notes as hits: kitlane.c) */
+        kit_steps_load(trk[j].eng_req, SCN_BUF->step[j]);
     {
         scn_view_t v;
         scn_view_trk(&v);

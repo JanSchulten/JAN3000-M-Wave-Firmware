@@ -599,9 +599,10 @@ static uint32_t note_set_len(track_t *t, uint32_t i, uint32_t want)
  * steps of the page shown (a tap toggles the selected lane there), black keys 1..8 select the lane (and play
  * it), black key 9 held is ACC (white keys toggle accents, their LEDs show them), black keys 10 / 11 the page
  * down / up. KNOB 1 STEP, 2 LANE, 3 HIT, 4 ACC edit the cursor step. A sound load never converts the
- * steps: the grid shows a step's notes on their lanes (eng_drum.c step_lanes) and an edit makes the lane its
- * own (grid_own). Live recording on a DRUM track writes hits (seq.c rec_note) */
-static int grid_on(void) { return !ui.home && !ui.menu && !ui.confirm && cur_page()->graph == GR_ROLL && drum_track(TSEL); }
+ * steps: the grid shows a step's notes on their lanes (kitlane.c step_lanes) and an edit makes the lane its
+ * own (grid_own). Live recording on a DRUM track writes hits (seq.c rec_note). M-Vave-OP1: a VDRUM track's grid too
+ * (its six parts: black keys 1..6) and a DBOX track's (eight lanes on its keys): kitlane.c */
+static int grid_on(void) { return !ui.home && !ui.menu && !ui.confirm && cur_page()->graph == GR_ROLL && kit_track(TSEL); }
 /* SEQ > DETAIL (1.5.1, Discussion #199; params.c, between STEP and AUTOMATION): a step page as STEP (the cursor, the
  * roll's keys, the grid's lane and page keys), its knobs the cursor step's CHANCE RATCH NUDGE VEL (ui_input.c sd_turn),
  * its panel their lanes (ui_graph.c graph_detail). No state of its own: the page is what says so */
@@ -639,20 +640,27 @@ static int black_held(uint32_t p)
     return 0;
 }
 
-/* lane l of step s from now on is its hit alone: the step's lane notes become hits (nothing sounds different),
- * a note of another pitch on the lane (a low tom 41) becomes the lane's own */
-static void grid_own(step_t *s, uint32_t l)
+/* lane l of step s (engine e's kit) from now on is its hit alone: the step's lane notes become hits (nothing sounds
+ * different), a note of another pitch on the lane (a low tom 41) becomes the lane's own; on VDRUM a hit of DRUM's
+ * lanes 7 / 8 (RIM, BELL) on the part l too (kitlane.c kit_fold) */
+static void grid_own(uint32_t e, step_t *s, uint32_t l)
 {
     uint32_t k, j = 0;
-    step_to_grid(s);
+    step_to_grid(e, s);
     for (k = 0; k < s->n; k++)
-        if (drum_lane(s->note[k]) == l)
+        if (lane_of(e, s->note[k]) == l)
             s->hit |= (uint8_t)(1u << l);
         else
             s->note[j++] = s->note[k];
     for (k = j; k < 4u; k++)
         s->note[k] = 0;
     s->n = (uint8_t)j;
+    for (k = kit_lanes(e); k && k < NLANE; k++)
+        if (((s->hit >> k) & 1u) && lane_of(e, DRUM_LANE_NOTE[k]) == l) {
+            s->hit = (uint8_t)((s->hit & ~(1u << k)) | 1u << l);
+            if ((s->acc >> k) & 1u)
+                s->acc = (uint8_t)((s->acc & ~(1u << k)) | 1u << l);
+        }
 }
 
 /* lane l of step i: on 1, off 0, toggled 2 */
@@ -661,14 +669,14 @@ static void grid_hit(track_t *t, uint32_t i, uint32_t l, uint32_t on)
     step_t *s = &t->step[i % NSTEP];
     uint32_t b = 1u << (l % NLANE);
     if (on == 2u)
-        on = !(step_lanes(s) & b);
+        on = !(step_lanes(t->eng_req, s) & b);
     if (s->time != ST_NOTE) {                    /* a REST or a TIE: an empty step (nothing to turn off) */
         if (!on)
             return;
         step_clear(s);
         s->time = ST_NOTE;
     }
-    grid_own(s, l % NLANE);
+    grid_own(t->eng_req, s, l % NLANE);
     if (on) {
         s->hit |= (uint8_t)b;
     } else {
@@ -685,12 +693,12 @@ static void grid_acc(track_t *t, uint32_t i, uint32_t l, uint32_t on)
     step_t *s = &t->step[i % NSTEP];
     uint32_t b = 1u << (l % NLANE);
     if (on == 2u)
-        on = !(step_accents(s) & b);
+        on = !(step_accents(t->eng_req, s) & b);
     if (on)
         grid_hit(t, i, l, 1);
-    if (!(step_lanes(s) & b))
+    if (!(step_lanes(t->eng_req, s) & b))
         return;
-    grid_own(s, l % NLANE);
+    grid_own(t->eng_req, s, l % NLANE);
     if (s->flags & SF_ACCENT) {                  /* a step accent: each hit's own from now on */
         s->acc |= s->hit;
         s->flags &= (uint8_t)~SF_ACCENT;
@@ -1141,8 +1149,8 @@ static void load_pat16(track_t *t, const uint8_t *note, const uint8_t *flags)
         s->vel = n ? 96 : 0;
         s->hit = s->acc = 0;
         s->probability = 0;
-        if (drum_track(t))                           /* a DRUM track: the lanes' notes as its grid */
-            step_to_grid(s);
+        if (kit_track(t))                            /* a kit (DRUM, VDRUM, DBOX): the lanes' notes as its grid */
+            step_to_grid(t->eng_req, s);
     }
     t->p[P_SLEN] = 16;
 }

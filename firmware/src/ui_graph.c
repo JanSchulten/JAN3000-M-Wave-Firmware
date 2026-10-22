@@ -97,7 +97,7 @@ static struct {
 static const uint8_t KEY_BLACK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
 
 static int32_t pr_note(const step_t *st, uint32_t j)   /* the step's note j (0..3), then its lane hits (-1: none) */
-{
+{                                                      /* (the roll: no kit, DRUM's notes) */
     if (j < 4u)
         return j < st->n ? st->note[j] : -1;
     return (st->hit >> (j - 4u)) & 1u ? DRUM_LANE_NOTE[j - 4u] : -1;
@@ -259,13 +259,14 @@ static void graph_roll(const track_t *t, uint16_t c)
     }
 }
 /* SEQ > STEP on a DRUM track: the grid, 8 lanes x the 16 steps of the page shown. Lanes by their two-letter
- * names (BD SD CP CH OH TM RS CB; CG CL CY on the other kits). A hit is a rounded square (accented: the
- * accent; a RATCH step's: its 2..4 parts as bars), an empty step a dot (brighter on the beats and on the selected lane); the selected lane is
+ * names (BD SD CP CH OH TM RS CB; CG CL CY on the other kits; M-Vave-OP1: VDRUM's six parts BD .. TM, DBOX's eight).
+ * A hit is a rounded square (accented: the accent; a RATCH step's: its 2..4 parts as bars), an empty step a dot (brighter on the beats and on the selected lane); the selected lane is
  * underlaid RAISE, the cursor framed in TEXT; a TEXT bar over the step playing. 1.4.1: a muted lane (the EDIT layer's
  * black keys, eng_drum.c drum_mute): its name DIM, the MUTE icon after it, its hits DIM */
 static void graph_grid(const track_t *t, uint16_t c)
 {
     uint32_t l, i, len = (uint32_t)t->p[P_SLEN], base = ui.bank * 16u, mute = drum_mute[trk_index(t) % NPART];
+    uint32_t lanes = kit_track(t), e = t->eng_req;
     uint64_t locks = motion_lock_steps(trk_index(t));
     int32_t y0 = 6;
     for (i = 0; i < 16u && base + i < len; i++) {   /* a parameter lock: a mark over the step; CHANCE / RATCH / */
@@ -274,7 +275,7 @@ static void graph_grid(const track_t *t, uint16_t c)
         if (step_detailed(&seq_steps(t)[base + i]))
             cv_rect(43 + (int32_t)i * 12, 3, 4, 2, c);
     }
-    for (l = 0; l < NLANE; l++) {
+    for (l = 0; l < lanes; l++) {
         int32_t y = y0 + 4 + (int32_t)l * 14;
         int sel = l == ui.lane, mu = (mute >> l) & 1u;
         uint16_t row = sel ? T_RAISE : T_SURF, hc = mu ? T_DIM : c, ac = mu ? T_DIM : T_ACCENT;
@@ -292,10 +293,10 @@ static void graph_grid(const track_t *t, uint16_t c)
             const step_t *st = &seq_steps(t)[base + i];
             uint32_t b = 1u << l;
             int32_t x = 40 + (int32_t)i * 12;
-            if ((step_lanes(st) & b) && step_ratchet(st) > 1u)
-                pr_split(x, y + 2, 10, 10, (step_accents(st) & b) ? ac : hc, step_ratchet(st));
-            else if (step_lanes(st) & b)
-                cv_rrect(x, y + 2, 10, 10, 2, (step_accents(st) & b) ? ac : hc, row);
+            if ((step_lanes(e, st) & b) && step_ratchet(st) > 1u)
+                pr_split(x, y + 2, 10, 10, (step_accents(e, st) & b) ? ac : hc, step_ratchet(st));
+            else if (step_lanes(e, st) & b)
+                cv_rrect(x, y + 2, 10, 10, 2, (step_accents(e, st) & b) ? ac : hc, row);
             else
                 cv_rect(x + 4, y + 6, 2, 2, i % 4u == 0u || sel ? T_MID : T_DIM);
             if (sel && base + i == ui.cursor)          /* the cursor: a 1 px frame */
@@ -1673,7 +1674,7 @@ static void page_title(char *ti)
         str_cpy(ti + str_len(ti), "/", 4);
         fmt_int(ti + str_len(ti), (int32_t)n);
     }
-    if (pg->graph == GR_ROLL && !drum_track(t) && !detail_on()) {   /* the piano roll: its tinted rows' scale ("C MIN") */
+    if (pg->graph == GR_ROLL && !kit_track(t) && !detail_on()) {   /* the piano roll: its tinted rows' scale ("C MIN") */
         str_cpy(ti, N_NOTE[(uint32_t)t->p[P_ROOT] % 12u], 4);
         str_cpy(ti + str_len(ti), " ", 4);
         str_cpy(ti + str_len(ti), N_SCALE[clamp(t->p[P_SCALE], 0, (int32_t)(sizeof N_SCALE / sizeof N_SCALE[0]) - 1)], 8);
@@ -1801,7 +1802,7 @@ static uint32_t graph_signature(void)
         }
         if (detail_on())                             /* DETAIL: QUANTIZE (NUDGE's DIM), the lane named in the accent */
             h = (h ^ (0xD1u + (uint32_t)t->p[P_SQNT] * 31u + (ui.hot_t ? ui.hot_col + 1u : 0u) * 977u)) * 2654435761u;
-        else if (!drum_track(t)) {                   /* the roll: its view and the keys held */
+        else if (!kit_track(t)) {                    /* the roll: its view and the keys held */
             pr_follow(t);
             h = (h ^ (proll.lo + 1u)) * 16777619u;
             h = (h ^ pr_held()) * 16777619u;
@@ -3043,7 +3044,7 @@ static void draw_graph(void)
             cv_oy = 0;
             if (detail_on())                          /* 1.5.1 (#199) */
                 graph_detail(t, c);
-            else if (drum_track(t))
+            else if (kit_track(t))
                 graph_grid(t, c);
             else
                 graph_roll(t, c);

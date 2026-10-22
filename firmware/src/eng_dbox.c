@@ -6,7 +6,8 @@
  * Keys: the first C is the kick as on DRUM (drum_keys); a note plays sound n mod 12 (C .. B: the kit's twelve), the next
  * octave the same twelve an octave up, the one below an octave down (as far as +-2 octaves). The factory kits put
  * their sounds where General MIDI has them (C kick, D snare, F# closed hat, A# open hat ..), so the BEAT pattern and
- * MIDI drum parts play on them.
+ * MIDI drum parts play on them. On the SEQ grid (kitlane.c) eight lanes strike C D D# F# A# A C# B, KICK .. BELL as on
+ * DRUM; a note shows, lights (drum_lit) and is muted (drum_mute, the EDIT layer) with the lane of its key.
  *
  * A sound (the kit's 10 bytes, DK_*): two oscillators, each PIT (12 + PIT x 108 / 127 semitones: ~16 Hz .. ~8 kHz),
  * WAV (a morph sine -> triangle -> saw -> square -> noise, 0 .. 127, blended between neighbours) and ENV (one value, as
@@ -169,6 +170,7 @@ static void dbx_note_on(track_t *t, voice_t *v)
     v->s[5] = 1 << 24;
     v->env_out = v->vel * 258;                       /* the hit starts at its level (drum_note_on says why) */
     v->env = 1 << 24;
+    drum_lit[(uint32_t)(t - trk) % NTRK] |= (uint8_t)(1u << DBX_KEY_LANE[v->note % 12u]);   /* (its grid lane's LED) */
 }
 
 /* the voice's amplitude: its envelopes', not the ADSR's; a voice whose two have rung out ends */
@@ -259,12 +261,16 @@ static void dbx_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const v
 {
     const int16_t *p = t->p;
     dbx_blk_t B;
-    int32_t acc, dg = 0, dk = 0, g1, g2, ic1, ic2, nz;
+    int32_t acc, dg = 0, dk = 0, g1, g2, ic1, ic2, nz, mute[CTL];
     uint32_t i, ph1, ph2;
     if (!dbx_kit_of(t))
         return;
     if (n > CTL)
         n = CTL;
+    if ((drum_mute[(uint32_t)(t - trk) % NPART] >> DBX_KEY_LANE[v->note % 12u]) & 1u) {
+        memset(mute, 0, sizeof mute);                /* (its grid lane muted on the EDIT layer: it rings on unheard) */
+        out = mute;
+    }
     dbx_block(t, v, m, &B);
     acc = 32768 + ((p[P_E4] * v->vel * v->vel) >> 6);
     if (p[P_E5] > 0) {                               /* DRV: x1 .. x4 into the soft clip, the level kept (Q12) */

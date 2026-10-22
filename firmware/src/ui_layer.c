@@ -500,12 +500,12 @@ static void scene_key(uint32_t p)
     ui_message(r == SQ_FULL ? "SCENE MEMORY FULL" : r == SQ_SONG ? "STOP THE SONG FIRST" : r == SQ_BAD ? "SCENE DAMAGED" : b);
     ui.force = 1;
 }
-/* SEQ + PRESETS on a DRUM track: the lane the lane tools work on (as the grid's KNOB 2) */
+/* SEQ + PRESETS on a kit track (DRUM, VDRUM, DBOX): the lane the lane tools work on (as the grid's KNOB 2) */
 static void seq_lane(int32_t s)
 {
-    if (!drum_track(TSEL))
+    if (!kit_track(TSEL))
         return;
-    ui.lane = (uint8_t)clamp((int32_t)ui.lane + (s > 0 ? 1 : -1), 0, NLANE - 1);
+    ui.lane = (uint8_t)clamp((int32_t)ui.lane + (s > 0 ? 1 : -1), 0, (int32_t)kit_track(TSEL) - 1);
     ui_say("LANE ", drum_lane_abbr(TSEL, ui.lane));
     ui.force = 1;
 }
@@ -681,7 +681,9 @@ static void fx_default(void)
  * no undo copy, not recorded; OCT- puts back what they changed since the layer opened (eqa_put_back). A new engine's
  * actions: a table and its row in EQA, and what OCT- puts back in eqa_put_back.
  *   DRUM  1..8 MUTE of the lanes KICK .. BELL (eng_drum.c drum_mute; the cells the kit's names), latched: lit =
- *         sounding, dark = muted (as GLO's track mutes); the cell of a muted lane as a muted track's (KEY) */
+ *         sounding, dark = muted (as GLO's track mutes); the cell of a muted lane as a muted track's (KEY)
+ *   VDRUM 1..6 the same, its parts KICK .. TOM (M-Vave-OP1: the SEQ grid's lanes, kitlane.c; eng_vdrum.c vd_render)
+ *   DBOX  1..8 the same, its lanes KICK .. BELL: each mutes the keys that show on it (eng_dbox.c dbx_render) */
 enum { EQ_SHOW_SEL, EQ_SHOW_MUTE };                /* the cell: on = the selection's fill; on = idle, off = KEY */
 typedef struct {
     uint8_t kind, show, arg;                       /* LK_HOLD / LK_SET, EQ_SHOW_*, the handler's argument */
@@ -705,6 +707,8 @@ static const eqa_t EQA_DRUM[NLANE] = {EQA_LANE(0), EQA_LANE(1), EQA_LANE(2), EQA
     EQA_LANE(6), EQA_LANE(7)};
 static const eqa_set_t EQA[] = {
     {ENGI_DRUM, NLANE, EQA_DRUM},
+    {ENGI_VDRUM, VD_NP, EQA_DRUM},                 /* (M-Vave-OP1: the kits' lanes, kitlane.c) */
+    {ENGI_DBOX, NLANE, EQA_DRUM},
 };
 typedef char eqa_fits[NLANE <= LY_INIT_B ? 1 : -1];   /* (10 black keys: the 11th, F#5, is INIT) */
 
@@ -1371,7 +1375,7 @@ static void draw_layer(void)
         sig += (uint32_t)ui_rec_prefs * 31u + (uint32_t)chain_busy() * 3u + (uint32_t)rec_clearable() * 5u + song.sel * 977u;
     else if (l == LAYER_SEQ) {
         uint32_t p;
-        sig += (uint32_t)drum_track(TSEL) * 31u + ui.lane * 5u + (uint32_t)chain_busy() * 3u + (uint32_t)TSEL->p[P_E0] * 131u + song.sel * 977u;
+        sig += kit_track(TSEL) * 31u + ui.lane * 5u + (uint32_t)chain_busy() * 3u + (uint32_t)TSEL->p[P_E0] * 131u + song.sel * 977u;
         sig += scn.cur * 7919u + (scn.req == SCN_END ? scn.next + 1u : 0u) * 104729u + scb.gen * 13u;   /* (M-Vave-OP1) */
         for (p = 0; p < SCN_N; p++)
             sig = sig * 3u + (uint32_t)scene_used(p);

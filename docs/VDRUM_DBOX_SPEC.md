@@ -353,3 +353,28 @@ VDRUM:
   338 904 -> 339 544 B; static ISR cost 37 541 -> 37 899 (budget 41 252); new budget lines `vd_render` 165,
   `vd_layer_run` 115, `vd_post` 124. Host cost: six parts with both layers and the resonator ~90 ns a sample (an x86
   container; the instruction count of `tests/regress.c` needs the Mac).
+
+## 8. On the sequencer as DRUM (third interview)
+
+Decided: VDRUM and DBOX get DRUM's sequencer handling: SEQ > STEP's grid, live recording as hits, the EDIT layer's lane
+mutes and SEQ TOOLS' BEAT and lane tools; steps written as notes before become hits when they load. Built in
+`firmware/src/kitlane.c` (tested by `tests/kitgrid_test.c`):
+
+| | lanes | the lanes' notes |
+| --- | --- | --- |
+| DRUM | 8: KICK SNARE CLAP HATCL HATOP TOM RIM BELL | 36 38 39 42 46 45 37 56 |
+| VDRUM | 6: its parts, black keys 1..6 (7 and 8 dark, inert) | 36 38 39 42 46 45 |
+| DBOX | 8: DRUM's, on the keys the factory kits give those drums | 36 38 39 42 46 45 37 47 (BELL: B, the cowbell) |
+
+- **No format change:** a hit is `step_t.hit` bit l on every engine, so a beat moves between DRUM, VDRUM and DBOX. A
+  DRUM beat's RIM / BELL hits play on VDRUM as they always did (37, 56: the CLAP and HAT OP parts) and show on those
+  lanes; an edit of the lane makes them its own. DBOX plays BELL on 47 (GM's 56 would be G#, its pedal hat, an octave up).
+- **A note's lane:** VDRUM its part (a crash 49 on HAT OP, every pitched tom on TOM), DBOX its key (E on SNARE, F G on
+  TOM, G# on HAT CL, in every octave). It lights and is muted with that lane.
+- **Notes to hits:** only a lane's own note (as DRUM's `step_to_grid`): the same note, the same velocity, the output bit
+  for bit the same. When a project loads (`project_restore_runtime`), a scene is picked (`scene_queue`) or a pattern
+  loads into the track; DRUM's steps stay as stored (it converted the projects of before its grid long ago).
+- **Mutes:** VDRUM drops a muted part's output and its resonator send (it rings on unheard); DBOX renders a muted key
+  into a scratch block. Performance state as DRUM's (not saved, a sound load clears them).
+- **Cost:** image +1.4 KB (557 168 B), RAM and pool unchanged; static ISR cost 37 922 against its budget line 37 502
+  (+1.1 %, +10 % allowed).
