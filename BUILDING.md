@@ -133,5 +133,10 @@ cd /tmp/felucca-site && python3 -m http.server 8000
 # open http://localhost:8000/webapp/installer/
 ```
 
+M-Vave-OP1: `sh tools/make_installer_zip.sh` packs that site with two starters (`START-Mac.command`,
+`START-Windows.bat`) into `dist/M-Vave-OP1-Installer.zip`. Its "Return to official V15" can use the official V15
+in `vendor/m-vave/` (M-VAVE, Apache-2.0); the command line does the same with
+`python3 tools/fm1_install.py --stock`. The first flash, step by step (German): `docs/ERSTER_FLASH.md`.
+
 Installing firmware is at your own risk. If an install fails and the FM-1 no longer
 starts, recovery needs [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).

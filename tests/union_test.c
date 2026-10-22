@@ -10,7 +10,9 @@
  * Each sequence runs in its own fork()ed child from boot state; its mix is one 64-bit FNV-1a hash. The file
  * holds the hashes of 1.4 (the engines' own arrays, before the shared region): any difference fails. The 380
  * sequences that play SAMPLE's PIANO (SAMPLE presets 0 / 1, GRAIN's FROZEN / SHIMMER) were rewritten in 1.5, when
- * PIANO went back to the full piano of 1.1.5; the other 340 are 1.4's.
+ * PIANO went back to the full piano of 1.1.5; the other 340 are 1.4's. M-Vave-OP1 rewrote all 720 when ROOM (the
+ * reverb of these renders) began to round towards zero (fx.c rev_room: no hum, an exact end): with ROOM's old
+ * rounding every one of them still matched the file before, so the switches sound as they did.
  * env: GOLDEN_UPDATE=1 rewrites GOLDEN_FILE (only with a reason: a switch is to sound as it did). */
 #define main hostsim_main
 #include "hostsim.c"

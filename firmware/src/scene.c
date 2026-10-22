@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
 /* SCENES (M-Vave-OP1): 16 patterns in a project, as the OP-Z's, picked while they play (SEQ held + a white key; SEQ +
- * OCT+ / OCT- the next / the one before: ui_layer.c). A scene is what the SONG chain calls a pattern (song_chain.c
- * chain_pattern_t): the four tracks' steps, their LEN DIV SWING GATE and QUANTIZE, the automation and the locks, and the
- * two FX TRACKS. The sounds, the mixer, ARP, SCL, FX1 and the song stay the project's.
+ * OCT+ / OCT- the next / the one before; SEQ + OCT+ held a copy into the next free one: ui_layer.c). A scene is what
+ * the SONG chain calls a pattern (song_chain.c chain_pattern_t): the four tracks' steps, their LEN DIV SWING GATE and
+ * QUANTIZE, the automation and the locks, and the two FX TRACKS. The sounds, the mixer, ARP, SCL, FX1 and the song stay
+ * the project's.
  * The scene playing is where the music always was (trk[].step and p[], motion, fxt_lane): every page, tool, undo,
  * recording, save and the autosave work on it as before, and a project saved by Felucca or an older M-Vave-OP1 is its
  * scene 1. The other fifteen wait in the bank (scb, in the pool), packed one after the other in scene order
@@ -502,6 +503,60 @@ static int scene_used(uint32_t k)
         return scb.len[k % SCN_N] != 0u;
     scn_view_trk(&v);
     return scn_encode(&v, 0, 0) != 0u;
+}
+/* SEQ + OCT+ held (main loop): the scene playing copied into the next free scene (the first empty one after it, round
+ * past 16 to 1), which then plays. Nothing is swapped: the copy is the same music, so the tracks play on as they are (no
+ * step starts again, nothing is heard, playing or stopped); the bank takes the scene's bytes in its own place instead,
+ * and from here on the tracks are the copy (every page, tool and recording works on it). A pick waiting is taken back
+ * (the copy is what plays). The results: */
+enum { SC_OK, SC_EMPTY, SC_NONE, SC_FULL, SC_SONG };
+/* where a copy goes (SCN_N: no scene free); *n the bytes the scene playing packs to (0: empty, nothing to copy) */
+static uint32_t scene_copy_to(uint32_t *n)
+{
+    scn_view_t v;
+    uint32_t k, f;
+    scn_view_trk(&v);
+    *n = scn_encode(&v, 0, 0);
+    for (k = 1; k < SCN_N; k++)                  /* (the one playing has no bytes in the bank: never itself) */
+        if (!scb.len[f = (scn.cur + k) % SCN_N])
+            return f;
+    return SCN_N;
+}
+static uint32_t scene_copy(void)
+{
+    chain_pattern_t *b = SCN_BUF;
+    scn_view_t v;
+    uint32_t n, f, k, off, was;
+    if (chain.running || chain.armed)
+        return SC_SONG;
+    scn_irq_off();                               /* (a pick waiting taken back: the ISR leaves the buffer and scn.cur */
+    was = scn.req;                               /* alone from here) */
+    scn.req = SCN_IDLE;
+    scn_irq_on();
+    scene_done();                                /* (a switch the ISR made: packed away first) */
+    f = scene_copy_to(&n);
+    if (!n || f >= SCN_N || scb.used + n > SCN_CAP) {
+        scn.req = (uint8_t)was;                  /* (refused: nothing changed, a pick waiting still waits) */
+        return !n ? SC_EMPTY : f >= SCN_N ? SC_NONE : SC_FULL;
+    }
+    scn_irq_off();                               /* the scene into the buffer whole (live recording writes the tracks */
+    for (k = 0; k < NTRK; k++) {                 /* in the ISR): a memcpy with the interrupts off, not the packing */
+        memcpy(b->step[k], trk[k].step, sizeof b->step[k]);
+        memcpy(b->timing[k], &trk[k].p[P_SLEN], sizeof b->timing[k]);
+        b->qnt[k] = scn_u8(trk[k].p[P_SQNT]);
+    }
+    memcpy(&b->motion, &motion, sizeof motion);
+    memcpy(b->fx, fxt_lane, sizeof b->fx);
+    scn_irq_on();
+    scn_view_pat(&v, b);
+    n = scn_encode(&v, 0, 0);
+    if (!n || scb.used + n > SCN_CAP)            /* (it changed since, by recording: the pick waiting is gone then) */
+        return n ? SC_FULL : SC_EMPTY;
+    off = scb_resize(scn.cur, n);
+    scn_encode(&v, scb.data + off, n);
+    scn.cur = (uint8_t)f;
+    scn.moved = 1;                               /* (the UI drops what it kept of the scene: scene_switched_ui) */
+    return SC_OK;
 }
 /* main loop, every pass: a swap the ISR made packed away; the pattern's clock kept to the tracks' LEN and DIV while a
  * scene waits; one waiting when the transport stopped: at once. Returns SP_SWITCHED when the tracks changed,

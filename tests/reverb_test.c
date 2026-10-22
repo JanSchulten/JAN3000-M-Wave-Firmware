@@ -69,6 +69,8 @@ static struct {
     int32_t dly_lp;
     uint16_t comb_i[4], ap_i[2];
     int32_t comb_lp[4];
+    uint32_t dl_cur, dl_new;                                    /* (M-Vave-OP1: a TIME change crossfades the taps) */
+    int32_t dxf;
 } rf;
 static void ref_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t *rev_in, int32_t *wet, uint32_t n)
 {
@@ -78,6 +80,12 @@ static void ref_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_
     int32_t size = 25000 + song.g[G_RSIZE] * 50, damp = 32767 - song.g[G_RDAMP] * 200;
     int32_t cdepth = song.g[G_CDEPTH] * 6;
     uint32_t cinc = LFO_INC[song.g[G_CRATE] & 127] / CTL;
+    if (!rf.dl_cur)
+        rf.dl_cur = dl;
+    if (!rf.dxf && dl != rf.dl_cur) {
+        rf.dl_new = dl;
+        rf.dxf = 1024;
+    }
     for (i = 0; i < n; i++) {
         int32_t y = 0, x, r, a;
         ref_cho[rf.cho_w & (CHO_LEN - 1u)] = (int16_t)clamp(cho_in[i] >> 1, -32768, 32767);
@@ -90,7 +98,13 @@ static void ref_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_
             y += (c0 + (((c1 - c0) * f) >> 8)) << 1;
         }
         rf.cho_w++;
-        x = ref_dly[(rf.dly_w - dl) & (DLY_LEN - 1u)];
+        x = ref_dly[(rf.dly_w - rf.dl_cur) & (DLY_LEN - 1u)];
+        if (rf.dxf) {                                           /* (the old tap into the new one over 1024) */
+            int32_t xb = ref_dly[(rf.dly_w - rf.dl_new) & (DLY_LEN - 1u)];
+            x += ((xb - x) * (1024 - rf.dxf)) >> 10;
+            if (!--rf.dxf)
+                rf.dl_cur = rf.dl_new;
+        }
         rf.dly_lp += mulq15(x - rf.dly_lp, col);
         ref_dly[rf.dly_w & (DLY_LEN - 1u)] = (int16_t)clamp((dly_in[i] >> 1) + mulq15(rf.dly_lp, fb), -32768, 32767);
         rf.dly_w++;
@@ -100,9 +114,10 @@ static void ref_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_
             int16_t *c = ref_comb;
             int32_t in = mulq15(rev_in[i], 2580);
             for (k = 0; k < 4u; k++) {
-                int32_t o = c[rf.comb_i[k]];
-                rf.comb_lp[k] = o + mulq15(rf.comb_lp[k] - o, 32767 - damp);
-                c[rf.comb_i[k]] = (int16_t)clamp(in + mulq15(rf.comb_lp[k], size), -32768, 32767);
+                int32_t o = c[rf.comb_i[k]], f = (rf.comb_lp[k] - o) * (32767 - damp);
+                rf.comb_lp[k] = o + ((f + (f < 0 ? 32767 : 0)) >> 15);   /* (M-Vave-OP1: towards zero, no hum) */
+                f = rf.comb_lp[k] * size;
+                c[rf.comb_i[k]] = (int16_t)clamp(in + ((f + (f < 0 ? 32767 : 0)) >> 15), -32768, 32767);
                 if (++rf.comb_i[k] >= REV_COMB[k])
                     rf.comb_i[k] = 0;
                 a += o;
@@ -111,7 +126,7 @@ static void ref_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_
             c = ref_ap;
             for (k = 0; k < 2u; k++) {
                 int32_t o = c[rf.ap_i[k]];
-                int32_t v = a + (o >> 1);
+                int32_t v = a + ((o + (o < 0)) >> 1);
                 c[rf.ap_i[k]] = (int16_t)clamp(v, -32768, 32767);
                 a = o - a;
                 if (++rf.ap_i[k] >= REV_AP[k])
@@ -324,7 +339,8 @@ static void test_spring_identical(void)
     }
     xs = x0;
     snprintf(what, sizeof what, "SPRING (and ROOM <-> SPRING) bit for bit as before HALL: 20 s of sends, hash 0x%08x", h);
-    check(what, h == 0xdd93d2f8u);
+    check(what, h == 0x5969c967u);                              /* (M-Vave-OP1: ROOM rounds towards zero now;
+                                                                 * 0xdd93d2f8 before, its SPRING stretches unchanged) */
     song.g[G_RTYPE] = 0;
     rev_clear();
     fx.rtype = 0;
@@ -1141,9 +1157,91 @@ static void demo2(const char *dir, int src, int m, int size)
     printf("reverb: demo %s\n", path);
 }
 
+/* M-Vave-OP1: ROOM ends in exact silence at every SIZE x DAMP and level (its combs' feedback and its allpasses'
+ * halving round towards zero; floored, at DAMP 0 a pattern of small negatives went round for ever, a 32 .. 40 Hz
+ * hum near -60 dBFS): 1 s of a chord, then silence, the last second of 12 exactly 0 */
+static void test_room_silence(void)
+{
+    static int32_t burst[FS];
+    static const int32_t SS[3] = {0, 64, 127}, DD[3] = {0, 60, 127}, LV[3] = {600, 20000, 200000};
+    uint32_t s0, d0, lv, i, held = 0, worst = 0;
+    char what[200];
+    host_tracks_init();
+    for (s0 = 0; s0 < 3u; s0++)
+        for (d0 = 0; d0 < 3u; d0++)
+            for (lv = 0; lv < 3u; lv++) {
+                int32_t tail = 0;
+                for (i = 0; i < FS; i++)
+                    burst[i] = (int32_t)(LV[lv] * (sin(2 * M_PI * 220 * i / FS) + sin(2 * M_PI * 277 * i / FS) +
+                                                   sin(2 * M_PI * 330 * i / FS)) / 3);
+                model_reset(M_ROOM, SS[s0], DD[d0]);
+                model_run(M_ROOM, burst, FS, IRN);
+                for (i = IRN - FS; i < IRN; i++)
+                    tail = abs(ir[i]) > tail ? abs(ir[i]) : tail;
+                held += tail != 0;
+                worst = (uint32_t)tail > worst ? (uint32_t)tail : worst;
+            }
+    snprintf(what, sizeof what, "ROOM: silent after its tail at every SIZE x DAMP x level (27 runs): %u not silent, worst %u",
+             held, worst);
+    check(what, !held);
+}
+
+/* M-Vave-OP1: a delay TIME change (a detent, the tempo; an external clock's estimate moves it every quarter note)
+ * moves the tap without a click (fx.c dly_glide): a 110 Hz sine into the delay, its echoes ringing; TIME and BPM
+ * changed in turn. The wet bus's largest step from one sample to the next in the 100 ms after each change, against
+ * its largest in the 300 ms before it (the sine's own slope): the tap jumping is up to the echo's whole swing */
+static void test_delay_glide(void)
+{
+    static int32_t c[CTL], d[CTL], r[CTL], w[CTL];
+    static const int16_t TM[5] = {1, 0, 2, 11, 1};               /* 1/8 1/4 1/16 1/8D 1/8 */
+    static const int16_t BP[5] = {120, 120, 120, 120, 97};
+    uint32_t k, b, i, nb = FS / 2u / CTL, ph = 0, inc = (uint32_t)(4294967296.0 * 110.0 / FS);
+    int32_t last = 0, prev_before = 0;
+    double worst = 0;
+    char what[220];
+    host_tracks_init();
+    memset(dly_buf, 0, sizeof dly_buf);
+    memset(cho_buf, 0, sizeof cho_buf);
+    fx.dl_cur = fx.dxf = 0;
+    fx.dly_lp = 0;
+    song.g[G_DFDBK] = 60;
+    song.g[G_DMIX] = 127;
+    song.g[G_DCOLOR] = 127;
+    for (k = 0; k < 5u; k++) {
+        int32_t before = 0, after = 0;
+        song.g[G_DTIME] = TM[k];
+        song.g[G_BPM] = BP[k];
+        for (b = 0; b < 3u * nb; b++) {                         /* 1.5 s a setting */
+            for (i = 0; i < CTL; i++, ph += inc) {
+                c[i] = r[i] = 0;
+                d[i] = (osc_sine(ph) * 20000) >> 15;
+            }
+            fx_buses(c, d, r, w, CTL);
+            for (i = 0; i < CTL; i++) {
+                int32_t st = abs(w[i] - last), t = (int32_t)(b * CTL + i);
+                last = w[i];
+                if (t < FS / 10)
+                    after = st > after ? st : after;
+                else if (t >= FS * 12 / 10)
+                    before = st > before ? st : before;
+            }
+        }
+        if (k) {
+            double q = prev_before ? (double)after / prev_before : 0;
+            worst = q > worst ? q : worst;
+        }
+        prev_before = before;
+    }
+    snprintf(what, sizeof what, "DELAY: TIME 1/8 -> 1/4 -> 1/16 -> 1/8D -> 1/8 at 97 BPM, echoes ringing: the largest step "
+             "after a change %.2f x the sine's own (a jump: up to its whole swing)", worst);
+    check(what, worst > 0 && worst < 1.5);
+}
+
 int main(int argc, char **argv)
 {
     test_room_identical();
+    test_room_silence();
+    test_delay_glide();
     test_spring();
     test_spring_identical();
     test_hall();

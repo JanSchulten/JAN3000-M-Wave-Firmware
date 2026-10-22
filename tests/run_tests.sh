@@ -39,6 +39,8 @@
 #                   (1.2: when it writes, the power-on restore, damaged copies, a write cut short, wear over a session),
 #                   malformed transfers, transport-stop timeouts, MIDI and UART recovery; the MENU settings over the
 #                   editor (MENU_DESC / MENU_SET: every item, clamping, unknown ids, saving, USB SERIAL applied later).
+#                   M-Vave-OP1: a settings save waits for quiet (no voice, no tail in the output) as for STOP, 8 s at
+#                   most; the autosave waits for the tails too.
 # FM6 BANK (tests/fm6bank_test.c, 1.4.1): the voice bank (src/fm6_vbank.c) and its editor commands against simulated NOR:
 #                   written whole and read back, its sectors (0xE7000, staged in the autosave's older copy, nothing else
 #                   touched), a power cut after any programmed byte or in any erase (the old bank or the new one, the
@@ -58,6 +60,13 @@
 #                   passing note, a root outside the scale, A minor, CHR, kits never; OFF, stopped, no root: as written),
 #                   a pattern under KEY bar by bar (the run round, LEN 1, each off its on), the arp's notes moved (not
 #                   while recording), live keys as they are; the page (GLO's first, the knobs, a key sets a root).
+# NEW PROJECT (tests/newproj_test.c, M-Vave-OP1): a new project's sounds drawn (newproj.c): F#5 NEW (START A NEW
+#                   PROJECT?), OCT- on an empty slot (NEW PROJECT IN SLOT C?, the new project there), power-on with nothing
+#                   restored; T1 a factory BASS, T3 a LEAD, T4 a kit (DRUM's six, VDRUM / DBOX but INIT), T2 the pad;
+#                   nothing of the old music left; 900 draws: every bass, lead and kit comes up, nothing else ever.
+# JAN (tests/jan_test.c, M-Vave-OP1 JAN3000 v0.8): another track (ALGORITHM) opens each family at its first page; REC
+#                   armed takes the track's copy, REC held + OCT- undoes the recording, OCT+ redoes it; SAVE > PROJECT >
+#                   NEW (asked first, not while playing): the power-on sounds, empty steps, no song / extras / slot.
 # STORES (tests/opstore_test.c, M-Vave-OP1): USR3's and USR2's flash (opstore.c) on a NOR image: a slot's FX TRACKS saved
 #                   and loaded with its project (a power-on, a project without extras or written by the editor: empty, a
 #                   rename keeps them, a failed write), the autosave's, a song's slots; the KEY's run with a project;
@@ -67,9 +76,11 @@
 # SCENES (tests/scene_test.c, M-Vave-OP1): 16 scenes a project (scene.c, the SEQ layer): the packed form (3000 random
 #                   scenes round-trip, the densest fits, damaged bytes refused), a pick stopped at once and playing at the
 #                   pattern's end (the longest track's loop, the remainder carried), taken back, the bank full (refused,
-#                   or dropped at the end: nothing lost), kept with the project, the SEQ layer (white keys scenes, OCT+ /
-#                   OCT- next / before, black keys the tools, EDIT put back, PRESETS the lane, LEDs, no song), the KO-II
-#                   flow (a punch-in held while SEQ picks); screens into build/scene_shots.
+#                   or dropped at the end: nothing lost), kept with the project, SEQ + OCT+ held the copy into the next
+#                   free scene (at once, the music byte for byte, a pick taken back, refusals change nothing, kept), the
+#                   SEQ layer (white keys scenes, OCT+ / OCT- next / before, black keys the tools, EDIT put back, PRESETS
+#                   the lane, LEDs, no song), the KO-II flow (a punch-in held while SEQ picks); screens into
+#                   build/scene_shots.
 # SCL > ORCHID (tests/orchid_test.c, M-Vave-OP1): the Orchid's chord block after ChoralRoot FM-1 (orchid.c): the
 #                   types, extensions, VOICE and names; through the real key input (F3 .. C#4 the block, silent; the roots
 #                   with their chord; a release ends its own notes; ORCHID off, a kit, a one-voice part as before; the
@@ -133,6 +144,8 @@
 #                   settings and levels), no offset, level, stereo, echo density / ringing / flutter against ROOM, SPRING
 #                   and COMB8 (8 combs + 4 allpasses, host only, for comparison), model changes both ways, cost; the
 #                   listening set in build/reverb_demo/ (drums, pluck, piano: dry and each model at SIZE 40 / 90 / 127).
+#                   M-Vave-OP1: ROOM in exact silence after its tail (27 settings and levels: no hum at DAMP 0), a
+#                   delay TIME / BPM change crossfading the taps (no step larger than the echo's own).
 # SLICE (tests/slice_test.c): slice tables, AUTO onsets of a user-slot loop, reverse, keys, modes, the MAN slices
 #                   (SLICES page) and their store in the slot (src/slice_store.c); the presets and the loop;
 #                   demos in build/slice_demo/.
@@ -154,8 +167,12 @@
 #                   and SWING too), the accent, the frequencies, length, LEVEL, MASTER, OFF / REC / ON, USB audio bit for bit
 #                   without it; COUNT-IN 1 / 2 BARS (step 1 exactly N bars after PLAY, STOP cancels, PLAY again nothing,
 #                   never with an external clock), notes in its last eighth onto step 1; SYNC OUT PO (MENU > AUDIO): a
-#                   220-sample full-scale pulse on the left each eighth while playing, the mono mix on the right, none
-#                   stopped or OFF; build/click_demo/.
+#                   220-sample pulse on the left each eighth while playing, at the DAC's full scale (not the mix's -6 dB),
+#                   the mono mix on the right, none stopped or OFF; around a flash erase the ISR fades the DAC out over a
+#                   half, keeps it at exactly 0, fades it in after (M-Vave-OP1); build/click_demo/.
+# RETRIG (tests/retrig_test.c, M-Vave-OP1): retriggers without a click (TRIO MONO over-lapping notes, PHASE STRING in its
+#                   release: the engines' .keep), the bit-crushers rounding to the nearest step (SAMPLE BITS, LOFI CRSH,
+#                   NOISE CRSH: no DC against the uncrushed note; the FX layer's CRUSH keeps silence at 0).
 # USB audio (tests/uac_test.c): the UAC1 descriptors as a host parses them (with and without CDC; 44100 and
 #                   48000 Hz), the ring and packetiser: 44.1 frames per packet, every frame in order (bit for bit),
 #                   underrun / overrun, restart; SET_CUR; the 44.1 -> 48 kHz resampler (every frame against a
@@ -174,6 +191,15 @@
 #                   Felucca's targets, the controls' directions, no clipping, DC, retriggers, the hat choke, the
 #                   kick on a small speaker; the DRUM engine (src/eng_drum.c): its key map, the 8 lanes together,
 #                   one hit per lane, the choke between lanes; the cost per voice; demos in build/drum_demo/.
+# VDRUM (tests/vdrum_test.c, M-Vave-OP1): the engine (src/eng_vdrum.c): every factory kit's parts under full scale,
+#                   no DC, they sound and fall silent (the resonator's tail with them), a retrigger from rest the same;
+#                   the GM map, the choke groups, the resonator's pitch (TUNE), DECAY, MIX 0, its sleep; KIT OWN; one
+#                   voice a part; the cost; demos in build/vdrum_demo/. tests/vdrum_ui_test.c: its EDIT > LAYER .. PART 2
+#                   pages (the part struck by hand, LYR, KIT OWN, undo), its kit in projects and user presets.
+# DBOX (tests/dbox_test.c, M-Vave-OP1): the engine (src/eng_dbox.c): every kit's 12 sounds under full scale, no DC,
+#                   they sound and end, a retrigger from rest the same, each MODE its own and bounded, the octaves;
+#                   its EDIT > OSC 1, OSC 2, SOUND pages (src/ui_dbox.c), its kit in projects and user presets;
+#                   screens in build/dbox_shots/, demos in build/dbox_demo/.
 # NOISE (tests/noise_test.c): the engine (src/eng_noise.c): COLR's slope (white, pink, brown), the filter and the
 #                   register clock following the key, META periodic at the key, no DC, no clipping at the
 #                   corners, a note from silence the same twice, the cost per voice; demos in build/noise_demo/.
@@ -277,6 +303,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ratchet_test" tests/ratchet_test.c -lm
     run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/key_test" tests/key_test.c -lm
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/jan_test" tests/jan_test.c -lm
+    run "JAN3000 v0.8: another track opens the families' first pages, REC + OCT- / OCT+ undo / redo, SAVE > PROJECT > NEW" "$OUT/jan_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/newproj_test" tests/newproj_test.c -lm
+    run "NEW PROJECT's sounds drawn: F#5, OCT- on an empty slot, power-on; every bass, lead and kit comes up, nothing else" "$OUT/newproj_test"
     run "KEY: the move in the scale, a pattern under KEY bar by bar, the arp, live keys, the page" "$OUT/key_test"
     mkdir -p build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
@@ -286,7 +316,7 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo
     mkdir -p build/scene_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/scene_test" tests/scene_test.c -lm
-    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
+    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT+ held copy, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
     mkdir -p build/orchid_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/orchid_test" tests/orchid_test.c -lm
     run "SCL > ORCHID (the Orchid's keyboard): types, extensions, VOICE, names, the key input, LOCK, the page, LEDs, STEP entry, kept" "$OUT/orchid_test" build/orchid_shots
@@ -340,8 +370,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "audio: overload protection, bounded fades and DMA diagnostics" "$OUT/audio_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/click_test" tests/click_test.c -lm
     run "metronome and count-in: beats sample for sample (internal and external clock), accent, level, MASTER, not in USB, count-in timing, notes onto step 1" "$OUT/click_test"
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/retrig_test" tests/retrig_test.c -lm
+    run "retriggers without a click (TRIO, PHASE), bit-crushers without DC (SAMPLE, LOFI, NOISE, FX CRUSH)" "$OUT/retrig_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/persistence_test" tests/persistence_test.c -lm
-    run "persistence: deferred settings, retry and failed-save rollback" "$OUT/persistence_test"
+    run "persistence: deferred settings (until STOP and quiet), retry and failed-save rollback" "$OUT/persistence_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/opstore_test" tests/opstore_test.c -lm
     run "M-Vave-OP1 stores in USR3 / USR2: FX TRACKS, the KEY and scenes with projects and the autosave, USR2 / USR3 empty" "$OUT/opstore_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/backup_test" tests/backup_test.c -lm
@@ -379,7 +411,7 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "FX layer effects: on the 1/16, stereo, too-long REPEAT, SLICER, silent keys, idle bit-identical, clicks, OCT UP / DN, FLANGER, PHASER, the key map, dotted TIME, REV / ECHO THROW, cost, demos" "$OUT/perform_test" build/perform_demo build/fx_demo build/throw_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/reverb_test" tests/reverb_test.c -lm
     mkdir -p build/reverb_demo
-    run "REVERB TYPE: ROOM / SPRING bit-identical, SPRING and HALL decay / stability / level, HALL silence / stereo / ringing, model changes, cost, demos" "$OUT/reverb_test" build/fx_demo build/reverb_demo
+    run "REVERB TYPE: ROOM / SPRING bit-identical, ROOM silence, the delay TIME crossfade, SPRING and HALL decay / stability / level, HALL silence / stereo / ringing, model changes, cost, demos" "$OUT/reverb_test" build/fx_demo build/reverb_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/regress" tests/regress.c -lm
     run "regression: golden renders, health, voices, CPU budget" "$OUT/regress" tests/golden.txt tests/cpu_baseline.txt
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/union_test" tests/union_test.c -lm
@@ -405,6 +437,15 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/drum_test" tests/drum_test.c -lm
     mkdir -p build/drum_demo
     run "DRUM: voice targets, controls, no clipping, retrigger, hat choke, the kick on a small speaker, keys, 8 lanes, cost, demos" "$OUT/drum_test" build/drum_demo
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/vdrum_test" tests/vdrum_test.c -lm
+    mkdir -p build/vdrum_demo
+    run "VDRUM: kits under full scale, DC, tails end, retrigger, GM map, choke, resonator pitch / DECAY / sleep, OWN, voices, cost, demos" "$OUT/vdrum_test" build/vdrum_demo
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/vdrum_ui_test" tests/vdrum_ui_test.c -lm
+    mkdir -p build/vdrum_shots
+    run "VDRUM: the part pages (part struck by hand, LYR, KIT OWN, undo), the kit in projects and user presets, screens" "$OUT/vdrum_ui_test" build/vdrum_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/dbox_test" tests/dbox_test.c -lm
+    mkdir -p build/dbox_shots build/dbox_demo
+    run "DBOX: kits under full scale, DC, ends, retrigger, MODEs, octaves, the key pages, its kit stored, screens, demos" "$OUT/dbox_test" build/dbox_shots build/dbox_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/noise_test" tests/noise_test.c -lm
     mkdir -p build/noise_demo
     run "NOISE: colour slopes, key-tracked filter and clock, META period, DC, clipping, retrigger, cost, demos" "$OUT/noise_test" build/noise_demo

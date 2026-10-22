@@ -247,7 +247,8 @@ static void cdc_task(void) {}
 #undef usb_detach
 
 /* --------------------------------------------------------- the device --- */
-static uint32_t web_booted, web_boot_ms, web_last_frame;
+static uint32_t web_booted, web_boot_ms, web_last_frame, web_splash_t0, web_splash_last;
+static uint32_t web_seed_v;               /* M-Vave-OP1: the page's random number for power-on's sounds (web_seed) */
 
 /* main.c fm1_main's boot, up to the main loop (no USB, no UART, no panel setup) */
 static void web_power_on(void)
@@ -267,8 +268,10 @@ static void web_power_on(void)
     kb_boot_hold = 1;                     /* main.c (#137): the keys silent under the splash */
     audio_init();
     boot_leds();                          /* main.c: the power-on LED sweep, from the scan's start */
-    autosave_boot(boot_clean);            /* main.c: the last session's music (1.2, project.c) */
-    web_boot_ms = fm1_ms + 430u;         /* main.c: 30 + 400 ms before the first frame */
+    if (!autosave_boot(boot_clean))       /* main.c: the last session's music (1.2, project.c); none: a new */
+        project_boot_new(web_seed_v);     /* project's sounds drawn (M-Vave-OP1, newproj.c; web_seed) */
+    web_splash_t0 = web_splash_last = fm1_ms;
+    web_boot_ms = fm1_ms + 30u + SPL_MS + 240u;   /* main.c: 30 ms, the splash animated and held, then the first frame */
     web_booted = 1;
 }
 
@@ -310,8 +313,13 @@ static void web_ms(void)
         }
         web_half ^= 1u;
     }
-    if (!web_booted || (int32_t)(fm1_ms - web_boot_ms) < 0)
+    if (!web_booted || (int32_t)(fm1_ms - web_boot_ms) < 0) {
+        if (web_booted && fm1_ms - web_splash_last >= 30u) {   /* main.c: the splash animated (JAN3000, ui_draw.c) */
+            web_splash_last = fm1_ms;
+            draw_splash_at(fm1_ms - web_splash_t0);
+        }
         return;
+    }
     if (web_boot_ms) {                                    /* main.c: the splash goes, the loop starts */
         web_boot_ms = 0;
         kb_boot_hold = 0;
@@ -352,6 +360,7 @@ EXPORT uint8_t *web_nor(void) { return nor; }
 EXPORT uint32_t web_nor_size(void) { return sizeof nor; }
 EXPORT void web_nor_erase(void) { memset(nor, 0xFF, sizeof nor); }
 EXPORT uint32_t web_flash_writes_count(void) { return web_flash_writes; }
+EXPORT void web_seed(uint32_t s) { web_seed_v = s; }   /* M-Vave-OP1: before web_boot (no SRAM noise here) */
 EXPORT void web_boot(void)
 {
     if (!web_booted)

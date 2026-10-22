@@ -14,7 +14,7 @@ import os
 import re
 import sys
 
-FUNCS = ["analog_render", "digital_render", "digital_render_legacy", "digital_render_custom", "phase_render", "lofi_render", "sample_render", "formant_render",
+FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital_render_legacy", "digital_render_custom", "phase_render", "lofi_render", "sample_render", "formant_render",
          "trio_render", "trio_pass", "wheel_render", "wheel_block",
          "grain_render", "grain_block", "phys_render", "drum_render", "noise_render", "fm6_render", "fm6_op_run", "fm6_op_fb", "px_modal_block", "px_modal_run", "px_memb_block",
          "px_string_excite", "px_string_run", "px_symp_run",
@@ -22,6 +22,8 @@ FUNCS = ["analog_render", "digital_render", "digital_render_legacy", "digital_re
          "dv_rim_run", "dv_bell_run", "dv_cym_run", "dv_out", "dv_metal_mix",
          "slicer_track",
          "slice_render", "slc_rev",                          # SLICE (eng_slice.c): the render, the reverse windows
+         "vd_render", "vd_layer_run", "vd_post",             # M-Vave-OP1: VDRUM (eng_vdrum.c): the parts, a layer, the resonator
+         "dbx_render",                                       # .. DBOX (eng_dbox.c)
          "fm1_alnk0_irq", "fm1_timer5_irq",               # the audio ISR; TIMER5: the key / LED scan (hal/fm1_input.h)
          "uac_tap48",                                       # the USB audio input at 48 kHz: the 44.1 -> 48 resampler (usb.c)
          "click_render",                                    # the metronome's click (click.c), while it sounds
@@ -32,6 +34,8 @@ FUNCS = ["analog_render", "digital_render", "digital_render_legacy", "digital_re
          "perf_throw",                                      # .. REV / ECHO THROW (1.5.1): per part, while held or gliding
          "perf_duck", "perf_stereo",                        # .. DUCK, STEREO (M-Vave-OP1 E2), while held or fading
          "rev_room", "rev_spring", "rev_hall", "rev_side_mix",   # the reverb bus (fx.c): REVERB TYPE ROOM / SPRING / HALL (and its stereo)
+         "dly_glide",                                       # .. M-Vave-OP1: the delay's taps crossfading after a TIME change
+         "aud_fade_half",                                   # .. M-Vave-OP1 (audio.c): the DAC faded around a flash erase
          "hall_shimmer",                                    # .. M-Vave-OP1: SHIMMER's octave (fx.c), after rev_hall
          "track_insert", "ins_drive", "ins_swept",           # the per-track INSERT (fx.c, 1.5), while a TYPE plays
          "cloud_render", "cl_spawn", "fx1_block", "cloud_side"]   # M-Vave-OP1: FX1's CLOUD (fx1.c), while it is the TYPE

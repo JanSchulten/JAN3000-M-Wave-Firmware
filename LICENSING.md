@@ -77,13 +77,18 @@ Every distribution of a package carries the licence texts with it: the release f
 (`tools/build.py --release`) and the site (`web/make_site.py`, next to the package in
 `firmware/` and linked from the installer page).
 
-## No vendor material
+## No vendor material in the firmware
 
-No M-VAVE material is part of Felucca. The firmware links no vendor code and contains no vendor
-data, and the packages hold only Felucca and the three SDK files above. The installer's
-"Return to official V15" holds only the official file's size and SHA-256: you select the
-official firmware file you downloaded yourself, and it is checked and installed in your browser,
-never uploaded or redistributed.
+No M-VAVE material is part of the firmware. It links no vendor code (in particular not M-VAVE's
+binary FM1 SDK) and contains no vendor data, and the packages hold only this firmware and the
+three SDK files above.
+
+M-Vave-OP1: the installers can return an FM-1 to M-VAVE's official V15 without a separate
+download. `vendor/m-vave/FM-1_015.fwsc` is that file, unmodified, from M-VAVE's FM1 Open
+development kit, where M-VAVE distributes it under Apache-2.0 (`vendor/m-vave/README.md`,
+`LICENSES/Apache-2.0.txt`). The web installer serves it next to the package (`firmware/`) and
+checks its size and SHA-256 before using it; a file you downloaded yourself can still be
+selected instead. It is never part of a package.
 
 ## Contributions
 

@@ -618,6 +618,13 @@ static __attribute__((noinline)) void cin_keep(track_t *t, uint32_t note, uint32
 static void input_on(track_t *t, uint32_t note, uint32_t vel)
 {
     last_note = (uint8_t)note;
+    if (t->eng_req == ENGI_VDRUM) {                 /* (M-Vave-OP1) the part the VDRUM pages edit (ui_vdrum.c) */
+        int32_t st;
+        vd_pick[trk_index(t)] = (uint8_t)(vd_part_note(note, &st) + 1u);
+    } else if (t->eng_req == ENGI_DBOX) {           /* .. the key the DBOX pages edit (ui_dbox.c) */
+        int32_t o;
+        dbx_pick[trk_index(t)] = (uint8_t)(dbx_key(note, &o) + 1u);
+    }
     if (cin_left)
         cin_keep(t, note, vel);
     if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes) */
@@ -773,7 +780,7 @@ static void keyboard_block(void)
     }
     lay = (fm1_in.buttons & kb_mask) || kb_lock;  /* (#83: kb_lock, a layer locked open with no button held) */
     fx = (fm1_in.buttons & perf_mask) || (kb_lock & 2u);
-    mute = song.grid == 2u || song.grid == 4u ? ~0u : song.grid == 3u ? SONG_KEYS : 0u;   /* the keys that never sound
+    mute = song.grid == 2u || song.grid == 4u || song.grid == 5u ? ~0u : song.grid == 3u ? SONG_KEYS : 0u;   /* the keys that never sound
                                                                                          * here (4: GLO > KEY's roots) */
     for (k = 0; k < 27u; k++) {
         if (!((ch >> k) & 1u))

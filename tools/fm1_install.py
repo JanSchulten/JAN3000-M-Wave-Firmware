@@ -11,6 +11,7 @@ the FM-1 restarts and the installed identity is checked.
 
   fm1_install.py PACKAGE.fwsc [--port NAME] [--yes] [--force]
   fm1_install.py FM-1.fwsc            (the official V15 file: back to the stock firmware)
+  fm1_install.py --stock              (M-Vave-OP1: the same, with the V15 in vendor/m-vave/)
   fm1_install.py --info [--port NAME]
 
 If the FM-1 is still in update mode (an earlier install was cut off), the
@@ -36,6 +37,8 @@ LOADER_MARK = b"FELUCCA-LOADER-1"
 # the unmodified official FM-1 V15 (FM-1.fwsc from M-VAVE): returning to it is allowed without --force,
 # as the web installer's "Return to official V15" (web/fm1pkg.js validateStockPackage)
 STOCK_V15_SHA256 = "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a"
+# M-Vave-OP1: that file as M-VAVE's FM1 Open ships it (Apache-2.0), for --stock
+STOCK_V15_PATH = str(__import__("pathlib").Path(__file__).resolve().parent.parent / "vendor" / "m-vave" / "FM-1_015.fwsc")
 PORT_RE = re.compile(r"fm-1|felucca|ota|composite|sinco|usb-midi", re.I)   # never probe other gear
 
 # seconds; the tests shorten them
@@ -462,9 +465,15 @@ def main(argv=None, backend=None, out=sys.stdout, ask=ask_tty):
     ap.add_argument("--port", metavar="NAME", help="MIDI port to use (part of its name)")
     ap.add_argument("--yes", action="store_true", help="do not ask for confirmation")
     ap.add_argument("--force", action="store_true", help="install a package without the Felucca loader marker")
+    ap.add_argument("--stock", action="store_true",
+                    help="back to the official V15 in vendor/m-vave/ (M-VAVE, Apache-2.0; no download needed)")
     a = ap.parse_args(argv)
+    if a.stock:                                     # (M-Vave-OP1: checked by its SHA-256 as any official file)
+        if a.package:
+            ap.error("give a PACKAGE.fwsc or --stock, not both")
+        a.package = STOCK_V15_PATH
     if bool(a.info) == bool(a.package):
-        ap.error("give a PACKAGE.fwsc or --info")
+        ap.error("give a PACKAGE.fwsc, --stock or --info")
     try:
         if backend is None:
             try:

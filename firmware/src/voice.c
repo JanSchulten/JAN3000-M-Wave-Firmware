@@ -185,8 +185,8 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
 {
     uint32_t i, np = trk_nvoice(t), best = np, low = np, nfree = 0;
     int32_t bd = 0x7FFFFFFF;
-    if (t->engine == ENGI_DRUM) {
-        voice_t *v = drum_reuse(t, note);
+    if (t->engine == ENGI_DRUM || t->engine == ENGI_VDRUM) {   /* a lane / part that sounds: its voice */
+        voice_t *v = t->engine == ENGI_DRUM ? drum_reuse(t, note) : vd_reuse(t, note);
         if (v)
             return voice_reuse(t, v);
     }
@@ -690,6 +690,8 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     }
     if (spread_on)
         spread_sum(out);                                /* out: every voice; spread_buf: the left ones */
+    if (e->post && e->post(t, out, n, fade ? (int32_t)(32767u * (t->xf - 1u) / XF_BLOCKS) : 32767))
+        nr += !nr;                                      /* (VDRUM's resonator rings on: the part still sounds) */
     if (fade) {
         for (i = 0; i < 8u; i++)
             t->p[P_E0 + i] = pe_new[i];

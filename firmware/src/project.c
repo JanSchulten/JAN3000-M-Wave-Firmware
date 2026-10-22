@@ -831,7 +831,12 @@ static void project_capture(project_t *p)
         p->t[i].engine = trk[i].eng_req;
         p->t[i].preset = trk[i].preset;
         memcpy(p->t[i].step, trk[i].step, sizeof trk[i].step);
-        fm6_pack(fm6_patch[i], p->fm6[i]);
+        if (trk[i].eng_req == ENGI_VDRUM)               /* (M-Vave-OP1) a VDRUM track: its own kit in the patch's */
+            vd_pack(i, p->fm6[i]);                      /* place (eng_vdrum.c; its FM6 patch is not kept) */
+        else if (trk[i].eng_req == ENGI_DBOX)           /* .. a DBOX track's (eng_dbox.c) */
+            dbx_pack(i, p->fm6[i]);
+        else
+            fm6_pack(fm6_patch[i], p->fm6[i]);
     }
     p->motion = motion;
     motion_unguard(f);
@@ -1019,9 +1024,18 @@ static int project_restore_runtime(const project_t *input)
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset >= PROJ_DEF_KEEP ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
         proj_steps(t->step);
-        {   /* the project's own FM6 patch, never reloaded from SLOT: F n if it is that factory patch, else OWN */
+        {   /* the project's own FM6 patch, never reloaded from SLOT: F n if it is that factory patch, else OWN; a VDRUM
+             * track's own kit (M-Vave-OP1: in the patch's place) and the init voice */
             uint8_t v[FP_SIZE + 1u];
-            fm6_unpack(p->fm6[k], v);
+            if (e == ENGI_VDRUM || e == ENGI_DBOX) {
+                if (e == ENGI_VDRUM)
+                    vd_unpack(k, p->fm6[k]);
+                else
+                    dbx_unpack(k, p->fm6[k]);
+                fm6_unpack(FM6_INIT, v);
+            } else {
+                fm6_unpack(p->fm6[k], v);
+            }
             fm6_set_patch(k, v);
             fm6_adopt(k);
         }
@@ -1070,6 +1084,55 @@ static void project_load(uint32_t slot)
         xtra_loaded(slot);                              /* (M-Vave-OP1: its FX TRACKS; none saved: empty) */
         scene_loaded(slot);                             /* (.. its other scenes; none: only the one it holds) */
     }
+}
+
+#include "newproj.c"                                  /* M-Vave-OP1: a new project's sounds, drawn at random */
+
+/* M-Vave-OP1, SAVE > PROJECT > NEW: a new project, everything as at power-on: empty steps (PROJ_DEF_SOUND), the
+ * globals' defaults (BPM, the FX buses), no song, no motion, no name; and the extras none has (FX TRACKS empty, FX1 the
+ * DELAY, ORCHID off, the CHORUS Felucca's, no KEY run), one scene; its sounds drawn (newproj.c: T1 a bass, T3 a lead,
+ * T4 a drum kit, T2 the power-on pad). Through project_restore_runtime, as a load (the transport stopped, the ISR off
+ * while it changes). slot: the empty slot it was asked for on (OCT- there: SAVE goes to it, its letter in the header),
+ * else (F#5) none; the slots stay */
+static void project_new(uint32_t slot)
+{
+    project_t *p = &proj_scratch;
+    proj_xtra_t none;
+    uint32_t i, k;
+    memset(p, 0, sizeof *p);
+    p->magic = PROJ_MAGIC;
+    p->size = sizeof *p;
+    for (i = 0; i < G_COUNT; i++)
+        p->g[i] = GP[i].def;
+    p->parts = NPART;
+    p->phys = PROJ_PHYS;
+    chain_defaults(&p->chain);
+    for (k = 0; k < NTRK; k++) {
+        uint32_t e = TRK_DEF[k][0];
+        p->t[k].engine = (uint8_t)e;
+        p->t[k].preset = PROJ_DEF_SOUND;               /* (restore: the power-on sound, track_defaults_steps) */
+        for (i = 0; i < P_COUNT; i++)
+            p->t[k].p[i] = param_desc_of(e, i)->def;
+        memcpy(p->fm6[k], FM6_INIT, sizeof p->fm6[k]);
+    }
+    p->sum = proj_sum(p);
+    if (project_restore_runtime(p))
+        return;
+    memset(&none, 0, sizeof none);
+    xtra_lanes(fxt_lane, &none, 0);
+    xtra_fx1(&none, 0);
+    xtra_orc(&none, 0);
+    np_sounds();
+    for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
+        pat_sig[k] = steps_sig(&trk[k]);
+        pat_last[k] = 0;
+    }
+    if (slot < 4u) {
+        proj_cur = (uint8_t)slot;
+        pat_from_set(slot + 1u);
+    }
+    ui.home = 1;
+    ui_message("NEW PROJECT");
 }
 
 /* settings + learned panel table: one flash object. The flash copy wins at
@@ -1183,6 +1246,30 @@ static uint32_t chain_prepare(void)
     return 0;
 }
 
+/* M-Vave-OP1: nothing sounding that an erase's ~45 ms gap would be heard in: no voice, and the output's last 23 ms
+ * (the HOME scope's buffer, fx.c: the reverb's and the delay's tails too) below SND_QUIET (-54 dBFS of the mix) */
+#define SND_QUIET 64
+static int sound_quiet(void)
+{
+    uint32_t k, i;
+    for (k = 0; k < NTRK; k++)
+        for (i = 0; i < NVOICE; i++)
+            if (trk[k].v[i].active)
+                return 0;
+    for (i = 0; i < SCOPE_N; i++)
+        if (scope_buf[i] >= SND_QUIET || scope_buf[i] <= -SND_QUIET)
+            return 0;
+    return 1;
+}
+
+#if FELUCCA_FLASH
+/* M-Vave-OP1: a settings save (closing the MENU, a layer's first open, a learn, the editor) waits for sound_quiet as
+ * well as for STOP, SET_WAIT_MS at most from when it could have been made (a drone held for ever still gets its
+ * settings saved; the erase then fades out and in, storage_hw.c) */
+#define SET_WAIT_MS 8000u
+static uint32_t persist_since;
+#endif
+
 static void settings_poll(void)
 {
 #if FELUCCA_FLASH
@@ -1191,7 +1278,11 @@ static void settings_poll(void)
     slc_store_poll();                              /* SLICE's slices edited on the SLICES page */
 #endif
     if (!persist_pending || !flash_ok || transport_busy() ||
-        (persist_pending == 2u && (uint32_t)(fm1_ms - persist_retry_ms) < 1000u))
+        (persist_pending == 2u && (uint32_t)(fm1_ms - persist_retry_ms) < 1000u)) {
+        persist_since = fm1_ms;
+        return;
+    }
+    if (!sound_quiet() && fm1_ms - persist_since < SET_WAIT_MS)
         return;
     p = persist_saved;
     settings_export(&p);
@@ -1212,6 +1303,8 @@ static void settings_poll(void)
 static void settings_save(void)
 {
 #if FELUCCA_FLASH
+    if (!persist_pending)
+        persist_since = fm1_ms;                    /* (M-Vave-OP1: SET_WAIT_MS from here, settings_poll) */
     persist_pending = 1;
 #endif
     settings_poll();
@@ -1267,6 +1360,10 @@ static uint32_t autosave_sig(void)
         h = as_mix(h, &t->preset, 1);
         h = as_mix(h, t->step, sizeof t->step);
         h = as_mix(h, fm6_patch[i], sizeof fm6_patch[i]);
+        if (t->eng_req == ENGI_VDRUM)                   /* (M-Vave-OP1) its own kit, which the project keeps */
+            h = as_mix(h, vd_own[i], VK_SIZE);
+        if (t->eng_req == ENGI_DBOX)
+            h = as_mix(h, dbx_own[i], VK_SIZE);
     }
     for (i = 0; i < G_COUNT; i++)
         if (i != G_SLOT && i != G_NAME && i != G_LOAD && i != G_SAVE)
@@ -1294,17 +1391,13 @@ static uint32_t autosave_sig(void)
     return as_mix(h, proj_name, sizeof proj_name);
 }
 
-/* nothing going on that an erase (the audio stopped ~40 ms) would be heard in, or would race */
+/* nothing going on that an erase (the audio stopped ~40 ms) would be heard in, or would race (M-Vave-OP1: the
+ * effects' tails too, sound_quiet) */
 static int autosave_quiet(void)
 {
-    uint32_t k, i;
     if (transport_busy() || fm1_in.notes || fm1_in.buttons)
         return 0;
-    for (k = 0; k < NTRK; k++)
-        for (i = 0; i < NVOICE; i++)
-            if (trk[k].v[i].active)
-                return 0;
-    return 1;
+    return sound_quiet();
 }
 
 static void autosave_hold(void) { as.t = fm1_ms; }   /* the editor's transfers: their staging RAM is proj_wire */

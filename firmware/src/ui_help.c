@@ -13,49 +13,61 @@
 static const char H_EDIT[] = "[K1-4]SOUND[EDIT]HOLD: ENGINES";
 static const char H_LANES[] = "[K1-4]LANE LEVELS[EDIT]HOLD: MUTES";
 static const char H_FMOP[] = "[K1]OPERATOR[SAVE]HOLD: UNDO";
+static const char H_VDL[] = "[KEYS]PART[K1]LAYER[SAVE]UNDO";
+static const char H_VDP[] = "[KEYS]PART[SAVE]HOLD: UNDO";
+static const char H_DBX[] = "[KEYS]SOUND[SAVE]HOLD: UNDO";
 static const struct { const char *title, *hint; } HELP_PAGE[] = {
-    {"ENV", "[K1-4]A D S R[ENV]ENV DEST"},
-    {"ENV DEST", "[K1-4]ENV AMOUNTS[ENV]ENV"},
+    {"ENV", "[K1-4]A D S R[SELECT]ENV DEST"},
+    {"ENV DEST", "[K1-4]ENV AMOUNTS[SELECT]ENV"},
     {"LFO", "[K1-4]SHAPE[LFO]HOLD: MOMENTARY"},
-    {"LFO 2", "[K1]SYNC TO BPM[LFO]LFO DEST"},
-    {"LFO DEST", "[K1-4]LFO AMOUNTS[LFO]MOD"},
+    {"LFO 2", "[K1]SYNC TO BPM[SELECT]LFO DEST"},
+    {"LFO DEST", "[K1-4]LFO AMOUNTS[SELECT]MOD"},
     {"MOD", "[K1]SLOT[K2]SOURCE[K3]DEST"},
     {"FX", "[K1-4]SENDS[FX]HOLD: PERFORM"},
-    {"SLICER", "[K1]ON[K2]PATTERN[FX]FX TRACKS"},
-    {"INSERT", "[K1]TYPE[K4]MIX[FX]CHORUS"},
-    {"INSERT 2", "[K1]DRY / WET[FX]DLY"},
-    {"DLY", "[K1-4]ALL TRACKS[FX]REVERB"},
-    {"REVERB", "[K1]TYPE[K2]SIZE[FX]SLICER"},
-    {"CHORUS", "[K1]TYPE[K4]FDBK[FX]DELAY"},
-    {"SCL", "[K2]SCALE[K3]QUANTIZE[SCL]CHORDS"},
-    {"CHORD", "[K1]CHORD[SCL]ORCHID"},
+    {"SLICER", "[K1]ON[K2]PATTERN[SELECT]FX TRACKS"},
+    {"INSERT", "[K1]TYPE[K4]MIX[SELECT]CHORUS"},
+    {"INSERT 2", "[K1]DRY / WET[SELECT]DLY"},
+    {"DLY", "[K1-4]ALL TRACKS[SELECT]REVERB"},
+    {"REVERB", "[K1]TYPE[K2]SIZE[SELECT]SLICER"},
+    {"CHORUS", "[K1]TYPE[K4]FDBK[SELECT]DELAY"},
+    {"SCL", "[K2]SCALE[K3]QUANT[SELECT]CHORDS"},
+    {"CHORD", "[K1]CHORD[SELECT]ORCHID"},
     {"ORCHID", "[K1]ON[K2]VOICE[K3]LOCK"},   /* (M-Vave-OP1, orchid.c) */
     {"EDIT 1", H_EDIT},
     {"EDIT 2", H_EDIT},
-    {"FILTER", "[K1]LP BP HP[K2]CUTOFF[EDIT]VOICE"},
+    {"FILTER", "[K1]LP BP HP[K2]CUTOFF[SELECT]VOICE"},
     {"LANES", H_LANES},
     {"LANES 2", H_LANES},
+    {"SOUNDS", "[KEYS]PICK[K1-4]TUNE DECAY TONE"},   /* (M-Vave-OP1: a DRUM lane's own) */
     {"SLICES", "[K1]SLICE[K2]MOVE[OCT+]SPLIT, JOIN"},
     {"OPERATOR", H_FMOP},
     {"OP ENV", H_FMOP},
     {"OPERATOR 2", H_FMOP},
+    {"LAYER", H_VDL},                                /* (M-Vave-OP1, ui_vdrum.c) */
+    {"LAYER PITCH", H_VDL},
+    {"LAYER ENV", H_VDL},
+    {"PART", H_VDP},
+    {"PART 2", H_VDP},
+    {"OSC 1", H_DBX},                                /* (M-Vave-OP1, ui_dbox.c) */
+    {"OSC 2", H_DBX},
+    {"SOUND", H_DBX},
     {"VOICE", "[K1]POLY, MONO[K2]GLIDE"},
     {"VOICE 2", "[K2]DETUNE[K3]PAN[K4]MUTE"},
-    {"VOICE 3", "[K1]STEREO SPREAD[EDIT]EDIT 1"},
+    {"VOICE 3", "[K1]STEREO SPREAD[SELECT]EDIT 1"},
     {"FX TRACKS", "[REC]ARM[FX]HOLD + KEYS"},
-    {"DELAY", "[K1]DELAY / CLOUD[FX]REVERB"},
+    {"DELAY", "[K1]DELAY / CLOUD[SELECT]REVERB"},
     {"CLOUD", "[K1]SIZE[K2]DENSITY[K3]PITCH"},
     {"FX TRACKS 2", "[K1]LANE[K2]BOTH[OCT+]CLEAR"},
     {"KEY", "[KEYS]ROOT[REC]RECORD[K4]ON"},
     {"SONG", "[REC]CHAIN[KEYS]A-D[PLAY]SONG"},
-    {"USER", "[K1]SLOT[OCT+]SAVE[SAVE]PRESETS"},
+    {"USER", "[K1]SLOT[OCT+]SAVE[SELECT]PRESETS"},
     {"PRESETS", "[K2]ENGINE[K3]FAV[K4]LIST"},
-    {"PHRASES", "[K1]PHRASE[OCT+]LOAD[SAVE]PROJECT"},
-    {"PROJECT", "[K1]SLOT[K4]SAVE[EDIT]NAME"},
+    {"PHRASES", "[K1]PHRASE[OCT+]LOAD[SELECT]TOOLS"},
+    {"PROJECT", "[KEYS]PROJECT[OCT+]SAVE[OCT-]LOAD"},
     {"TOOLS", "[K1]CLEAR[K2]INIT SOUND[OCT+]DO"},
-    {"ARP", "[K1]MODE[KEYS]CHORD[ARP]ARP 2"},
-    {"ARP 2", "[K3]LATCH[K4]ORDER[ARP]ARP"},
-    {"STEP", "[KEYS]WRITE[K1]STEP[SEQ]RATCH"},   /* (1.5.1: SEQ to DETAIL) */
+    {"ARP", "[K1]MODE[KEYS]CHORD[SELECT]ARP 2"},
+    {"ARP 2", "[K3]LATCH[K4]ORDER[SELECT]ARP"},
+    {"STEP", "[KEYS]WRITE[K1]STEP[SELECT]RATCH"},   /* (1.5.1: SEQ to DETAIL) */
     {"DETAIL", "[PRESETS]STEP[K1]CHANCE[K2]RATCH"},
     {"AUTOMATION", "[K1]ROW[OCT+]DO[EDIT]DELETE"},
     {"MIXER", "[K4]MUTE[ALGO]TRACK[HOME]CLOCK"},
@@ -63,7 +75,7 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
 };
 #define H_HOME "[PRESETS]SOUND[HOME]HOLD: MENU"
 #define H_LEVELS "[K1-4]T1-T4 LEVEL[HOME]MIXER"
-#define H_GRID "[KEYS]STEPS[K2]LANE[SEQ]RATCH"
+#define H_GRID "[KEYS]STEPS[K2]LANE[SELECT]RATCH"
 /* a layer's (LAYER_*): what its footer row (LAYERS[].foot) does not say */
 static const char *const HELP_LAYER[LAYER_N] = {
     "", "[KEYS]BLACK: MUTES[FX]2 TAPS: LOCK", "[KEYS]SOLO MUTE TAP[K1-4]LEVELS", "[KEYS]ROOT[K1-4]ROOT SCL CHORD",

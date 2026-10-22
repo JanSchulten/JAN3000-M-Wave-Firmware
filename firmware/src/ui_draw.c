@@ -720,7 +720,7 @@ static void sound_name(const track_t *t, char *b)
     if (user_of(t) < UP_SLOTS)
         up_name(user_of(t), b);
     else if (e->npresets)
-        str_cpy(b, e->presets[t->preset % e->npresets].name, 16);
+        preset_name_of(t, b, 16);                       /* (M-Vave-OP1: a DRUM track's, its KIT's) */
 }
 
 static void draw_foot(void)
@@ -1190,6 +1190,36 @@ static void draw_columns(void)
         return;
     }
 #endif
+    if (dbu_page(cur_page()->graph)) {                   /* (M-Vave-OP1) DBOX: the key's bytes (ui_dbox.c) */
+        for (c = 0; c < 4u; c++) {
+            const char *lb, *u;
+            int32_t r;
+            uint32_t ic;
+            int on;
+            if (!dbu_ok()) {                             /* (the engine changed before ui_draw left the page) */
+                draw_column(c, "", "", "", T_THEME, -1, ICON_NONE);
+                continue;
+            }
+            on = dbu_card(c, &lb, val, &u, &r, &ic);
+            draw_column(c, lb, val, u, on ? VAL(c) : T_DIM, r, ic);
+        }
+        return;
+    }
+    if (vdu_page(cur_page()->graph)) {                   /* (M-Vave-OP1) VDRUM: the part's bytes (ui_vdrum.c) */
+        for (c = 0; c < 4u; c++) {
+            const char *lb, *u;
+            int32_t r;
+            uint32_t ic;
+            int on;
+            if (!vdu_ok()) {                             /* (the engine changed before ui_draw left the page) */
+                draw_column(c, "", "", "", T_THEME, -1, ICON_NONE);
+                continue;
+            }
+            on = vdu_card(c, &lb, val, &u, &r, &ic);
+            draw_column(c, lb, val, u, on ? VAL(c) : T_DIM, r, ic);
+        }
+        return;
+    }
     if (fop_page(cur_page()->graph)) {                   /* FM6: OP, then three of its bytes (ui_fm6op.c) */
         for (c = 0; c < 4u; c++) {
             const char *lb, *u;
@@ -1329,6 +1359,25 @@ static void draw_columns(void)
     for (c = 0; c < 4u; c++) {
         int16_t *vp;
         const param_desc_t *d = page_desc(cur_page(), c, &vp);
+        if (cur_page()->graph == GR_DLANE) {             /* M-Vave-OP1, SOUNDS: the lane's own values */
+            static const char *const L[DL_N] = {"TUNE", "DECAY", "TONE", "SOUND"};
+            uint32_t v = dl_get(TSEL->p, ui.lane, c);
+            unit = "";
+            if (c == DL_SOUND) {
+                str_cpy(val, N_DL_SOUND[v], sizeof val);
+            } else {
+                fmt_int(val, (int32_t)v - (int32_t)DL_MAX[c] / 2);   /* TUNE in semitones, DECAY / TONE in steps */
+                unit = c == DL_TUNE ? "st" : "";
+            }
+            draw_column(c, L[c], val, unit, VAL(c), c == DL_SOUND ? -1 : (int32_t)v * 1000 / DL_MAX[c], ICON_AUTO);
+            continue;
+        }
+        if (cur_page()->graph == GR_SLOTS && c) {         /* M-Vave-OP1: PROJECT's NEW LOAD SAVE: where they are; */
+            static const char *const L[3] = {"NEW", "LOAD", "SAVE"}, *const K[3] = {"F#5", "OCT-", "OCT+"};
+            const char *l = c == 2u && !project_used(((uint32_t)song.g[G_SLOT] - 1u) & 3u) ? "NEW" : L[c - 1u];
+            draw_column(c, l, K[c - 1u], "", T_THEME, -1, ICON_AUTO);   /* (an empty slot: OCT- makes a new one) */
+            continue;
+        }
         if (!d || !d->label || d->label[0] == '-') {
             draw_column(c, "", "", "", T_THEME, -1, ICON_AUTO);
             continue;
@@ -1349,41 +1398,129 @@ static void draw_columns(void)
 }
 
 
-/* The power-on splash (main.c fm1_main, web/emu felucca_web.c; 1.1.5): a RAISE square centred on the screen, square
- * corners (in every style; LINE too: RAISE from the palette's SURF), in it in AF_M, the ink SPL_PAD in from the left:
- * at the top the name and the version, the first line's capitals' top SPL_PAD down; at the bottom the maker and
- * "with community", the last line's capitals' bottom (its baseline) SPL_PAD up from the square's bottom. Both
- * margins are measured to the capitals (the descender of "community" hangs into the bottom one, as off a baseline).
- * The square (176 x 176) is more than the canvas (CV_MAX, 240 x 124): it is filled straight on the screen and its
- * two text bands drawn on it as canvases, the top one from the square's top edge, the bottom one to its bottom edge.
- * In the saved palette (settings_init before it) */
-#define SPL_SQ 176                                  /* the square (even: centred exactly) */
-#define SPL_X0 ((240u - SPL_SQ) / 2u)               /* its top-left on the screen (x and y) */
-#define SPL_PAD 16                                  /* the text's inset: left (its ink), top and bottom (the capitals) */
-#define SPL_PITCH 20                                /* line to line */
-static const char *const SPLASH_LINES[] = {"Felucca", FELUCCA_VERSION, "H\xFCgelton Instruments", "with community"};
-/* a band of two lines, h tall, at y on the screen: the first line's top at ly; the two lines' capitals declared
- * against al0..al1 (mode: AL_V the band centred there, AL_B the last baseline on al1) */
-static void splash_band(uint32_t y, uint32_t h, int32_t ly, const char *const *l, uint32_t mode, int32_t al0,
-                        int32_t al1, const char *tag)
+/* The power-on splash (main.c fm1_main, web/emu felucca_web.c), M-Vave-OP1's: JAN3000, animated over SPL_MS. A band
+ * of 240 x SPL_H in the middle of the screen. The name in a segment face of its own (spl_glyph: an LCD's bars with
+ * gaps at the joints, a diagonal for N, a slashed zero), booting like a terminal: each glyph flickers through random
+ * bars (dim) before it locks, left to right, over scan lines (SPL_WIPE ms); a copy in the accent and one in the theme
+ * colour beside it (3 px apart at first, 1 px at the end); now and then a band of it torn sideways (spl_tear) until
+ * SPL_GLITCH. Then a line out from under its middle, the version in M in the accent with a block cursor blinking after
+ * it and, small, "based on Felucca"; under them a sine that grows and runs (an oscillator settling).
+ * draw_splash_at(ms) draws the band as it is ms after the start (main.c: as often as the panel takes it, during the
+ * boot's wait); draw_splash, the screen cleared and the band at its end (the emulator's first frame, the tests). In
+ * the saved palette */
+#define JAN_NAME "JAN3000"
+#define JAN_VERSION "v0.8"
+#define SPL_H 120                                   /* the band (the canvas holds 124 rows) */
+#define SPL_Y ((240u - SPL_H) / 2u)
+#define SPL_WIPE 360u                               /* the name's boot: the last glyph locks */
+#define SPL_GLITCH 520u                             /* .. the last tear */
+#define SPL_MS 760u                                 /* the whole animation */
+#define SPL_GW 22                                   /* a glyph: SPL_GW x SPL_GH, bars SPL_T thick, SPL_GAP apart */
+#define SPL_GH 40
+#define SPL_T 4
+#define SPL_GAP 6
+#define SPL_NY 8                                    /* the name's top in the band */
+/* the bars: 0 top, 1 upper right, 2 lower right, 3 bottom, 4 lower left, 5 upper left, 6 middle, 7 its right half,
+ * 8 the diagonal (N), 9 the slash (0) */
+static void spl_glyph(int32_t x, int32_t y, uint32_t m, uint16_t c)
 {
-    cv_begin(SPL_SQ, h, T_RAISE);
-    GFX_HOOK_ALIGN(0, al0, 0, al1, mode | AL_N(2), tag);
-    cv_text_on(SPL_PAD, ly, &AF_M, l[0], T_TEXT, T_RAISE);
-    cv_text_on(SPL_PAD, ly + SPL_PITCH, &AF_M, l[1], T_TEXT, T_RAISE);
-    cv_blit(SPL_X0, y);
+    static const int8_t R[8][4] = {
+        {2, 0, SPL_GW - 4, SPL_T}, {SPL_GW - SPL_T, 2, SPL_T, SPL_GH / 2 - 3},
+        {SPL_GW - SPL_T, SPL_GH / 2 + 1, SPL_T, SPL_GH / 2 - 3}, {2, SPL_GH - SPL_T, SPL_GW - 4, SPL_T},
+        {0, SPL_GH / 2 + 1, SPL_T, SPL_GH / 2 - 3}, {0, 2, SPL_T, SPL_GH / 2 - 3},
+        {2, SPL_GH / 2 - SPL_T / 2, SPL_GW - 4, SPL_T}, {SPL_GW / 2, SPL_GH / 2 - SPL_T / 2, SPL_GW / 2 - 2, SPL_T},
+    };
+    uint32_t k;
+    int32_t d;
+    for (k = 0; k < 8u; k++)
+        if (m >> k & 1u)
+            cv_rect(x + R[k][0], y + R[k][1], R[k][2], R[k][3], c);
+    for (d = 0; d < SPL_T - 1 && (m & 0x100u); d++)  /* N's diagonal, as thick as the bars (but one) */
+        cv_line(x + SPL_T + d, y + 3, x + SPL_GW - SPL_T - 3 + d, y + SPL_GH - 4, c);
+    for (d = 0; d < 2 && (m & 0x200u); d++)          /* the zero's slash */
+        cv_line(x + SPL_GW - SPL_T - 4 + d, y + 9, x + SPL_T + 2 + d, y + SPL_GH - 10, c);
+}
+static uint32_t spl_hash(uint32_t a, uint32_t b)   /* (the flicker and the tears: the same for the same ms) */
+{
+    uint32_t h = a * 2654435761u ^ (b + 1u) * 40503u;
+    h ^= h >> 13;
+    h *= 0x5bd1e995u;
+    return h ^ h >> 15;
+}
+/* rows y .. y + h of the band shifted dx px sideways (what comes in from the edge: the background) */
+static void spl_tear(int32_t y, int32_t h, int32_t dx)
+{
+    int32_t r, x;
+    uint16_t bg = swap16(T_BG);
+    for (r = y; r < y + h && r < (int32_t)cv_h; r++) {
+        uint16_t *p = &cv_px[(uint32_t)r * cv_w];
+        if (dx > 0)
+            for (x = (int32_t)cv_w - 1; x >= 0; x--)
+                p[x] = x >= dx ? p[x - dx] : bg;
+        else
+            for (x = 0; x < (int32_t)cv_w; x++)
+                p[x] = x - dx < (int32_t)cv_w ? p[x - dx] : bg;
+    }
+}
+static void draw_splash_at(uint32_t ms)
+{
+    static const uint16_t GL[7] = {0x01E, 0x077, 0x136, 0x08F, 0x23F, 0x23F, 0x23F};   /* J A N 3 0 0 0 */
+    int32_t tw = 7 * SPL_GW + 6 * SPL_GAP, tx = (240 - tw) / 2, ty = SPL_NY, k, x, py = 0;
+    int32_t o = ms < 300u ? 3 : ms < SPL_GLITCH ? 2 : 1;   /* the colour copies' distance */
+    uint32_t amp = ms < 300u ? 0u : ms >= SPL_MS ? 10u : (ms - 300u) * 10u / (SPL_MS - 300u), i, pass;
+    cv_begin(240, SPL_H, T_BG);
+    for (pass = 0; pass < 3u; pass++)               /* the accent's copy, the theme's, the name */
+        for (i = 0; i < 7u; i++) {
+            uint32_t lock = 60u + i * 40u, m = GL[i];
+            uint16_t c = pass == 0u ? T_ACCENT : pass == 1u ? T_THEME : T_TEXT;
+            int32_t gx = tx + (int32_t)i * (SPL_GW + SPL_GAP) + (pass == 0u ? o : pass == 1u ? -o : 0);
+            if (ms < i * 20u)
+                continue;                           /* not booted yet */
+            if (ms < lock) {                        /* flickering: random bars, dim, no copies */
+                if (pass < 2u)
+                    continue;
+                m = spl_hash(ms / 40u, i) & 0x7Fu;
+                c = T_MID;
+            }
+            spl_glyph(gx, ty, m, c);
+        }
+    if (ms < SPL_WIPE)                               /* scan lines over the name while it boots */
+        for (k = ty; k < ty + SPL_GH; k += 3)
+            cv_rect(0, k, 240, 1, T_BG);
+    if (ms < SPL_GLITCH && (spl_hash(ms / 60u, 99u) & 3u) == 0u) {   /* a tear, now and then */
+        uint32_t h = spl_hash(ms / 60u, 7u);
+        spl_tear(ty + (int32_t)(h % (SPL_GH - 8)), 3 + (int32_t)(h >> 8 & 7u), (int32_t)(h >> 12 & 15u) - 7);
+    }
+    if (ms > SPL_WIPE / 2u) {                       /* the line, out from the middle */
+        uint32_t t = ms - SPL_WIPE / 2u, half = (uint32_t)tw / 2u;
+        int32_t w = (int32_t)(t >= 300u ? half : t * half / 300u);
+        cv_rect(120 - w, ty + SPL_GH + 4, 2 * w, 2, T_ACCENT);
+    }
+    if (ms >= SPL_WIPE + 40u) {
+        int32_t vw = text_w(&AF_M, JAN_VERSION), vy = ty + SPL_GH + 10;
+        GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "splash version centred");
+        cv_text_in(0, vy, 240, &AF_M, JAN_VERSION, T_ACCENT, T_BG);
+        if (!(ms / 160u & 1u))                      /* the cursor */
+            cv_rect((240 + vw) / 2 + 3, vy + 2, 7, AF_M.h - 4, T_ACCENT);
+    }
+    for (k = 0, x = 40; x < 200; x++, k++) {        /* the oscillator: 3 cycles, running */
+        int32_t y = 92 + sine_i((uint32_t)k * 80530637u + ms * 0x1000000u) * (int32_t)amp / 32768;   /* (2^32 x 3 / 160
+                                                                                                  * a pixel; 4 Hz) */
+        if (x > 40)
+            cv_line(x - 1, py, x, y, x < 120 ? T_MID : T_THEME);
+        py = y;
+    }
+    if (ms >= SPL_WIPE + 120u) {
+        GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "splash credit centred");
+        cv_text_in(0, SPL_H - 16, 240, &AF_S, "based on Felucca", T_MID, T_BG);
+    }
+    cv_blit(0, SPL_Y);
+    lcd_sync();
 }
 static void draw_splash(void)
 {
-    int32_t h = SPL_PAD - AF_M_CAP_Y + SPL_PITCH + AF_M.h;     /* a band: its two lines, the descenders in */
-    int32_t lb = h - SPL_PAD - AF_M_CAP_H - AF_M_CAP_Y;         /* the bottom band's last line: its top */
     lcd_fill(0, 0, 240, 240, T_BG);
-    lcd_fill(SPL_X0, SPL_X0, SPL_SQ, SPL_SQ, T_RAISE);
-    splash_band(SPL_X0, (uint32_t)h, SPL_PAD - AF_M_CAP_Y, SPLASH_LINES, AL_V, SPL_PAD,
-                SPL_PAD + SPL_PITCH + AF_M_CAP_H, "splash name + version SPL_PAD from the top");
-    splash_band(SPL_X0 + SPL_SQ - (uint32_t)h, (uint32_t)h, lb - SPL_PITCH, SPLASH_LINES + 2, AL_B, 0, h - SPL_PAD,
-                "splash maker's baseline SPL_PAD from the bottom");
-    lcd_sync();
+    draw_splash_at(SPL_MS);
 }
 
 /* UPDATE MODE countdown (main.c: OCT- + OCT+ held): over everything, the menu and the dialogs too */
@@ -1473,6 +1610,20 @@ static void confirm_text(char *a, char *b)
     case CF_CLEAR_TRK:
         str_cpy(a, "CLEAR TRACK 1?", 24);
         a[12] = (char)('1' + k % NTRK);
+        break;
+    case CF_NEW_PROJ:                                /* M-Vave-OP1: PROJECT's NEW (project.c project_new); k: an empty */
+        if (k) {                                     /* slot's OCT- (+ 1), 0 F#5 */
+            str_cpy(a, "NEW PROJECT IN SLOT A?", 24);
+            a[20] = (char)('A' + (k - 1u) % 4u);
+        } else {
+            str_cpy(a, "START A NEW PROJECT?", 24);
+        }
+        str_cpy(b, "UNSAVED MUSIC IS LOST", 24);
+        break;
+    case CF_LOAD_PROJ:                               /* M-Vave-OP1: PROJECT's OCT- */
+        str_cpy(a, "LOAD PROJECT A?", 24);
+        a[13] = (char)('A' + (k & 3u));
+        str_cpy(b, "UNSAVED MUSIC IS LOST", 24);
         break;
     case CF_OVR_PROJ:
         str_cpy(a, "OVERWRITE PROJECT A?", 24);

@@ -1021,8 +1021,9 @@ static __attribute__((noinline)) void perf_block(int32_t *bl, int32_t *br, uint3
             if (pf.cw) {
                 if (++pf.cn >= hold) {
                     pf.cn = 0;
-                    pf.chl = ((l >> sh) << sh) + (1 << (sh - 1u));
-                    pf.chr = ((r >> sh) << sh) + (1 << (sh - 1u));
+                    pf.chl = ((l + (1 << (sh - 1u))) >> sh) << sh;   /* to the nearest step, as the INSERT's */
+                    pf.chr = ((r + (1 << (sh - 1u))) >> sh) << sh;   /* (mid-rise put silence at +half a step:
+                                                                       * a DC, a thump when let go) */
                 }
                 l = pf_mix(l, pf.chl, pf.cw);
                 r = pf_mix(r, pf.chr, pf.cw);

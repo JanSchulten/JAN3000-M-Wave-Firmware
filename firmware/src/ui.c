@@ -7,6 +7,7 @@
 static int project_save(uint32_t slot);
 static void panel_setup(void);
 static void project_load(uint32_t slot);
+static void project_new(uint32_t slot);         /* (M-Vave-OP1: SAVE > PROJECT > NEW; slot 0..3, else none) */
 static int project_used(uint32_t slot);
 static uint32_t chain_prepare(void);
 static int up_used(uint32_t k);              /* user presets: upreset.c */
@@ -37,6 +38,11 @@ static uint32_t user_of(const track_t *t)    /* user preset slot its sound came 
 }
 static uint32_t up_gen;                      /* bumped on every user bank change (redraws) */
 #include "favorites.c"
+/* favorites.c fav_at: the engines from 14 on in the upper halves of ANALOG's, PHASE's, LOFI's rows */
+_Static_assert(NENGINES <= 14u + sizeof FAV_HOST, "favorites.c: an engine from 14 on needs a row's upper half (FAV_HOST)");
+_Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u && NELEM(DBOX_PRESETS) <= 128u &&
+               NELEM(ANALOG_PRESETS) <= 128u && NELEM(PHASE_PRESETS) <= 128u && NELEM(LOFI_PRESETS) <= 128u,
+               "favorites.c: an engine from 14 on and its host share a row of 256 presets");
 #include "category.c"                   /* sound categories (Discussion #90): PRESETS > LIST */
 /* MENU's two-valued settings (ui_menu.c MENU_FLAGS), a bit each in a byte no engine uses (as ui_layer.c layer_seen):
  * saved with the settings; 0 in older ones = every setting's default (append-only: a new setting takes a new bit,
@@ -208,9 +214,9 @@ static struct {
 
 enum { CF_NONE, CF_CLEAR_SEQ, CF_CLEAR_TRK, CF_OVR_PROJ, CF_OVR_USER, CF_LOAD_PAT,
        CF_DEL_ROW, CF_CLEAR_SONG, CF_INIT_SOUND, CF_CLEAR_MOTION, CF_ERASE_USER,
-       CF_FXT_LANE, CF_FXT_ALL };     /* ui.confirm: TOOLS' clears;
+       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ, CF_LOAD_PROJ };   /* ui.confirm: TOOLS' clears;
                                    * SAVE over a used slot; a pattern over the user's steps;
-                                   * USER ERASE; FX TRACKS 2's CLEAR (a lane, both) */
+                                   * USER ERASE; FX TRACKS 2's CLEAR (a lane, both); PROJECT's NEW */
 
 /* MENU > DISPLAY > SCREEN OFF (1.1.5): after a while with no input on the panel the screen goes dark (the backlight
  * stays on: lcd.c lcd_power)
@@ -416,8 +422,16 @@ static int page_visible(uint32_t i)
         return 0;                                     /* M-Vave-OP1: FX's seven cards (params.c); these on their own */
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
+    if (PAGES[i].id[0] == P_A2_CUT2 && PAGES[i].graph == GR_NONE)   /* WAVE 2: ANALOG2's (eng_analog2.c) */
+        return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG2;
     if (PAGES[i].id[0] == P_FTYPE)                    /* FILTER (1.5, #104): ANALOG's */
         return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG;
+    if (PAGES[i].graph == GR_DLANE)                   /* SOUNDS: DRUM's (M-Vave-OP1) */
+        return TSEL->eng_req % NENGINES == ENGI_DRUM;
+    if (PAGES[i].graph >= GR_VDL && PAGES[i].graph <= GR_VDP2)   /* (M-Vave-OP1) VDRUM's part pages (ui_vdrum.c) */
+        return TSEL->eng_req % NENGINES == ENGI_VDRUM;
+    if (PAGES[i].graph >= GR_DBO1 && PAGES[i].graph <= GR_DBHIT)   /* (M-Vave-OP1) DBOX's key pages (ui_dbox.c) */
+        return TSEL->eng_req % NENGINES == ENGI_DBOX;
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)
         return TSEL->eng_req % NENGINES == ENGI_FM6;
 #if FELUCCA_SLICE
@@ -600,6 +614,9 @@ static int detail_on(void)
 static int song_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_SONG; }
 /* M-Vave-OP1, GLO > KEY shown: the keys are roots (key.c), silent (seq.c keyboard_block: song.grid 4) */
 static int key_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_KEY; }
+/* M-Vave-OP1, SAVE > PROJECT: the keys pick the project (F3 G3 A3 B3: A..D), F#5 is NEW; OCT+ saves, OCT- loads */
+#define SLOT_KEY_NEW 25u                          /* F#5, the highest black key */
+static int slots_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_SLOTS; }
 /* FX > FX TRACKS or FX TRACKS 2 shown (fxtrack.c): REC arms the selected lane, its LED says so */
 static int fxt_page(void) { return !ui.home && (cur_page()->graph == GR_FXT || cur_page()->graph == GR_FXT2); }
 /* .. the 16 steps shown follow the selected lane's play head: playing, STEP and EFFECT not just turned (ui_graph.c) */
@@ -707,20 +724,35 @@ static void note_name(char *b, uint32_t n)
  * to 1.4.1 the last); HOME: home_tap). From another
  * family the family's page shown last (SAVE: USER); one that is not the family's any more (a page that moved, as GLOBAL
  * and SYSTEM in 1.2), or not shown for this track, gives the family's first */
+static void go_home(void);
+/* the family's next (dir > 0) or previous visible page, wrapping (SELECT on a page; HOME's taps over its own) */
+static void page_step(int32_t dir)
+{
+    uint32_t n, i = ui.page, fam = cur_page()->fam;
+    for (n = 0; n < NPAGES; n++) {
+        i = (i + (dir > 0 ? 1u : NPAGES - 1u)) % NPAGES;
+        if (PAGES[i].fam == fam && page_visible(i)) break;
+    }
+    ui.page = (uint8_t)i;
+    ui.fam_last[fam] = ui.page;
+    page_entered();
+}
+/* a page button: its family (the page last used there, else its first); M-Vave-OP1: the same button again goes HOME
+ * (SELECT turns the family's pages: ui_input.c), HOME's own family (its taps: home_tap) the next of its pages */
 static void open_family(uint32_t fam)
 {
-    if (!ui.home && cur_page()->fam == fam) {          /* same button again: next page */
-        uint32_t n, i = ui.page;
-        for (n = 0; n < NPAGES; n++) {
-            i = (i + 1u) % NPAGES;
-            if (PAGES[i].fam == fam && page_visible(i)) break;
+    if (!ui.home && cur_page()->fam == fam) {
+        if (fam != FAM_TRK) {
+            go_home();
+            return;
         }
-        ui.page = (uint8_t)i;
+        page_step(1);
+        return;
     } else if (fam == FAM_SAVE) {
         uint32_t i;
         for (i = 0; i < NPAGES; i++)
-            if (PAGES[i].graph == GR_USER) break;
-        ui.page = (uint8_t)i;                         /* SAVE enters the sound save screen directly */
+            if (PAGES[i].graph == GR_SLOTS) break;
+        ui.page = (uint8_t)i;                         /* SAVE enters PROJECT directly (M-Vave-OP1; Felucca: USER) */
     } else {
         uint32_t i = ui.fam_last[fam];
         ui.page = (uint8_t)(i && i < NPAGES && PAGES[i].fam == fam && page_visible(i) ? i : page_first(fam));
@@ -788,6 +820,8 @@ static struct {
     uint8_t eng, preset, user, patn;
     uint8_t fm6_slot;            /* the track's FM6 patch and its SLOT (eng_fm6.c): an edited or a project's */
     uint8_t fm6[FP_SIZE + 1u];   /* patch is the track's own, not a factory one */
+    uint8_t vdk[VK_SIZE];        /* (M-Vave-OP1) the track's own VDRUM kit (eng_vdrum.c vd_own) */
+    uint8_t dbk[VK_SIZE];        /* .. and DBOX kit (eng_dbox.c dbx_own) */
     int16_t p[P_COUNT];
     step_t step[NSTEP];
     motion_store_t motion_backup; /* one track only, swaps with the shared event pool on undo */
@@ -796,6 +830,7 @@ static struct {
     uint32_t from_h;             /* pat_from_h[], pat_from[] of the copy (the header's slot letter) */
     uint8_t from;
     uint32_t t_ms;               /* time of the last load (the editor's SETs after it belong to it) */
+    uint8_t undone;              /* M-Vave-OP1: the copy is swapped in (undo_swap once more: redo; REC + OCT- / OCT+) */
 } undo __attribute__((section(".pool")));   /* (main loop only: off the audio code's .bss) */
 static uint8_t undo_depth;       /* loads nest (an engine jump loads its first preset): the outer one counts;
                                   * felucca_init / project_load raise it to take no copy at all */
@@ -823,6 +858,8 @@ static uint32_t track_sig(const track_t *t)      /* the sound (an FM6 track's pa
     uint8_t id[3] = {t->eng_req, t->preset, t->user};
     uint32_t h = fnv(fnv(steps_sig(t), t->p, sizeof t->p), id, 3), k = trk_index(t);
     h = fnv(h, fm6_patch[k], sizeof fm6_patch[k]); /* (a patch the editor sent between two loads) */
+    h = fnv(h, vd_own[k], VK_SIZE);                /* (VDRUM's own kit: its part pages) */
+    h = fnv(h, dbx_own[k], VK_SIZE);               /* (DBOX's) */
     for (uint32_t j = 0; j < motion.count; j++)
         if ((motion.event[j].place >> 6) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
     return h ^ ((motion.on >> k) & 1u);
@@ -908,6 +945,7 @@ static void load_begin(track_t *t, uint32_t what)
     }
     undo.trk = (uint8_t)(i + 1u);
     undo.what = (uint8_t)what;
+    undo.undone = 0;
     undo.eng = t->eng_req;
     undo.preset = t->preset;
     undo.user = t->user;
@@ -915,6 +953,8 @@ static void load_begin(track_t *t, uint32_t what)
     memcpy(undo.step, t->step, sizeof undo.step);
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
+    memcpy(undo.vdk, vd_own[i], VK_SIZE);
+    memcpy(undo.dbk, dbx_own[i], VK_SIZE);
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -966,6 +1006,7 @@ static void edit_undo_take(track_t *t, uint32_t tag, uint32_t what)
     undo_mot_tag = tag;
     undo.trk = (uint8_t)(i + 1u);
     undo.what = (uint8_t)what;
+    undo.undone = 0;
     undo.eng = t->eng_req;
     undo.preset = t->preset;
     undo.user = t->user;
@@ -973,6 +1014,8 @@ static void edit_undo_take(track_t *t, uint32_t tag, uint32_t what)
     memcpy(undo.step, t->step, sizeof undo.step);
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
+    memcpy(undo.vdk, vd_own[i], VK_SIZE);
+    memcpy(undo.dbk, dbx_own[i], VK_SIZE);
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -1057,8 +1100,16 @@ static void undo_swap(void)
     }
     fm1_irq_on();
     if (undo.what & UNDO_SOUND) {                 /* FM6: the track's patch as it was (edited, a project's, a
-                                                   * converted DIGITAL sound), not a factory one */
+                                                   * converted DIGITAL sound), not a factory one; VDRUM's own kit */
         uint32_t tr = trk_index(t);
+        uint8_t kv[VK_SIZE];
+        memcpy(kv, vd_own[tr], VK_SIZE);
+        memcpy(vd_own[tr], undo.vdk, VK_SIZE);
+        memcpy(undo.vdk, kv, VK_SIZE);
+        vd_kgen[tr]++;
+        memcpy(kv, dbx_own[tr], VK_SIZE);
+        memcpy(dbx_own[tr], undo.dbk, VK_SIZE);
+        memcpy(undo.dbk, kv, VK_SIZE);
         uint8_t v[FP_SIZE + 1u], sl = fm6_slot[tr];
         memcpy(v, fm6_patch[tr], FP_SIZE);
         fm6_set_patch(tr, undo.fm6);
@@ -1068,6 +1119,7 @@ static void undo_swap(void)
         undo.fm6_slot = sl;
     }
     undo.keep = 0;                                /* the next load copies the track as it is now */
+    undo.undone ^= 1u;
     if (t == TSEL)
         sync_reload = 1;
     b[1] = (char)('1' + trk_index(t));
@@ -1299,6 +1351,8 @@ static void apply_preset_to(track_t *t, uint32_t pi)
             t->p[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
     }
     fm6_track_loaded(t);                              /* FM6: the preset's patch (its SLOT) */
+    if (e == &ENG_ANALOG2)                            /* .. ANALOG2: WAVE 2's values (eng_analog2.c) */
+        a2_preset(t, pi);
     load_end(t);
 }
 
@@ -1375,6 +1429,22 @@ static void track_defaults(track_t *t)
     for (i = 0; i < P_E0; i++)
         t->p[i] = TP[i].def;
     track_defaults_steps(t);
+}
+
+/* the name of the factory sound on t into b (n bytes): its preset's. M-Vave-OP1: a DRUM track's is its KIT's ("66 KIT",
+ * "808 KIT" as the preset): DRUM has one preset, and a new project draws the kit (newproj.c). The footer and HOME
+ * TRACKS show it; the PRESETS list lists the presets */
+static void preset_name_of(const track_t *t, char *b, uint32_t n)
+{
+    const engine_t *e = ENGINES[t->eng_req % NENGINES];
+    b[0] = 0;
+    if (e == &ENG_DRUM) {
+        const param_desc_t *d = &e->edit[0];
+        str_cpy(b, d->names[clamp(t->p[P_E0], d->min, d->max)], n);
+        str_cpy(b + str_len(b), " KIT", n - str_len(b));
+    } else if (e->npresets) {
+        str_cpy(b, e->presets[t->preset % e->npresets].name, n);
+    }
 }
 
 /* switch engine (its defaults + first preset) and say so */
@@ -1617,9 +1687,13 @@ static const param_desc_t *home_param(uint32_t k, int16_t **vp)
 /* select track i (KNOB 1 on TRACKS, the editor): its sound, pages and pattern from now on */
 static void track_select(uint32_t i)
 {
+    uint32_t f;
     if (i >= NTRK || i == song.sel)
         return;
     song.sel = (uint8_t)i;
+    for (f = 0; f < FAM_COUNT; f++)              /* M-Vave-OP1: another track opens each family at its first page (FX: */
+        if (ui.home || f != cur_page()->fam)     /* SEND), not where the last track was left; the family shown stays */
+            ui.fam_last[f] = 0;
     ui.entry_open = 0;
     ui.hot_t = 0;
     ui.ev_keep = 0;                              /* (AUTOMATION: a row kept at its default was the other track's) */
@@ -1657,6 +1731,8 @@ static uint32_t act_cols(void)                   /* the columns that are actions
         return 14u;                              /* LOAD ERASE SAVE */
     if (pg->graph == GR_SLICES)
         return slice_page_ok() ? 12u : 0u;       /* SPLIT JOIN (a SLICE track only) */
+    if (pg->graph == GR_SLOTS)
+        return 0;                                /* M-Vave-OP1: the keys and OCT+ / OCT- (ui_input.c slots_keys) */
     if (pg->scope == SC_GLOBAL)
         for (c = 0; c < 4u; c++)
             if (go_id(pg->id[c]))
@@ -1691,6 +1767,8 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
         return UP_GO[(c + 2u) % 3u];
     if (cur_page()->graph == GR_SLICES)
         return c == 3u ? "JOIN" : "SPLIT";
+    if (cur_page()->graph == GR_SLOTS && (c & 3u) == 1u)
+        return "NEW";
     return id == G_CLRSEQ ? "CLEAR" : id == G_INITSND ? "INIT" : id == G_LOAD ? "LOAD" : "SAVE";
 }
 
@@ -1717,6 +1795,8 @@ static int act_ready(void)
     if (cur_page()->graph == GR_SLICES)
         return slice_act_ready(c);
 #endif
+    if (cur_page()->graph == GR_SLOTS && c == 1u)       /* NEW: stopped (the whole song changes) */
+        return !transport_busy();
     id = cur_page()->id[c & 3u];
     if (id == G_LOAD)
         return project_used((uint32_t)song.g[G_SLOT] - 1u);

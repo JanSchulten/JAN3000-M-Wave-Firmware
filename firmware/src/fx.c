@@ -40,6 +40,8 @@ static struct {
     int32_t sp_lp, sp_hp, sp_he, sp_size;   /* .. its loop low-pass, low cut (and its remainder), the loop
                                              * length (Q8, glides) */
     uint32_t sp_ph;                      /* .. the output tap's wobble */
+    uint32_t dl_cur, dl_new;             /* M-Vave-OP1: the delay's tap (0: none yet), the one fading in (dly_glide) */
+    int32_t dxf;                         /* .. samples of that fade still to go (0: none) */
 } fx;
 
 /* the chorus bus: a short line read through a sine, between samples, the read fed back (FDBK). By TYPE: CHORUS
@@ -302,9 +304,13 @@ static __attribute__((noinline)) void rev_room(const int32_t *rev_in, int32_t *o
         int16_t *c = rev_comb;
         int32_t in = mulq15(rev_in[i], 2580);           /* 1/8 at -4 dB: level as before the allpass fix */
         for (k = 0; k < 4u; k++) {
-            int32_t o = c[fx.comb_i[k]];
-            fx.comb_lp[k] = o + mulq15(fx.comb_lp[k] - o, 32767 - damp);
-            c[fx.comb_i[k]] = (int16_t)clamp(in + mulq15(fx.comb_lp[k], size), -32768, 32767);
+            int32_t o = c[fx.comb_i[k]], f = (fx.comb_lp[k] - o) * (32767 - damp);
+            fx.comb_lp[k] = o + ((f + ((f >> 31) & 32767)) >> 15);
+            f = fx.comb_lp[k] * size;                   /* the low-pass and the feedback rounded towards zero
+                                                         * (floored, at DAMP 0 a pattern of small negatives went
+                                                         * round for ever, a hum of 32 .. 40 Hz near -60 dBFS, on
+                                                         * USB too; at other DAMPs an offset): the tail ends in 0 */
+            c[fx.comb_i[k]] = (int16_t)clamp(in + ((f + ((f >> 31) & 32767)) >> 15), -32768, 32767);
             if (++fx.comb_i[k] >= REV_COMB[k])
                 fx.comb_i[k] = 0;
             a += o;
@@ -313,7 +319,8 @@ static __attribute__((noinline)) void rev_room(const int32_t *rev_in, int32_t *o
         c = rev_ap;
         for (k = 0; k < 2u; k++) {
             int32_t o = c[fx.ap_i[k]];
-            int32_t v = a + (o >> 1);
+            int32_t v = a + ((o + (int32_t)((uint32_t)o >> 31)) >> 1);   /* (halved towards zero: a -1 floored
+                                                                          * stayed for ever) */
             c[fx.ap_i[k]] = (int16_t)clamp(v, -32768, 32767);
             a = o - a;                                  /* Freeverb: out = buf - in (o - v is a notch comb) */
             if (++fx.ap_i[k] >= REV_AP[k])
@@ -621,6 +628,43 @@ static __attribute__((noinline)) void rev_switch(const int32_t *rev_in, int32_t 
     fx.rtype = (uint8_t)rt;
 }
 
+/* M-Vave-OP1: the delay's TIME changed (a detent, the tempo, an external clock's new estimate, which moves by ~176
+ * samples a ms of its 1 ms timestamps): the read tap jumped there at once and every echo clicked, under an external
+ * clock about every quarter note. Now the old tap fades into the new one over DLY_XF samples (23 ms, linear: no
+ * pitch bend, no click), in the feedback as in the output; a change during a fade waits for its end. The chorus and
+ * the rest as fx_buses' own loop, which stays as it was while the tap holds still (this one out of line) */
+#define DLY_XF_LOG2 10
+#define DLY_XF (1 << DLY_XF_LOG2)
+static __attribute__((noinline)) void dly_glide(const int32_t *cho_in, const int32_t *dly_in, int32_t *wet, uint32_t n,
+                                                int32_t fb, uint32_t dl)
+{
+    uint32_t i;
+    int32_t col = 2000 + song.g[G_DCOLOR] * 240, dmix = song.g[G_DMIX] * 258;
+    cho_k_t ck;
+    cho_setup(&ck);
+    if (!fx.dl_cur)
+        fx.dl_cur = dl;                                 /* (the first block: nothing to fade from) */
+    if (!fx.dxf && dl != fx.dl_cur) {
+        fx.dl_new = dl;
+        fx.dxf = DLY_XF;
+    }
+    for (i = 0; i < n; i++) {
+        int32_t y = cho_tick(&ck, cho_in[i]), x = dly_buf[(fx.dly_w - fx.dl_cur) & (DLY_LEN - 1u)];
+        if (fx.dxf) {
+            int32_t xb = dly_buf[(fx.dly_w - fx.dl_new) & (DLY_LEN - 1u)];
+            x += ((xb - x) * (DLY_XF - fx.dxf)) >> DLY_XF_LOG2;   /* (|xb - x| < 2^16: fits) */
+            if (!--fx.dxf)
+                fx.dl_cur = fx.dl_new;
+        }
+        fx.dly_lp += mulq15(x - fx.dly_lp, col);
+        dly_buf[fx.dly_w & (DLY_LEN - 1u)] =
+            (int16_t)clamp((dly_in[i] >> 1) + mulq15(fx.dly_lp, fb), -32768, 32767);
+        fx.dly_w++;
+        y += mulq15(x << 1, dmix);
+        wet[i] = y;
+    }
+}
+
 /* process the three buses for one block; sends in, wet stereo-equal out */
 static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t *rev_in, int32_t *wet,
                      uint32_t n)
@@ -636,6 +680,8 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
                                                              * at most (the loop's gain below 1: it never runs away) */
     if (fx1s.type | cld.type | cld.busy)
         fx1_block(cho_in, dly_in, wet, n, fb);          /* M-Vave-OP1: FX1 not the DELAY, or changing (fx1.c) */
+    else if ((dl != fx.dl_cur) | fx.dxf)
+        dly_glide(cho_in, dly_in, wet, n, fb, dl);      /* M-Vave-OP1: TIME changed, the taps crossfade */
     else
     for (i = 0; i < n; i++) {
         int32_t y = cho_tick(&ck, cho_in[i]), x;   /* the chorus (cho_tick) */

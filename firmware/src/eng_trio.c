@@ -370,4 +370,6 @@ static const engine_t ENG_TRIO = {
     .note_on = trio_note_on,
     .render = trio_render,
     .knob = {P_E5, P_E6, P_E7, P_E1},
+    .keep = 0x33,                /* the filter, the late sample and the cutoff's drift: a retrigger keeps the phases
+                                  * (voice.c), so the sample still waiting for its corrections is theirs */
 };

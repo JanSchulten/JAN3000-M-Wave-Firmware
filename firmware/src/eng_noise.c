@@ -219,8 +219,9 @@ static void noise_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const
         }
         if (crsh) {                                   /* hold 1..16 samples, 16 .. 4 bits */
             if ((int32_t)--ph <= 0 || ph > 16u) {
+                uint32_t sh = (uint32_t)crsh / 11u;   /* to the nearest step (floored: a DC of half one) */
                 ph = 1u + (uint32_t)crsh / 8u;
-                reg = (uint32_t)(y >> (crsh / 11) << (crsh / 11));
+                reg = (uint32_t)(sh ? ((y + (1 << (sh - 1u))) >> sh) << sh : y);
             }
             y = (int32_t)reg;
         }

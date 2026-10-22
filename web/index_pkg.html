@@ -41,6 +41,7 @@
     <summary data-t="stockTitle"></summary>
     <p class="small" data-t="back"></p>
     <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener" style="color:inherit">M-VAVE Downloads</a></p>
+    <p><button id="stock-builtin" type="button" data-t="stockBuiltin"></button></p>
     <p><label><span data-t="stockFile"></span><br><input id="stock-file" type="file" accept=".fwsc"></label></p>
     <p><button id="stock-go" disabled data-t="stockGo"></button></p>
     <p class="small" data-t="stockBackup"></p>
@@ -68,7 +69,8 @@ const TEXT = {
     direct: "USB ケーブルはパソコンに直接つないでください。Probe や Transporter などの機材は不要です。",
     brick: "万一インストールに失敗して起動しなくなった場合は、復旧に Transporter が必要です:",
     beta: "Felucca 1.0 は実地テスト版です。不具合は GitHub で知らせてください。このカスタムファームウェアを使ったことで FM-1 が壊れたり不具合が起きたりしても、作者は一切の責任を負いません。自己責任でお使いください。",
-    back: "M-VAVEから公式FM-1 V15を取得し、未変更のFM-1.fwscを選んでください。ファイルはこのブラウザ内で検証し、サーバーへ送りません。",
+    back: "同梱の公式V15を使うか、M-VAVEから取得した未変更のFM-1.fwscを選んでください。どちらもこのブラウザ内で検証し、サーバーへ送りません。",
+    stockBuiltin: "同梱の公式V15を使う（M-VAVE FM1 Open、Apache-2.0）",
     stockTitle: "公式V15に戻す", stockFile: "公式FM-1.fwsc", stockGo: "バックアップして公式V15へ戻す",
     stockBackup: "現在の曲・保存曲・音色バンク・サンプル・設定を先に保存します。全体バックアップ非対応版は、Feluccaを更新してから行ってください。復元はFeluccaを再インストールしてエディタから行います。",
     stockRecovery: "更新中断の再開：全体バックアップはすでにパソコンへ保存済み",
@@ -99,7 +101,8 @@ const TEXT = {
     direct: "Connect the USB cable directly to the computer. No probe or Transporter is needed.",
     brick: "If an install fails and the FM-1 no longer starts, recovering it needs a Transporter:",
     beta: "Felucca 1.0 is a field-testing release; please report problems on GitHub. The author accepts no responsibility if your FM-1 is damaged or misbehaves because of this custom firmware. Use it at your own risk.",
-    back: "Get official FM-1 V15 from M-VAVE and select the unmodified FM-1.fwsc. The browser validates it locally; it is not sent to a server.",
+    back: "Use the official V15 included here, or select an unmodified FM-1.fwsc from M-VAVE. Either is validated in this browser; nothing is sent to a server.",
+    stockBuiltin: "Use the official V15 included here (M-VAVE FM1 Open, Apache-2.0)",
     stockTitle: "Return to official V15", stockFile: "Official FM-1.fwsc", stockGo: "Back up and return to official V15",
     stockBackup: "Current music, saved music, sound banks, samples and settings are saved first. Older firmware needs a Felucca update for complete backups. To restore an archive later, reinstall Felucca and use the editor.",
     stockRecovery: "Resume an interrupted update: I already saved a complete backup to this computer",
@@ -141,7 +144,8 @@ let image = null;
 const meta = /*META*/;
 
 let writing = false, stock = null, stockFileEpoch = 0;
-const lockInstaller = (on) => { writing = on; $("go").disabled = on || !image; $("stock-go").disabled = on || !stock; $("stock-file").disabled = on; $("stock-recovery").disabled = on; };
+const lockInstaller = (on) => { writing = on; $("go").disabled = on || !image; $("stock-go").disabled = on || !stock; $("stock-file").disabled = on; $("stock-recovery").disabled = on; $("stock-builtin").disabled = on || !meta.stock; };
+if (!meta.stock) $("stock-builtin").hidden = true;    /* (M-Vave-OP1: the site serves the official V15 beside the package) */
 window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault(); e.returnValue = t("leave"); } });
 
 (async () => {
@@ -190,6 +194,18 @@ $("go").addEventListener("click", async () => {
   lockInstaller(false);
 });
 
+$("stock-builtin").addEventListener("click", async () => {   /* the same checks as a selected file */
+  const epoch = ++stockFileEpoch; stock = null; lockInstaller(false);
+  try {
+    const r = await fetch(meta.stock);
+    if (!r.ok) throw new Error(`${meta.stock}: HTTP ${r.status}`);
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    if (bytes.length !== STOCK_V15_SIZE) throw new Error("FM-1 V15 / FM-1_015.fwsc");
+    const verified = await validateStockPackage(bytes);
+    if (epoch !== stockFileEpoch) return;
+    stock = verified; sayK("stockValid"); lockInstaller(false);
+  } catch (e) { if (epoch === stockFileEpoch) sayK("stockError", e.message); }
+});
 $("stock-file").addEventListener("change", async () => {
   const epoch = ++stockFileEpoch, file = $("stock-file").files[0]; stock = null; lockInstaller(false);
   if (!file) return;
