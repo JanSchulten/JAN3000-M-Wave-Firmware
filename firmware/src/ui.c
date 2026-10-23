@@ -71,7 +71,8 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 /* 1.2: three more two-valued MENU settings, bits of another byte no engine uses, saved with the settings; 0 in older
  * settings = today's behaviour (append-only, as ui_prefs): bit 0 DISPLAY > SCOPE MIX (Discussion #165, fx.c scope_mix),
  * bit 1 CONTROL > STEP PREVIEW ON (Discussion #169, ui_input.c step_preview), bit 2 CONTROL > CHORD ENTRY ADD (#155,
- * ui_input.c seq_entry). 1.5: bit 3 SYSTEM > HELP ON (Discussion #156, ui_help.c). Bits 4-7 free */
+ * ui_input.c seq_entry). 1.5: bit 3 SYSTEM > HELP ON (Discussion #156, ui_help.c). M-Vave-OP1: bits 4, 5 SYNC OUT (below),
+ * bit 6 CONTROL > SCENE CHANGE NEXT BAR (scene.c scene_due). Bit 7 free */
 #define ui_prefs2 (favorites.factory[15][24])
 #define PREF_X 0xFF0000u                       /* (menu_items.c MENU_FLAGS: a bit of ui_prefs2, << 16) */
 #define PREF_SCOPE_MIX (0x01u << 16)
@@ -80,6 +81,8 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 #define PREF_HELP (0x08u << 16)
 #define PREF_SYNC_OUT (0x10u << 16)            /* M-Vave-OP1: bit 4, MENU > AUDIO > SYNC OUT PO (click.c po_sync) */
 #define PREF_SYNC_INV (0x20u << 16)            /* .. bit 5, with it: PO INV (the pulses upside down) */
+#define PREF_SCENE_BAR (0x40u << 16)           /* M-Vave-OP1: bit 6, a scene picked while playing switches at the next
+                                                * bar (0: AT END, at the end of the scene playing) */
 /* 1.3 (Discussions #112, #134): MENU > DISPLAY > HOME, what the HOME page shows under its four cards: 0 SCOPE (the
  * oscilloscope, as before), 1 TRACKS (the four tracks as rows: ui_graph.c draw_home_tracks), 2 LEVELS (1.5, #134: the
  * rows of TRACKS, and KNOB 1..4 the LEVEL of T1..T4 in place of the engine's four: home_param). A byte of its own no
@@ -106,6 +109,7 @@ static void rp_apply(void)                             /* the settings into clic
     cin_bars = (uint8_t)rp_get(RP_COUNTIN);
     po_sync = !(ui_prefs2 & (PREF_SYNC_OUT >> 16)) ? 0u : (ui_prefs2 & (PREF_SYNC_INV >> 16)) ? 2u : 1u;   /* (M-Vave-OP1:
                                                      * SYNC OUT OFF / PO / PO INV, click.c) */
+    scn_bar = (ui_prefs2 & (PREF_SCENE_BAR >> 16)) != 0u;   /* (M-Vave-OP1: SCENE CHANGE NEXT BAR, scene.c scene_due) */
 }
 static void rp_put(uint32_t f, uint32_t v)
 {

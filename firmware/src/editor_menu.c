@@ -31,6 +31,7 @@ static const uint8_t ED_MENU[][2] = {
     {MI_HOME, 23},                                     /* 1.3 (Discussions #112, #134): HOME SCOPE / TRACKS, DISPLAY */
     {MI_HELP, 24},                                     /* 1.5 (Discussion #156): HELP OFF / ON, SYSTEM */
     {MI_SYNC, 25},                                     /* M-Vave-OP1: SYNC OUT OFF / PO / PO INV, AUDIO */
+    {MI_SCENE, 26},                                    /* M-Vave-OP1: SCENE CHANGE AT END / NEXT BAR, CONTROL */
 };
 #define ED_MENU_N NELEM(ED_MENU)
 

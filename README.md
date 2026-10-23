@@ -133,11 +133,13 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   NOTHING TO COPY (the scene is empty), NO FREE SCENE or SCENE MEMORY FULL. The footer: [OCT-/+] PREV NEXT,
   [OCT+] HOLD: COPY.
 - Stopped, a scene comes at once. **Playing, it comes at the end of the pattern**: the end of the loop of the longest
-  track that plays something, on the grid, as a SONG section ends. The scene playing picked again takes the pick
-  back (SCENE n STAYS). STOP with one waiting: it comes at once.
+  track that plays something, on the grid, as a SONG section ends. **MENU > CONTROL > SCENE CHANGE**: AT END (that,
+  the default) or **NEXT BAR**: the scene comes at the next bar line (4/4, the metronome's), whatever the tracks'
+  lengths, and starts from its step 1 there. The scene playing picked again takes the pick back (SCENE n STAYS). STOP
+  with one waiting: it comes at once.
 - An empty scene starts with the LEN DIV SWING GATE of the scene it is reached from. The cells: the scene playing
-  filled (its key lit), one waiting ringed (its key breathing), one that holds something raised, an empty one
-  dimmed.
+  filled (its key blinking), one waiting ringed (its key breathing), one that holds something raised (its key lit),
+  an empty one dimmed (its key dark).
 - The **tools are on the black keys** now, F#3 .. F#5 in Felucca's order: CLEAR, REVERSE, SHIFT < >, RANDOM, COOK, on
   a DRUM track BEAT and the lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane). **SEQ + EDIT** puts the
   track back as the layer opened (it was OCT-). KNOB 1..4 are LEN DIV SWING GATE as before.

@@ -981,6 +981,8 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
 }
 
 /* --------------------------------------------------------- the LEDs --- */
+#define SEQ_BLINK_MS 250u                               /* M-Vave-OP1: the SEQ layer's scene playing: 250 ms lit, 250 dark
+                                                         * (asked for: a blink, where the other layers breathe, #119) */
 /* lit = in effect now (held, the value, a track sounding), breathing = can be pressed (*br: dark .. ~60 % and
  * back, ~1.1 s, hal/fm1_input.h fm1_led_breath; was a hard 250 ms blink, #119), dark = nothing there */
 static int glo_sounding(uint32_t t) { return !trk[t].p[P_MUTE] && (!perf_solo || ((perf_solo >> t) & 1u)); }
@@ -1011,8 +1013,11 @@ static uint32_t layer_leds(uint32_t *br)
         } else if (l == LAYER_EDIT && (a = eqa_of(TSEL, p)) != 0) {   /* the quick actions: on lit (DRUM: sounding), */
             on = a->on(TSEL, a->arg) != 0u;             /* a HOLD one off breathes, none dark */
             can = a->kind == LK_HOLD;
-        } else if (l == LAYER_SEQ) {                    /* M-Vave-OP1: the scene playing lit, one waiting breathes; */
-            on = !b && p == scn.cur;                    /* the black keys' tools breathe (not while a song plays) */
+        } else if (l == LAYER_SEQ) {                    /* M-Vave-OP1: the scene playing blinks (2 Hz, SEQ_BLINK_MS), the
+                                                         * others that hold something lit, one waiting breathes; the
+                                                         * black keys' tools breathe (not while a song plays) */
+            on = !b && (p == scn.cur ? (fm1_ms / SEQ_BLINK_MS) & 1u
+                                     : p < SCN_N && !(scn.req == SCN_END && p == scn.next) && scene_used(p));
             can = b ? p < SEQ_NTOOL && tl_cell(TSEL, SEQ_TOOL[p]) && !chain_busy()
                     : scn.req == SCN_END && p == scn.next && p != scn.cur;
         } else if (l == LAYER_REC && !b && p < 4u) {    /* a setting on (LEVEL: the click on) lit, the rest breathe; */

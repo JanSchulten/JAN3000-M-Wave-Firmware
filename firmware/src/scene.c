@@ -17,7 +17,9 @@
  * while no song plays; songs and scene picks exclude each other) and then, stopped, swaps it in at once (with the
  * interrupts off); playing, the ISR swaps it where the pattern ends (SCN_END): at the end of a loop of the scene's
  * longest track that holds a note or a hit (scene_clock; none: track 1), as a SONG section ends on its clock track
- * (song_chain.c chain_tick), the sample's remainder carried so the grid does not drift. A swap first measures the scene
+ * (song_chain.c chain_tick), the sample's remainder carried so the grid does not drift. With MENU > CONTROL > SCENE CHANGE
+ * NEXT BAR (scn_bar) it swaps at the next bar line of the transport instead (the click's 4/4 bar of 1/16s, seq.c
+ * clk_bar_end), whatever the tracks' lengths: the scene it brings starts from step 1 there. A swap first measures the scene
  * that leaves (scn_encode, no output): if it does not fit what the bank has for it (scn.room) the pick is dropped
  * (scn.full: "SCENE MEMORY FULL") and nothing is lost. Then the sequenced notes are released and the automated values
  * go back (as at a SONG section), the buffer and the tracks trade places (steps, timing, automation, lanes), and every
@@ -28,6 +30,8 @@
                                                   * the bank's header (opstore.c scb_hdr_t, 52 B), 4-aligned */
 #define SCN_BUF (&chain.source[0])                /* the scene waiting, after a swap the one left (no song plays) */
 enum { SCN_IDLE, SCN_END };
+static uint8_t scn_bar;                           /* main (ui.c rp_apply, MENU > SCENE CHANGE): 1 NEXT BAR, 0 AT END */
+static uint32_t clk_bar_end(uint32_t n);          /* (seq.c: the bar ends in the next n samples: past it + 1, else 0) */
 /* the bank: main loop only (the ISR never reads it) */
 static struct {
     uint16_t len[SCN_N];                         /* each scene's bytes in data, in scene order (0: empty; the one
@@ -500,7 +504,14 @@ static __attribute__((noinline)) void scene_due(uint32_t n)
 {
     const track_t *t = &trk[scn.clk % NTRK];
     uint32_t length;
-    if (!song.playing || chain.running || t->seq_pos >= 0x7FFFFFFFu || t->seq_idx + 1u != (uint32_t)t->p[P_SLEN])
+    if (!song.playing || chain.running)
+        return;
+    if (scn_bar) {                                /* NEXT BAR: at the transport's bar line */
+        if ((length = clk_bar_end(n)) != 0u)
+            scene_swap(length - 1u);
+        return;
+    }
+    if (t->seq_pos >= 0x7FFFFFFFu || t->seq_idx + 1u != (uint32_t)t->p[P_SLEN])
         return;
     length = step_samples(t, div_samples((uint32_t)t->p[P_SDIV]), t->seq_idx);
     if (t->seq_pos + n < length)
