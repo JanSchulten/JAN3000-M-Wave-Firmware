@@ -895,7 +895,7 @@ static void graph_cset(const track_t *t)
     px = cv_text_on(14, 4, &AF_L, b, T_TEXT, T_SURF);
     GFX_HOOK_ALIGN(0, 0, 0, 4 + AF_L.asc, AL_B, "cset genre on the set number's baseline");
     cv_text_on(px + 8, 4 + AF_L.asc - AF_M.asc, &AF_M, CSET_GENRE[CSET_GENRE_OF[s] % CSET_NG], T_THEME, T_SURF);
-    GFX_HOOK_ALIGN(7, 0, 233, 0, AL_H | AL_CELLS | AL_N(3), "cset chord cells centred");
+    GFX_HOOK_ALIGN(7, 0, 230, 0, AL_H | AL_CELLS | AL_N(3), "cset chord cells centred");   /* (3 x 73 + 2 x 2) */
     for (i = 0; i < 12u; i++) {                       /* the chords, the keys' order: C C# D / D# E F / F# G G# / A A# B */
         int32_t x = 7 + (int32_t)(i % 3u) * 75, y = 36 + (int32_t)(i / 3u) * 14;
         uint32_t lit = last && cset_last.key == i, blk = (0x54Au >> i) & 1u;   /* (C# D# F# G# A#) */
