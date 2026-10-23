@@ -46,7 +46,9 @@ typedef struct {
 typedef struct {
     uint8_t len[NTRK];                           /* each track's LEN, 1..128 (the project holds at most 64: a longer one
                                                   * 64 there, project.c proj_pack) */
-    uint8_t fx_len[FXT_N], rsv[2];               /* the FX TRACKS' LEN (fxt_lane_t: 0 = 16; proj_xtra_t's at most 64) */
+    uint8_t fx_len[FXT_N];                       /* the FX TRACKS' LEN (fxt_lane_t: 0 = 16; proj_xtra_t's at most 64) */
+    uint8_t np, rsv;                             /* P_COUNT of the firmware that wrote it (mo's ids from its P_E0 on: as
+                                                  * a project's, project.c proj_motion_ids) */
     uint8_t fx[FXT_N][NSTEP - NSTEP_FMT];        /* .. their steps 65..128 */
     uint8_t leg[NTRK][(NSTEP - NSTEP_FMT) / 8u]; /* the LEGATO steps 65..128 (as proj_xtra_t's leg) */
     uint8_t step[NTRK][NSTEP - NSTEP_FMT][PROJ_STEP_BYTES];   /* the steps 65..128, as the project packs its own
@@ -107,6 +109,7 @@ static void xtra_capture(proj_xtra_t *x, xtra_hi_t *h, uint32_t proj)
         x->fx[l].len = (uint8_t)(fxt_lane[l].len > NSTEP_FMT ? NSTEP_FMT : fxt_lane[l].len);
         h->fx_len[l] = fxt_lane[l].len;
     }
+    h->np = P_COUNT;
     x->fx1[0] = fx1s.type;
     x->fx1[1] = fx1s.size;
     x->fx1[2] = fx1s.dens;
@@ -242,15 +245,23 @@ static void xtra_hi_steps(step_t *s, int16_t *len, uint32_t k, const xtra_hi_t *
     if (*len == (int16_t)NSTEP_FMT && hi->len[k] > NSTEP_FMT && hi->len[k] <= NSTEP)
         *len = hi->len[k];
 }
-/* .. the automation and locks of steps 65..128 after m's (none added if they would not fit or are not valid: a slot
- * of extras that do not belong together) */
+/* .. the automation and locks of steps 65..128 after m's, their ids as today's (hi->np: as a project's); none added if
+ * they would not fit or are not valid (extras that do not belong together) */
 static void xtra_hi_motion(motion_store_t *m, const xtra_hi_t *hi)
 {
-    uint32_t n = m->count;
-    if (!hi || !hi->mo.count || motion_from_disk(m, &hi->mo, 1))
+    static motion_store_t t __attribute__((section(".pool")));   /* (main loop only) */
+    if (!hi || !hi->mo.count)
         return;
-    memset(m->event + n, 0, (MOTION_MAX - n) * sizeof m->event[0]);
-    m->count = (uint8_t)n;
+    memset(&t, 0, sizeof t);
+    if (!motion_from_disk(&t, &hi->mo, 1) || !proj_motion_ids(&t, hi->np ? hi->np : P_COUNT) ||
+        t.count > MOTION_MAX - m->count)
+        return;
+    memcpy(m->event + m->count, t.event, t.count * sizeof t.event[0]);
+    m->count = (uint8_t)(m->count + t.count);
+    if (!motion_valid(m)) {
+        memset(m->event + m->count - t.count, 0, t.count * sizeof t.event[0]);
+        m->count = (uint8_t)(m->count - t.count);
+    }
 }
 /* the LEGATO steps x (and hi: 65..128) hold for track k onto its steps s (as loaded: none); x of another project, an
  * older one, or none: none (each note starts its envelope, as that firmware played it) */

@@ -295,7 +295,7 @@ int main(void)
                      proj_scratch.t[2].p[P_LN3] == 127 && proj_scratch.t[1].step[3].note[0] == 64u);
         project_capture(&proj_scratch);
         for (k = 0; k < 64u; k++)
-            proj_scratch.motion.event[k] = (motion_event_t){(uint8_t)(1u << 6 | k), P_REV, (int8_t)k};
+            proj_scratch.motion.event[k] = (motion_event_t){MO_PLACE(1u, k), P_REV, (int8_t)k};
         proj_scratch.motion.count = 64;
         proj_scratch.motion.on = 2;
         ok = old_pack(v9, &proj_scratch, OLD_FUN9, 99u) == sizeof v9 &&

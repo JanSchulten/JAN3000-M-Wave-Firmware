@@ -92,12 +92,12 @@ static void rnd_pattern(chain_pattern_t *p, uint32_t density)
         do {
             id = rnd(P_COUNT);
         } while (!motion_param(id));
-        place = rnd(NTRK) << 6 | rnd(NSTEP);
+        place = MO_PLACE(rnd(NTRK), rnd(NSTEP));
         for (dup = 0, j = 0; j < p->motion.count; j++)
             dup |= p->motion.event[j].place == place && MOTION_ID(&p->motion.event[j]) == id;
         if (dup)
             continue;
-        e->place = (uint8_t)place;
+        e->place = (uint16_t)place;
         e->param = (uint8_t)(id | (rnd(2) ? MOTION_LOCK : 0u));
         e->value = (int8_t)((int32_t)rnd(192) - 64);
         p->motion.count++;
@@ -332,11 +332,12 @@ static void test_switch(void)
 }
 
 /* ------------------------------------------------------------ MEMORY --- */
-static void dense_scene(void)
+static void dense_scene(void)                          /* (every byte of steps 1..64: ~3.9 KB packed; of 128 steps
+                                                        * one would not fit the bank at all: ~8 KB, SCN_F_WIDE) */
 {
     uint32_t k, i;
     for (k = 0; k < NTRK; k++)
-        for (i = 0; i < NSTEP; i++) {
+        for (i = 0; i < NSTEP_FMT; i++) {
             uint8_t n[4] = {(uint8_t)(40 + i), (uint8_t)(52 + k), (uint8_t)(64 + i % 7u), 90};
             put_step(&trk[k], i, 4, n, ST_NOTE, 1);
             trk[k].step[i].probability = (uint8_t)(1 + i);

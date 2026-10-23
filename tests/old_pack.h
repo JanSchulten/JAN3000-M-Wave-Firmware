@@ -29,7 +29,7 @@ static uint32_t old_pack(uint8_t *b, const project_t *q, uint32_t magic, uint32_
         }
         b[pos++] = q->t[t].engine;
         b[pos++] = q->t[t].preset;
-        for (i = 0; i < NSTEP; i++) {
+        for (i = 0; i < NSTEP_FMT; i++) {
             const step_t *s = &q->t[t].step[i];
             uint32_t r = step_ratchet(s) - 1u, j;
             for (j = 0; j < 4u; j++)
@@ -64,7 +64,7 @@ static uint32_t old_pack(uint8_t *b, const project_t *q, uint32_t magic, uint32_
         int16_t v = e->value;
         if (id >= P_E0)
             id -= P_COUNT - np;
-        b[pos + 4u + 4u * i] = e->place;
+        b[pos + 4u + 4u * i] = (uint8_t)(MO_TRK(e) << 6 | MO_STEP(e));   /* (as they stored it: 64 steps) */
         b[pos + 5u + 4u * i] = (uint8_t)(id | (e->param & MOTION_LOCK));
         memcpy(b + pos + 6u + 4u * i, &v, 2);
     }

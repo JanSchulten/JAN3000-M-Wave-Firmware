@@ -56,7 +56,7 @@ Das Handbuch beschreibt den Ablauf so: *Sound erstellen → sequenzieren → auf
 | --- | --- | --- | --- |
 | 1. Sound wählen | SYNTH oder DRUM, Sound-Taste 1–8 | ALGORITHM (Spur), PRESETS (Sound) | Synth und Drum sind auf dem FM-1 einfach Spuren mit verschiedenen Engines; das passt |
 | 2. Sound formen | T1–T4 + Farb-Encoder, SHIFT+T1 tauscht nur die Engine | EDIT, ENV, FX, LFO + KNOB 1–4; EDIT halten tauscht die Engine | kaum; Grafiken im OP-1-Stil fehlen (Schritt 9) |
-| 3. Sequenzieren | 4 Sequencer, Tasten transponieren die Sequenz | Step-Sequencer (64 Schritte), ARP, Akkord-Sets des Roland J-6 (SCL > CSET), SONG | ENDLESS, TOMBOLA, FINGER; Transponieren per Taste (Schritt 8) |
+| 3. Sequenzieren | 4 Sequencer, Tasten transponieren die Sequenz | Step-Sequencer (128 Schritte), ARP, Akkord-Sets des Roland J-6 (SCL > CSET), SONG | ENDLESS, TOMBOLA, FINGER; Transponieren per Taste (Schritt 8) |
 | 4. Aufnehmen | TAPE, Spur, REC + PLAY | GLO > TAPE, REC | ✅ seit M1 |
 | 5. Tape bearbeiten | Lift, Drop, Split, Tricks, Speed, Reverse | Loop, Speed, Rückwärts, Löschen | Lift/Drop/Split, Tricks, Sprünge (Schritte 2–4) |
 | 6. Mischen | Pegel/Pan, EQ, Master-FX, Drive | Pegel, Pan, Hall, Mute pro Spur, Limiter | EQ, Master-FX, Drive (Schritt 6) |
@@ -115,7 +115,7 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | OP-1 | FM-1 | Stand |
 | --- | --- | --- |
 | ENDLESS: Noten der Reihe nach eingeben (bis 99), per Taste transponiert abspielen, Richtung, Notenlänge, Swing, Rhythmusmuster, Crank | ❌ | Schritt 8 |
-| PATTERN: 16-Step-Raster, Live-Mode, Länge, Abschnitt verschieben | Step-Sequencer (64 Schritte, Akkorde, Chance, Ratchets, Locks, Automation) | ✅ deutlich mehr als das OP-1 |
+| PATTERN: 16-Step-Raster, Live-Mode, Länge, Abschnitt verschieben | Step-Sequencer (128 Schritte, Akkorde, Chance, Ratchets, Locks, Automation) | ✅ deutlich mehr als das OP-1 |
 | TOMBOLA: Noten springen in einem drehenden Sechseck | ❌ | Schritt 8 |
 | FINGER: zwei Spieler, Muster pro weißer Taste, JOIN/REPLACE/FILL IN | ❌ | Schritt 8 |
 | Transponieren einer Sequenz mit der Tastatur | 🟡 SCL > TRN, nicht per Taste | Schritt 8 |

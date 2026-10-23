@@ -6,8 +6,8 @@ This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo 
 (Hügelton Instruments). It keeps Felucca's hardware layer, USB, update loader, web installer,
 storage, engines and tests, and builds an OP-1 / OP-Z-style workflow on top: a KEY track that moves the patterns
 through a chord progression, and from the OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
-switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and the Roland J-6's 100 chord
-sets as SCL > CSET. What is planned next is in the [roadmap](docs/ROADMAP.md).
+switched while they play, pattern chains, a switchable FX1 with a granular CLOUD, the Roland J-6's 100 chord
+sets as SCL > CSET and patterns of up to 128 steps. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development, running on a real FM-1 since the first flash (JAN3000 v0.8: the name on its splash).
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
@@ -49,13 +49,13 @@ scale's own chords. The keys you play live stay as they are, so you can play alo
 ## FX TRACKS
 
 Two lanes of effects next to the four instrument tracks, after the OP-Z's FX tracks. Two more synth tracks do not
-fit the FM-1's RAM; an effect lane costs 66 bytes. The lanes play the FX layer's effects on the master (REPEAT
+fit the FM-1's RAM; an effect lane costs 130 bytes. The lanes play the FX layer's effects on the master (REPEAT
 1/8 1/16 1/32, REVERSE, LPF, HPF, TAPE STOP, FREEZE, OCT UP, OCT DN, FLANGER, PHASER, REV THROW, ECHO THROW, CLOUD
 FREEZE, the OP-Z punch-ins below, and the mutes of tracks 1 to 4).
 
 - **FX** opens FX; tap again for **FX TRACKS**, again for **FX TRACKS 2**.
 - **KNOB 1** picks the lane (FX1, FX2), **KNOB 2** the step, **KNOB 3** the step's effect (OFF, TIE to hold the effect
-  before it on, the effects, the mutes), **KNOB 4** the lane's length (1 to 64 steps of a 1/16). Two lengths drift
+  before it on, the effects, the mutes), **KNOB 4** the lane's length (1 to 128 steps of a 1/16). Two lengths drift
   against each other, as the OP-Z's tracks do.
 - **Punch-ins, recorded:** REC on FX TRACKS arms the selected lane (stopped: PLAY starts). Hold **FX** and press the
   white keys (effects) or the first four black keys (mutes): what you play goes onto the lane, quantised to the
@@ -259,6 +259,16 @@ the BEAT pattern plays on them.
   rest; a fast turn stops at the end first, a chord keeps its shape); from OFF a turn brings in the note played last.
   SAVE held undoes it. EDIT no longer clears the step on STEP (nor on the drum grid): a tap opens EDIT as on every
   page, with a step held it still clears that step's locks.
+- **128 steps a track.** LEN goes to 128 (64 before): eight pages of 16 on STEP (the grid's page keys, PRESETS and
+  KNOB 1 walk them; the footer says PAGE 8/8), HOME's track rows show up to eight page marks. Everything a step has
+  works on steps 65 to 128 too: chords, ties, ratchets, chance, nudges, LEGATO, automation and parameter locks
+  (AUTOMATION's rows say STEP 100 .. 128), live recording, the tools; the FX TRACKS go to 128 steps as well (their
+  overview two steps a cell past 64). A project keeps steps 1 to 64 where Felucca's format has them and the rest, with
+  a LEN past 64, in its extras: firmware of 64 steps loads such a project as its first 64 steps (LEN 64), the rest
+  stays in the slot until it is saved over there. A scene that holds something past step 64 is packed in a wider form
+  that such firmware does not read (its other scenes: as before); one dense on all 128 steps of all four tracks does
+  not fit the scene memory (SCENE MEMORY FULL). The editor's INFO says 64 (as before) and 128 in a new block, so the
+  web editor lists the steps 65 to 128 and older editors keep working on the first 64.
 - **REC arms, PLAY starts.** A REC tap only arms the recording (the pattern's, GLO > KEY's, an FX TRACK's): REC ARMED:
   PRESS PLAY. PLAY then starts it, with the count-in first when MENU / REC layer COUNT-IN is set (Felucca's REC
   started the transport at once).

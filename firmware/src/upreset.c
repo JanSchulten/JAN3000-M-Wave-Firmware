@@ -407,8 +407,9 @@ static int up_store_cat(uint32_t k, const char *name, uint32_t cat)
     r.engine = TSEL->eng_req;
     r.np = P_COUNT;
     up_set_name(&r, k, name);
-    for (i = 0; i < P_COUNT; i++)
-        up_set_value(&r, i, motion_base_value(TSEL, i));
+    for (i = 0; i < P_COUNT; i++)                       /* (M-Vave-OP1: a LEN of 65..128 as 64: the byte holds up to
+                                                         * 127, the pattern 16 steps: a load takes at most 16) */
+        up_set_value(&r, i, i == P_SLEN && TSEL->p[i] > (int16_t)NSTEP_FMT ? (int16_t)NSTEP_FMT : motion_base_value(TSEL, i));
     up_pat_from(&r, TSEL->step);
     up_set_cat(&r, cat ? cat : track_cat(TSEL));
     if (kit_track(TSEL)) {                              /* a kit track (DRUM, VDRUM, DBOX) striking a lane: its grid */

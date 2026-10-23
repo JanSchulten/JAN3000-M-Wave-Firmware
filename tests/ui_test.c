@@ -161,6 +161,8 @@ static int check(const char *what, int ok)
     printf("ui: %-74s %s\n", what, ok ? "ok" : "FAIL");
     return ok ? 0 : 1;
 }
+/* a step set (core.h stepset_t) as a mask of steps 1..64; one holding a step past 64 matches no mask (all ones) */
+static uint64_t ss64(stepset_t m) { return m.w[1] ? ~(uint64_t)0 : m.w[0]; }
 
 /* main.c felucca_init */
 static void ui_power_on(void)
@@ -8279,7 +8281,7 @@ static int test_step_note_off(void)
     turn(EN_K2, -30);                                   /* (fast: to the lowest note, not past it) */
     ok = t->step[4].n == 1u && t->step[4].note[0] == 1u && t->step[4].time == ST_NOTE && !msg_is("STEP OFF");
     turn(EN_K2, -1);
-    ok &= t->step[4].time == ST_REST && !t->step[4].n && msg_is("STEP OFF") && !((motion_lock_steps(trk_index(t)) >> 4) & 1u);
+    ok &= t->step[4].time == ST_REST && !t->step[4].n && msg_is("STEP OFF") && !((ss64(motion_lock_steps(trk_index(t))) >> 4) & 1u);
     turn(EN_K2, -1);                                    /* (turned on the same way: OFF stays, no flip back on) */
     turn(EN_K2, -3);
     ok &= t->step[4].time == ST_REST && !t->step[4].n;

@@ -1975,6 +1975,17 @@ static void graph_pats(void)
  * name / QUANTIZE's ON at EV_NX (QUANTIZE ends at x 86), the value right at 226 */
 #define EV_SX 60
 #define EV_NX 92
+/* a row's step (s from 0): "01" .. "99", "100" .. "128" (M-Vave-OP1's 128 steps: three digits fit before EV_NX) */
+static void ev_step_txt(char *b, uint32_t s)
+{
+    if (s + 1u >= 100u)
+        fmt_int(b, (int32_t)s + 1);
+    else {
+        b[0] = (char)('0' + (s + 1u) / 10u);
+        b[1] = (char)('0' + (s + 1u) % 10u);
+        b[2] = 0;
+    }
+}
 /* a row's value (M) and its unit (S, on the value's baseline, as a card's) ending at x 226; the value's left x */
 static int32_t ev_value(int32_t y, const char *v, const char *unit, uint16_t fg, uint16_t bg)
 {
@@ -2047,9 +2058,7 @@ static void graph_events(void)
             uint16_t vc = (kd == EVK_NUDGE && !ev_nudge_plays(t, &t->step[s])) ||   /* (QUANTIZE ON ..) */
                           (kd == EVK_VEL && !ev_vel_plays(&t->step[s])) ? T_DIM : T_TEXT;
             char b[8];
-            b[0] = (char)('0' + (s + 1u) / 10u);
-            b[1] = (char)('0' + (s + 1u) % 10u);
-            b[2] = 0;
+            ev_step_txt(b, s);
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
             cv_text_on(14, y + LIST_TY, &AF_M, "STEP", sel ? T_INK : T_MID, bg);
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
@@ -2076,9 +2085,7 @@ static void graph_events(void)
             const char *unit;
             const param_desc_t *d = track_desc(t, id);
             int32_t x;
-            b[0] = (char)('0' + (MO_STEP(e) + 1u) / 10u);
-            b[1] = (char)('0' + (MO_STEP(e) + 1u) % 10u);
-            b[2] = 0;
+            ev_step_txt(b, MO_STEP(e));
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
             cv_text_on(14, y + LIST_TY, &AF_M, lock ? "LOCK" : "AUTO", sel ? T_INK : lock ? T_ACCENT : T_MID, bg);
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
@@ -2408,6 +2415,8 @@ static void home_track_row(uint32_t c)
         cv_keycap(xr, TR_NY(large) + (ch - KC_H) / 2, KC_MUTE, sel ? T_INK : T_KEY, sel ? T_THEME : T_INK, bg);
         xr -= 6;
     }
+    if (np > 4u && xr > TR_PX - 3)                   /* (M-Vave-OP1: LEN > 64, up to 8 pips: they reach the name's line) */
+        xr = TR_PX - 3;
     x = 24;
     if (FELUCCA_ICONS && !large) {                   /* the engine's icon on the name's capitals */
         uint32_t ei = engine_icon(ENGINES[t->eng_req % NENGINES]->name);
@@ -2960,13 +2969,19 @@ static void graph_fxt(void)
         }
         if (song.playing && fxt.pos != FXT_START && fxt.idx[l] >= w0 && fxt.idx[l] < w0 + 16u)   /* the play head */
             cv_rect(FX_X0 + (int32_t)(fxt.idx[l] - w0) * FX_CP, y + FX_CH + 2, FX_CP - 1, 3, T_ACCENT);
-        for (i = 0; i < len; i++) {                   /* the lane's 64 steps, 3 px each; the 16 shown framed */
-            uint32_t e = fxt_plays(l, i);
-            cv_rect(FX_X0 + (int32_t)i * 3, y + FX_CH + 9, 2, 6, e < PF_N ? fxt_colour(e) : T_RAISE);
+        {   /* the lane's steps, 3 px each (LEN over 64, M-Vave-OP1: two a cell, the first effect of the two); the 16 shown
+             * framed */
+            uint32_t pr = len > NSTEP_FMT ? 2u : 1u, j;
+            for (i = 0; i * pr < len; i++) {
+                uint32_t e = PF_N;
+                for (j = 0; j < pr && e >= PF_N && i * pr + j < len; j++)
+                    e = fxt_plays(l, i * pr + j);
+                cv_rect(FX_X0 + (int32_t)i * 3, y + FX_CH + 9, 2, 6, e < PF_N ? fxt_colour(e) : T_RAISE);
+            }
+            cv_rect(FX_X0 + (int32_t)(w0 / pr) * 3, y + FX_CH + 16, 48 / (int32_t)pr - 1, 1, T_MID);
+            if (song.playing && fxt.pos != FXT_START)
+                cv_rect(FX_X0 + (int32_t)(fxt.idx[l] / pr) * 3, y + FX_CH + 7, 2, 1, T_ACCENT);
         }
-        cv_rect(FX_X0 + (int32_t)w0 * 3, y + FX_CH + 16, 47, 1, T_MID);
-        if (song.playing && fxt.pos != FXT_START)
-            cv_rect(FX_X0 + (int32_t)fxt.idx[l] * 3, y + FX_CH + 7, 2, 1, T_ACCENT);
     }
 }
 static void draw_graph(void)

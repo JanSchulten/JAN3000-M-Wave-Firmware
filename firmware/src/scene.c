@@ -12,7 +12,7 @@
  * (scn_encode: a track's timing; a step only where it differs from an empty one (SCN_REST), and of it only the bytes
  * that do; the automation's records; the lanes' used steps). An empty scene takes no byte, and takes the timing of the
  * one it is reached from. SCN_CAP bytes in all: a scene of four 16-step parts takes ~250 .. 500 B, the densest
- * possible ~3.9 KB.
+ * possible of 64 steps ~3.9 KB, of 128 (SCN_F_WIDE) ~8 KB: more than the bank holds, so a pick says SCENE MEMORY FULL.
  * A pick (scene_queue): the main loop unpacks the scene into the buffer (SCN_BUF: the SONG chain's first source, free
  * while no song plays; songs and scene picks exclude each other) and then, stopped, swaps it in at once (with the
  * interrupts off); playing, the ISR swaps it where the pattern ends (SCN_END): at the end of a loop of the scene's
@@ -61,6 +61,12 @@ typedef struct {                                 /* a scene where it is: the tra
 #define SCN_F_KEY 0x40u                          /* .. its KEY (18 bytes, key.c keyt; firmware before refuses a bank
                                                   * holding one, as any other bank it cannot read: one is written only
                                                   * for a KEY of its own or one in use, scn_encode) */
+#define SCN_F_WIDE 0x80u                         /* .. M-Vave-OP1's 128 steps: its step and lane masks are 16 bytes (8:
+                                                  * steps 1..64) and an automation record's place two (track << 7 | step,
+                                                  * low byte first; one: track << 6 | step). Written only for a scene that
+                                                  * holds something past step 64 (scn_wide): firmware of 64 steps refuses
+                                                  * such a bank, every other one it reads as before */
+#define SCN_MASK(w) ((w) ? NSTEP / 8u : NSTEP_FMT / 8u)   /* the bytes of a mask */
 
 static uint8_t scn_u8(int32_t v) { return (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v); }
 /* the main loop's guard against the audio ISR (as motion.c's: the target's interrupts; the host builds run one thread) */
@@ -115,13 +121,34 @@ static int scn_key_none(const uint8_t *k)
     return !k[0] && k[1] == 4u;
 }
 _Static_assert(sizeof(((chain_pattern_t *)0)->key) == sizeof keyt, "a scene's KEY bytes are key.c keyt's");
+/* scene v holds something past step 64 (a step that is not SCN_REST, a lane's step or LEN, an automation record):
+ * it packs in the wide form (SCN_F_WIDE) */
+static int scn_wide(const scn_view_t *v)
+{
+    uint32_t k, i, l;
+    for (k = 0; k < NTRK; k++)
+        for (i = NSTEP_FMT; i < NSTEP; i++)
+            if (memcmp(&v->st[k][i], &SCN_REST, sizeof SCN_REST))
+                return 1;
+    for (l = 0; l < FXT_N; l++) {
+        if (v->fx[l].len > NSTEP_FMT)
+            return 1;
+        for (i = NSTEP_FMT; i < NSTEP; i++)
+            if (v->fx[l].step[i])
+                return 1;
+    }
+    for (i = 0; i < v->mo->count && i < MOTION_MAX; i++)
+        if (MO_STEP(&v->mo->event[i]) >= NSTEP_FMT)
+            return 1;
+    return 0;
+}
 /* scene v packed into out (cap bytes; out 0: only measured): its bytes, 0 for an empty scene (no step that differs from
  * SCN_REST, no automation, empty lanes, no KEY of its own). A scene that holds something keeps the KEY it plays with
  * (none written when no KEY is in use: it takes the KEY playing, which is none then too).
  * noinline: the ISR measures with it once a switch (scene_due) */
 static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_t *out, uint32_t cap)
 {
-    uint32_t n = 1, k, i, j, l, fl = 0;
+    uint32_t n = 1, k, i, j, l, fl = 0, w, nm;
 #define SCN_PUT(b) do { if (out && n < cap) out[n] = (uint8_t)(b); n++; } while (0)
     for (k = 0; k < NTRK; k++)                   /* (which tracks have steps, first: the flags) */
         for (i = 0; i < NSTEP; i++)
@@ -139,6 +166,9 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
         fl |= SCN_F_KEY;
     if (!fl)
         return 0;
+    w = scn_wide(v);
+    nm = SCN_MASK(w);
+    fl |= w ? SCN_F_WIDE : 0u;
     if (out && cap)
         out[0] = (uint8_t)fl;
     for (k = 0; k < NTRK; k++) {
@@ -147,22 +177,16 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
         if (!((fl >> k) & 1u))
             continue;
         {
-            uint32_t m0 = 0, m1 = 0;              /* the steps that differ, a bit each (64) */
-            for (i = 0; i < NSTEP; i++)
-                if (memcmp(&v->st[k][i], &SCN_REST, sizeof SCN_REST)) {
-                    if (i < 32u)
-                        m0 |= 1u << i;
-                    else
-                        m1 |= 1u << (i - 32u);
-                }
-            for (j = 0; j < 4u; j++)
-                SCN_PUT(m0 >> (8u * j));
-            for (j = 0; j < 4u; j++)
-                SCN_PUT(m1 >> (8u * j));
-            for (i = 0; i < NSTEP; i++) {
+            uint8_t m[NSTEP / 8u] = {0};          /* the steps that differ, a bit each (64; wide: 128) */
+            for (i = 0; i < nm * 8u; i++)
+                if (memcmp(&v->st[k][i], &SCN_REST, sizeof SCN_REST))
+                    m[i / 8u] |= (uint8_t)(1u << (i % 8u));
+            for (j = 0; j < nm; j++)
+                SCN_PUT(m[j]);
+            for (i = 0; i < nm * 8u; i++) {
                 const uint8_t *s = (const uint8_t *)&v->st[k][i], *r = (const uint8_t *)&SCN_REST;
                 uint32_t bm = 0;
-                if (!((i < 32u ? m0 >> i : m1 >> (i - 32u)) & 1u))
+                if (!((m[i / 8u] >> (i % 8u)) & 1u))
                     continue;
                 for (j = 0; j < sizeof(step_t); j++)
                     bm |= (uint32_t)(s[j] != r[j]) << j;
@@ -178,27 +202,27 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
         SCN_PUT(v->mo->count);
         SCN_PUT(v->mo->on);
         for (i = 0; i < v->mo->count && i < MOTION_MAX; i++) {
-            SCN_PUT(v->mo->event[i].place);
+            const motion_event_t *e = &v->mo->event[i];
+            if (w) {
+                SCN_PUT(e->place);
+                SCN_PUT(e->place >> 8);
+            } else {
+                SCN_PUT(MO_TRK(e) << 6 | MO_STEP(e));
+            }
             SCN_PUT(v->mo->event[i].param);
             SCN_PUT((uint8_t)v->mo->event[i].value);
         }
     }
     if (fl & SCN_F_FX)
         for (l = 0; l < FXT_N; l++) {
-            uint32_t m0 = 0, m1 = 0;
+            uint8_t m[NSTEP / 8u] = {0};
             SCN_PUT(v->fx[l].len);
-            for (i = 0; i < NSTEP; i++)
-                if (v->fx[l].step[i]) {
-                    if (i < 32u)
-                        m0 |= 1u << i;
-                    else
-                        m1 |= 1u << (i - 32u);
-                }
-            for (j = 0; j < 4u; j++)
-                SCN_PUT(m0 >> (8u * j));
-            for (j = 0; j < 4u; j++)
-                SCN_PUT(m1 >> (8u * j));
-            for (i = 0; i < NSTEP; i++)
+            for (i = 0; i < nm * 8u; i++)
+                if (v->fx[l].step[i])
+                    m[i / 8u] |= (uint8_t)(1u << (i % 8u));
+            for (j = 0; j < nm; j++)
+                SCN_PUT(m[j]);
+            for (i = 0; i < nm * 8u; i++)
                 if (v->fx[l].step[i])
                     SCN_PUT(v->fx[l].step[i]);
         }
@@ -221,7 +245,7 @@ static int16_t scn_tm(uint32_t j, uint32_t v)
  * from flash: never trusted) */
 static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const uint8_t tm0[NTRK][5])
 {
-    uint32_t pos = 1, fl, k, i, j, l;
+    uint32_t pos = 1, fl, k, i, j, l, w, nm;
 #define SCN_GET(x) do { if (pos >= n) return 0; (x) = in[pos++]; } while (0)
     memset(b, 0, sizeof *b);
     for (k = 0; k < NTRK; k++)
@@ -236,10 +260,11 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
         return 1;
     }
     fl = in[0];
-    if (fl & ~0x7Fu)
-        return 0;
+    w = (fl & SCN_F_WIDE) != 0u;
+    nm = SCN_MASK(w);
     for (k = 0; k < NTRK; k++) {
-        uint32_t m[2] = {0, 0}, x;
+        uint8_t m[NSTEP / 8u] = {0};
+        uint32_t x;
         for (j = 0; j < 5u; j++) {
             SCN_GET(x);
             if (j < 4u)
@@ -249,15 +274,13 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
         }
         if (!((fl >> k) & 1u))
             continue;
-        for (j = 0; j < 8u; j++) {
-            SCN_GET(x);
-            m[j >> 2] |= x << (8u * (j & 3u));
-        }
-        for (i = 0; i < NSTEP; i++) {
+        for (j = 0; j < nm; j++)
+            SCN_GET(m[j]);
+        for (i = 0; i < nm * 8u; i++) {
             uint8_t *s = (uint8_t *)&b->step[k][i];
             const step_t *st = &b->step[k][i];
             uint32_t bm, lo, hi;
-            if (!((m[i >> 5] >> (i & 31u)) & 1u))
+            if (!((m[i / 8u] >> (i % 8u)) & 1u))
                 continue;
             SCN_GET(lo);
             SCN_GET(hi);
@@ -281,7 +304,13 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
         b->motion.count = (uint8_t)c;
         b->motion.on = (uint8_t)on;
         for (i = 0; i < c; i++) {
-            SCN_GET(b->motion.event[i].place);
+            SCN_GET(j);
+            if (w) {
+                SCN_GET(l);
+                b->motion.event[i].place = (uint16_t)(j | l << 8);
+            } else {
+                b->motion.event[i].place = (uint16_t)MO_PLACE(j >> 6, j & 63u);
+            }
             SCN_GET(b->motion.event[i].param);
             SCN_GET(j);
             b->motion.event[i].value = (int8_t)j;
@@ -291,17 +320,16 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
     }
     if (fl & SCN_F_FX)
         for (l = 0; l < FXT_N; l++) {
-            uint32_t m[2] = {0, 0}, x;
+            uint8_t m[NSTEP / 8u] = {0};
+            uint32_t x;
             SCN_GET(x);
             if (x > NSTEP)
                 return 0;
             b->fx[l].len = (uint8_t)x;
-            for (j = 0; j < 8u; j++) {
-                SCN_GET(x);
-                m[j >> 2] |= x << (8u * (j & 3u));
-            }
-            for (i = 0; i < NSTEP; i++)
-                if ((m[i >> 5] >> (i & 31u)) & 1u) {
+            for (j = 0; j < nm; j++)
+                SCN_GET(m[j]);
+            for (i = 0; i < nm * 8u; i++)
+                if ((m[i / 8u] >> (i % 8u)) & 1u) {
                     SCN_GET(b->fx[l].step[i]);
                     if (!b->fx[l].step[i])
                         return 0;

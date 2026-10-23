@@ -72,8 +72,9 @@ static void motion_to_disk(motion_disk_t *d, const motion_store_t *m, uint32_t h
         d->event[d->count++].value = e->value;
     }
 }
-/* .. back: d's records after m's as steps hi * 64 .. (hi 0: m emptied first, d's PLAY bits its own). 0: m holds no
- * valid store then (more than MOTION_MAX, a record twice, a parameter that never moves: motion_valid) */
+/* .. back: d's records after m's as steps hi * 64 .. (hi 0: m emptied first, d's PLAY bits its own). 0: they do not
+ * fit (more than MOTION_MAX). Not checked further: an older project's ids move first (project.c proj_motion_ids), the
+ * caller checks the store then (motion_valid) */
 static int motion_from_disk(motion_store_t *m, const motion_disk_t *d, uint32_t hi)
 {
     uint32_t i;
@@ -89,7 +90,7 @@ static int motion_from_disk(motion_store_t *m, const motion_disk_t *d, uint32_t 
         e->param = d->event[i].param;
         e->value = d->event[i].value;
     }
-    return motion_valid(m);
+    return 1;
 }
 static int motion_enabled(const track_t *t) { return (motion.on >> trk_index(t)) & 1u; }
 static uint32_t motion_count(const track_t *t)

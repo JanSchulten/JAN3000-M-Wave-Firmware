@@ -108,6 +108,10 @@
 #                   TIEs, LEN and two lengths, step for step with a 1/16 track, a REPEAT on its step, mutes, STOP / PLAY;
 #                   recording only armed and playing, early / late presses, TIEs, overdub, a punch inside a take, FX LATCH,
 #                   the black keys; FX's pages, KNOB 1..4, REC arming, FX held + a key end to end, CLEAR.
+# 128 STEPS (tests/steps128_test.c, M-Vave-OP1): LEN 128 plays steps 65..128 (automation, a lock, an FX TRACK of
+#                   128), LEN 64 as before; SAVE / LOAD keep them (the extras' tail, XTRA_V7), what firmware of 64 steps
+#                   reads of the slot, extras of before; a song's slot; scenes of 64 steps pack as before, wider ones
+#                   wide (SCN_F_WIDE); STEP's bank 8, AUTOMATION's rows past 64 (the flash's: opstore_test.c).
 # RATCH (tests/ratchet_test.c): a step's ratchet (x1..x4): its parts in the sequencer (equal, gated, chords and drum
 #                   hits whole, one chance roll, swing, no slide or tie out, STOP), FUN8 round trip and older projects x1,
 #                   user preset patterns, SEQ > AUTOMATION's RATCH rows and the roll / grid drawing.
@@ -332,6 +336,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "SONG as OP-Z pattern chains: typed with REC + A..D, LOOP / STOP, new chains and edits while it plays" "$OUT/songchain_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fxtrack_test" tests/fxtrack_test.c -lm
     run "FX TRACKS: lanes of punch-in effects (play, LEN, no drift, REPEAT on its step), recording (early / late, TIEs, overdub, punch, LATCH, mutes), pages" "$OUT/fxtrack_test"
+    mkdir -p build/steps128_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/steps128_test" tests/steps128_test.c -lm
+    run "128 STEPS: play past 64, SAVE / LOAD (the extras' tail), firmware of 64 steps, songs, wide scenes, STEP bank 8" "$OUT/steps128_test" build/steps128_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/step15_test" tests/step15_test.c -lm
     run "1.5 STEP: a note's LEN (TIEs on KNOB 3), a step's VEL (playback, AUTOMATION's VEL rows)" "$OUT/step15_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/detail_test" tests/detail_test.c -lm

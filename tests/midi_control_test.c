@@ -415,7 +415,7 @@ static int cc_map_test(void)
     song.rec = 1; seq_start(); events_block(CTL);
     queued(0xB0, 74, 20, 1);
     bad += check("armed and playing: CC74 records a motion event of CUT on the selected track", motion.count == 1u &&
-                 motion.event[0].param == P_E4 && motion.event[0].value == 20 && (motion.event[0].place >> 6) == 0u);
+                 motion.event[0].param == P_E4 && motion.event[0].value == 20 && MO_TRK(&motion.event[0]) == 0u);
     queued(0xB1, 74, 20, 1);
     bad += check("  another track (channel 2, not selected): not recorded", motion.count == 1u && trk[1].p[P_E2] != 0);
     seq_stop(); events_block(CTL);
