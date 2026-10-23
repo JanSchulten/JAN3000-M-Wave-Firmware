@@ -56,7 +56,8 @@
  * always), the menu, a dialog, NAME. The first tap is not deferred (a single tap opens its page at once, no lag): it
  * opens the page and remembers the page it left (lys.nv); the second tap locks the layer over that page, put back, so
  * a double tap leaves the page as it was. A first tap that acted instead of opening a page (EDIT on STEP: clear the
- * step; on USER / PROJECT: rename) arms no double tap: two quick taps there still act twice. */
+ * step; on USER / PROJECT: rename; M-Vave-OP1: REC's, which arms / disarms) arms no double tap: two quick taps there still
+ * act twice (REC's layer opens held, it has no lock). */
 #include "ui_tools.c"                                   /* SEQ TOOLS' actions */
 enum { LK_HOLD, LK_SET };
 typedef struct {
@@ -348,9 +349,12 @@ static void layer_tap(uint32_t l)
     lys.nv.seq = song.seq_mode;
     memcpy(lys.nv.fam, ui.fam_last, sizeof lys.nv.fam);
     lys.nv.rec = song.rec;
-    if (l == LAYER_REC) {                               /* REC: arms / disarms (no page); said nothing: no double tap */
+    if (l == LAYER_REC) {                               /* REC: arms / disarms (no page), and arms no double tap */
         uint32_t idle = !song.playing && !seq_counting() && transport_req != 1u;
-        acted = !rec_tap();
+        rec_tap();                                      /* (M-Vave-OP1: two quick taps arm and disarm; the second locked
+                                                         * the layer and put the arming back, so a third tap only closed
+                                                         * the lock: REC seemed stuck. Its layer opens held) */
+        acted = 1;
         lys.nv.go = (uint8_t)(idle && transport_req == 1u);
     } else {
         acted = page_tap(LAYERS[l].btn);

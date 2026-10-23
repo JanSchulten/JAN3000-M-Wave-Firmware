@@ -743,7 +743,7 @@ static int test_rec(void)
                      msg_is(k == 1u ? "KEYS WRITE STEPS" : "REC ARMED: PRESS PLAY"));
         song.playing = 1;
         transport_req = 0;
-        frames(400);                                   /* (not a double tap: that locks the REC layer) */
+        frames(400);
         press(B_REC);
         bad += check("REC again disarms (the transport runs on)", song.rec == 0u && transport_req == 0u);
         frames(400);
@@ -7005,10 +7005,10 @@ static int test_layer_lock(void)
     bad += check("#83 FX GLO SCL EDIT double tapped: the map stays open with no button held, over the page as it was", ok);
     bad += check("  a tap of the button closes it, no page opens", okk);
     {   /* #183: in every lock PLAY starts and stops (GLO's lock no RESTART: that needs GLO held) */
-        static const uint8_t PB[6] = {B_FX, B_GLO, B_SCL, B_EDIT, B_SEQ, B_REC};
-        static const uint8_t PL[6] = {LAYER_FX, LAYER_GLO, LAYER_SCL, LAYER_EDIT, LAYER_SEQ, LAYER_REC};
+        static const uint8_t PB[5] = {B_FX, B_GLO, B_SCL, B_EDIT, B_SEQ};   /* (M-Vave-OP1: REC has no lock) */
+        static const uint8_t PL[5] = {LAYER_FX, LAYER_GLO, LAYER_SCL, LAYER_EDIT, LAYER_SEQ};
         ok = 1;
-        for (i = 0; i < 6u; i++) {
+        for (i = 0; i < 5u; i++) {
             uint32_t k;
             ui_power_on();
             go_title("ENV"); frame();
@@ -7035,7 +7035,7 @@ static int test_layer_lock(void)
                 printf("    #183: %s locked, PLAY does not start / stop\n", LAYERS[PL[i]].head);
             ok &= okk;
         }
-        bad += check("#183 FX GLO SCL EDIT SEQ REC locked: PLAY starts and stops (no RESTART without GLO held)", ok);
+        bad += check("#183 FX GLO SCL EDIT SEQ locked: PLAY starts and stops (no RESTART without GLO held)", ok);
     }
     /* the keys and KNOB 1..4 act as held */
     ui_power_on();
@@ -7177,7 +7177,7 @@ static int test_layer_lock(void)
  * SEQUENCE?", Discussion #91: gone, and its "HOLD: CLEAR" hint and the footer's REC + trash with it); a tap still
  * arms / disarms. F3 CLEAR (no dialog, SAVE held undoes it), G3 CLICK, A3 COUNT-IN, B3 CLICK LEVEL (each the next
  * value, the same store as MENU > AUDIO, saved when the layer closes), KNOB 1..3 the same; OCT- puts back; the LEDs;
- * the double-tap lock (the arming as before the taps); REC in another layer still arms */
+ * no double-tap lock (M-Vave-OP1: quick taps arm and disarm); REC in another layer still arms */
 static void rec_down(void) { btn_down(B_REC); }
 static void rec_up(void) { btn_up(B_REC); frame(); }
 static uint32_t menu_rec(uint32_t r) { return menu_get(r == 0u ? MI_CLICK : r == 1u ? MI_COUNTIN : MI_CLKLVL); }
@@ -7366,7 +7366,7 @@ static int test_rec_layer(void)
     rec_up();
     bad += check("  LEDs: CLEAR breathes (dark when empty), CLICK / COUNT-IN lit when on, LEVEL with the click", ok);
 
-    /* the double-tap lock: the arming as before the taps, the keys and knobs as held, a tap of REC closes it */
+    /* M-Vave-OP1: no double-tap lock for REC: its taps arm and disarm, quick or slow (a lock made the third tap do nothing) */
     ui_power_on();
     ui_rec_prefs = 0; rp_apply();
     go_title("ENV"); frame();
@@ -7376,24 +7376,19 @@ static int test_rec_layer(void)
                                                          * layer's HOLD [REC] QUICK hint, which waits for a silent tap) */
     frames(64);
     press(B_REC);
-    frames(500);
-    ok &= ui.lock == LAYER_REC && ui.layer == LAYER_REC && layer_locked() && song.rec == 0u && transport_req == 0u &&
-          ui.page == n && !fm1_in.buttons && ((layer_seen >> LAYER_REC) & 1u);
-    key_down(white(1)); frame(); key_up(white(1)); frame();
-    turn(EN_K2, 1);
-    ok &= click_mode == 1u && cin_bars == 1u && !gates() && ui.lock == LAYER_REC;
-    press(B_PLAY);                                      /* PLAY works in it */
-    ok &= transport_req == 1u && ui.lock == LAYER_REC;
-    transport_req = 0;
-    press(B_REC);                                       /* a tap: closed, nothing armed */
-    frames(16);
-    ok &= !ui.lock && !ui.layer && song.rec == 0u && ui.page == n && !lys.rp_dirty;
-    bad += check("#83 REC double tapped: locked, the arming as before; keys, knobs, PLAY; a REC tap closes it", ok);
+    frames(64);
+    ok &= !ui.lock && !ui.layer && song.rec == 0u && transport_req == 0u && ui.page == n;
+    press(B_REC);
+    frames(64);
+    ok &= !ui.lock && song.rec == 1u;
+    press(B_REC);
+    frames(64);
+    ok &= !ui.lock && song.rec == 0u;
+    bad += check("REC tapped quickly (64 ms apart): armed, disarmed, armed, disarmed; no lock (#83's is not REC's)", ok);
     ui_power_on();
     song.playing = 1;
     press(B_REC); frames(64); press(B_REC); frames(100);
-    ok = ui.lock == LAYER_REC && song.rec == 0u && song.playing && transport_req == 0u;
-    press(B_REC); frames(16);
+    ok = !ui.lock && song.rec == 0u && song.playing && transport_req == 0u;
     song.playing = 0;
     press(B_GLO); press(B_GLO); frames(100);            /* another layer locked: REC still arms, the lock stays */
     press(B_REC);
