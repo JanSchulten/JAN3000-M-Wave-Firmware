@@ -1357,7 +1357,9 @@ static void events_block(uint32_t n)
     }
     if (aud_req)
         seq_audition();                               /* (STEP PREVIEW: a step sounds, stopped) */
-    if (scn.req)
+    if (ssp.on)
+        ssong_tick(seq_n);                            /* (M-Vave-OP1: the scene song's passes and rows, scene.c) */
+    else if (scn.req)
         scene_due(seq_n);                             /* (M-Vave-OP1: a scene waits for the pattern's end, scene.c) */
     chain_tick(seq_n);
     key_tick(seq_n);                                /* (M-Vave-OP1, key.c: the bar before the steps on its first 1/16) */

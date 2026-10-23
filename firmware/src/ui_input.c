@@ -81,7 +81,7 @@ static int mom_turn(uint32_t k, int32_t s)
         d = &TP[MIX_ID[k & 3u]];
     } else {
         if (act_cols() || lock_any() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
-            pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
+            pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_SSONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
             pg->graph == GR_PATS || (pg->graph == GR_SLICES && k < 2u) || (pg->graph == GR_MOD && k == 0u) ||
             pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
             return 0;
@@ -1203,6 +1203,91 @@ static void step_oct(int up)
         st->vel = 100;
 }
 
+static void scene_switched_ui(void);             /* (ui_layer.c: the UI's copies of the scene left dropped) */
+/* M-Vave-OP1, SEQ > SCENE SONG (scene.c ssong): KNOB 1 the row (past the last: + ADD), 2 its SCENE, 3 its REPS (1..16),
+ * 4 the song's END (LOOP right, STOP left). On + ADD a turn of KNOB 2 or 3 adds a row on the scene playing, x1 (that
+ * only: the next turns change it). Edits apply while it plays (the ISR takes each row as it comes; the row playing's
+ * REPS at once: its passes left move with them) */
+static void ssong_knob(uint32_t slot, int32_t steps)
+{
+    uint32_t r;
+    if (slot == 0u) {
+        ui.ssg_row = (uint8_t)clamp((int32_t)ui.ssg_row + steps, 0,
+                                    ssong.count < SSG_ROWS ? (int32_t)ssong.count : (int32_t)SSG_ROWS - 1);
+        return;
+    }
+    if (slot == 3u) {
+        ssong.flags = (uint8_t)(steps > 0 ? ssong.flags | SSG_LOOP : ssong.flags & ~SSG_LOOP);
+        ui_message(ssong.flags & SSG_LOOP ? "END: LOOP" : "END: STOP");
+        return;
+    }
+    r = ui.ssg_row;
+    if (r >= ssong.count) {                           /* + ADD */
+        if (ssong.count >= SSG_ROWS) {
+            ui_message("SONG FULL");
+            return;
+        }
+        r = ssong.count;
+        ssong.scene[r] = scn.cur;
+        ssong.repeat[r] = 1;
+        RING_PUBLISH();
+        ssong.count++;
+        ui.ssg_row = (uint8_t)r;
+        return;
+    }
+    if (slot == 1u) {
+        ssong.scene[r] = (uint8_t)clamp((int32_t)ssong.scene[r] + steps, 0, SCN_N - 1);
+    } else {
+        int32_t was = ssong.repeat[r], now = clamp(was + steps, 1, 16);
+        scn_irq_off();
+        ssong.repeat[r] = (uint8_t)now;
+        if (ssp.on && ssp.row == r)                   /* (the row playing: its passes left with them, at least this one) */
+            ssp.left = (uint8_t)clamp((int32_t)ssp.left + now - was, 1, 16);
+        scn_irq_on();
+    }
+}
+/* SCENE SONG's EDIT: the row selected goes (playing: the row playing keeps playing out, the song goes on after it) */
+static void ssong_delete_ui(void)
+{
+    uint32_t r = ui.ssg_row, i;
+    if (r >= ssong.count) {
+        ui_message("NOTHING TO DELETE");
+        return;
+    }
+    scn_irq_off();                                    /* (the ISR reads the rows and the row playing) */
+    for (i = r; i + 1u < ssong.count; i++) {
+        ssong.scene[i] = ssong.scene[i + 1u];
+        ssong.repeat[i] = ssong.repeat[i + 1u];
+    }
+    ssong.count--;
+    if (ssp.on && ssp.row > r)
+        ssp.row--;
+    else if (ssp.on && ssp.row == r)                  /* (the row playing gone: from the one before it on) */
+        ssp.row = (uint8_t)(r ? r - 1u : ssong.count ? ssong.count - 1u : 0u);
+    if (!ssong.count)
+        ssp.on = 0;
+    scn_irq_on();
+    if (ui.ssg_row > ssong.count)
+        ui.ssg_row = ssong.count;
+    ui_message("ROW DELETED");
+}
+/* SCENE SONG's PLAY (stopped: OCT+ or PLAY on the page): from the row selected (on + ADD: from the first) */
+static void ssong_play_ui(void)
+{
+    char b[24], n[4];
+    uint32_t r = ui.ssg_row < ssong.count ? ui.ssg_row : 0u, q = ssong_start(r);
+    if (scn.moved)
+        scene_switched_ui();
+    if (q != SQ_NOW) {
+        ui_message(q == SQ_BAD ? "ADD A SCENE FIRST" : q == SQ_SONG ? "STOP THE SONG FIRST" : q == SQ_FULL ?
+                   "SCENE MEMORY FULL" : "SCENE DAMAGED");
+        return;
+    }
+    fmt_int(n, (int32_t)ssong.scene[r] + 1);
+    str_cpy(b, "SONG: SCENE ", sizeof b);
+    str_cpy(b + str_len(b), n, sizeof b - str_len(b));
+    ui_message(b);
+}
 static void edit_param(uint32_t slot, int32_t steps)
 {
     int16_t *vp;
@@ -1289,6 +1374,10 @@ static void edit_param(uint32_t slot, int32_t steps)
             if (ui.fxt_cur >= ln->len)
                 ui.fxt_cur = (uint8_t)(ln->len - 1u);
         }
+        return;
+    }
+    if (pg->graph == GR_SSONG) {                      /* KNOB 1 ROW, 2 SCENE, 3 REPS, 4 END (M-Vave-OP1) */
+        ssong_knob(slot, steps);
         return;
     }
     if (pg->graph == GR_SONG) {                       /* KNOB 1 SECTION, 2 TRACK, 3 PAT (A..D, -), 4 REPS */
@@ -1439,6 +1528,11 @@ static void act_do(void)
     if (cur_page()->graph == GR_SONG) {
         if (song.playing || chain_busy() || seq_counting()) transport_req = 2;
         else chain_play_ui();
+        return;
+    }
+    if (cur_page()->graph == GR_SSONG) {
+        if (song.playing || chain_busy() || seq_counting()) transport_req = 2;
+        else ssong_play_ui();
         return;
     }
     if (cur_page()->graph == GR_FXT2) {                   /* CLEAR: the selected lane (c 0) or both */
@@ -1656,7 +1750,8 @@ static void presets_turn(int32_t s)
     }
     if (ui.home || g == GR_BROWSE) {
         preset_step(s);
-    } else if (g == GR_ROLL || g == GR_USER || g == GR_SLOTS || g == GR_PATS || g == GR_SONG || g == GR_EVENTS) {
+    } else if (g == GR_ROLL || g == GR_USER || g == GR_SLOTS || g == GR_PATS || g == GR_SONG || g == GR_SSONG ||
+               g == GR_EVENTS) {
         edit_param(0, s);                                 /* KNOB 1's (STEP: STOP TO EDIT while a song plays) */
         ui.hot_col = 0;
         ui.hot_t = 40;
@@ -1731,6 +1826,10 @@ static int page_tap(uint32_t b)
     }
     if (b == B_EDIT && !ui.home && cur_page()->graph == GR_EVENTS) {   /* AUTOMATION: EDIT deletes the row's record */
         ev_delete();
+        return 1;
+    }
+    if (b == B_EDIT && !ui.home && cur_page()->graph == GR_SSONG) {   /* SCENE SONG: EDIT deletes the row */
+        ssong_delete_ui();
         return 1;
     }
     if (b == B_EDIT && !ui.home && (cur_page()->graph == GR_USER || cur_page()->graph == GR_SLOTS)) {
@@ -2031,6 +2130,8 @@ static void ui_input(void)
                 transport_req = 2;
             else if (!ui.home && cur_page()->graph == GR_SONG)
                 chain_play_ui();
+            else if (!ui.home && cur_page()->graph == GR_SSONG)
+                ssong_play_ui();
             else
                 transport_req = 1;
             break;
@@ -2154,7 +2255,7 @@ static void ui_input(void)
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
-            || pg->graph == GR_SONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
+            || pg->graph == GR_SONG || pg->graph == GR_SSONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD || (pg->graph == GR_SLICES && k < 2u) ||
             (pg->graph == GR_CSET && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
             (vdu_page(pg->graph) && vdu_field(k) != VU_NONE) || (dbu_page(pg->graph) && dbu_field(k) != DU_NONE)) {   /* (not an empty

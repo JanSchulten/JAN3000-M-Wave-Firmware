@@ -1698,6 +1698,11 @@ static uint32_t graph_signature(void)
             h = (h ^ chord_last[song.sel].note[i]) * 16777619u;
         h ^= (uint32_t)t->engine * 389u;             /* (MONO and kits follow the sounding engine) */
     }
+    if (pg->graph == GR_SSONG) {                     /* SCENE SONG: the rows, the one selected, the one playing, the
+                                                     * scenes used (their names DIM when empty) */
+        h = fnv(h, &ssong, sizeof ssong);
+        h ^= ui.ssg_row * 40503u + (ssp.on ? (ssp.row + 1u) * 7919u : 0u) + scb.gen * 104729u + scn.cur * 1299709u;
+    }
     if (pg->graph == GR_SONG) {
         h ^= ui.song_row * 40503u + chain_config.count * 7919u + ui.song_trk * 3571u + chain_config.rsv[0] * 611953u;
         h = fnv(h, chain_config.row, sizeof chain_config.row);
@@ -2001,6 +2006,45 @@ static int32_t ev_value(int32_t y, const char *v, const char *unit, uint16_t fg,
  * QUANTIZE (ON / OFF and the steps nudged), then a row each: the kind (LOCK in the accent, AUTO; STEP: a step's CHANCE,
  * RATCH, NUDGE or VEL, a NUDGE or VEL that does not play DIM), the step, the name, the value at the right; the last row
  * + ADD (LOCK, CHANCE, RATCH, NUDGE or VEL: what OCT+ adds) */
+/* M-Vave-OP1, SEQ > SCENE SONG (scene.c ssong): its rows as a list, "1  SCENE 3  x2" (an empty scene DIM), the row
+ * selected filled, the row playing marked at the left in the accent; then "+ ADD SCENE" and the song's END */
+static void graph_ssong(void)
+{
+    uint32_t n = ssong.count, rows = n + 1u, cur = ui.ssg_row < rows ? ui.ssg_row : n, k;
+    int32_t row, first = clamp((int32_t)cur - 3, 0, (int32_t)rows > 7 ? (int32_t)rows - 7 : 0);
+    for (row = 0; row < 7 && (uint32_t)(first + row) < rows; row++) {
+        int32_t y = LIST_Y(row);
+        char b[16];
+        int sel, used;
+        uint16_t bg;
+        k = (uint32_t)(first + row);
+        sel = k == cur;
+        bg = sel ? T_THEME : T_SURF;
+        if (sel)
+            cv_rrect(6, y, 228, 16, 4, T_THEME, T_SURF);
+        if (k == n) {                                /* + ADD, and how the song ends */
+            GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
+            cv_text_on(14, y + LIST_TY, &AF_M, n < SSG_ROWS ? "+ ADD SCENE" : "FULL", sel ? T_INK : T_DIM, bg);
+            GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
+            cv_text_r(226, y + LIST_TY, &AF_M, ssong.flags & SSG_LOOP ? "END LOOP" : "END STOP", sel ? T_INK : T_MID, bg);
+            break;
+        }
+        if (ssp.on && ssp.row == k)                  /* the row playing */
+            cv_rect(8, y + 3, 3, 10, sel ? T_INK : T_ACCENT);
+        used = scene_used(ssong.scene[k]);
+        fmt_int(b, (int32_t)k + 1);
+        GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
+        cv_text_on(14, y + LIST_TY, &AF_M, b, sel ? T_INK : T_MID, bg);
+        str_cpy(b, "SCENE ", sizeof b);
+        fmt_int(b + str_len(b), (int32_t)ssong.scene[k] + 1);
+        GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
+        cv_text_on(EV_SX, y + LIST_TY, &AF_M, b, sel ? T_INK : used ? T_TEXT : T_DIM, bg);
+        b[0] = 'x';
+        fmt_int(b + 1, ssong.repeat[k]);
+        GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
+        cv_text_r(226, y + LIST_TY, &AF_M, b, sel ? T_INK : T_TEXT, bg);
+    }
+}
 static void graph_events(void)
 {
     const track_t *t = TSEL;
@@ -3089,6 +3133,10 @@ static void draw_graph(void)
         case GR_SONG:
             cv_oy = 0;
             graph_song();
+            break;
+        case GR_SSONG:
+            cv_oy = 0;
+            graph_ssong();
             break;
         case GR_KEY:
             cv_oy = 0;

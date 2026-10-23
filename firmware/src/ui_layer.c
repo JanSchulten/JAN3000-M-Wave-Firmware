@@ -489,7 +489,9 @@ static void scene_switched_ui(void)
 static void scene_key(uint32_t p)
 {
     char b[24], n[4];
-    uint32_t r = scene_queue(p);
+    uint32_t r;
+    ssong_off();                                        /* (a pick by hand: the scene song ends here) */
+    r = scene_queue(p);
     if (scn.moved)
         scene_switched_ui();
     fmt_int(n, (int32_t)(p % SCN_N) + 1);
@@ -514,7 +516,9 @@ static void seq_lane(int32_t s)
 /* SEQ + OCT+ / OCT-: the scene after / before the one picked last (waiting, else playing); none past 16 or before 1 */
 static void scene_step(int32_t d)
 {
-    int32_t t = (int32_t)scene_target() + d;
+    int32_t t;
+    ssong_off();                                        /* (by hand: the scene song ends, its scene waiting taken back) */
+    t = (int32_t)scene_target() + d;
     if (t < 0 || t >= (int32_t)SCN_N) {
         ui_message(t < 0 ? "SCENE 1 IS THE FIRST" : "SCENE 16 IS THE LAST");
         return;
@@ -526,7 +530,9 @@ static void scene_step(int32_t d)
 static void scene_copy_key(void)
 {
     char n[4];
-    uint32_t r = scene_copy();
+    uint32_t r;
+    ssong_off();                                        /* (the copy plays from here on: the scene song ends) */
+    r = scene_copy();
     if (scn.moved)
         scene_switched_ui();
     fmt_int(n, (int32_t)scn.cur + 1);

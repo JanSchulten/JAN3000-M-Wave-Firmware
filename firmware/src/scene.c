@@ -31,6 +31,30 @@
 #define SCN_BUF (&chain.source[0])                /* the scene waiting, after a swap the one left (no song plays) */
 enum { SCN_IDLE, SCN_END };
 static uint8_t scn_bar;                           /* main (ui.c rp_apply, MENU > SCENE CHANGE): 1 NEXT BAR, 0 AT END */
+/* M-Vave-OP1, SEQ > SCENE SONG: the project's scenes one after another, each `repeat` times (a pass: the loop of its
+ * longest track, as a pick waits for: scene_clock), then the next; at the end the first again (SSG_LOOP) or STOP. Kept
+ * with the project (opstore.c XTRA_V8). Playing it is picking scenes: the main loop unpacks the next row's scene into
+ * the buffer while the last pass of a row plays (ssong_poll: scene_queue), and the ISR counts the passes and swaps at
+ * the last one's end (ssong_tick: scene_swap, the remainder carried); always at the scene's end (MENU > SCENE CHANGE
+ * NEXT BAR is for picks). A row on the scene playing (the same one twice) needs no swap. Not unpacked in time (a pass
+ * shorter than the main loop's turn) or the scene leaving too big for the bank: the scene plays its pass again and
+ * the row waits. Editing and live recording go on in the scene playing; a pick by hand (SEQ + a key, OCT+ / OCT-, a
+ * copy) ends the song there, as does STOP. A GLO > SONG chain and the scene song exclude each other */
+#define SSG_ROWS 16u
+#define SSG_LOOP 1u
+typedef struct {                                  /* (stored: XTRA_V8) */
+    uint8_t count, flags;                         /* rows in use; SSG_LOOP */
+    uint8_t rsv[2];
+    uint8_t scene[SSG_ROWS];                      /* a row's scene, 0..15 */
+    uint8_t repeat[SSG_ROWS];                     /* .. its passes, 1..16 */
+} ssong_t;
+_Static_assert(sizeof(ssong_t) == 36u, "scene song layout (stored)");
+static ssong_t ssong;                             /* main: the page edits it; the ISR reads it row by row */
+static volatile struct {
+    uint8_t on;                                   /* main: 1 plays (ssong_start); ISR: 0 at the song's end */
+    uint8_t row;                                  /* ISR: the row playing */
+    uint8_t left;                                 /* ISR: its passes still to come, this one included */
+} ssp;
 static uint32_t clk_bar_end(uint32_t n);          /* (seq.c: the bar ends in the next n samples: past it + 1, else 0) */
 /* the bank: main loop only (the ISR never reads it) */
 static struct {
@@ -519,6 +543,42 @@ static __attribute__((noinline)) void scene_due(uint32_t n)
     scene_swap(t->seq_pos + n - length);
 }
 
+/* the scene song's row after r (count rows): r + 1, at the end the first (SSG_LOOP) or count (STOP) */
+static uint32_t ssong_next(uint32_t r)
+{
+    return r + 1u < ssong.count ? r + 1u : (ssong.flags & SSG_LOOP) ? 0u : ssong.count;
+}
+/* events_block (ISR), while the scene song plays, before the tracks: a pass of the scene playing ends in this block
+ * (its clock track's last step runs out): one pass less, or the next row (its scene swapped in, waiting in the buffer:
+ * ssong_poll), or the end (STOP). noinline: once a block only while it plays */
+static __attribute__((noinline)) void ssong_tick(uint32_t n)
+{
+    const track_t *t = &trk[scn.clk % NTRK];
+    uint32_t length, nx, sc;
+    if (!song.playing || chain.running || t->seq_pos >= 0x7FFFFFFFu || t->seq_idx + 1u != (uint32_t)t->p[P_SLEN])
+        return;
+    length = step_samples(t, div_samples((uint32_t)t->p[P_SDIV]), t->seq_idx);
+    if (t->seq_pos + n < length)
+        return;
+    if (ssp.left > 1u) {
+        ssp.left--;
+        return;
+    }
+    nx = ssong_next(ssp.row);
+    if (nx >= ssong.count) {                      /* the end (STOP): as the PLAY button */
+        ssp.on = 0;
+        transport_req = 2;
+        return;
+    }
+    sc = ssong.scene[nx] % SCN_N;
+    if (sc != scn.cur) {
+        if (scn.req != SCN_END || scn.next != sc || scene_swap(t->seq_pos + n - length))
+            return;                               /* (not there yet, or too big: this scene's pass again) */
+    }
+    ssp.row = (uint8_t)nx;
+    ssp.left = (uint8_t)(ssong.repeat[nx] ? ssong.repeat[nx] : 1u);
+}
+
 /* main loop: a swap done -> the scene left packed into the bank (it fits: scene_swap measured it), the one now playing
  * out of it. Returns 1 when the tracks changed (the UI drops what it kept of the old scene: scene_switched) */
 static int scene_done(void)
@@ -655,9 +715,88 @@ static uint32_t scene_copy(void)
  * scene waits; one waiting when the transport stopped: at once. Returns SP_SWITCHED when the tracks changed,
  * SP_FULL when a pick was dropped (the scene leaving grew past what the bank had for it) */
 enum { SP_SWITCHED = 1, SP_FULL = 2 };
+/* ---------------------------------------------------- the scene song --- */
+static uint8_t ssg_tried = 0xFFu;                 /* main: the row whose next scene could not be unpacked (said once) */
+static uint8_t ssg_seen = 0xFFu;                  /* main: the row ssong_poll saw last (a new one: try again) */
+/* a song as stored (opstore.c) holds rows the page could have made: 0 not */
+static int ssong_ok(const ssong_t *g)
+{
+    uint32_t i;
+    if (g->count > SSG_ROWS || (g->flags & ~SSG_LOOP))
+        return 0;
+    for (i = 0; i < g->count; i++)
+        if (g->scene[i] >= SCN_N || !g->repeat[i] || g->repeat[i] > 16u)
+            return 0;
+    return 1;
+}
+static void ssong_clear(void)                     /* (a new project, one without a song) */
+{
+    memset(&ssong, 0, sizeof ssong);
+    ssp.on = 0;
+}
+/* the song ends where it is (STOP, a pick by hand, a GLO > SONG chain); the scene it had waiting taken back */
+static void ssong_off(void)
+{
+    if (!ssp.on)
+        return;
+    ssp.on = 0;
+    scn_irq_off();
+    scn.req = SCN_IDLE;                           /* (the buffer the ISR's no more; scene_queue would do the same) */
+    scn_irq_on();
+}
+/* SCENE SONG's PLAY (main loop, stopped): from row r, its scene swapped in now. SQ_NOW started; SQ_BAD no rows; else
+ * scene_queue's refusal (SQ_FULL, SQ_SONG) */
+static uint32_t ssong_start(uint32_t r)
+{
+    uint32_t q = SQ_NOW, sc;
+    if (chain.running || chain.armed)
+        return SQ_SONG;
+    if (!ssong.count)
+        return SQ_BAD;
+    r = r < ssong.count ? r : 0u;
+    sc = ssong.scene[r] % SCN_N;
+    if (sc != scn.cur && (q = scene_queue(sc)) != SQ_NOW)
+        return q;
+    ssp.row = (uint8_t)r;
+    ssp.left = (uint8_t)ssong.repeat[r];
+    scn.clk = (uint8_t)scene_clock();
+    ssg_tried = 0xFFu;
+    ssp.on = 1;
+    transport_req = 1;
+    return SQ_NOW;
+}
+/* every main loop pass while it plays: the clock track of the scene playing; in a row's last pass the next row's scene
+ * unpacked into the buffer (scene_queue: the ISR swaps it at the pass's end); stopped: the song is over. SP_FULL when
+ * the next scene could not be unpacked (said once a row) */
+static uint32_t ssong_poll(void)
+{
+    uint32_t nx, sc, q;
+    if (!ssp.on)
+        return 0;
+    if ((!song.playing && transport_req != 1u) || chain.running || chain.armed) {
+        ssong_off();
+        return 0;
+    }
+    scn.clk = (uint8_t)scene_clock();             /* (the tracks may change: recording, editing) */
+    if (ssp.row != ssg_seen) {
+        ssg_seen = ssp.row;
+        ssg_tried = 0xFFu;
+    }
+    if (ssp.left != 1u || scn.req == SCN_END || ssg_tried == ssp.row)
+        return 0;
+    nx = ssong_next(ssp.row);
+    if (nx >= ssong.count || (sc = ssong.scene[nx] % SCN_N) == scn.cur)
+        return 0;
+    q = scene_queue(sc);
+    if (q == SQ_END)
+        return 0;
+    ssg_tried = ssp.row;                          /* (not every pass: an unpack is ~1 ms) */
+    return q == SQ_FULL ? SP_FULL : 0u;
+}
+
 static uint32_t scene_poll(void)
 {
-    uint32_t r = scene_done() ? SP_SWITCHED : 0u;
+    uint32_t r = ssong_poll() | (scene_done() ? SP_SWITCHED : 0u);
     if (scn.req == SCN_END) {
         if (!song.playing && transport_req != 1u && !chain.running && !chain.armed) {
             scn_irq_off();

@@ -147,6 +147,16 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   pick the next scene; let go of the key and the effect stops.
 - The 15 scenes not playing wait packed in 7.7 KB (a scene of four 16-step parts takes about 250 to 900 bytes, the
   densest possible 3.9 KB). A pick that would not fit says **SCENE MEMORY FULL** and nothing changes.
+- **SEQ > SCENE SONG** (after AUTOMATION) plays the scenes one after another: up to 16 rows, each a scene and its
+  passes (REPS x1..x16; a pass is the scene's loop, its longest track), then the next row; at the end the first row
+  again (END LOOP) or STOP. **KNOB 1** the row, **KNOB 2** its scene, **KNOB 3** its REPS, **KNOB 4** END; on
+  **+ ADD SCENE** a turn of KNOB 2 or 3 adds a row on the scene playing. **EDIT** deletes the row. **OCT+** or **PLAY**
+  on the page plays the song from the row selected (OCT+ / PLAY again: STOP). It always changes at a scene's end
+  (MENU > SCENE CHANGE is for picks by hand); a row on the scene playing just plays it on. While it plays, every page
+  edits and records into the scene playing, the rows too (a REPS turned on the row playing counts at once). A pick by
+  hand (SEQ + a key, OCT+ / OCT-, the copy) or STOP ends the song where it is. The row playing has a mark at its
+  left, a row on an empty scene is dimmed. Kept with the project (its extras: firmware before this reads the project
+  without its song).
 - Kept with the project (SAVE > PROJECT, the one playing too) and with the autosave. A project of Felucca's or of an
   older M-Vave-OP1 loads as scene 1. While a song plays (GLO > SONG) scenes are not picked (STOP THE SONG FIRST); a
   song plays each slot as it was saved.

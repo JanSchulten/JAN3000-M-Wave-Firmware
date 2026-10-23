@@ -1168,6 +1168,7 @@ static void project_new(uint32_t slot)
         return;
     memset(&none, 0, sizeof none);
     xtra_lanes(fxt_lane, &none, 0, 0);
+    ssong_clear();                                      /* (no scene song) */
     xtra_fx1(&none, 0);
     xtra_misc(&none, 0);
     np_sounds();
@@ -1434,6 +1435,7 @@ static uint32_t autosave_sig(void)
         h = as_mix(h, c, 2);
     }
     h = as_mix(h, (const void *)&keyt, sizeof keyt);   /* GLO > KEY's run (key.c) */
+    h = as_mix(h, &ssong, sizeof ssong);            /* SEQ > SCENE SONG (scene.c) */
     {                                               /* the scenes: the bank's bytes and the one playing, so a pick and */
         uint8_t c = scn.cur;                        /* back again writes nothing) */
         h = as_mix(h, scb.len, sizeof scb.len);

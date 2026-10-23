@@ -178,6 +178,7 @@ static struct {
     uint8_t uslot;               /* SAVE > USER: the selected user preset slot */
     uint8_t ppick;               /* SAVE > PHRASES: the pattern picked (pat_count list index) */
     uint8_t song_row;            /* SONG: the section selected, count selects + ADD */
+    uint8_t ssg_row;             /* M-Vave-OP1, SEQ > SCENE SONG: the row selected, ssong.count selects + ADD */
     uint8_t song_trk;            /* SONG: the lane (track) selected, 0..NTRK-1 */
     uint8_t fxt_sel, fxt_cur;    /* FX TRACKS (M-Vave-OP1, fxtrack.c): the lane selected (FX1, FX2), its step KNOB 3 sets */
     uint8_t song_rec, song_new;  /* SONG (M-Vave-OP1): REC types a chain with A..D (on); the next key starts a new one */
@@ -387,7 +388,7 @@ static uint32_t large_kind(void)
     if (ui.home)                                        /* (HOME > TRACKS: its rows need the panel, the cards as on */
         return home_tracks() ? LK_LABEL : LK_TALL;      /* a list page; the rows' names in M: draw_home_tracks) */
     g = cur_page()->graph;
-    return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_PATS || g == GR_SONG || g == GR_ROLL ||
+    return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_PATS || g == GR_SONG || g == GR_SSONG || g == GR_ROLL ||
            g == GR_SLICES || g == GR_EVENTS || g == GR_KEY || g == GR_FXT || g == GR_FXT2 ||
            g == GR_FX1 || g == GR_CLOUD ? LK_LABEL
                                                                                                           : LK_TALL;
@@ -1737,7 +1738,7 @@ static uint32_t act_cols(void)                   /* the columns that are actions
         return 0;
     if (pg->graph == GR_EVENTS) return 16u;     /* AUTOMATION: no knob is an action; OCT+ by the row (ev_oct) */
     if (pg->graph == GR_TOOLS) return 15u;
-    if (pg->graph == GR_SONG)
+    if (pg->graph == GR_SONG || pg->graph == GR_SSONG)
         return 1u;                               /* PLAY / STOP (also the PLAY button) */
     if (pg->graph == GR_FXT2)
         return 3u;                               /* CLEAR the lane, CLEAR both */
@@ -1759,7 +1760,7 @@ static uint32_t act_cols(void)                   /* the columns that are actions
 /* the action OCT+ does: its column + 1, 0 = none picked yet (PHRASES has LOAD only) */
 static uint32_t act_col(void)
 {
-    if (!ui.home && cur_page()->graph == GR_SONG) return 1u;
+    if (!ui.home && (cur_page()->graph == GR_SONG || cur_page()->graph == GR_SSONG)) return 1u;
     if (!ui.home && cur_page()->graph == GR_EVENTS) return 5u;
     return !ui.home && cur_page()->graph == GR_PATS ? 2u : ui.act;
 }
@@ -1773,7 +1774,7 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
         static const char *const actions[] = {"CLEAR", "INIT", "DELETE", "CLEAR"};
         return actions[c & 3u];
     }
-    if (cur_page()->graph == GR_SONG)
+    if (cur_page()->graph == GR_SONG || cur_page()->graph == GR_SSONG)
         return song.playing || chain_busy() ? "STOP" : "PLAY";
     if (cur_page()->graph == GR_FXT2)
         return "CLEAR";
@@ -1801,6 +1802,8 @@ static int act_ready(void)
                                  c == 2u ? ui.song_row < chain_config.count : chain_config.count != 0u);
     if (cur_page()->graph == GR_SONG)
         return song.playing || chain_busy() || chain_config.count;
+    if (cur_page()->graph == GR_SSONG)
+        return song.playing || chain_busy() || ssong.count;
     if (cur_page()->graph == GR_FXT2)                   /* steps there to clear */
         return c == 0u ? fxt_used(ui.fxt_sel) != 0u : (fxt_used(0) | fxt_used(1)) != 0u;
     if (cur_page()->graph == GR_PATS)

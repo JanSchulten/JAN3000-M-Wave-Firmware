@@ -112,6 +112,9 @@
 #                   128), LEN 64 as before; SAVE / LOAD keep them (the extras' tail, XTRA_V7), what firmware of 64 steps
 #                   reads of the slot, extras of before; a song's slot; scenes of 64 steps pack as before, wider ones
 #                   wide (SCN_F_WIDE); STEP's bank 8, AUTOMATION's rows past 64 (the flash's: opstore_test.c).
+# SCENE SONG (tests/ssong_test.c, M-Vave-OP1): SEQ > SCENE SONG's rows (+ ADD, SCENE, REPS, END, EDIT deletes), the
+#                   scenes one after another at each one's end (passes counted, the switch on its block), LOOP / STOP,
+#                   a row on the scene playing, NEXT BAR ignored, live edits, a pick by hand or STOP ends it, kept.
 # RATCH (tests/ratchet_test.c): a step's ratchet (x1..x4): its parts in the sequencer (equal, gated, chords and drum
 #                   hits whole, one chance roll, swing, no slide or tie out, STOP), FUN8 round trip and older projects x1,
 #                   user preset patterns, SEQ > AUTOMATION's RATCH rows and the roll / grid drawing.
@@ -339,6 +342,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     mkdir -p build/steps128_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/steps128_test" tests/steps128_test.c -lm
     run "128 STEPS: play past 64, SAVE / LOAD (the extras' tail), firmware of 64 steps, songs, wide scenes, STEP bank 8" "$OUT/steps128_test" build/steps128_shots
+    mkdir -p build/ssong_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ssong_test" tests/ssong_test.c -lm
+    run "SCENE SONG: the scenes one after another (passes, LOOP / STOP), the page, live edits, picks by hand, kept" "$OUT/ssong_test" build/ssong_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/step15_test" tests/step15_test.c -lm
     run "1.5 STEP: a note's LEN (TIEs on KNOB 3), a step's VEL (playback, AUTOMATION's VEL rows)" "$OUT/step15_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/detail_test" tests/detail_test.c -lm
