@@ -977,6 +977,8 @@ static void load_end(track_t *t)
 {
     if (--undo_depth)
         return;
+    if (undo.what & UNDO_SOUND)                   /* (M-Vave-OP1, SCL > CSET on: the sound plays POLY, cset.c) */
+        cset_loaded(t);
     if (load_mo & 1u) {                           /* a sound load: the motion on the common parameters stays */
         (void)motion_sound_loaded(t, load_from, t->eng_req);
         if ((load_mo & 2u) && motion_count(t))

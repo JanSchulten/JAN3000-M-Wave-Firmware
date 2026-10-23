@@ -80,11 +80,15 @@ kann nur das echte Gerät zeigen.
 - [ ] Tasten halten: Die Arp-Töne leuchten mit, der aktuelle Ton in der Akzentfarbe.
 - [ ] ARP-Tipp wechselt die bearbeitete Reihe (MODE RATE OCT GATE ↔ SWING PROB HOLD ORDER).
 
-## F. SCL und ORCHID
+## F. SCL und CSET
 
 - [ ] SCL: Grundton und Tonleiter ändern, die Tasten folgen.
-- [ ] SCL > ORCHID einschalten: F3–C#4 sind Akkordtasten, ab D4 spielen Grundtöne Akkorde. Der Akkordname
-      erscheint.
+- [ ] **SCL > CSET** (SCL dreimal tippen: SCL, CHORD, CSET), KNOB 1 ON: Jede Taste spielt einen Akkord des Sets.
+      Die Spur wird POLY (eine LEG-Spur wie Spur 1 klingt jetzt mehrstimmig); KNOB 1 OFF: sie ist wieder LEG.
+- [ ] KNOB 2 dreht durch die 100 Sets (Nummer und Genre oben), KNOB 3 springt zum nächsten Genre. Der gespielte
+      Akkord leuchtet in der Liste, darunter seine Töne.
+- [ ] F3 bis E4 klingen in der Lage aus der J-6-Liste, die Oktave darüber eine Oktave höher.
+- [ ] REC + PLAY und Akkorde spielen: Sie landen als Noten im Pattern. MIDI-Keyboard: spielt ebenfalls Akkorde.
 
 ## G. Effekte (FX)
 

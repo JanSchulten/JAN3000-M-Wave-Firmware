@@ -738,7 +738,7 @@ static void sg_fresh(void)
 enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESETS, S_PRESETS_NOFAV, S_USER, S_PHRASES, S_PROJECT, S_TOOLS,
        S_SONG_EMPTY, S_SONG, S_STEP, S_AUTO_STEPS, S_AUTO_ADD_CHANCE, S_MOTION, S_DRUM, S_DRUM_HAND, S_DRUM_CYM, S_MIXER,
        S_MIXER_HOME, S_MIXER_PAN,
-       S_ENV, S_ENVDEST, S_LFO, S_MOD, S_FX, S_SLICER, S_DLY, S_SCL, S_CHORD, S_CHORD_WIDE, S_CHORD_OFF, S_CHORD_KIT, S_ARP, S_ORCHID, S_ORCHID_IDLE, S_ORCHID_MONO, S_VOICE, S_CLOCK, S_MENU_MIDI,
+       S_ENV, S_ENVDEST, S_LFO, S_MOD, S_FX, S_SLICER, S_DLY, S_SCL, S_CHORD, S_CHORD_WIDE, S_CHORD_OFF, S_CHORD_KIT, S_ARP, S_CSET, S_CSET_IDLE, S_CSET_MONO, S_VOICE, S_CLOCK, S_MENU_MIDI,
        S_EDIT_ANALOG, S_EDIT_DIGITAL, S_OP_ENV, S_EDIT_WHEEL, S_EDIT_SAMPLE, S_EDIT_GRAIN, S_EDIT_PHYS,
        S_ALG1, S_ALG2, S_ALG3, S_ALG4, S_ALG5, S_ALG6, S_ALG7, S_ALG8, S_OP_LEVEL,
        S_FM6_ALG1, S_FM6_ALG5, S_FM6_ALG22, S_FM6_ALG32, S_FM6_OP, S_FM6_OP_FIXED, S_FM6_OP2, S_FM6_OP_ENV, S_FM6_OP_ENV_REL,
@@ -768,7 +768,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
-    "orchid", "orchid_idle", "orchid_mono",
+    "cset", "cset_idle", "cset_mono",
     "voice", "clock", "menu_midi", "edit_analog", FELUCCA_FM4 ? "edit_digital" : "edit_fm6", "op_env", "edit_wheel", "edit_sample",
     "edit_grain", "edit_phys", "alg_1", "alg_2", "alg_3", "alg_4", "alg_5", "alg_6", "alg_7", "alg_8", "op_level", "fm6_alg_01", "fm6_alg_05", "fm6_alg_22", "fm6_alg_32", "fm6_op", "fm6_op_fixed", "fm6_op2", "fm6_op_env", "fm6_op_env_rel", "confirm_seq", "confirm_project", "confirm_user", "confirm_pattern",
     "confirm_motion", "confirm_erase", "menu", "menu_speaker", "about", "about_rec", "about_credits", "about_end", "uboot", "calibration", "splash",
@@ -1153,24 +1153,18 @@ static void setup(int s)
         memset(held_key[song.sel], 0, sizeof held_key[0]);
         TSEL->held[0] = 60; TSEL->held[1] = 64; TSEL->held[2] = 67; TSEL->nheld = 3; TSEL->arp_note = 64;
         go_title(s == S_ARP_PLAY ? "ARP" : "ARP 2"); break;
-    /* M-Vave-OP1, SCL > ORCHID (orchid.c): LOCK with MIN and 9 latched, VOICE +1, the last chord on D4 (Dm 9: F4 A4
-     * D5 E5); nothing played yet (MIN held); a one-voice part (ROOT ONLY) on C#4 */
-    case S_ORCHID:
-    case S_ORCHID_IDLE:
-    case S_ORCHID_MONO: {
-        uint8_t out[ORC_MAX];
-        orc_en = (uint8_t)(1u << song.sel); TSEL->p[P_VOICE] = s == S_ORCHID_MONO ? V_MONO : V_POLY;
-        if (s == S_ORCHID) {
-            orc.lock = 1; orc.down = orc.latch = 1u << ORC_MIN | 1u << ORC_X9; orc.order[3] = ORC_MIN;
-            orc_voice[song.sel] = 1;
-            orc_build(TSEL, 62, out);
-        } else if (s == S_ORCHID_IDLE) {
-            orc.down = orc.phys = 1u << ORC_MIN; orc.order[3] = ORC_MIN;
-        } else if (s == S_ORCHID_MONO) {
-            orc.down = orc.phys = 1u << ORC_MAJ | 15u << ORC_X6; orc.order[3] = ORC_MAJ;
-            orc_build(TSEL, 61, out);
-        }
-        go_title("ORCHID");
+    /* M-Vave-OP1, SCL > CSET (cset.c): set 74 (NEO SOUL, the longest names), its A# chord played (A#M9/#11); set 1
+     * nothing played yet; a one-voice part (LOWEST NOTE) on set 27's G */
+    case S_CSET:
+    case S_CSET_IDLE:
+    case S_CSET_MONO: {
+        uint8_t out[CHORD_MAX];
+        cset_en = (uint8_t)(1u << song.sel); TSEL->p[P_VOICE] = s == S_CSET_MONO ? V_MONO : V_POLY;
+        memset((void *)&cset_last, 0, sizeof cset_last);
+        cset_set[song.sel] = s == S_CSET ? 73u : s == S_CSET_MONO ? 26u : 0u;
+        if (s != S_CSET_IDLE)
+            cset_build(TSEL, s == S_CSET ? 58u : 55u, 0, out);
+        go_title("CSET");
         break;
     }
     case S_VOICE: go_title("VOICE"); break;

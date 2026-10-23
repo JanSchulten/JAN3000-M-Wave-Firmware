@@ -224,7 +224,7 @@ static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) &
  * notes together (the first 4), an octave higher each step through OCT */
 enum { AM_OFF, AM_UP, AM_DN, AM_UPDN, AM_RND, AM_ORD, AM_REPEAT, AM_DNUP, AM_UP8, AM_CONV, AM_DIVG, AM_PINKY,
        AM_THUMB, AM_WALK, AM_CHORD };
-#include "orchid.c"                              /* SCL > ORCHID (M-Vave-OP1): the Orchid's keyboard */
+#include "cset.c"                                /* SCL > CSET (M-Vave-OP1): chord sets after the Roland J-6's */
 
 static void arp_forget(track_t *t)               /* (its notes ended otherwise: trk_all_off) */
 {
@@ -723,10 +723,10 @@ static __attribute__((noinline)) void perf_key_remap(void)
  * holds already sounds: it is not started again (nor sent to MIDI OUT); the key keeps its notes */
 static void key_on(uint32_t k, track_t *t)
 {
-    uint32_t n = orc_on(t) ? orc_build(t, kb_note[k], kb_chord[k]) : chord_build(t, kb_note[k], kb_chord[k]), i,
-             mc = trk_midi_ch(trk_index(t));      /* (SCL > ORCHID: the Orchid's chord on a root, orchid.c) */
-    kb_chn[k] = 0;
-    in_key = (uint8_t)(k + 1u);                     /* (the arp keeps the key: arp_add) */
+    uint32_t cs = cset_on(t) && !song.grid, i, mc = trk_midi_ch(trk_index(t));
+    uint32_t n = cs ? cset_build(t, kb_note[k], t->p[P_TRANS], kb_chord[k]) : chord_build(t, kb_note[k], kb_chord[k]);
+    kb_chn[k] = 0;                                  /* (M-Vave-OP1, SCL > CSET: its set's chord, cset.c) */
+    in_key = (uint8_t)(cs ? 0u : k + 1u);           /* (the arp keeps the key: arp_add; a chord set's notes as they are) */
     for (i = 0; i < n; i++) {
         uint32_t x = kb_chord[k][i];
         if (midi_local_held(t, x))
@@ -778,8 +778,6 @@ static void keyboard_block(void)
     ch = cur ^ kb_prev;                          /* keys also sound while entering steps */
     if (perf_remap)
         perf_key_remap();
-    if (orc_lock_req)
-        orc_poll();                              /* (M-Vave-OP1: LOCK asked for by SCL > ORCHID's KNOB 3) */
     if (!ch)
         return;
     if (kb_boot_hold) {                           /* #137: under the splash; their release is silent too */
@@ -809,16 +807,12 @@ static void keyboard_block(void)
                     perf_key_press(k, 1);
                 continue;
             }
-            if (k < ORC_KEYS && !song.grid && orc_on(&trk[kb_trk[k]])) {   /* M-Vave-OP1, SCL > ORCHID: the chord */
-                kb_note[k] = KB_SILENT;           /* block (orchid.c) */
-                kb_orc |= 1u << k;
-                orc_press(k);
-                continue;
-            }
             if ((mute >> k) & 1u)                 /* NAME (ui_name.c): every key types, none sounds; SONG: A..D */
                 kb_note[k] = KB_SILENT;
             else if (song.grid == 1u)             /* the DRUM grid: a lane key plays its lane, the rest are the UI's */
                 kb_note[k] = grid_key_note(&trk[kb_trk[k]], k);
+            else if (!song.grid && cset_on(&trk[kb_trk[k]]))   /* M-Vave-OP1, SCL > CSET: every key its chord */
+                kb_note[k] = (uint8_t)cset_key(k);
             else
                 kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
             if (kb_note[k] == KB_SILENT)
@@ -831,11 +825,6 @@ static void keyboard_block(void)
             if ((kb_layer >> k) & 1u) {
                 kb_layer &= ~(1u << k);
                 perf_key_press(k, 0);
-                continue;
-            }
-            if ((kb_orc >> k) & 1u) {             /* (a key the chord block took: its release too) */
-                kb_orc &= ~(1u << k);
-                orc_release(k);
                 continue;
             }
             if (kb_note[k] == KB_SILENT)

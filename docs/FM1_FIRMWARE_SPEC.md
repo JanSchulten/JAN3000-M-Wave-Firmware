@@ -18,7 +18,7 @@ Measured numbers are from October 2026 builds of M-Vave-OP1 and will drift as co
    reverse.
 2. **Never install on a real unit without the owner's explicit go-ahead.** Say exactly which file is installed.
 3. **Licence:** Felucca is GPL-3.0-only. A firmware built on it stays GPL-3.0-only, keeps every licence header, and
-   credits Felucca (and ported parts such as ChoralRoot FM-1, also GPL-3.0-only) wherever it is published.
+   credits Felucca (and any ported GPL-3.0-only parts) wherever it is published.
 4. **Do not touch** `firmware/loader/`, the boot guard in `main.c`, the package identity or the OTA path unless the
    owner asks. They decide whether a broken image can still be replaced over USB.
 5. **Register access only in `firmware/hal/`.** The build checks this.
@@ -181,7 +181,7 @@ The HAL (`firmware/hal/*.h`) is header-only. The include order, abridged:
 
 ```
 HAL → libc.c lcd.c gfx.c → core.h → engines.c (dsp.c, eng_*.c) params.c mod.c voice.c slicer.c fx.c
-→ usb.c midi_uart.c song_chain.c seq.c (chord.c, orchid.c, motion.c, scene.c, fxtrack.c …) audio.c
+→ usb.c midi_uart.c song_chain.c seq.c (chord.c, cset.c, motion.c, scene.c, fxtrack.c …) audio.c
 → panel.c ui.c menu_items.c icons.c ui_graph.c ui_draw.c ui_menu.c ui_input.c ui_layer.c
 → storage_hw.c storage.c upreset.c project.c (opstore.c) ota.c editor.c console.c master.c main.c
 ```
@@ -320,7 +320,7 @@ These live in this repository and can be studied or reused:
 - OP-Z punch-in effects, MAP B.
 - SONG pattern chains.
 - 16 SCENES per project.
-- SCL > ORCHID: the Telepathic Instruments Orchid's chord keyboard, after ChoralRoot.
+- SCL > CSET: the Roland J-6's 100 chord sets, every key a chord (it replaced SCL > ORCHID).
 - FX1 CLOUD: a granular effect on the delay bus.
 - Effect pages drawn as guitar pedals, with SEND as mixer faders.
 - CHORUS types CHORUS / FLANGER / VIBRATO with FDBK.

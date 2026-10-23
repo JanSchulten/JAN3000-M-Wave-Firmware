@@ -7,7 +7,7 @@
  *   0xB4000..0xC7FFF  the scenes (scene.c): each project slot's bank and the autosave's, two copies of 8 KiB each
  *                     (OBJ_SCENES, below)
  *   0xC8000..0xCFFFF  each project slot's extras, A/B (OBJ_XPROJ0 + slot, storage.c): the FX TRACKS' lanes (fxtrack.c),
- *                     FX1's TYPE and the CLOUD's settings (fx1.c), SCL > ORCHID's ON and VOICE per track (orchid.c),
+ *                     FX1's TYPE and the CLOUD's settings (fx1.c), SCL > CSET's ON, SET and VOICE per track (cset.c),
  *                     the CHORUS's TYPE and FDBK (fx.c), GLO > KEY's run (key.c: the scene in the project's; every other
  *                     scene's KEY is in the scene, scene.c), the LEGATO steps (core.h STEP_LEG: the other scenes' are in
  *                     their steps)
@@ -25,8 +25,8 @@ typedef struct {
     uint32_t proj;                               /* the project it belongs to (xtra_id of its store as written) */
     fxt_lane_t fx[FXT_N];                        /* the FX TRACKS */
     uint8_t fx1[8];                              /* (E1) FX1 (fx1.c fx1s): TYPE SIZE DENS SPREAD PITCH RAND FDBK MIX */
-    int8_t orc_voice[NTRK];                      /* SCL > ORCHID's VOICE of each track (orchid.c), -12..+12 */
-    uint8_t orc_en;                              /* .. ORCHID ON, bit k track k (0 in the extras of 359e0db) */
+    int8_t rsv_orc[NTRK];                        /* (SCL > ORCHID's VOICE, before SCL > CSET: written 0, not read) */
+    uint8_t rsv_orc_en;                          /* (.. ORCHID ON: written 0, an older firmware's ORCHID off) */
     uint8_t cho[2];                              /* the CHORUS's TYPE and FDBK (fx.c chos; 0 0 before: Felucca's) */
     uint8_t rsv;
     uint8_t key_on, key_len;                     /* (XTRA_V4) GLO > KEY (key.c keyt): ON, LEN */
@@ -35,13 +35,18 @@ typedef struct {
     uint8_t rsv2;
     uint8_t leg[NTRK][NSTEP / 8u];               /* (XTRA_V5) the LEGATO steps (core.h STEP_LEG): step i, bit i % 8 of
                                                   * byte i / 8 (Felucca's step format has no bit left for it) */
+    uint8_t cset_en, rsv3;                       /* (XTRA_V6) SCL > CSET ON, bit k track k (cset.c) */
+    uint8_t cset_set[NTRK];                      /* .. each track's set (0 .. 99) */
+    uint8_t cset_voice[NTRK];                    /* .. the VOICE before ON (0xFF: none) */
+    uint8_t rsv4[2];                             /* (to the word: 0) */
 } proj_xtra_t;
 #define XTRA_V1 (12u + FXT_N * (uint32_t)sizeof(fxt_lane_t))   /* the first extras: the FX TRACKS only */
 #define XTRA_V2 (XTRA_V1 + 8u)                   /* .. and FX1's (E1) */
 #define XTRA_V3 (XTRA_V2 + 8u)                   /* .. ORCHID's, the CHORUS's */
 #define XTRA_V4 (XTRA_V3 + 20u)                  /* .. the KEY's */
 #define XTRA_V5 (XTRA_V4 + NTRK * NSTEP / 8u)    /* .. the LEGATO steps */
-_Static_assert(sizeof(proj_xtra_t) == XTRA_V5 && KEY_BARS == 16u && NSTEP % 8u == 0u,
+#define XTRA_V6 (XTRA_V5 + 4u + 2u * NTRK)       /* .. SCL > CSET's */
+_Static_assert(sizeof(proj_xtra_t) == XTRA_V6 && KEY_BARS == 16u && NSTEP % 8u == 0u,
                "project extras layout (stored, append-only)");
 static proj_xtra_t xtra_slot[4] __attribute__((section(".pool")));   /* each project slot's (magic 0: none) */
 
@@ -81,8 +86,9 @@ static void xtra_capture(proj_xtra_t *x, uint32_t proj)
     x->fx1[5] = fx1s.rnd;
     x->fx1[6] = fx1s.fdbk;
     x->fx1[7] = fx1s.mix;
-    memcpy(x->orc_voice, orc_voice, sizeof x->orc_voice);
-    x->orc_en = orc_en;
+    x->cset_en = cset_en;
+    memcpy(x->cset_set, cset_set, sizeof x->cset_set);
+    memcpy(x->cset_voice, cset_voice, sizeof x->cset_voice);
     x->cho[0] = chos.type;
     x->cho[1] = chos.fdbk;
     x->key_on = keyt.on;
@@ -126,14 +132,17 @@ static void xtra_fx1(const proj_xtra_t *x, uint32_t proj)
     fx1s.fdbk = v[6] > 100u ? 100u : v[6];
     fx1s.mix = v[7] > 100u ? 100u : v[7];
 }
-/* SCL > ORCHID's ON and VOICE of each track (orchid.c), the CHORUS's TYPE and FDBK (fx.c) and GLO > KEY's run (key.c)
- * x holds; x of another project, an older one, or none: off, 0, Felucca's chorus, no KEY */
-static void xtra_orc(const proj_xtra_t *x, uint32_t proj)
+/* SCL > CSET's ON, SET and VOICE before it of each track (cset.c), the CHORUS's TYPE and FDBK (fx.c) and GLO > KEY's
+ * run (key.c) x holds; x of another project, an older one, or none: off (set 1), Felucca's chorus, no KEY. An older
+ * one's ORCHID (gone): nothing */
+static void xtra_misc(const proj_xtra_t *x, uint32_t proj)
 {
-    uint32_t k, ok = xtra_ok(x, proj) && x->size >= XTRA_V3, ok4 = ok && x->size >= XTRA_V4;
-    for (k = 0; k < NTRK; k++)
-        orc_voice[k] = ok ? (int8_t)clamp(x->orc_voice[k], -12, 12) : 0;
-    orc_en = ok ? (uint8_t)(x->orc_en & ((1u << NTRK) - 1u)) : 0u;
+    uint32_t k, ok = xtra_ok(x, proj) && x->size >= XTRA_V3, ok4 = ok && x->size >= XTRA_V4, ok6 = ok && x->size >= XTRA_V6;
+    cset_en = ok6 ? (uint8_t)(x->cset_en & ((1u << NTRK) - 1u)) : 0u;
+    for (k = 0; k < NTRK; k++) {
+        cset_set[k] = ok6 && x->cset_set[k] < CSET_N ? x->cset_set[k] : 0u;
+        cset_voice[k] = ok6 && ((cset_en >> k) & 1u) && x->cset_voice[k] <= V_UNISON ? x->cset_voice[k] : CSET_VNONE;
+    }
     chos.type = ok && x->cho[0] < CHO_NTYPE ? x->cho[0] : CHO_CHORUS;   /* (the CHORUS's: fx.c) */
     chos.fdbk = ok && x->cho[1] <= 100u ? x->cho[1] : 0u;
     key_defaults();                                 /* GLO > KEY's run (key.c); an older one: none */
@@ -199,7 +208,7 @@ static void xtra_loaded(uint32_t s)
     uint32_t id = xtra_proj_id(s);
     xtra_lanes(fxt_lane, &xtra_slot[s & 3u], id);
     xtra_fx1(&xtra_slot[s & 3u], id);
-    xtra_orc(&xtra_slot[s & 3u], id);
+    xtra_misc(&xtra_slot[s & 3u], id);
     xtra_legs(&xtra_slot[s & 3u], id);
 }
 /* project_rename: slot s was written again as id; its extras (if they were its project's: was) follow it */
@@ -233,7 +242,7 @@ static void xtra_autoloaded(uint32_t id)
     xtra_read(OBJ_XAUTO, &x);
     xtra_lanes(fxt_lane, &x, id);
     xtra_fx1(&x, id);
-    xtra_orc(&x, id);
+    xtra_misc(&x, id);
     xtra_legs(&x, id);
 #else
     (void)id;

@@ -1097,13 +1097,12 @@ static void draw_columns(void)
         draw_column(3, "LEN", val, "", VAL(3u), (int32_t)(len * 1000u / NSTEP), ICON_LENGTH);
         return;
     }
-    if (cur_page()->graph == GR_ORCH) {               /* M-Vave-OP1, SCL > ORCHID: ON, VOICE, LOCK (orchid.c; ui_input.c */
-        int32_t v = orc_voice[song.sel], on = (orc_en >> song.sel) & 1u;   /* orc_knob) */
-        draw_column(0, "ORCH", on ? "ON" : "OFF", "", on ? VAL(0u) : T_DIM, on ? 1000 : 0, ICON_SCALE);
-        val[0] = '+';
-        fmt_int(val + (v > 0), v);
-        draw_column(1, "VOICE", val, "", VAL(1u), (v + 12) * 1000 / 24, ICON_VOICE);
-        draw_column(2, "LOCK", orc.lock ? "ON" : "OFF", "", orc.lock ? T_ACCENT : VAL(2u), -1, ICON_X_LOCK);
+    if (cur_page()->graph == GR_CSET) {               /* M-Vave-OP1, SCL > CSET: ON, SET, GENRE (cset.c; ui_input.c */
+        uint32_t s = cset_set[song.sel % NTRK] % CSET_N, on = (cset_en >> song.sel) & 1u;   /* cset_knob) */
+        draw_column(0, "CSET", on ? "ON" : "OFF", "", on ? VAL(0u) : T_DIM, on ? 1000 : 0, ICON_SCALE);
+        fmt_int(val, (int32_t)s + 1);
+        draw_column(1, "SET", val, "", VAL(1u), (int32_t)(s * 1000u / (CSET_N - 1u)), ICON_VOICE);
+        draw_column(2, "GENRE", CSET_GENRE_S[CSET_GENRE_OF[s] % CSET_NG], "", VAL(2u), -1, ICON_SCALE);
         draw_column(3, "", "", "", T_THEME, -1, ICON_NONE);
         return;
     }

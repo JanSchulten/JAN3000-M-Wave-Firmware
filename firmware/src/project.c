@@ -1003,7 +1003,6 @@ static int project_restore_runtime(const project_t *input)
     transport_req = 0;
     scene_reset();                                      /* (M-Vave-OP1: one scene, the project's; project_load and the
                                                          * autosave bring its others) */
-    orc_reset();                                        /* (.. PLAY MODE CHORD's block: nothing held or latched) */
     chain_config = p->chain;
     motion = p->motion;
     memset(motion_active, 0, sizeof motion_active);
@@ -1092,7 +1091,7 @@ static void project_load(uint32_t slot)
 
 /* M-Vave-OP1, SAVE > PROJECT > NEW: a new project, everything as at power-on: empty steps (PROJ_DEF_SOUND), the
  * globals' defaults (BPM, the FX buses), no song, no motion, no name; and the extras none has (FX TRACKS empty, FX1 the
- * DELAY, ORCHID off, the CHORUS Felucca's, no KEY run), one scene; its sounds drawn (newproj.c: T1 a bass, T3 a lead,
+ * DELAY, CSET off, the CHORUS Felucca's, no KEY run), one scene; its sounds drawn (newproj.c: T1 a bass, T3 a lead,
  * T4 a drum kit, T2 the power-on pad). Through project_restore_runtime, as a load (the transport stopped, the ISR off
  * while it changes). slot: the empty slot it was asked for on (OCT- there: SAVE goes to it, its letter in the header),
  * else (F#5) none; the slots stay */
@@ -1123,7 +1122,7 @@ static void project_new(uint32_t slot)
     memset(&none, 0, sizeof none);
     xtra_lanes(fxt_lane, &none, 0);
     xtra_fx1(&none, 0);
-    xtra_orc(&none, 0);
+    xtra_misc(&none, 0);
     np_sounds();
     for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
         pat_sig[k] = steps_sig(&trk[k]);
@@ -1374,8 +1373,9 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
-    h = as_mix(h, orc_voice, sizeof orc_voice);     /* SCL > ORCHID's VOICE and ON too; */
-    h = as_mix(h, &orc_en, 1);
+    h = as_mix(h, cset_set, sizeof cset_set);       /* SCL > CSET's ON, SETs and VOICEs too; */
+    h = as_mix(h, cset_voice, sizeof cset_voice);
+    h = as_mix(h, &cset_en, 1);
     {                                               /* the CHORUS's TYPE and FDBK (fx.c) */
         uint8_t c[2] = {chos.type, chos.fdbk};
         h = as_mix(h, c, 2);

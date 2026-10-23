@@ -42,10 +42,6 @@ static const menu_credit_t MENU_CREDITS[] = {
     {"Fukiai icon font: MIT", MC_TEXT},
     {"https://github.com/hugelton", MC_URL},
     {"", MC_TEXT},
-    {"CHORALROOT FM-1", MC_TITLE},                 /* M-Vave-OP1: SCL > ORCHID (orchid.c) after it */
-    {"Quixotic7 / GPL-3.0", MC_TEXT},
-    {"https://github.com/Quixotic7/ChoralRootFM1", MC_URL},
-    {"", MC_TEXT},
     {"KLATTSCH", MC_TITLE},
     {"Tony Gies / MIT", MC_TEXT},
     {"https://github.com/tgies/klattsch", MC_URL},

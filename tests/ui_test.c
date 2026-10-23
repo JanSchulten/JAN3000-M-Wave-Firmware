@@ -196,11 +196,10 @@ static void ui_power_on(void)
         xtra_fx1(&x, 0);
     }
     perf_bank = 0;                                /* (M-Vave-OP1 E2: the FX layer's MAP A, as at power-on) */
-    orc_reset();                                  /* (M-Vave-OP1 PLAY MODE CHORD: nothing held or latched, VOICE 0) */
-    memset(orc_voice, 0, sizeof orc_voice);
-    kb_orc = 0;
-    orc_en = 0;
-    orc_lock_req = 0;
+    cset_en = 0;                                  /* (M-Vave-OP1, SCL > CSET: off, set 1, nothing played) */
+    memset(cset_set, 0, sizeof cset_set);
+    memset(cset_voice, CSET_VNONE, sizeof cset_voice);
+    memset((void *)&cset_last, 0, sizeof cset_last);
     chos.type = CHO_CHORUS;                       /* (M-Vave-OP1: the chorus bus's TYPE and FDBK, as at power-on) */
     chos.fdbk = 0;
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */

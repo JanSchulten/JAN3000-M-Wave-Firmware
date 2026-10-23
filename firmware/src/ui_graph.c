@@ -874,84 +874,49 @@ static void graph_pedal(const track_t *t, uint32_t part)
     cv_rrect(120 - 14, gh - 34, 28, 28, 14, edge, body);   /* the footswitch */
     cv_rrect(120 - 10, gh - 30, 20, 20, 10, ped(0xB8BCC4), edge);
 }
-/* M-Vave-OP1, SCL > ORCHID (orchid.c), as the Orchid shows a chord (its Geek Out view: the name, the keyboard, the
- * notes): the last chord's name large in the middle, its extensions after it in the accent; under it two octaves of
- * keys from the C below its lowest note (three when it spans more), its notes lit, the root in the accent; then its
- * notes by name, and LOCK (or ROOT ONLY on a one-voice part). Before the first chord: where the roots are and the
- * chord keys held or latched */
-static void graph_orc(const track_t *t)
+/* M-Vave-OP1, SCL > CSET (cset.c): the track's set, its number large and its genre; its twelve chords by name in the
+ * keys' order C .. B (four rows of three, 73 px a cell: the longest name, Bb5add9/b13, is 72; the black keys' framed),
+ * the one played last lit; under them that chord's notes by name (or where the list's voicing lies), and LOWEST NOTE
+ * on a part set to one voice */
+static void graph_cset(const track_t *t)
 {
-    static const uint8_t BLACK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
-    static const char *const NM[8] = {"DIM", "MIN", "MAJ", "SUS", "6", "m7", "M7", "9"};
-    uint32_t i, j, k = trk_index(t), last = orc.ln && orc.ltrk == k, lo, cnt, w, down = orc.down;
-    char b[12], x[12], h[40];
-    const char *st = trk_vmode(t) != V_POLY ? "ROOT ONLY" : orc.lock ? "LOCK" : "";
-    int32_t px, gw, sx = 226 - (st[0] ? text_w(&AF_S, st) + 10 : 0);
+    uint32_t i, k = trk_index(t), s = cset_set[k] % CSET_N, last = cset_last.n && cset_last.trk == k && cset_last.set == s;
+    int32_t px;
+    char b[16];
     if (chord_kit(t)) {
         panel_note("NO CHORDS ON KITS", 0, 0);
         return;
     }
-    if (!orc_on(t)) {
-        panel_note("ORCHID OFF", "[K1] ON: F3..C#4 CHORD KEYS", 0);
+    if (!cset_on(t)) {
+        panel_note("CSET OFF", "[K1] ON: EVERY KEY A CHORD", 0);
         return;
     }
-    if (last) {                                        /* the root large (L has no lower case: m / M / dim / sus in M) */
-        char r[4];
-        uint32_t rn;
-        orc_name(b, x, orc.lroot, orc.ltype, orc.lext);
-        rn = b[1] == '#' ? 2u : 1u;
-        str_cpy(r, b, rn + 1u);
-        gw = text_w(&AF_L, r) + (b[rn] ? 2 + text_w(&AF_M, b + rn) : 0) + (x[0] ? 6 + text_w(&AF_M, x) : 0);
-        px = 120 - gw / 2;
-        cv_text_on(px, 4, &AF_L, r, T_TEXT, T_SURF);
-        px += text_w(&AF_L, r);
-        if (b[rn] || x[0])
-            GFX_HOOK_ALIGN(0, 0, 0, 4 + AF_L.asc, AL_B, "orchid chord's type and extensions on the root's baseline");
-        if (b[rn]) {
-            cv_text_on(px + 2, 4 + AF_L.asc - AF_M.asc, &AF_M, b + rn, T_TEXT, T_SURF);
-            px += 2 + text_w(&AF_M, b + rn);
-        }
-        if (x[0])
-            cv_text_on(px + 6, 4 + AF_L.asc - AF_M.asc, &AF_M, x, T_ACCENT, T_SURF);
-        lo = orc.lnote[0] - orc.lnote[0] % 12u;
-        cnt = orc.lnote[orc.ln - 1u] - lo < 24u ? 24u : 36u;
-    } else {
-        GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "orchid idle line centred");
-        cv_text_in(0, 4 + AF_L.asc - AF_M.asc, 240, &AF_M, "PLAY A ROOT: D4 .. G5", T_MID, T_SURF);
-        lo = 60;
-        cnt = 24;
+    fmt_int(b, (int32_t)s + 1);
+    px = cv_text_on(14, 4, &AF_L, b, T_TEXT, T_SURF);
+    GFX_HOOK_ALIGN(0, 0, 0, 4 + AF_L.asc, AL_B, "cset genre on the set number's baseline");
+    cv_text_on(px + 8, 4 + AF_L.asc - AF_M.asc, &AF_M, CSET_GENRE[CSET_GENRE_OF[s] % CSET_NG], T_THEME, T_SURF);
+    GFX_HOOK_ALIGN(7, 0, 233, 0, AL_H | AL_CELLS | AL_N(3), "cset chord cells centred");
+    for (i = 0; i < 12u; i++) {                       /* the chords, the keys' order: C C# D / D# E F / F# G G# / A A# B */
+        int32_t x = 7 + (int32_t)(i % 3u) * 75, y = 36 + (int32_t)(i / 3u) * 14;
+        uint32_t lit = last && cset_last.key == i, blk = (0x54Au >> i) & 1u;   /* (C# D# F# G# A#) */
+        uint16_t bg = lit ? T_THEME : blk ? T_SURF : T_RAISE;
+        cset_name(b, s, i);
+        cv_rrect(x, y, 73, 13, 3, bg, T_SURF);
+        if (blk && !lit)
+            cv_frame(x, y, 73, 13, T_RAISE);
+        cv_text_in(x, y + HALF_UP(13 - AF_S_CAP_H) - AF_S_CAP_Y, 73, &AF_S, b, lit ? T_INK : blk ? T_MID : T_TEXT, bg);
     }
-    w = 216u / cnt;
-    GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H | AL_CELLS | AL_N(cnt), "orchid keys centred");
-    for (i = 0; i < cnt; i++) {                        /* the keys: the black ones raised, the chord's lit */
-        uint32_t note = lo + i, on = 0;
-        int32_t kx = 13 + (int32_t)(i * w);             /* (216 px of keys and their gaps: x 13 .. 227) */
-        for (j = 0; last && j < orc.ln && j < ORC_MAX; j++)
-            on |= orc.lnote[j] == note;
-        cv_rrect(kx, BLACK[note % 12u] ? 40 : 52, (int32_t)w - 2, 32, w > 6u ? 3 : 2,
-                 !on ? T_RAISE : note % 12u == orc.lroot % 12u ? T_ACCENT : T_THEME, T_SURF);
-    }
-    if (st[0])
-        cv_text_r(226, 92, &AF_S, st, orc.lock && trk_vmode(t) == V_POLY ? T_ACCENT : T_MID, T_SURF);
-    if (last) {                                        /* the notes, low to high */
-        for (i = 0, px = 14; i < orc.ln && i < ORC_MAX; i++) {
-            note_name(b, orc.lnote[i]);
-            if (px + text_w(&AF_S, b) > sx)
-                break;
-            cv_text_on(px, 92, &AF_S, b, i == 0u ? T_TEXT : T_MID, T_SURF);
-            px += text_w(&AF_S, b) + 8;
-        }
+    if (trk_vmode(t) != V_POLY)
+        cv_text_r(226, 95, &AF_S, "LOWEST NOTE", T_MID, T_SURF);
+    if (!last) {
+        cv_text_on(14, 95, &AF_S, "F3..E4 AS LISTED", T_MID, T_SURF);
         return;
     }
-    for (i = 0, j = 0, h[0] = 0; i < 8u; i++)          /* nothing played yet: the chord keys held or latched */
-        if ((down >> i) & 1u) {
-            if (j)
-                h[j++] = ' ';
-            str_cpy(h + j, NM[i], (unsigned)(sizeof h - j));
-            j = str_len(h);
-        }
-    if (h[0] && text_w(&AF_S, h) <= sx - 14)
-        cv_text_on(14, 92, &AF_S, h, T_TEXT, T_SURF);
+    for (i = 0, px = 14; i < cset_last.n && i < CHORD_MAX; i++) {   /* the notes, low to high */
+        note_name(b, cset_last.note[i]);
+        cv_text_on(px, 95, &AF_S, b, i == 0u ? T_TEXT : T_MID, T_SURF);
+        px += text_w(&AF_S, b) + 8;
+    }
 }
 /* the four sends as faders under their cards: a RAISE slot, the THEME fill from the bottom, a cap */
 static void graph_fx(const track_t *t, uint16_t c)
@@ -1720,9 +1685,9 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_DLANE)                       /* M-Vave-OP1, SOUNDS: the lane picked, every lane's values */
         for (h ^= ui.lane * 40503u, i = 0; i < 16u; i++)
             h = (h ^ (uint16_t)t->p[P_DL0 + i]) * 16777619u;
-    if (pg->graph == GR_ORCH)                        /* M-Vave-OP1, SCL > ORCHID: the block, the last chord, ON */
-        h ^= (orc.gen * 2654435761u) ^ (orc.lgen * 40503u) ^ ((uint32_t)orc.lock << 9) ^ ((uint32_t)(uint8_t)orc_voice[song.sel] << 17) ^
-             (uint32_t)t->engine * 389u ^ (uint32_t)orc_en << 24;   /* (ROOT ONLY follows the sounding engine) */
+    if (pg->graph == GR_CSET)                        /* M-Vave-OP1, SCL > CSET: the set, the last chord, ON */
+        h ^= (cset_last.gen * 2654435761u) ^ ((uint32_t)cset_set[song.sel % NTRK] << 9) ^ (uint32_t)t->engine * 389u ^
+             (uint32_t)cset_en << 24;                /* (a kit, LOWEST NOTE: the sounding engine, VOICE: a parameter) */
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u +
@@ -3072,9 +3037,9 @@ static void draw_graph(void)
             cv_oy = 0;
             graph_arp(t);
             break;
-        case GR_ORCH:                                /* M-Vave-OP1: SCL > ORCHID, the chord the Orchid's way */
+        case GR_CSET:                                /* M-Vave-OP1: SCL > CSET, the set and the chord played */
             cv_oy = 0;
-            graph_orc(t);
+            graph_cset(t);
             break;
         case GR_FX:
             graph_fx(t, c);
