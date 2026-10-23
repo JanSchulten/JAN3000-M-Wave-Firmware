@@ -14,7 +14,7 @@
  *   USR2/3   read as empty sample slots whatever their flash holds.
  *   128      M-Vave-OP1's steps 65..128 (the extras' tail, XTRA_V7): saved with the project, read back from the flash
  *            after a power-on (LEN, LEGATO, automation and locks, the lanes); a rename keeps them; extras of before (no
- *            tail): none, LEN 64; the autosave's; a song's slot from the flash.
+ *            tail): none, LEN 64; the autosave's; a song's slot from the flash; the scene song with them (XTRA_V8).
  * Built and run by tests/run_tests.sh. */
 static unsigned char nor[0x100000];
 #define SMP_USER_XIP(k) (nor + 0xA0000u + (k) * 0x14000u)
@@ -529,13 +529,16 @@ static int test_steps128(void)
     st_hdr_t h;
     reset();
     long_demo();
-    ok = project_save(1) == 0 && st_current(OBJ_XPROJ0 + 1, &h) >= 0 && h.len == XTRA_V7;
-    bad += check("128: SAVE to B: its extras with their tail (steps 65..128), one object", ok);
+    ssong.count = 2; ssong.scene[0] = 0; ssong.repeat[0] = 2; ssong.scene[1] = 0; ssong.repeat[1] = 1;   /* (and a scene */
+    ssong.flags = SSG_LOOP;                                                                          /* song) */
+    ok = project_save(1) == 0 && st_current(OBJ_XPROJ0 + 1, &h) >= 0 && h.len == XTRA_V8;
+    bad += check("128: SAVE to B: its extras with their tail (steps 65..128, the scene song), one object", ok);
     power_on();
     long_wipe();
+    ssong_clear();
     project_load(1);
-    bad += check("  .. power-on, LOAD B: steps 65..128 from the flash, LEN 128, LEGATO, automation, a lock, FX1 LEN 120",
-                 long_is());
+    bad += check("  .. power-on, LOAD B: steps 65..128 from the flash, LEN 128, LEGATO, automation, a lock, FX1 LEN 120;"
+                 " the scene song", long_is() && ssong.count == 2u && ssong.repeat[0] == 2u && (ssong.flags & SSG_LOOP));
     project_rename(1, "LONG");
     power_on();
     long_wipe();
