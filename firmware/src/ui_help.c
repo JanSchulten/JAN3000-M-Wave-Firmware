@@ -70,7 +70,6 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"STEP", "[KEYS]WRITE[K1]STEP[SELECT]RATCH"},   /* (1.5.1: SEQ to DETAIL) */
     {"DETAIL", "[PRESETS]STEP[K1]CHANCE[K2]RATCH"},
     {"AUTOMATION", "[K1]ROW[OCT+]DO[EDIT]DELETE"},
-    {"SCENE SONG", "[K2]SCENE[EDIT]DELETE[PLAY]SONG"},   /* (M-Vave-OP1: scene.c ssong) */
     {"MIXER", "[K4]MUTE[ALGO]TRACK[HOME]CLOCK"},
     {"CLOCK", "[SELECT]TEMPO[GLO]HOLD: TAP"},
 };
@@ -83,6 +82,7 @@ static const char *const HELP_LAYER[LAYER_N] = {
     "[K1]ENGINE[K2]SOUND[K3]FAV", "[KEYS]BLACK: TOOLS[EDIT]PUT BACK", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",   /* (M-Vave-OP1:
                                                      * SEQ's white keys are the scenes, the footer says so) */
 };
+static const char *const HELP_SSONG = "[KEYS]ADD SCENE[EDIT]DELETE";   /* (M-Vave-OP1: SEQ held > SONG) */
 
 /* the hint of the page shown, 0 = none */
 static const char *help_page(void)

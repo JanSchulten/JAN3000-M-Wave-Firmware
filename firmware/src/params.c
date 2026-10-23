@@ -444,8 +444,7 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
        GR_DLANE,                                /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
        GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2,     /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
-       GR_DBO1, GR_DBO2, GR_DBHIT,              /* .. EDIT > DBOX's key pages (ui_dbox.c), in this order */
-       GR_SSONG };                              /* .. SEQ > SCENE SONG (scene.c, ui_graph.c graph_ssong) */
+       GR_DBO1, GR_DBO2, GR_DBHIT };            /* .. EDIT > DBOX's key pages (ui_dbox.c), in this order */
 
 typedef struct {
     const char *title;
@@ -533,8 +532,6 @@ static const page_t PAGES[] = {
                                                              * (ui.c detail_on, ui_input.c sd_turn) */
     {"AUTOMATION", FAM_SEQ, SC_TRACK, GR_EVENTS, {0xFF, 0xFF, 0xFF, 0xFF}},  /* the locks, events, CHANCE and RATCH as a
                                                                              * list, PLAY and CLEAR (ui_events.c) */
-    {"SCENE SONG", FAM_SEQ, SC_GLOBAL, GR_SSONG, {0xFF, 0xFF, 0xFF, 0xFF}},  /* M-Vave-OP1: the scenes one after another
-                                                                             * (scene.c ssong): ROW SCENE REPS END */
     /* HOME's pages (1.2): HOME tapped on HOME the MIXER (up to 1.1.5 GLO's; LEVEL PAN REV MUTE), again CLOCK (up to 1.1.5
      * GLO > GLOBAL; its TUNE is MENU > AUDIO's now), again HOME (ui.c home_tap) */
     {"MIXER", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},

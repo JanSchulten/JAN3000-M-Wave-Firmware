@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
-/* SEQ > SCENE SONG (M-Vave-OP1, firmware/src/scene.c ssong), on the firmware's own sources (ui_test.c's harness):
- *   PAGE     SEQ after AUTOMATION; + ADD (KNOB 2) adds a row on the scene playing, KNOB 2 its scene, 3 its REPS, 4 END;
- *            EDIT deletes the row selected; PLAY on the page with no row: ADD A SCENE FIRST
+/* SEQ held > SONG (M-Vave-OP1, firmware/src/scene.c ssong, ui_layer.c), on the firmware's own sources (ui_test.c's
+ * harness):
+ *   LEVEL    SEQ held: SCENES; SELECT turns it to SONG ([SEQ] SONG) and back, kept for the next hold; the SEQ pages stay
+ *            STEP DETAIL AUTOMATION. SONG: the white keys add their scene to the chain's end (the last one's again: a
+ *            pass more), KNOB 1 the cell, 2 its scene, 3 its REPS, 4 END; OCT- / OCT+ the cell before / after; EDIT
+ *            deletes the cell; F#3 CLEAR (the dialog); PLAY with no cell: ADD A SCENE FIRST; the LEDs
  *   PLAY     the rows one after another, each its REPS passes of its scene (a pass: the loop of its longest track),
  *            the switch on the block the pass ends in (the remainder carried); a row on the scene playing needs no swap;
  *            END STOP stops after the last row, END LOOP goes on with the first; MENU > SCENE CHANGE NEXT BAR does not
@@ -37,10 +40,12 @@ static void melody(track_t *t, uint32_t base, uint32_t len)   /* 1/16 notes on e
     t->p[P_SDIV] = 2;
     t->p[P_SSWING] = 0;
 }
-static void seq_pick(uint32_t s)                     /* SEQ held + white key s, let go */
+static void seq_pick(uint32_t s)                     /* SEQ held (SCENES) + white key s, let go */
 {
     btn_down(B_SEQ);
     frame();
+    if (ui.seq_lv)
+        turn(EN_SELECT, -1);
     key_down(white(s));
     frame();
     key_up(white(s));
@@ -89,42 +94,75 @@ static uint32_t run_until(uint32_t want, uint32_t max)
 }
 static uint32_t pass_blocks(uint32_t steps) { return steps * div_samples(2) / CTL; }   /* (a pass, about) */
 
-static void test_page(const char *dir)
+static void ltap(uint32_t k) { key_down(k); frame(); key_up(k); frame(); }   /* a key in the layer (the ISR's scan) */
+static void song_level(void)                          /* SEQ held (it stays down), the SONG level */
 {
-    three_scenes();
-    go_page(GR_SSONG);
+    btn_down(B_SEQ);
     frame();
-    ck("PAGE: SEQ > SCENE SONG, a page of SEQ (after AUTOMATION), empty: + ADD", str_eq(cur_page()->title, "SCENE SONG") &&
-       cur_page()->fam == FAM_SEQ && !ssong.count && ui.ssg_row == 0u);
+    if (!ui.seq_lv)
+        turn(EN_SELECT, 1);
+    frame();
+}
+static void seq_let_go(void) { btn_up(B_SEQ); frame(); frames(400); }
+static void song_play(void) { song_level(); press(B_PLAY); seq_let_go(); }   /* SEQ held > SONG + PLAY */
+
+static void test_level(const char *dir)
+{
+    uint32_t m, br, i, steps = 1;
+    three_scenes();
+    for (i = 0; i < NPAGES; i++)
+        steps &= !str_eq(PAGES[i].title, "SCENE SONG");
+    btn_down(B_SEQ);
+    frame();
+    turn(EN_SELECT, 1);
+    ck("LEVEL: SEQ held + SELECT: [SEQ] SONG (the SEQ pages stay the step pages: no SCENE SONG page)",
+       ui.layer == LAYER_SEQ && ui.seq_lv == 1u && str_eq(layer_head(), "[SEQ] SONG") && steps && !ssong.count);
     press(B_PLAY);
-    ck("  PLAY with no row: ADD A SCENE FIRST, nothing plays", msg_is("ADD A SCENE FIRST") && !song.playing &&
+    ck("  PLAY with no cell: ADD A SCENE FIRST, nothing plays", msg_is("ADD A SCENE FIRST") && !song.playing &&
        transport_req != 1u);
-    turn(EN_K2, 1);                                   /* + ADD: a row on the scene playing (1), x1 */
-    {
-        int ok = ssong.count == 1u && ssong.scene[0] == 0u && ssong.repeat[0] == 1u;
-        turn(EN_K2, 1);                               /* .. then scene 2 */
-        turn(EN_K3, 2);                               /* x3 */
-        ck("  + ADD: KNOB 2 adds a row on the scene playing (x1, that only); then KNOB 2 its scene, KNOB 3 its REPS",
-           ok && ssong.count == 1u && ssong.scene[0] == 1u && ssong.repeat[0] == 3u);
-    }
-    turn(EN_K1, 1);                                   /* + ADD again */
-    turn(EN_K3, 1);                                   /* (KNOB 3 on + ADD: adds, that only) */
-    turn(EN_K1, 1);
-    turn(EN_K2, 1);                                   /* (adds) */
-    turn(EN_K2, 2);
+    ltap(white(1));                                /* scene 2 */
+    ltap(white(1));                                /* .. again: x2 */
+    ltap(white(0));                                /* scene 1 */
+    ltap(white(2));                                /* scene 3 */
+    ck("  the white keys add their scenes (the last one again: a pass more): 2 x2, 1 x1, 3 x1; the cell on the last",
+       ssong.count == 3u && ssong.scene[0] == 1u && ssong.repeat[0] == 2u && ssong.scene[1] == 0u &&
+       ssong.scene[2] == 2u && ui.ssg_row == 2u && msg_is("SCENE 3 X1"));
+    turn(EN_K3, 2);                                   /* (cell 3: x3) */
     turn(EN_K4, 1);
-    ck("  rows 2 and 3 added (scene 1 x1, scene 3 x1), END LOOP (KNOB 4 right)",
-       ssong.count == 3u && ssong.scene[1] == 0u && ssong.repeat[1] == 1u && ssong.scene[2] == 2u &&
-       (ssong.flags & SSG_LOOP) && msg_is("END: LOOP"));
+    press(B_OCTDN);
+    turn(EN_K2, 3);                                   /* (cell 2: scene 4) */
+    ck("  KNOB 3 the cell's REPS, KNOB 4 END LOOP; OCT- the cell before, KNOB 2 its scene", ssong.repeat[2] == 3u &&
+       (ssong.flags & SSG_LOOP) && ui.ssg_row == 1u && ssong.scene[1] == 3u);
+    turn(EN_K1, 5);                                   /* (past the last: +) */
+    turn(EN_K2, 1);                                   /* (adds the scene playing, that only) */
+    ck("  KNOB 1 past the last cell: +; KNOB 2 there adds a cell on the scene playing", ssong.count == 4u &&
+       ssong.scene[3] == 0u && ssong.repeat[3] == 1u && ui.ssg_row == 3u);
+    fm1_ms = 3u * SEQ_BLINK_MS;
+    m = layer_leds(&br);
+    ck("  the LEDs: the scene playing blinks, the used ones lit, F#3 CLEAR breathes", ((m >> white(0)) & 1u) &&
+       ((m >> white(1)) & 1u) && ((br >> black(0)) & 1u) && !((m >> white(5)) & 1u));
     if (dir) {
         ui.force = 1;
         frame();
-        screen_save(dir, "scene-song");
+        screen_save(dir, "seq-song");
     }
-    turn(EN_K1, -1);                                  /* row 2 */
     press(B_EDIT);
-    ck("  EDIT deletes the row selected (row 2): scene 2 x3, scene 3 x1 left", ssong.count == 2u && ssong.scene[0] == 1u &&
-       ssong.scene[1] == 2u && msg_is("ROW DELETED"));
+    ck("  EDIT deletes the cell selected (the one added): 3 cells", ssong.count == 3u && msg_is("ROW DELETED"));
+    seq_let_go();
+    btn_down(B_SEQ);
+    frame();
+    frames(600);                                      /* (a peek: the layer shows) */
+    ck("  the next hold opens on SONG again; SELECT back: [SEQ] SCENES", ui.seq_lv == 1u && ui.layer == LAYER_SEQ &&
+       (turn(EN_SELECT, -1), ui.seq_lv == 0u) && str_eq(layer_head(), "[SEQ] SCENES"));
+    seq_let_go();
+    song_level();
+    ltap(black(0));
+    ck("  F#3: CLEAR THE SCENE SONG? OCT+ clears it", ui.confirm == CF_CLEAR_SSONG);
+    btn_up(B_SEQ);
+    frame();
+    press(B_OCTUP);
+    ck("  .. cleared", !ssong.count && msg_is("SONG CLEARED"));
+    frames(400);
 }
 
 static void test_play(void)
@@ -133,12 +171,10 @@ static void test_play(void)
     uint32_t b, want, t0 = 0;
     three_scenes();
     song_rows(SC, REP, 3, 0);
-    go_page(GR_SSONG);
     ui.ssg_row = 0;
-    frame();
-    press(B_OCTUP);                                   /* (OCT+: PLAY) */
-    ck("PLAY: OCT+ starts the song on row 1 (scene 1), SONG: SCENE 1", ssp.on && ssp.row == 0u && ssp.left == 2u &&
-       scn.cur == 0u && msg_is("SONG: SCENE 1") && transport_req == 1u);
+    song_play();
+    ck("PLAY: SEQ held > SONG + PLAY starts the song on cell 1 (scene 1), SONG: SCENE 1", ssp.on && ssp.row == 0u &&
+       ssp.left == 2u && scn.cur == 0u && msg_is("SONG: SCENE 1"));
     b = run_until(1, 20000);
     want = 2u * pass_blocks(16);                      /* scene 1 twice (16 steps), then scene 2 */
     printf("  scene 2 after %u blocks (two passes of scene 1: %u)\n", b, want);
@@ -157,8 +193,8 @@ static void test_play(void)
     song_rows(SC, REP, 2, 1);
     menu_put(MI_SCENE, 1);
     frame();
-    go_page(GR_SSONG);
-    press(B_PLAY);
+    ui.ssg_row = 0;
+    song_play();
     b = run_until(1, 20000);
     ck("LOOP, NEXT BAR set: scene 2 after the two passes of scene 1 all the same (not at the bar)",
        b + 1u >= 2u * pass_blocks(16) && b <= 2u * pass_blocks(16) + 1u);
@@ -172,8 +208,8 @@ static void test_play(void)
         uint32_t n;
         three_scenes();
         song_rows(S2, R2, 2, 0);
-        go_page(GR_SSONG);
-        press(B_PLAY);
+        ui.ssg_row = 0;
+        song_play();
         for (n = 0; n < pass_blocks(16) + 4u; n++) {
             blk();
             if (n % 22u == 21u)
@@ -193,15 +229,17 @@ static void test_off(void)
     uint32_t b;
     three_scenes();
     song_rows(SC, REP, 2, 1);
-    go_page(GR_SSONG);
-    press(B_PLAY);
+    ui.ssg_row = 0;
+    song_play();
     for (b = 0; b < 300u; b++) {
         blk();
         if (b % 22u == 21u)
             frame();
     }
+    song_level();
     ui.ssg_row = 0;
-    turn(EN_K3, -3);                                  /* (edited while it plays: row 1 now x1) */
+    turn(EN_K3, -3);                                  /* (edited while it plays: cell 1 now x1) */
+    seq_let_go();
     b = run_until(1, 20000);
     ck("EDIT: row 1's REPS turned down to x1 while it plays: scene 2 after its pass now", ssp.on && ssp.row == 1u &&
        b < pass_blocks(16));
@@ -213,14 +251,16 @@ static void test_off(void)
     frame();
     three_scenes();
     song_rows(SC, REP, 2, 1);
-    go_page(GR_SSONG);
-    press(B_PLAY);
+    ui.ssg_row = 0;
+    song_play();
     for (b = 0; b < 4u * pass_blocks(16) - 30u; b++) {   /* (into row 1's last pass: scene 2 waiting) */
         blk();
         if (b % 22u == 21u)
             frame();
     }
+    song_level();
     press(B_PLAY);                                    /* STOP */
+    seq_let_go();
     blk();
     frame();
     frames(100);
@@ -249,7 +289,7 @@ static void test_kept(void)
 
 int main(int argc, char **argv)
 {
-    test_page(argc > 1 ? argv[1] : 0);
+    test_level(argc > 1 ? argv[1] : 0);
     test_play();
     test_off();
     test_kept();

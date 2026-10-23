@@ -897,29 +897,6 @@ static void draw_columns(void)
         }
         return;
     }
-    if (cur_page()->graph == GR_SSONG) {            /* M-Vave-OP1, SCENE SONG: ROW, its SCENE and REPS, the END */
-        uint32_t r = ui.ssg_row;
-        int used = r < ssong.count;
-        if (used)
-            fmt_int(val, (int32_t)r + 1);
-        else
-            str_cpy(val, "+", sizeof val);
-        draw_column(0, "ROW", val, "", VAL(0u), -1, ICON_X_SONG);
-        if (used)
-            fmt_int(val, (int32_t)ssong.scene[r] + 1);
-        else
-            str_cpy(val, "--", sizeof val);
-        draw_column(1, "SCENE", val, "", used ? VAL(1u) : T_DIM, -1, ICON_X_PATTERN);
-        if (used) {
-            val[0] = 'x';
-            fmt_int(val + 1, ssong.repeat[r]);
-        } else {
-            str_cpy(val, "--", sizeof val);
-        }
-        draw_column(2, "REPS", val, "", used ? VAL(2u) : T_DIM, -1, ICON_AUTO);
-        draw_column(3, "END", ssong.flags & SSG_LOOP ? "LOOP" : "STOP", "", VAL(3u), -1, ICON_LOOP);
-        return;
-    }
     if (cur_page()->graph == GR_SONG) {             /* SECTION, TRACK, its PAT (A..D, -), REPS (the section's) */
         uint32_t row = ui.song_row < CHAIN_ROWS ? ui.song_row : CHAIN_ROWS - 1u, k = ui.song_trk % NTRK, sl;
         int used = row < chain_config.count;
@@ -1669,6 +1646,9 @@ static void confirm_text(char *a, char *b)
         break;
     case CF_CLEAR_SONG:
         str_cpy(a, "CLEAR SONG ORDER?", 24);
+        break;
+    case CF_CLEAR_SSONG:
+        str_cpy(a, "CLEAR THE SCENE SONG?", 24);
         break;
     case CF_INIT_SOUND:
         str_cpy(a, "INITIALIZE SOUND?", 24);

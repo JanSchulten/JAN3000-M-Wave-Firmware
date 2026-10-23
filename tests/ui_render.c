@@ -1179,15 +1179,15 @@ static void setup(int s)
         if (s == S_SEQ128) { go_page(GR_ROLL); ui.layer = LAYER_SEQ; }   /* (the SEQ layer: LEN 128 on its card) */
         break;
     }
-    case S_SSONG:                                    /* (M-Vave-OP1) SEQ > SCENE SONG: 9 rows (scrolled), row 6 playing,
-                                                      * row 7 selected, scene 12 empty (DIM), END LOOP */
+    case S_SSONG:                                    /* (M-Vave-OP1) SEQ held > SONG: a chain of 9 cells, 6 playing, 7
+                                                      * selected, scene 12 empty (DIM), END LOOP */
         song.playing = 1; ssong_clear();
         for (ssong.count = 0; ssong.count < 9u; ssong.count++) {
             ssong.scene[ssong.count] = (uint8_t)(ssong.count == 4u ? 11u : ssong.count % 3u);
             ssong.repeat[ssong.count] = (uint8_t)(1u + ssong.count * 3u % 16u);
         }
         ssong.flags = SSG_LOOP; ssp.on = 1; ssp.row = 5; ssp.left = 2;
-        go_title("SCENE SONG"); ui.ssg_row = 6;
+        go_page(GR_ROLL); ui.layer = LAYER_SEQ; ui.seq_lv = 1; ui.ssg_row = 6;
         break;
     case S_ARP_PLAY: case S_ARP2_PLAY:                 /* (M-Vave-OP1: ARP's one screen, C E G held, OCT 2, E4 sounding) */
         TSEL->p[P_AMODE] = 1; TSEL->p[P_AOCT] = 2;

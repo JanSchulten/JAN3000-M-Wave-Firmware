@@ -81,7 +81,7 @@ static int mom_turn(uint32_t k, int32_t s)
         d = &TP[MIX_ID[k & 3u]];
     } else {
         if (act_cols() || lock_any() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
-            pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_SSONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
+            pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
             pg->graph == GR_PATS || (pg->graph == GR_SLICES && k < 2u) || (pg->graph == GR_MOD && k == 0u) ||
             pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
             return 0;
@@ -1376,10 +1376,6 @@ static void edit_param(uint32_t slot, int32_t steps)
         }
         return;
     }
-    if (pg->graph == GR_SSONG) {                      /* KNOB 1 ROW, 2 SCENE, 3 REPS, 4 END (M-Vave-OP1) */
-        ssong_knob(slot, steps);
-        return;
-    }
     if (pg->graph == GR_SONG) {                       /* KNOB 1 SECTION, 2 TRACK, 3 PAT (A..D, -), 4 REPS */
         chain_row_t *r;
         if (slot == 0u) {
@@ -1528,11 +1524,6 @@ static void act_do(void)
     if (cur_page()->graph == GR_SONG) {
         if (song.playing || chain_busy() || seq_counting()) transport_req = 2;
         else chain_play_ui();
-        return;
-    }
-    if (cur_page()->graph == GR_SSONG) {
-        if (song.playing || chain_busy() || seq_counting()) transport_req = 2;
-        else ssong_play_ui();
         return;
     }
     if (cur_page()->graph == GR_FXT2) {                   /* CLEAR: the selected lane (c 0) or both */
@@ -1750,8 +1741,7 @@ static void presets_turn(int32_t s)
     }
     if (ui.home || g == GR_BROWSE) {
         preset_step(s);
-    } else if (g == GR_ROLL || g == GR_USER || g == GR_SLOTS || g == GR_PATS || g == GR_SONG || g == GR_SSONG ||
-               g == GR_EVENTS) {
+    } else if (g == GR_ROLL || g == GR_USER || g == GR_SLOTS || g == GR_PATS || g == GR_SONG || g == GR_EVENTS) {
         edit_param(0, s);                                 /* KNOB 1's (STEP: STOP TO EDIT while a song plays) */
         ui.hot_col = 0;
         ui.hot_t = 40;
@@ -1826,10 +1816,6 @@ static int page_tap(uint32_t b)
     }
     if (b == B_EDIT && !ui.home && cur_page()->graph == GR_EVENTS) {   /* AUTOMATION: EDIT deletes the row's record */
         ev_delete();
-        return 1;
-    }
-    if (b == B_EDIT && !ui.home && cur_page()->graph == GR_SSONG) {   /* SCENE SONG: EDIT deletes the row */
-        ssong_delete_ui();
         return 1;
     }
     if (b == B_EDIT && !ui.home && (cur_page()->graph == GR_USER || cur_page()->graph == GR_SLOTS)) {
@@ -1981,14 +1967,24 @@ static void ui_input(void)
             fx_assign(s);                               /* FX: the white key held takes the next effect */
             combo = 1;
         } else if (s && ui.ly == LAYER_SEQ) {           /* M-Vave-OP1, SEQ: a DRUM track's lane (its tools' lane; the */
-            seq_lane(s);                                /* black keys that picked it hold the tools now) */
+            if (!ui.seq_lv)                             /* black keys that picked it hold the tools now; SONG: none) */
+                seq_lane(s);
+            combo = 1;
+        }
+        if (ui.ly == LAYER_SEQ && (s = panel_enc(EN_SELECT)) != 0) {   /* M-Vave-OP1, SEQ + SELECT: SCENES <-> SONG */
+            ui.seq_lv = (uint8_t)(s > 0 ? 1u : 0u);
+            ui.force = 1;
             combo = 1;
         }
         if (ui.ly == LAYER_FX && ((pressed >> panel.btn[B_EDIT]) & 1u))
             fx_default();                               /* .. EDIT: its default back */
-        if (ui.ly == LAYER_SEQ && ((pressed >> panel.btn[B_EDIT]) & 1u))
-            seq_put_back();                             /* M-Vave-OP1, SEQ + EDIT: the track as the layer opened (OCT-:
+        if (ui.ly == LAYER_SEQ && ((pressed >> panel.btn[B_EDIT]) & 1u)) {
+            if (ui.seq_lv)
+                ssong_delete_ui();                      /* M-Vave-OP1, SEQ > SONG + EDIT: the cell selected goes */
+            else
+                seq_put_back();                         /* M-Vave-OP1, SEQ + EDIT: the track as the layer opened (OCT-:
                                                          * the scene before now) */
+        }
         if ((s = panel_enc(EN_ALGO)) != 0 && ui.ly == LAYER_FX) {   /* E2: FX + ALGORITHM: MAP A / MAP B */
             fx_bank(s);
             combo = 1;
@@ -2086,6 +2082,11 @@ static void ui_input(void)
                 fxt_clear(kind == CF_FXT_ALL ? 0u : ui.confirm_trk % FXT_N);
                 ui_message(kind == CF_FXT_ALL ? "FX TRACKS CLEARED" : ui.confirm_trk % FXT_N ? "FX2 CLEARED" : "FX1 CLEARED");
                 ui.act = 0;
+            } else if (kind == CF_CLEAR_SSONG) {    /* (M-Vave-OP1: SEQ held > SONG's F#3) */
+                ssong_off();
+                ssong_clear();
+                ui.ssg_row = 0;
+                ui_message("SONG CLEARED");
             } else if (kind == CF_CLEAR_SONG) {
                 if (!chain_busy()) { chain_defaults(&chain_config); ui.song_row = 0; ui_message("SONG CLEARED"); }
             } else if (kind == CF_INIT_SOUND) {
@@ -2130,8 +2131,6 @@ static void ui_input(void)
                 transport_req = 2;
             else if (!ui.home && cur_page()->graph == GR_SONG)
                 chain_play_ui();
-            else if (!ui.home && cur_page()->graph == GR_SSONG)
-                ssong_play_ui();
             else
                 transport_req = 1;
             break;
@@ -2255,7 +2254,7 @@ static void ui_input(void)
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
-            || pg->graph == GR_SONG || pg->graph == GR_SSONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
+            || pg->graph == GR_SONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD || (pg->graph == GR_SLICES && k < 2u) ||
             (pg->graph == GR_CSET && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
             (vdu_page(pg->graph) && vdu_field(k) != VU_NONE) || (dbu_page(pg->graph) && dbu_field(k) != DU_NONE)) {   /* (not an empty
