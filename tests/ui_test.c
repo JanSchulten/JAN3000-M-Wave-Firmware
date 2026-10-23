@@ -6934,9 +6934,9 @@ static int test_seq_tools(void)
     tl_key(TL_LRND);                                    /* F#5: RANDOM the lane: at least one hit */
     ok &= tl_count(TSEL, DV_TOM) >= 1u && tl_lanes_of(TSEL, DV_KICK) == 0x1111u;
     bad += check("  C#5 / A#4 / F#5: the lane reversed (its accents with it), cleared, at random; the others stay", ok);
-    a = leds_at(0); b2 = leds_at(250);                  /* (the tools breathe; scene 1 lit, the others dark) */
-    ok = ((a ^ b2) >> black(0)) & 1u && ((a ^ b2) >> black(6)) & 1u && ((a ^ b2) >> black(10)) & 1u &&
-         ((a & b2) >> white(0)) & 1u && !(((a | b2) >> white(1)) & 1u) && !(((a | b2) >> white(15)) & 1u);
+    a = leds_at(0); b2 = leds_at(250);                  /* (the tools breathe; scene 1, playing, blinks: M-Vave-OP1, */
+    ok = ((a ^ b2) >> black(0)) & 1u && ((a ^ b2) >> black(6)) & 1u && ((a ^ b2) >> black(10)) & 1u &&   /* the */
+         ((a ^ b2) >> white(0)) & 1u && !(((a | b2) >> white(1)) & 1u) && !(((a | b2) >> white(15)) & 1u);   /* others dark) */
     btn_up(B_SEQ); frame();
     ui_power_on();
     tl_melody();
