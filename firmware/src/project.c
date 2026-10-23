@@ -132,7 +132,7 @@ typedef struct {
 } project_t;
 /* Historical FUN5/6 types are frozen, independent of today's P_COUNT/step_t. */
 typedef struct { uint8_t note[4], n, time, flags, vel, hit, acc; } step10_t;
-typedef struct { int16_t p[69]; uint8_t engine, preset; step10_t step[NSTEP]; uint8_t lane[NLANE][5]; } proj_trk_v5_t;
+typedef struct { int16_t p[69]; uint8_t engine, preset; step10_t step[NSTEP_FMT]; uint8_t lane[NLANE][5]; } proj_trk_v5_t;
 typedef struct {                               /* format 5, before the song chain */
     uint32_t magic, size;
     int16_t g[G_COUNT];
@@ -163,7 +163,7 @@ _Static_assert(sizeof(project_store_t) == 3840u && PROJ_STORE_V7 == sizeof(proje
 typedef struct {                               /* a track of format 4, read only */
     int16_t p[PROJ_NP_V4];
     uint8_t engine, preset;
-    step8_t step[NSTEP];
+    step8_t step[NSTEP_FMT];
 } proj_trk_v4_t;
 typedef struct {                               /* format 4 (1.0 development builds), read only */
     uint32_t magic, size;
@@ -175,7 +175,7 @@ typedef struct {                               /* format 4 (1.0 development buil
 typedef struct {                               /* a track of format 3, read only */
     int16_t p[PROJ_NP_V3];
     uint8_t engine, preset;
-    step8_t step[NSTEP];
+    step8_t step[NSTEP_FMT];
 } proj_trk_v3_t;
 typedef struct {                               /* format 3 (0.9 .. 1.0), read only */
     uint32_t magic, size;
@@ -189,7 +189,7 @@ typedef struct {                               /* format 3 (0.9 .. 1.0), read on
 typedef struct {                               /* a track of formats 1 and 2, read only */
     int16_t p[PROJ_NP_V2];
     uint8_t engine, preset;
-    step8_t step[NSTEP];
+    step8_t step[NSTEP_FMT];
 } proj_trk_v2_t;
 typedef struct {                               /* format 2 (until 0.9), read only */
     uint32_t magic, size;
@@ -245,7 +245,7 @@ static void proj_trk_from(proj_trk_t *d, const int16_t *p, uint32_t np, uint8_t 
     params_by_count(d->p, p, np, def);
     d->engine = engine;                         /* (indices 0..7 of formats 1 and 2 as they were) */
     d->preset = preset;
-    for (k = 0; k < NSTEP; k++) {
+    for (k = 0; k < NSTEP_FMT; k++) {
         step_t *s = &d->step[k];
         memcpy(s->note, step[k].note, 4);
         s->n = step[k].n;
@@ -335,7 +335,7 @@ static void proj_fm4(project_t *q)
         return;
     for (i = n = 0; i < q->motion.count && i < MOTION_MAX; i++) {
         const motion_event_t *e = &q->motion.event[i];
-        if (((hit >> (e->place >> 6)) & 1u) && (MOTION_ID(e) >= P_E0 || (MOTION_ID(e) >= P_FM1_ATK && MOTION_ID(e) <= P_FM4_LEVEL)))
+        if (((hit >> MO_TRK(e)) & 1u) && (MOTION_ID(e) >= P_E0 || (MOTION_ID(e) >= P_FM1_ATK && MOTION_ID(e) <= P_FM4_LEVEL)))
             continue;
         q->motion.event[n++] = *e;
     }
@@ -367,7 +367,7 @@ static void proj_perc(project_t *q)
         return;
     for (i = n = 0; i < q->motion.count && i < MOTION_MAX; i++) {
         const motion_event_t *e = &q->motion.event[i];
-        if (((hit >> (e->place >> 6)) & 1u) && MOTION_ID(e) >= P_E0)
+        if (((hit >> MO_TRK(e)) & 1u) && MOTION_ID(e) >= P_E0)
             continue;
         q->motion.event[n++] = *e;
     }
@@ -497,7 +497,26 @@ static int proj_import(project_t *q, const void *b, int n)
     proj_perc(q);
     return 1;
 }
+/* M-Vave-OP1: every stored format holds steps 1..64 (NSTEP_FMT): the others of a project read from one are empty (a
+ * slot's own come from its extras after it, opstore.c xtra_hi) */
+static void proj_hi_empty(project_t *q)
+{
+    static const step_t REST = {{0, 0, 0, 0}, 0, ST_REST, 0, 0, 0, 0, 0};
+    uint32_t t, i;
+    for (t = 0; t < NTRK; t++)
+        for (i = NSTEP_FMT; i < NSTEP; i++)
+            q->t[t].step[i] = REST;
+    q->sum = proj_sum(q);
+}
+static int proj_import_fmt(project_t *q, const void *b, int n);
 static int proj_import_any(project_t *q, const void *b, int n)
+{
+    int r = proj_import_fmt(q, b, n);           /* (2: a project_t as it is in RAM, all its steps) */
+    if (r == 1)
+        proj_hi_empty(q);
+    return r != 0;
+}
+static int proj_import_fmt(project_t *q, const void *b, int n)
 {
     if (n == PROJ_STORE_SIZE && ((const uint32_t *)b)[0] == PROJ_MAGIC)
         return proj_unpack(q, b, PROJ_STORE_SIZE);
@@ -514,7 +533,7 @@ static int proj_import_any(project_t *q, const void *b, int n)
         memcpy(q, b, sizeof *q);
         proj_drums_to_part(q);
         proj_phys(q);
-        return 1;
+        return 2;
     }
     if (!proj_import_old(q, b, n))
         return 0;
@@ -542,7 +561,7 @@ static int proj_import_old(project_t *q, const void *b, int n)
                 for (k = 0; k < P_COUNT; k++) def[k] = param_desc_of(v->t[i].engine, k)->def;
                 params_by_count(q->t[i].p, v->t[i].p, 69u, def);
                 q->t[i].engine = v->t[i].engine; q->t[i].preset = v->t[i].preset;
-                for (k = 0; k < NSTEP; k++) {
+                for (k = 0; k < NSTEP_FMT; k++) {
                     memcpy(&q->t[i].step[k], &v->t[i].step[k], sizeof(step10_t));
                     q->t[i].step[k].flags &= 3u;       /* (x1: no RATCH then) */
                 }
@@ -574,6 +593,46 @@ static uint32_t proj_name_get(char *d, const uint8_t *s)   /* its length */
     return i;
 }
 
+/* a step as FUN10 stores it: 9 bytes at b (its LEGATO is in the extras, opstore.c); 0 not one the format holds */
+#define PROJ_STEP_BYTES 9u
+static int proj_step_pack(uint8_t *b, const step_t *s)
+{
+    uint32_t r = step_ratchet(s) - 1u;              /* RATCH: bit 7 of the velocity and chance bytes (see the top) */
+    uint32_t nd = (uint32_t)step_nudge(s) & 15u;    /* NUDGE (FUN10): bit j in bit 7 of note j */
+    if (s->n > 4u || s->time > ST_REST || (s->flags & ~(3u | SF_RATCH | SF_NUDGE)) ||
+        (s->probability & ~STEP_LEG) > 101u)        /* (M-Vave-OP1: LEGATO is in the extras, opstore.c) */
+        return 0;
+    for (uint32_t j = 0; j < 4u; j++)               /* what proj_step_unpack checks, so a saved project always loads: */
+        *b++ = (uint8_t)((s->note[j] > 127u ? 127u : s->note[j]) | (nd >> j & 1u) << 7);   /* notes and
+                                                     * velocity 0..127, accents */
+    *b++ = (uint8_t)(s->n | s->time << 3 | (s->flags & 3u) << 5);   /* only on hits */
+    *b++ = (uint8_t)((s->vel > 127u ? 127u : s->vel) | (r & 1u) << 7);
+    *b++ = s->hit;
+    *b++ = s->acc & s->hit;
+    *b = (uint8_t)((s->probability & ~STEP_LEG) | (r >> 1) << 7);
+    return 1;
+}
+/* .. back (v10: a FUN10's, with nudges; before, bit 7 of the notes is 0); 0 not one */
+static int proj_step_unpack(step_t *s, const uint8_t *b, uint32_t v10)
+{
+    uint32_t meta, nd = 0, j;
+    for (j = 0; j < 4u; j++) {                      /* (FUN10: bit 7 of note j is bit j of the nudge) */
+        if (b[j] > 127u && !v10) return 0;
+        nd |= (uint32_t)(b[j] >> 7) << j;
+        s->note[j] = b[j] & 127u;
+    }
+    meta = b[4];
+    s->n = meta & 7u; s->time = (meta >> 3) & 3u; s->flags = (meta >> 5) & 3u;
+    s->vel = b[5] & 127u; meta |= (b[5] & 128u) << 1;                /* (RATCH bit 0 at bit 8 of meta) */
+    s->hit = b[6]; s->acc = b[7];
+    s->probability = b[8] & 127u; meta |= (b[8] & 128u) << 2;        /* (bit 1 at bit 9) */
+    if ((meta & 255u) > 127u || s->n > 4u || s->time > ST_REST || s->probability > 101u) return 0;
+    if (s->acc & ~s->hit) return 0;
+    step_set_ratchet(s, (meta >> 8) + 1u);
+    step_set_nudge(s, (int32_t)(nd ^ 8u) - 8);
+    return 1;
+}
+
 /* A stable serialized schema: first header retains FUN6's fields; at byte66
  * np, format flags, then four byte-param tracks and nine-byte steps; FUN8: the patches at PROJ_FM6_OFF. */
 static int proj_pack(project_store_t *out, const project_t *q)
@@ -587,29 +646,24 @@ static int proj_pack(project_store_t *out, const project_t *q)
     memcpy(b + 8, q->g, sizeof q->g); b[62] = q->sel; b[63] = q->parts; b[64] = q->phys; b[66] = P_COUNT;
     for (t = 0; t < NTRK; t++) {
         for (i = 0; i < P_COUNT; i++) {
-            if (q->t[t].p[i] < -64 || q->t[t].p[i] > 127) return 0;
-            b[pos++] = (uint8_t)(q->t[t].p[i] + 64);
+            int32_t v = q->t[t].p[i];
+            if (i == P_SLEN && v > (int32_t)NSTEP_FMT)   /* (M-Vave-OP1: LEN 65..128 in the extras, opstore.c XTRA_V7; */
+                v = NSTEP_FMT;                          /* here the 64 steps the format holds) */
+            if (v < -64 || v > 127) return 0;
+            b[pos++] = (uint8_t)(v + 64);
         }
         b[pos++] = q->t[t].engine; b[pos++] = q->t[t].preset;
-        for (i = 0; i < NSTEP; i++) {
-            const step_t *s = &q->t[t].step[i];
-            uint32_t r = step_ratchet(s) - 1u;          /* RATCH: bit 7 of the velocity and chance bytes (see the top) */
-            uint32_t nd = (uint32_t)step_nudge(s) & 15u;   /* NUDGE (FUN10): bit j in bit 7 of note j */
-            if (s->n > 4u || s->time > ST_REST || (s->flags & ~(3u | SF_RATCH | SF_NUDGE)) ||
-                (s->probability & ~STEP_LEG) > 101u)    /* (M-Vave-OP1: LEGATO is in the extras, opstore.c) */
+        for (i = 0; i < NSTEP_FMT; i++, pos += PROJ_STEP_BYTES)   /* (steps 65..128: the extras) */
+            if (!proj_step_pack(b + pos, &q->t[t].step[i]))
                 return 0;
-            for (uint32_t j = 0; j < 4u; j++)           /* what proj_unpack checks, so a saved project always loads: */
-                b[pos++] = (uint8_t)((s->note[j] > 127u ? 127u : s->note[j]) | (nd >> j & 1u) << 7);   /* notes and
-                                                         * velocity 0..127, accents */
-            b[pos++] = (uint8_t)(s->n | s->time << 3 | (s->flags & 3u) << 5);   /* only on hits */
-            b[pos++] = (uint8_t)((s->vel > 127u ? 127u : s->vel) | (r & 1u) << 7); b[pos++] = s->hit;
-            b[pos++] = s->acc & s->hit;
-            b[pos++] = (uint8_t)((s->probability & ~STEP_LEG) | (r >> 1) << 7);
-        }
     }
-    if (pos + sizeof q->chain + sizeof q->motion > PROJ_FM6_OFF) return 0;
+    if (pos + sizeof q->chain + sizeof(motion_disk_t) > PROJ_FM6_OFF) return 0;
     memcpy(b + pos, &q->chain, sizeof q->chain); pos += sizeof q->chain;
-    memcpy(b + pos, &q->motion, sizeof q->motion);
+    {   /* the records of steps 1..64 (M-Vave-OP1: the others' in the extras, opstore.c XTRA_V7) */
+        motion_disk_t md;
+        motion_to_disk(&md, &q->motion, 0);
+        memcpy(b + pos, &md, sizeof md);
+    }
     memcpy(b + PROJ_FM6_OFF, q->fm6, sizeof q->fm6);
     {   /* the name (0-padded; stops at the first 0) */
         char n[PROJ_NAME_LEN + 1u];
@@ -649,7 +703,7 @@ static int proj_motion_v9(motion_store_t *m, const uint8_t *b)
         int32_t v = (int16_t)(e[2] | e[3] << 8);
         if (v < -64 || v > 127)
             return 0;
-        m->event[i].place = e[0];
+        m->event[i].place = (uint16_t)MO_PLACE(e[0] >> 6, e[0] & 63u);
         m->event[i].param = e[1];
         m->event[i].value = (int8_t)v;
     }
@@ -661,11 +715,11 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
 {
     uint32_t pos = 68u, t, i, magic, size, sum, np = b[66], v7 = st == PROJ_STORE_V7, v10 = st == PROJ_STORE_SIZE;
     uint32_t name_off = st - 4u - PROJ_NAME_LEN, end = v7 ? name_off : name_off - NTRK * FM6_PACKED;
-    uint32_t mot = v10 ? sizeof q->motion : PROJ_MOTION_V9, chn = v10 ? sizeof q->chain : sizeof(chain_v9_t);
+    uint32_t mot = v10 ? sizeof(motion_disk_t) : PROJ_MOTION_V9, chn = v10 ? sizeof q->chain : sizeof(chain_v9_t);
     memcpy(&magic, b, 4); memcpy(&size, b + 4, 4); memcpy(&sum, b + st - 4u, 4);
     if (magic != (v7 ? PROJ_MAGIC_V7 : st == PROJ_STORE_V8 ? PROJ_MAGIC_V8 : st == PROJ_STORE_V9 ? PROJ_MAGIC_V9 : PROJ_MAGIC) ||
         size != st || sum != proj_hash(b, st - 4u) ||
-        np < 8u || np > P_COUNT || 68u + NTRK * (np + 2u + NSTEP * 9u) + chn + mot > end)
+        np < 8u || np > P_COUNT || 68u + NTRK * (np + 2u + NSTEP_FMT * 9u) + chn + mot > end)
         return 0;
     memset(q, 0, sizeof *q); q->magic = PROJ_MAGIC; q->size = sizeof *q;
     memcpy(q->g, b + 8, sizeof q->g); q->sel = b[62]; q->parts = b[63]; q->phys = b[64];
@@ -678,23 +732,8 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
         if (q->t[t].engine >= NENGINES) return 0;
         for (i = 0; i < P_COUNT; i++) def[i] = param_desc_of(q->t[t].engine, i)->def;
         params_by_count(q->t[t].p, values, np, def);
-        for (i = 0; i < NSTEP; i++) {
-            step_t *s = &q->t[t].step[i]; uint32_t meta, nd = 0;
-            for (uint32_t j = 0; j < 4u; j++) {         /* (FUN10: bit 7 of note j is bit j of the nudge) */
-                if (b[pos] > 127u && !v10) return 0;
-                nd |= (uint32_t)(b[pos] >> 7) << j;
-                s->note[j] = b[pos++] & 127u;
-            }
-            meta = b[pos++];
-            s->n = meta & 7u; s->time = (meta >> 3) & 3u; s->flags = (meta >> 5) & 3u;
-            s->vel = b[pos] & 127u; meta |= (b[pos++] & 128u) << 1;      /* (RATCH bit 0 at bit 8 of meta) */
-            s->hit = b[pos++]; s->acc = b[pos++];
-            s->probability = b[pos] & 127u; meta |= (b[pos++] & 128u) << 2;   /* (bit 1 at bit 9) */
-            if ((meta & 255u) > 127u || s->n > 4u || s->time > ST_REST || s->probability > 101u) return 0;
-            if (s->acc & ~s->hit) return 0;
-            step_set_ratchet(s, (meta >> 8) + 1u);
-            step_set_nudge(s, (int32_t)(nd ^ 8u) - 8);
-        }
+        for (i = 0; i < NSTEP_FMT; i++, pos += PROJ_STEP_BYTES)
+            if (!proj_step_unpack(&q->t[t].step[i], b + pos, v10)) return 0;
     }
     if (v10)                                            /* (FUN10: sections, a slot per track; before: rows) */
         memcpy(&q->chain, b + pos, sizeof q->chain);
@@ -704,9 +743,11 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
         if (!chain_from_v9(&q->chain, &c9)) return 0;
     }
     pos += chn;
-    if (v10)
-        memcpy(&q->motion, b + pos, sizeof q->motion);
-    else if (!proj_motion_v9(&q->motion, b + pos))
+    if (v10) {
+        motion_disk_t md;
+        memcpy(&md, b + pos, sizeof md);
+        if (!motion_from_disk(&q->motion, &md, 0)) return 0;
+    } else if (!proj_motion_v9(&q->motion, b + pos))
         return 0;
     if (!proj_motion_ids(&q->motion, np) || !chain_valid(&q->chain) || !motion_valid(&q->motion)) return 0;
     for (t = 0; t < NTRK; t++) {
@@ -938,6 +979,12 @@ static int project_info(uint32_t slot, char *b, uint16_t *len48, uint32_t *den, 
     }
     if (!proj_import(&proj_scratch, &proj_slot[slot & 3u], sizeof(project_store_t)))
         return 0;
+    if (len48 || den) {                                 /* (M-Vave-OP1: its steps 65..128 and a LEN past 64) */
+        uint32_t id = xtra_proj_id(slot);
+        const xtra_hi_t *hi = xtra_hi_of(slot, id);
+        for (k = 0; k < NTRK; k++)
+            xtra_hi_steps(proj_scratch.t[k].step, &proj_scratch.t[k].p[P_SLEN], k, hi);
+    }
     proj_name_get(b, (const uint8_t *)proj_scratch.name);
     for (k = 0; len48 && k < NTRK; k++)
         len48[k] = (uint16_t)len48_of(proj_scratch.t[k].p[P_SLEN], proj_scratch.t[k].p[P_SDIV]);
@@ -1120,7 +1167,7 @@ static void project_new(uint32_t slot)
     if (project_restore_runtime(p))
         return;
     memset(&none, 0, sizeof none);
-    xtra_lanes(fxt_lane, &none, 0);
+    xtra_lanes(fxt_lane, &none, 0, 0);
     xtra_fx1(&none, 0);
     xtra_misc(&none, 0);
     np_sounds();
@@ -1217,24 +1264,30 @@ static uint32_t chain_prepare(void)
         }
         {
             project_t *p = &proj_scratch;
+            uint32_t id;
+            const xtra_hi_t *hi;
             if (!proj_import(p, &proj_slot[i], sizeof(project_store_t))) return 3u + i;
+            id = xtra_proj_id(i);
+            hi = xtra_hi_of(i, id);                     /* (M-Vave-OP1: its steps 65..128; in st_buf, used below) */
             chain.source[i].motion = p->motion;
+            xtra_hi_motion(&chain.source[i].motion, hi);
             /* A song keeps its current instruments. Engine-specific motion from
              * another instrument would change a kit/wave/algorithm unexpectedly. */
             {
                 motion_store_t *m = &chain.source[i].motion; uint32_t n = 0;
                 for (uint32_t e = 0; e < m->count; e++) {
-                    const motion_event_t *v = &m->event[e]; uint32_t owner = v->place >> 6;
+                    const motion_event_t *v = &m->event[e]; uint32_t owner = MO_TRK(v);
                     if (MOTION_ID(v) >= P_FM1_ATK && p->t[owner].engine != trk[owner].eng_req) continue;
                     m->event[n++] = *v;
                 }
                 m->count = (uint8_t)n;
             }
-            xtra_lanes(chain.source[i].fx, &xtra_slot[i], xtra_proj_id(i));   /* (M-Vave-OP1: its FX TRACKS) */
+            xtra_lanes(chain.source[i].fx, &xtra_slot[i], id, hi);   /* (M-Vave-OP1: its FX TRACKS) */
             for (k = 0; k < NTRK; k++) {
                 memcpy(chain.source[i].step[k], p->t[k].step, sizeof p->t[k].step);
+                xtra_hi_steps(chain.source[i].step[k], &p->t[k].p[P_SLEN], k, hi);   /* (M-Vave-OP1: 65..128, LEN) */
                 proj_steps(chain.source[i].step[k]);
-                xtra_leg(chain.source[i].step[k], k, &xtra_slot[i], xtra_proj_id(i));   /* (M-Vave-OP1: LEGATO) */
+                xtra_leg(chain.source[i].step[k], k, &xtra_slot[i], id, hi);   /* (M-Vave-OP1: LEGATO) */
                 chain.source[i].qnt[k] = p->t[k].p[P_SQNT] != 0;
                 for (j = 0; j < 4u; j++)
                     chain.source[i].timing[k][j] = (int16_t)clamp(p->t[k].p[P_SLEN + j],

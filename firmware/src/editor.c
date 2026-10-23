@@ -369,12 +369,12 @@ static void ed_motion_reply(uint32_t k, uint32_t rc, uint32_t kinds, uint32_t fu
     }
     for (i = j = 0; i < motion.count && j < n; i++) {
         const motion_event_t *e = &motion.event[i];
-        if ((e->place >> 6) != k) continue;
-        ed_b(e->place & 63u); ed_b(MOTION_ID(e)); ed_v(e->value);
+        if (MO_TRK(e) != k) continue;
+        ed_b(MO_STEP(e)); ed_b(MOTION_ID(e)); ed_v(e->value);
         j++;
     }
     for (i = j = 0; kinds && i < motion.count && j < n; i++)
-        if ((motion.event[i].place >> 6) == k) {
+        if (MO_TRK(&motion.event[i]) == k) {
             ed_b((motion.event[i].param & MOTION_LOCK) != 0u);
             j++;
         }

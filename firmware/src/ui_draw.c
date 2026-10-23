@@ -11,7 +11,8 @@
  * free text (names) is ellipsised at its size. */
 static void draw_menu(void);
 static int name_on(void);                              /* NAME (ui_name.c) */
-static uint64_t lock_held(void);                       /* parameter locks: the steps held on STEP (ui_input.c) */
+static stepset_t lock_held(void);                      /* parameter locks: the steps held on STEP (ui_input.c) */
+static int lock_any(void);                              /* .. any */
 static void name_draw(void);
 #include "ui_help.c"                                   /* 1.5: HELP's hints (draw_foot, ui_layer.c draw_layer) */
 
@@ -1278,10 +1279,10 @@ static void draw_columns(void)
         }
         return;
     }
-    if (cur_page()->graph == GR_ROLL && lock_held()) {   /* a step held: what KNOB 1..4 lock (ui_input.c lock_turn) */
-        uint64_t held = lock_held();
+    if (cur_page()->graph == GR_ROLL && lock_any()) {   /* a step held: what KNOB 1..4 lock (ui_input.c lock_turn) */
+        stepset_t held = lock_held();
         uint32_t st = 0;
-        while (!((held >> st) & 1u))
+        while (st < NSTEP - 1u && !ss_has(&held, st))
             st++;                                       /* (the first step held: its values) */
         for (c = 0; c < 4u; c++) {
             uint32_t id = lock_id(c);
