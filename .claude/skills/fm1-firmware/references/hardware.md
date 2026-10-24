@@ -12,8 +12,9 @@ AL-255/FM-1-RE (reverse engineering of the stock firmware), measurements from bu
   already measures 38 871 against its 37 502 budget line with toolchain 20260730.
 - **FPU:** the chip has one: JieLi's SDK builds for WL82 with `-mcpu=r3 -mfprev1`. Felucca builds without (soft float,
   and its code is integer only). `__attribute__((target("fprev1")))` turns it on for one function (every float helper it
-  calls needs the attribute too, or that helper is not inlined and runs as soft float). Not yet run on a unit: whether
-  Felucca's own start-up leaves it usable, and its cycle costs (docs/PLAITS_PLAN.md). objdump shows its 4-byte
+  calls needs the attribute too, or that helper is not inlined and runs as soft float). Measured on a unit (MENU >
+  SYSTEM > INFO's FPU probe): usable after Felucca's start-up, a float multiply-add ~34 ns, a divide ~31 ns; WSHAPE
+  (eng_wshape.c `wsh_model`) runs on it (docs/PLAITS_PLAN.md). objdump shows its 4-byte
   instructions as `3f e5 <unknown instruction>`; `clang -S` prints them (`r0 = r0 * r1 (f)`, `ftoi`, `itof`).
 - **SDK:** only three files of `fw-AC79_AIoT_SDK` (Apache-2.0) go into each package: `cpu/wl82/tools/uboot.boot`,
   `cfg_tool.bin`, `cfg/eq_cfg_hw.bin`. The firmware itself does not link the SDK.
@@ -36,9 +37,9 @@ The RAM / POOL split is only a budget line in the linker script; both are the sa
 
 | | Used | Limit | Note |
 | --- | --- | --- | --- |
-| RAM `.data`+`.bss` | 51 640 B | 73 728 B | before step 4 (PHASE VOICE TRIO SLICE DBOX retired): 56 616 |
+| RAM `.data`+`.bss` | 52 024 B | 73 728 B | before step 4 (PHASE VOICE TRIO SLICE DBOX retired): 56 616; WSHAPE +384 |
 | Pool | 339 548 B | 368 640 B | build.py demands ≥ 8 192 B free |
-| App image (XIP) | 522 836 B | 581 564 B | **58 728 B free**; before step 4: 569 516 (the FPU probe and its Plaits tables in it: 12 192 B) |
+| App image (XIP) | 524 740 B | 581 564 B | **56 824 B free**; before step 4: 569 516 (the FPU probe and its Plaits tables in it: 12 192 B); WSHAPE +1 904 |
 | Audio ISR static cost `fm1_alnk0_irq` | 37 802 | 41 252 | 37 502 + 10 % (tests/target_budget.py) |
 | Key-scan ISR `fm1_timer5_irq` | 33 887 | 36 725 | |
 

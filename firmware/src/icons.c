@@ -138,6 +138,7 @@ static const icon_map_t ICON_MAP[] = {
     {"DRV", ICON_DRIVE}, {"KTR", ICON_KEYTRACK}, {"ALG", ICON_ALGORITHM}, {"R2", ICON_RATIO},
     {"R3", ICON_RATIO}, {"R4", ICON_RATIO}, {"IDX", ICON_MOD}, {"MDEC", ICON_DECAY},
     {"FB", ICON_FEEDBACK}, {"CHIP", ICON_CHIP}, {"DUTY", ICON_PULSE}, {"CRSH", ICON_BITS},
+    {"HARM", ICON_SHAPE}, {"TIMB", ICON_FOLD}, {"MORPH", ICON_SWEEP}, {"AUX", ICON_MIX},   /* M-Vave-OP1: WSHAPE */
     {"SWP", ICON_SWEEP}, {"VIB", ICON_VIBRATO}, {"ARP", ICON_ARP}, {"TONE", ICON_TONE},
     {"SET", ICON_SAMPLE}, {"BITS", ICON_BITS}, {"LOOP", ICON_LOOP}, {"WAVE2", ICON_WAVE},
     {"DCW", ICON_SHAPE}, {"ENV", ICON_ENV}, {"LINE", ICON_MIX}, {"SUB", ICON_SUB},
@@ -241,6 +242,7 @@ static uint32_t engine_icon(const char *name)
         {"DRUM", ICON_DRUM},
         {"NOISE", ICON_NOISE},
         {"FM6", ICON_MOD},                    /* (symbol_modular: six operators patched; a glyph of its own wanted) */
+        {"WSHAPE", ICON_FOLD},                /* (M-Vave-OP1: the wavefolder) */
     };
     uint32_t i;
     for (i = 0; i < sizeof M / sizeof M[0]; i++)

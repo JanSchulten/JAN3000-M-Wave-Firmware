@@ -4829,9 +4829,9 @@ static int test_bughunt_ui2(void)
         }
         bad += check("piano roll: the C-1 label stays inside the panel (every palette)", !out);
     }
-    {   /* 7. EDIT (M-Vave-OP1): a white key an engine (11 since five retired), INIT the last black key (F#5, drawn bottom
+    {   /* 7. EDIT (M-Vave-OP1): a white key an engine (12: five retired, WSHAPE added), INIT the last black key (F#5, drawn bottom
          * right), no other */
-        uint32_t p, ok = LY_NENG == NENG_SHOWN && LY_NENG == 11u + FELUCCA_FM4 && LY_INIT_B == 10u;
+        uint32_t p, ok = LY_NENG == NENG_SHOWN && LY_NENG == 12u + FELUCCA_FM4 && LY_INIT_B == 10u;
         for (p = 0; p < 11u; p++) {
             ui_power_on(); go_home(); frame();
             btn_down(B_EDIT); key_down(black(p)); frame(); frames(50);
@@ -4984,11 +4984,12 @@ static int test_fm4_retired(void)
     }
     bad += check("PRESETS KNOB 2: the engines in order, DIGITAL skipped, back to the first",
                  seen == all && TSEL->eng_req == 0u && eng_step(0, 1) == 14u && eng_step(14, 1) == ENGI_FM6 &&
-                 eng_step(ENGI_FM6, 1) == 3u && eng_step(ENGI_FM6, -1) == 14u && eng_step(0, -1) == ENGI_VDRUM &&
+                 eng_step(ENGI_FM6, 1) == ENGI_WSHAPE && eng_step(ENGI_WSHAPE, 1) == 3u &&
+                 eng_step(ENGI_FM6, -1) == 14u && eng_step(0, -1) == ENGI_VDRUM &&
                  eng_step(ENGI_VDRUM, -1) == ENGI_DRUM && eng_step(ENGI_DBOX, 1) == ENGI_VDRUM);   /* (a retired engine: as
                                                                                         * its successor) */
     {   /* the display order (engines.c ENGINE_ORDER): every engine one can pick once; the PRESETS list follows it */
-        static const char *const ORDER[] = {"ANALOG", "ANLG2", "FM6", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS",
+        static const char *const ORDER[] = {"ANALOG", "ANLG2", "FM6", "WSHAPE", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS",
                                             "NOISE", "DRUM", "VDRUM"};
         uint32_t last = 0xFFu, r = 0, n = 0;
         ok = NENG_SHOWN == NELEM(ORDER);
@@ -5004,7 +5005,7 @@ static int test_fm4_retired(void)
             last = e;
             r++;
         }
-        bad += check("engines shown ANALOG ANALOG2 FM6 ... NOISE DRUM VDRUM (ENGINE_ORDER); PRESETS lists them so",
+        bad += check("engines shown ANALOG ANALOG2 FM6 WSHAPE ... NOISE DRUM VDRUM (ENGINE_ORDER); PRESETS lists them so",
                      ok && r == NENG_SHOWN);
     }
     /* a user preset stored with engine 1: kept as it is, it loads as FM6 with the converted patch */

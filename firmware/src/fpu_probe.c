@@ -11,7 +11,7 @@
  *          multiply-add, an integer one, a float divide (ns, a dependent chain each); one voice of the waveshaper, a
  *          32-sample block, as per mille of the audio's time (32 samples at 44.1 kHz: 17 415 ticks)
  * Its functions are noinline: the chains are measured as compiled, not folded into the caller. */
-#include "plaits_ws.c"
+/* (plaits_ws.c: included by engines.c with the WSHAPE engine) */
 
 #define FPB_WS_HASH 0x5D2308EDu              /* FNV-1a over the bits of pws_render's 16 blocks (tests/fpu_probe_test.c) */
 #define FPB_N 256u                            /* links of a timed chain */

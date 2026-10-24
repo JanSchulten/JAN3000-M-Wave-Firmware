@@ -19,7 +19,7 @@ static uint32_t cat_of_engine(uint32_t e) { return e == 10u || e == ENGI_VDRUM ?
  * L LEAD, P PAD, U PLUCK, K KEYS, D DRUM, F FX, O OTHER); a preset past its string (DIGITAL's, FELUCCA_FM4 builds
  * only; SAMPLE's retired PERC, past SMP_NPRESETS): its engine's (cat_of_engine). tests/ui_test.c checks every string
  * against its engine's preset count. A preset's category is a hint for browsing: nothing else reads it */
-static const char *const PRESET_CAT[17] = {
+static const char *const PRESET_CAT[18] = {
     "LPBPBKLBULLP",              /* 0 ANALOG: SAW LEAD, SOFT PAD, SQR BASS, PWM STR, ACID, SINE KEY, RAVE, SUB BASS,
                                   * PLUCK, BRASS, WIND, STRINGS */
     "",                          /* 1 DIGITAL (retired) */
@@ -40,6 +40,8 @@ static const char *const PRESET_CAT[17] = {
                                   * WIND */
     "DDDDDDDD",                  /* 15 VDRUM (M-Vave-OP1): its eight kits */
     "",                          /* 16 DBOX (M-Vave-OP1, retired) */
+    "LBLPLKUP",                  /* 17 WSHAPE (M-Vave-OP1): SOFT FOLD, FOLD BASS, GLASS LEAD, WARM PAD, BUZZ SAW, SOFT KEYS,
+                                  * METAL PLUCK, SWEEP */
 };
 static uint32_t preset_cat(uint32_t e, uint32_t k)    /* factory preset k of engine e */
 {

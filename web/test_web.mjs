@@ -53,7 +53,7 @@ async function editorMock() {
   inp.onmidimessage = (e) => link.receive(e.data);
   const rq = async (r, o) => link.request(r, o);
   const info = E.parse[E.CMD.INFO](await rq(E.req.info()));
-  ok(info.nengines === 17 && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANLG2" && info.engines[15] === "VDRUM" && info.engines[16] === "-"
+  ok(info.nengines === 18 && info.engines[17] === "WSHAPE" && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANLG2" && info.engines[15] === "VDRUM" && info.engines[16] === "-"
  && info.engines[2] === "-" && info.engines[5] === "-" && info.engines[6] === "-" && info.engines[7] === "WHEEL" && info.engines[8] === "GRAIN" && info.engines[9] === "PHYS" && info.engines[10] === "DRUM" && info.engines[11] === "NOISE" && info.pcount === 111 && info.pe0 === 103 && info.engines[4] === "SAMPLE",
     "editor: INFO");
   let descs = 0;
@@ -156,13 +156,13 @@ async function editorMock() {
   await rq(E.req.upErase(31));
   prefs = await E.readDevicePreferences(rq, info, names, prefs);
   ok(!prefs.favorites[info.nengines][31] && !E.devicePresetRows(info, names, prefs).some((r) => r.user), "editor: erased slot disappears and loses star");
-  {   /* the lists in the device's order (engines.c ENGINE_ORDER): ANALOG2 second, FM6 third, DRUM, VDRUM last, "-"
+  {   /* the lists in the device's order (engines.c ENGINE_ORDER): ANALOG2 second, FM6 third, WSHAPE fourth, DRUM, VDRUM last, "-"
        * (DIGITAL, M-Vave-OP1's retired five) never; the numbers stay */
     const shown = E.engineOrder(info.engines).map((i) => info.engines[i]);
-    ok(shown.join() === "ANALOG,ANLG2,FM6,LOFI,SAMPLE,WHEEL,GRAIN,PHYS,NOISE,DRUM,VDRUM" &&
-       E.engineOrder(info.engines)[1] === 14 && E.engineOrder(info.engines)[2] === 12 && E.engineOrder(info.engines)[9] === 10 &&
-       E.engineOrder(info.engines)[10] === 15,
-       "editor: engines listed ANALOG2 second, FM6 third, DRUM, VDRUM last (indices kept)");
+    ok(shown.join() === "ANALOG,ANLG2,FM6,WSHAPE,LOFI,SAMPLE,WHEEL,GRAIN,PHYS,NOISE,DRUM,VDRUM" &&
+       E.engineOrder(info.engines)[1] === 14 && E.engineOrder(info.engines)[2] === 12 && E.engineOrder(info.engines)[3] === 17 &&
+       E.engineOrder(info.engines)[10] === 10 && E.engineOrder(info.engines)[11] === 15,
+       "editor: engines listed ANALOG2 second, FM6 third, WSHAPE fourth, DRUM, VDRUM last (indices kept)");
     ok(E.engineOrder(["ANALOG", "X", "-", "DRUM", "FM6"]).join() === "0,4,3,1", "editor: an unknown engine follows the known ones");
     m.state.favorites[10][0] = m.state.favorites[12][0] = true;
     await rq(E.req.uiSet(3, 0));
@@ -700,7 +700,7 @@ async function editorLibrarian() {
   ok(file.format === "felucca-library" && file.version === 1 && file.pCount === 111 && file.paramLabels.length === 111 && file.paramLabels[81] === "CHRD" && file.paramLabels[82] === "VOIC" &&
     file.paramLabels[83] === "KICK" && file.paramLabels[90] === "BELL" && file.paramLabels.slice(91, 96).join() === "SYNC,TRIG,POL,QNTZ,SPRD" &&
     file.paramLabels.slice(96, 103).join() === "INSRT,INS A,INS B,INS C,MIX,TYPE,ESYNC" &&
-    file.engines.length === 17,
+    file.engines.length === 18,
     "library file: versioned, with P_COUNT, labels and engines");
   const back = E.readLibraryFile(file, ctx);
   ok(back.patches.length === 2 && !back.skipped && eq(back.patches[0].p, cap.p) && eq(back.patches[1].p, bass.p)

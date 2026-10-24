@@ -13,8 +13,9 @@
 /* Plaits' waveshaping model (plaits/dsp/engine/waveshaping_engine.cc), with the SLOPE shape of its Oscillator
  * (plaits/dsp/oscillator/oscillator.h) and stmlib's integrated polyBLEP, Hermite interpolation and parameter ramps, as
  * C in float for the FPU (core.h FM1_FPU on every function here). Bit for bit Plaits' own output on an IEEE single FPU
- * (tools/plaits_proto/ref.cc). Not an engine yet: M-Vave-OP1's FPU probe (fpu_probe.c) runs it; the WAVESHAPE engine
- * will be built around it (docs/PLAITS_PLAN.md).
+ * (tools/plaits_proto/ref.cc). The WSHAPE engine (eng_wshape.c) is built around it, the FPU probe (fpu_probe.c) runs
+ * it; pws_start (not Plaits': a module runs on, a voice starts) begins a voice at its note without Plaits' glide from
+ * the last block (docs/PLAITS_PLAN.md).
  * Units as Plaits': f0 the note's frequency over the sample rate, HARMONICS TIMBRE MORPH 0..1, the output about +-1. */
 #include "plaits_tables.h"
 
@@ -133,21 +134,46 @@ FM1_FPU static inline float pws_sine(float phase)    /* plaits Sine: lut_sine, w
     return lut_sine[ii] + (lut_sine[ii + 1] - lut_sine[ii]) * f;
 }
 
-/* one block of n samples into out (the model) and aux (Plaits' AUX: the triangle's sine blended into the second fold) */
-FM1_FPU static void pws_render(pws_t *s, float f0, float harmonics, float timbre, float morph, float *out, float *aux,
-                               uint32_t n)
+/* the waveshaper's, the wavefolder gain's and the overtone blend's values for f0 HARMONICS TIMBRE MORPH (the ends of a
+ * block's ramps) */
+FM1_FPU static void pws_ends(float f0, float harmonics, float timbre, float morph, float *sh, float *wf, float *ot)
 {
-    const float pw = morph * 0.45f + 0.5f;
     const float slope = 3.0f + pws_abs(morph - 0.5f) * 5.0f;
     const float shape_amount = pws_abs(harmonics - 0.5f) * 2.0f;
     const float shape_att = pws_tame(f0, slope, 16.0f);
     const float wf_att = pws_tame(f0, slope * (3.0f + shape_amount * shape_att * 5.0f), 12.0f);
     const float og = timbre * (2.0f - timbre);
-    float sh = s->shape, wf = s->wf, ot = s->ot;
-    const float sh_i = (0.5f + (harmonics - 0.5f) * shape_att - sh) / (float)n;
-    const float wf_i = (0.03f + 0.46f * timbre * wf_att - wf) / (float)n;
-    const float ot_i = (og * (2.0f - og) - ot) / (float)n;
+    *sh = 0.5f + (harmonics - 0.5f) * shape_att;
+    *wf = 0.03f + 0.46f * timbre * wf_att;
+    *ot = og * (2.0f - og);
+}
+
+/* a voice from rest: both oscillators at phase (0..1) and at f0 and their widths, the ramps at their ends: the first
+ * block plays the note, not a glide into it */
+FM1_FPU static void pws_start(pws_t *s, float phase, float f0, float harmonics, float timbre, float morph)
+{
+    float f = pws_clamp(f0, 0.000001f, 0.25f), pw = morph * 0.45f + 0.5f;
+    pws_init(s);
+    s->slope.phase = s->tri.phase = phase;
+    s->slope.freq = s->tri.freq = f;
+    s->slope.pw = pws_clamp(pw, f * 2.0f, 1.0f - 2.0f * f);
+    s->tri.pw = pws_clamp(0.5f, f * 2.0f, 1.0f - 2.0f * f);
+    s->slope.high = phase < s->slope.pw;
+    s->tri.high = phase < s->tri.pw;
+    pws_ends(f0, harmonics, timbre, morph, &s->shape, &s->wf, &s->ot);
+}
+
+/* one block of n samples into out (the model) and aux (Plaits' AUX: the triangle's sine blended into the second fold) */
+FM1_FPU static void pws_render(pws_t *s, float f0, float harmonics, float timbre, float morph, float *out, float *aux,
+                               uint32_t n)
+{
+    const float pw = morph * 0.45f + 0.5f;
+    float sh = s->shape, wf = s->wf, ot = s->ot, sh_e, wf_e, ot_e, sh_i, wf_i, ot_i;
     uint32_t i;
+    pws_ends(f0, harmonics, timbre, morph, &sh_e, &wf_e, &ot_e);
+    sh_i = (sh_e - sh) / (float)n;
+    wf_i = (wf_e - wf) / (float)n;
+    ot_i = (ot_e - ot) / (float)n;
     pws_slope(&s->slope, f0, pw, out, n);
     pws_slope(&s->tri, f0, 0.5f, aux, n);
     for (i = 0; i < n; i++) {

@@ -118,7 +118,7 @@ immer (`ui.c` `preset_fx`, `preset_load_to`; Test: `tests/preset_fx_test.c`).
 2. ~~Phase 0: Machbarkeit~~ (dieses Dokument)
 3. ~~FPU-Probe auf dem Gerät~~ (gemessen 2026-10-24, Abschnitt 6)
 4. ~~Alte Engines entfernen~~ (SLICE, PHASE, VOICE, TRIO, DBOX; Abschnitt 7)
-5. Neue Engines: WAVESHAPE → HARMONIC → PARTICLE → WAVETABLE → SWARM
+5. Neue Engines: ~~WAVESHAPE~~ (Abschnitt 8) → HARMONIC → PARTICLE → WAVETABLE → SWARM
 6. Presets, UI, Golden-Tests, Emulator; erst dann aufs Gerät, nur mit Okay
 
 ## 6. Die FPU-Probe (MENU > SYSTEM > INFO)
@@ -186,3 +186,33 @@ Was die fünf Plaits-Engines noch brauchen (die Tabellen von Sinus, Faltern und 
 Image): Code und Hülle ~15 KB (geschätzt), dazu die Wavetables. Mit **16 Bit** (50,7 KB) sind das ~66 KB: **~7 KB mehr,
 als frei ist**; mit 8 Bit (25,3 KB) ~41 KB, das passt mit ~18 KB Reserve. Die genaue Rechnung kommt mit den ersten
 Engines (Code gemessen statt geschätzt); reicht es nicht für 16 Bit, gilt die Entscheidung „sonst 8 Bit“.
+
+## 8. Schritt 5a: WAVESHAPE (Engine 17, `WSHAPE`)
+
+Die erste spielbare Plaits-Engine, wie Grind sie spielt: Plaits-Oszillator → Filter → ADSR.
+
+- `eng_wshape.c` um `plaits_ws.c` (das Modell der FPU-Probe, bitgleich mit Plaits): ein Modell pro Stimme im
+  Engine-Speicher des Parts (`wsh_mem_t`, 56 B pro Stimme), der Float-Teil in `wsh_model` (`FM1_FPU`, auf der FPU),
+  der Rest ganzzahlig wie jede Engine: DRV, ANALOGs Filter mit Knie, ein DC-Blocker (Plaits' Kurven tragen
+  Gleichanteil, das Modul koppelt seinen Ausgang kapazitiv aus), `voice_amp`.
+- Regler: SHAPE-Seite HARM TIMB MORPH AUX (Plaits' HARMONICS, TIMBRE, MORPH; AUX blendet in den zweiten Ausgang),
+  FLT-Seite CUT RES DRV KTR. HOME: HARM TIMB MORPH CUT. Die SHP-Routings bewegen TIMB.
+- Eine Stimme aus der Ruhe startet auf ihrem Ton (kein Gleiten hinein), ihre Phase aus `ph[0]` (UNISON spreizt sie);
+  ein Retrigger einer klingenden Stimme lässt das Modell weiterlaufen.
+- Acht Presets: SOFT FOLD, FOLD BASS, GLASS LEAD, WARM PAD, BUZZ SAW, SOFT KEYS, METAL PLUCK, SWEEP. PHASE-Sounds laden
+  als SOFT FOLD (`eng_successor`: PHASE → WSHAPE).
+- In der Liste nach FM6 (`ENGINE_ORDER`), wo PHASE stand; EDIT-Tasten jetzt 12.
+- Test `tests/wshape_test.c`: alle Presets C1..C7 ohne DC und begrenzt, die Ecken innerhalb des Filterknies, C4
+  gestimmt ab den ersten 10 ms, MONO-Retrigger, UNISON-Phasen, SHP, Determinismus, Engine-Wechsel mit GRAIN PHYS DRUM
+  FM6 VDRUM wie vom Start; Demos in `build/wshape_demo/`. Golden: 8 neue Renders, keiner verändert.
+
+| | vorher | nachher |
+| --- | --- | --- |
+| Image | 522 836 B | **524 740 B** (+1 904 B; 56 824 B frei) |
+| RAM `.data`+`.bss` | 51 640 B | 52 024 B (+384 B: die Puffer des Modells) |
+
+Der Code einer Engine kostet also ~2 KB statt der geschätzten ~3 KB. Für die vier übrigen: ~8–10 KB Code plus die
+Wavetables. Mit 16 Bit (50,7 KB) sind das ~60 KB bei 56,8 KB frei: **knapp zu viel**; die Entscheidung fällt mit
+WAVETABLE, wenn HARMONIC und PARTICLE gemessen sind.
+
+Noch offen: am Gerät INFO > CPU mit 8 gehaltenen WSHAPE-Tönen messen (erwartet ~35 % für 8 Stimmen).

@@ -40,7 +40,8 @@ static uint32_t up_gen;                      /* bumped on every user bank change
 #include "favorites.c"
 /* favorites.c fav_at: the engines from 14 on in the upper halves of ANALOG's, PHASE's, LOFI's rows */
 _Static_assert(NENGINES <= 14u + sizeof FAV_HOST, "favorites.c: an engine from 14 on needs a row's upper half (FAV_HOST)");
-_Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&   /* (PHASE's row: retired, none of */
+_Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u && NELEM(WSHAPE_PRESETS) <= 128u &&
+               /* (PHASE's row: retired, none of */
                NELEM(ANALOG_PRESETS) <= 128u && NELEM(LOFI_PRESETS) <= 128u,      /* its own; LOFI's holds DBOX's, retired) */
                "favorites.c: an engine from 14 on and its host share a row of 256 presets");
 #include "category.c"                   /* sound categories (Discussion #90): PRESETS > LIST */

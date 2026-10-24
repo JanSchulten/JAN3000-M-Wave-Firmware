@@ -70,7 +70,8 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "VIB", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "DEPTH"};
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "-", "LOFI", "SAMPLE", "-", "-", "WHEEL", "GRAIN", "PHYS",
                                              "DRUM", "NOISE", "FM6", "-", "ANLG2",
-                                             "VDRUM", "-"};   /* (M-Vave-OP1: 14 .. 16; "-" a retired engine: engines.c ENG_GONE) */
+                                             "VDRUM", "-", "WSHAPE"};   /* (M-Vave-OP1: 14 .. 17; "-" a retired engine:
+                                                                       * engines.c ENG_GONE) */
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0, 0}
 #define PE(l, n, df) {l, F_ENUM, 0, (int16_t)(sizeof(n) / sizeof(n[0]) - 1), df, n, 0}

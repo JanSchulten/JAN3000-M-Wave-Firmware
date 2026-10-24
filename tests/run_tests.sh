@@ -208,7 +208,13 @@
 #                   a press, the rows drawn; a screen in build/fpu_shots/.
 # RETIRED (tests/retired_test.c, M-Vave-OP1): PHASE, VOICE, TRIO, SLICE and DBOX retired (src/engines.c ENG_GONE, core.h
 #                   eng_successor): none offered, silent; picked, a project's track, a user preset: the successor's first
-#                   preset (DBOX DRUM, the others ANALOG), the rest as stored, the motion on the E values dropped.
+#                   preset (DBOX DRUM, PHASE WSHAPE, the others ANALOG), the rest as stored, the motion on the E values
+#                   dropped.
+# WSHAPE (tests/wshape_test.c, M-Vave-OP1): the Plaits waveshaping engine (src/eng_wshape.c around src/plaits_ws.c):
+#                   every preset sounding C1..C7 without DC, bounded; the corners within the filter's knee; C4 in tune
+#                   from its first 10 ms; a MONO retrigger keeps the model running, UNISON's voices at different
+#                   phases; SHP moving TIMBRE, clamped; a note from silence the same twice; switches with the engines
+#                   that keep part memory as from boot; demos in build/wshape_demo/.
 # NOISE (tests/noise_test.c): the engine (src/eng_noise.c): COLR's slope (white, pink, brown), the filter and the
 #                   register clock following the key, META periodic at the key, no DC, no clipping at the
 #                   corners, a note from silence the same twice, the cost per voice; demos in build/noise_demo/.
@@ -459,6 +465,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "PRESET FX: factory presets keep the track's sends and INSERT, user presets bring theirs, power-on as ever" "$OUT/preset_fx_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/retired_test" tests/retired_test.c -lm
     run "RETIRED: PHASE VOICE TRIO SLICE DBOX never offered; picked, projects, user presets load their successors" "$OUT/retired_test"
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/wshape_test" tests/wshape_test.c -lm
+    mkdir -p build/wshape_demo
+    run "WSHAPE: presets sound without DC, corners bounded, in tune, MONO / UNISON phases, SHP, determinism, switches, demos" "$OUT/wshape_test" build/wshape_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fpu_probe_test" tests/fpu_probe_test.c -lm
     mkdir -p build/fpu_shots
     run "FPU PROBE: exact checks, the waveshaper's hash, bounded; INFO's OCT+ after the boot guard, its rows, a screen" "$OUT/fpu_probe_test" build/fpu_shots

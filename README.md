@@ -218,14 +218,36 @@ BEAT pattern and MIDI drum parts play on it.
 - **Steps written as notes before the grid** become hits when the project loads or the scene is picked: the same
   notes at the same velocities, nothing sounds different; other notes stay notes, shown on their lane.
 
+## WSHAPE: Plaits' waveshaper, a filter, the ADSR
+
+The first engine after Mutable Instruments' Plaits (engine 17, shown **WSHAPE**, after FM6 in PRESETS; MIT, Emilie
+Gillet): Plaits' waveshaping model, sample for sample the module's own, computed on the chip's FPU, then ANALOG's
+filter and the ADSR, as Behringer's Grind plays it.
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| SHAPE | HARM | TIMB | MORPH | AUX |
+| FLT | CUT | RES | DRV | KTR |
+
+- **HARM:** the waveshaper's curve, from the inverse tangent through sine, linear and bump to the double bump (Plaits'
+  HARMONICS).
+- **TIMB:** the wavefolder's gain: more folds, brighter (Plaits' TIMBRE). The SHP routings (ENV / LFO DEST SHP, the
+  matrix's SHP) move it, as they move ANALOG's pulse width.
+- **MORPH:** the slope's asymmetry: a triangle at 64, towards a saw either way (Plaits' MORPH).
+- **AUX:** the blend into Plaits' second output (the triangle's sine into a second folder): rounder, more hollow.
+- **CUT RES DRV KTR:** ANALOG's low-pass, its drive before it and the key tracking (64 an octave an octave).
+- Eight presets: SOFT FOLD, FOLD BASS, GLASS LEAD, WARM PAD, BUZZ SAW, SOFT KEYS, METAL PLUCK, SWEEP. HOME's knobs:
+  HARM, TIMB, MORPH, CUT. A sound stored with PHASE loads as SOFT FOLD.
+- A voice costs about 4 % of the audio's time on the unit (MENU > SYSTEM > INFO's FPU probe measures the model).
+
 ## Retired: PHASE, VOICE, TRIO, SLICE and DBOX
 
 Five engines made room for engines after Mutable Instruments' Plaits (the module Behringer's Grind builds on; the plan:
 [docs/PLAITS_PLAN.md](docs/PLAITS_PLAN.md)): about 46 KB of flash and 5 KB of RAM. Their numbers stay reserved, so
 nothing that names one breaks: a project, the autosave, a user preset or the editor that asks for one loads its
-successor's first preset instead (DBOX becomes DRUM, the others ANALOG for now; the rest of the sound and the steps as
-stored). The Plaits engines will take their places: WAVESHAPE for PHASE, WAVETABLE for VOICE, SWARM for SLICE,
-HARMONIC and PARTICLE for TRIO and DBOX.
+successor's first preset instead (PHASE becomes WSHAPE, DBOX DRUM, the others ANALOG for now; the rest of the sound and
+the steps as stored). The Plaits engines take their places: WSHAPE for PHASE (here now), WAVETABLE for VOICE, SWARM for
+SLICE, HARMONIC and PARTICLE for TRIO and DBOX.
 
 ## Other changes to Felucca's workflow
 

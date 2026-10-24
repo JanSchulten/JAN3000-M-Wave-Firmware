@@ -38,8 +38,8 @@ static uint8_t eng_mem_owner[NPART];       /* engine index + 1 whose state is in
 /* M-Vave-OP1: the retired engines (docs/PLAITS_PLAN.md step 4): PHASE 2, VOICE 5, TRIO 6, SLICE 13, DBOX 16. Their
  * numbers stay reserved (projects, user presets and the editor protocol store engine numbers): never offered (eng_ok),
  * silent, and a sound stored with one loads as its successor's first preset (core.h eng_successor: project.c
- * proj_retired, upreset.c up_load, set_engine_of). The successors are today's nearest engines; the Plaits engines take their place
- * as they come (PHASE -> WAVESHAPE, VOICE -> WAVETABLE, SLICE -> SWARM) */
+ * proj_retired, upreset.c up_load, set_engine_of). The successors: PHASE's WSHAPE (the Plaits waveshaper); the others
+ * today's nearest engines until the Plaits engines take their place (VOICE -> WAVETABLE, SLICE -> SWARM) */
 static void gone_note_on(struct track *t, voice_t *v) { (void)t; (void)v; }
 static void gone_render(struct track *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
 {
@@ -53,6 +53,7 @@ static const engine_t ENG_GONE = {
     .knob = {P_E4, P_E5, P_E6, P_REL},
 };
 #include "eng_vdrum.c"          /* VDRUM: six parts of two layers into a resonator (M-Vave-OP1) */
+#include "eng_wshape.c"         /* WSHAPE: Plaits' waveshaper (plaits_ws.c, MIT), filter, ADSR (M-Vave-OP1) */
 #include "kitlane.c"            /* the kits' grid lanes: DRUM, VDRUM (M-Vave-OP1) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
@@ -63,7 +64,7 @@ static const engine_t *const ENGINES[NENGINES] = {
 #else
     &ENG_FM4_GONE,               /* 1: reserved (DIGITAL, retired: its sounds convert to FM6, fm4_convert.c) */
 #endif
-    &ENG_GONE,                   /* 2: reserved (PHASE, retired: its sounds load as ANALOG) */
+    &ENG_GONE,                   /* 2: reserved (PHASE, retired: its sounds load as WSHAPE) */
     &ENG_LOFI,                   /* 3 */
     &ENG_SAMPLE,                 /* 4 */
     &ENG_GONE,                   /* 5: reserved (VOICE, retired: ANALOG) */
@@ -78,6 +79,7 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_ANALOG2,                /* 14 (M-Vave-OP1) */
     &ENG_VDRUM,                  /* 15 (ENGI_VDRUM, M-Vave-OP1) */
     &ENG_GONE,                   /* 16: reserved (DBOX, M-Vave-OP1, retired: DRUM) */
+    &ENG_WSHAPE,                 /* 17 (ENGI_WSHAPE, M-Vave-OP1: PHASE's successor) */
 };
 
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
@@ -124,6 +126,7 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     0,                           /* ANALOG */
     14,                          /* ANALOG2 */
     12,                          /* FM6 */
+    17,                          /* WSHAPE (M-Vave-OP1: where PHASE was) */
 #if FELUCCA_FM4
     1,                           /* DIGITAL */
 #endif

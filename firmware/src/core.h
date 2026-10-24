@@ -17,11 +17,12 @@
 #define FELUCCA_FM4 0            /* the DIGITAL engine (eng_digital.c, four-operator FM): kept in the tree, not built
                                   * by default; replaced by FM6, its sounds convert (fm4_convert.c) */
 #endif
-#define NENGINES 17u              /* .. SLICE 13, ANALOG2 14, VDRUM 15, DBOX 16 (M-Vave-OP1): appended, the others keep
+#define NENGINES 18u              /* .. SLICE 13, ANALOG2 14, VDRUM 15, DBOX 16, WSHAPE 17 (M-Vave-OP1): appended, the others keep
                                   * their numbers; a retired engine keeps its number as a reserved slot (engines.c ENG_GONE) */
 #define ENGI_SLICE 13u           /* (retired, M-Vave-OP1: PHASE 2, VOICE 5, TRIO 6, SLICE 13, DBOX 16) */
 #define ENGI_VDRUM 15u
 #define ENGI_DBOX 16u
+#define ENGI_WSHAPE 17u          /* (M-Vave-OP1: the Plaits waveshaper, PHASE's successor) */
 #define NENG_RETIRED 5u
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
 #define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - NENG_RETIRED)   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
@@ -112,12 +113,15 @@ static void params_by_count(int16_t *out, const int16_t *in, uint32_t np, const 
 /* engine indices the stores name (engines.c ENGINES[]: append-only) */
 #define ENGI_PHYS 9u
 #define ENGI_DRUM 10u
-/* M-Vave-OP1: the engine a stored engine number plays as: a retired one's successor (engines.c ENG_GONE: PHASE 2,
- * VOICE 5, TRIO 6, SLICE 13 -> ANALOG 0, DBOX 16 -> DRUM), any other itself. Projects (project.c proj_retired), user
+/* M-Vave-OP1: the engine a stored engine number plays as: a retired one's successor (engines.c ENG_GONE: PHASE 2 ->
+ * WSHAPE 17, VOICE 5, TRIO 6, SLICE 13 -> ANALOG 0, DBOX 16 -> DRUM), any other itself. Projects (project.c proj_retired), user
  * presets (upreset.c), the editor and every engine switch (ui.c set_engine_of) go through it; the sound loads as the
  * successor's first preset. The Plaits engines will take ANALOG's place here as they come (docs/PLAITS_PLAN.md) */
 static inline int eng_retired(uint32_t e) { return e == 2u || e == 5u || e == 6u || e == ENGI_SLICE || e == ENGI_DBOX; }
-static inline uint32_t eng_successor(uint32_t e) { return !eng_retired(e) ? e : e == ENGI_DBOX ? ENGI_DRUM : 0u; }
+static inline uint32_t eng_successor(uint32_t e)
+{
+    return !eng_retired(e) ? e : e == ENGI_DBOX ? ENGI_DRUM : e == 2u ? ENGI_WSHAPE : 0u;
+}
 /* PHYS MODEL DRUM (MODEL 4, before 1.0) -> the DRUM engine, its E values in place: {MODEL, TUNE, TONE, DECY,
  * SNAP, ACC, KICK 0..127, PERC 0..127} -> {KIT, TUNE, TONE, DECY, SNAP, ACC, KICK 0..1, DRV 0}. 1 = it was one
  * (its engine is ENGI_DRUM now); projects (project.c) and user presets (upreset.c) */
