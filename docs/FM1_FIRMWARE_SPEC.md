@@ -106,7 +106,8 @@ commit record written last.
   - Outputs: headphone/line jack and speaker.
 - **No audio input:** no mic or line-in is usable.
 - **USB:** class-compliant MIDI, USB audio *to the host* (the master output, 44.1 or 48 kHz), and an optional CDC
-  serial console.
+  serial console. M-Vave-OP1: MENU > USB DISK presents another device while it is up, a read-only USB drive
+  (mass storage, bulk-only, SCSI) with the projects as files (`usbdisk.c`, `msc.c`, `vdisk.c`).
 - **MIDI:** the TRS jack is **MIDI IN only** (UART1, PH8); there is no DIN/TRS MIDI out.
 - **Clock and sync:**
   - Out: USB MIDI clock, or a Pocket Operator–style sync pulse on the left audio channel (M-Vave-OP1 "SYNC OUT PO").

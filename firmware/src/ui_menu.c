@@ -547,6 +547,13 @@ static void menu_input(uint32_t oct)                  /* oct: ui_input.c oct_tap
             panel_setup();
             scrn.idle = fm1_ms;                         /* (SCREEN OFF: its own loop had the input) */
             ui.force = 1;
+        } else if (ui.menu_sel == MI_DISK) {           /* M-Vave-OP1: USB DISK, its own loop until a button (usbdisk.c) */
+#if FELUCCA_DISK
+            usb_disk_run();
+            scrn.idle = fm1_ms;
+#else
+            ui_message("NOT IN THIS BUILD");
+#endif
         } else if (ui.menu_sel == MI_INFO) {
             ui.menu = 3;
             info.t = fm1_ms - INFO_CPU_MS;              /* (the CPU load read at once) */

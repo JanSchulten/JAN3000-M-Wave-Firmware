@@ -346,6 +346,28 @@ the BEAT pattern plays on them.
   PO does not follow on PO, try PO INV. USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is
   the way out for a clock.
 
+## USB DISK: the projects as files
+
+**MENU > SYSTEM > USB DISK** (OCT+) turns the FM-1 into a USB drive for as long as its screen is up: plugged into a
+phone (the Files app) or a computer it shows up as **FM-1**, read-only, with
+
+- `README.TXT`: what is on it, the slots and their projects' names, the firmware,
+- `CURRENT.FM1`: the music as it is now (saved into the autosave first, as a power-on with RESTORE LAST would bring
+  it back),
+- `PROJ_A.FM1` .. `PROJ_D.FM1`: the project slots that hold a project.
+
+Copy them wherever you like. Any button or key ends it, and USB is MIDI + audio again (the host sees the FM-1 unplugged
+and plugged in again). A `.FM1` file holds the project exactly as the FM-1 keeps it in its flash: the project, its
+extras (FX TRACKS, KEY, steps 65..128, the scene song ..), its scenes, the settings, the user sample USR1 and FM6's voice
+bank, each with its flash offset and CRC (format FM1X, described in `firmware/src/usbdisk.c`). Nothing is converted, so
+a reader can put the bytes back where they were: the browser emulator runs the same firmware, which is the way to an
+offline bounce without the FM-1. Copying files onto the FM-1 is not there yet (the drive is write-protected).
+
+The drive is made up as it is read (a FAT16 of 8 MiB, nothing of it stored). The transport stops and the screen stays
+on USB DISK while it is up; MIDI, USB audio, the editor and the console are off for that time. Built with
+`FELUCCA_DISK` (on in the firmware). Tested on the host (`tests/vdisk_test.c` reads the whole drive the way a host
+does and checks it with a FAT reader of its own, `tests/vdisk_check.py`); a phone or a computer has not seen it yet.
+
 ## Try it in the browser
 
 `web/lab` is an emulator page with guided workflows (in German): the whole firmware as WebAssembly, with a

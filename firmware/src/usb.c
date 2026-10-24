@@ -35,6 +35,9 @@
 #ifndef FELUCCA_UAC_AS_FIRST
 #define FELUCCA_UAC_AS_FIRST 1
 #endif
+#ifndef FELUCCA_DISK
+#define FELUCCA_DISK 0           /* M-Vave-OP1: MENU > USB DISK, the FM-1 as a read-only USB drive (msc.c, vdisk.c) */
+#endif
 #if !FELUCCA_UAC
 #undef FELUCCA_UAC_48K
 #define FELUCCA_UAC_48K 0
@@ -357,8 +360,55 @@ static const uint8_t STR2[] = {30, 3, 'F', 0, 'e', 0, 'l', 0, 'u', 0, 'c', 0, 'c
 static const uint8_t STR2[] = {16, 3, 'F', 0, 'e', 0, 'l', 0, 'u', 0, 'c', 0, 'c', 0, 'a', 0};
 #endif
 
+#if FELUCCA_DISK
+/* M-Vave-OP1, USB DISK (usb_disk_switch): another device altogether while it is on, mass storage only (class 08,
+ * SCSI transparent, bulk-only) on EP1 (MIDI's, unused then), so a host never mixes it up with the MIDI + audio one:
+ * its own PID (FELUCCA_DISK_PID, pid.codes' test range as FELUCCA_USB_PID), a serial number (BOT asks for one) */
+#include "vdisk.c"
+#include "msc.c"
+#ifndef FELUCCA_DISK_PID
+#define FELUCCA_DISK_PID 0x0003
+#endif
+static const uint8_t DEV_DESC_DISK[18] = {18, 1, 0x00, 0x02, 0, 0, 0, 64, 0x09, 0x12, FELUCCA_DISK_PID & 0xFF,
+                                          FELUCCA_DISK_PID >> 8, 0x00, 0x01, 1, 4, 3, 1};
+static const uint8_t CFG_DESC_DISK[32] = {
+    9, 2, 32, 0, 1, 1, 0, 0x80, 50,
+    9, 4, 0, 0, 2, 0x08, 0x06, 0x50, 0,                    /* mass storage, SCSI, bulk-only */
+    7, 5, 0x81, 2, 64, 0, 0,                               /* EP1 IN bulk */
+    7, 5, 0x01, 2, 64, 0, 0};                              /* EP1 OUT bulk */
+static const uint8_t STR3[] = {26, 3, 'F', 0, 'M', 0, '1', 0, 'O', 0, 'P', 0, '1', 0, 'D', 0, 'I', 0, 'S', 0, 'K', 0,
+                               '0', 0, '1', 0};
+static const uint8_t STR4[] = {20, 3, 'F', 0, 'M', 0, '-', 0, '1', 0, ' ', 0, 'D', 0, 'I', 0, 'S', 0, 'K', 0};
+static uint8_t usb_disk_on;                                /* presented as the disk (read by the TIMER5 ISR) */
+#else
+#define usb_disk_on 0
+#endif
+
 static int get_desc(uint32_t wvalue, const uint8_t **d, uint16_t *l)
 {
+#if FELUCCA_DISK
+    if (usb_disk_on) {
+        switch (wvalue >> 8) {
+        case 1:
+            *d = DEV_DESC_DISK;
+            *l = sizeof DEV_DESC_DISK;
+            return 1;
+        case 2:
+            *d = CFG_DESC_DISK;
+            *l = sizeof CFG_DESC_DISK;
+            return 1;
+        case 3:
+            if ((wvalue & 0xFFu) == 3u || (wvalue & 0xFFu) == 4u) {
+                *d = (wvalue & 0xFFu) == 3u ? STR3 : STR4;
+                *l = (uint16_t)((wvalue & 0xFFu) == 3u ? sizeof STR3 : sizeof STR4);
+                return 1;
+            }
+            break;                                     /* (0, 1: as the MIDI device's) */
+        default:
+            return 0;
+        }
+    }
+#endif
     switch (wvalue >> 8) {
     case 1:
         *d = USB_CDC_ON ? DEV_DESC : DEV_DESC_PLAIN;
@@ -477,6 +527,12 @@ static void ep1_config(void)
     sie_wr(S_RXCSR2, 0);
     sie_wr(S_INTRRX1E, 0x02);
     fm1_usb_ep_enable(1u << 1);
+#if FELUCCA_DISK
+    if (usb_disk_on) {                                  /* the disk: EP1 only */
+        msc_reset();
+        return;
+    }
+#endif
 #if FELUCCA_CDC
     if (!usb_cdc_on)
         goto no_cdc;                                    /* presented without the console: EP2 / EP3 unused */
@@ -665,7 +721,7 @@ static void ep0_service(void)
         e0_send(zero2, 1, wlength);
         return;
     case 0x0201: {                                      /* CLEAR_FEATURE(ENDPOINT_HALT): data toggle reset */
-        uint32_t ep = s[4] & 0x0Fu, last = USB_CDC_ON ? 3u : 1u;
+        uint32_t ep = s[4] & 0x0Fu, last = USB_CDC_ON && !usb_disk_on ? 3u : 1u;
 #if FELUCCA_UAC
         if (wvalue == 0 && s[4] == 0x84u)
             goto ack;                                   /* isochronous: no halt, no toggle */
@@ -736,6 +792,18 @@ static void ep0_service(void)
         e0_send(RATE, 3, wlength);
         return;
     }
+#endif
+#if FELUCCA_DISK
+    case 0xA1FE:                                        /* GET MAX LUN: one, 0 */
+        if (!usb_disk_on)
+            goto stall;
+        e0_send(zero2, 1, wlength);
+        return;
+    case 0x21FF:                                        /* bulk-only mass storage reset */
+        if (!usb_disk_on)
+            goto stall;
+        msc_reset();
+        goto ack;
 #endif
     default:
         goto stall;
@@ -1227,6 +1295,47 @@ static void uac_service(void)
 }
 #endif
 
+#if FELUCCA_DISK
+/* TIMER5: the disk's EP1, a packet each way a poll at most (64 bytes a 0.5 ms: ~128 KB/s). OUT: a CBW (or a write's
+ * data, dropped) to msc.c, left in the FIFO (NAKed) while the status of the last command is still to go. IN: the next
+ * packet msc.c has, once the last one has gone */
+static __attribute__((noinline)) void msc_service(void)   /* (noinline: the MIDI device's polls never pay for it) */
+{
+    uint32_t csr, n;
+    int k;
+    if (usb.rx_pend) {
+        sie_wr(S_INDEX, 1);
+        csr = sie_rd(S_RXCSR1) | (sie_rd(S_RXCSR2) << 8);
+        if (!(csr & 1u)) {
+            usb.rx_pend = 0;
+        } else if (msc.st == MS_CBW || msc.st == MS_OUT) {
+            n = sie_rd(S_RXCOUNT1) | (sie_rd(S_RXCOUNT2) << 8);
+            if (n > 64u)
+                n = 64u;
+            fm1_usb_rx_sync();
+            msc_out(ep1rx, n);
+            usb.rx_pend = 0;
+            usb.rx_pkts++;
+            csr = (csr & ~0x164u) | 0x10u;
+            sie_wr(S_RXCSR1, csr & 0xFFu);
+            sie_wr(S_RXCSR2, csr >> 8);
+        }
+    }
+    sie_wr(S_INDEX, 1);
+    csr = sie_rd(S_TXCSR1);
+    if (csr & 0x01u)
+        return;                                         /* the last packet still waits for the host */
+    if (csr & 0x80u)
+        sie_wr(S_TXCSR1, csr & ~0x80u);
+    k = msc_in(ep1tx);
+    if (k < 0)
+        return;
+    fm1_usb_ep_send(1, ep1tx, (uint32_t)k);
+    sie_wr(S_TXCSR1, sie_rd(S_TXCSR1) | 0x01u);
+    usb.tx_pkts++;
+}
+#endif
+
 static void usb_poll(void)                              /* TIMER5 ISR, 2 kHz */
 {
     uint32_t iu, it, ir;
@@ -1293,6 +1402,9 @@ static void usb_poll(void)                              /* TIMER5 ISR, 2 kHz */
         uac_stream(0);
         uac_rate_set(UAC_RATE);
 #endif
+#if FELUCCA_DISK
+        msc_reset();
+#endif
         fm1_usb_ep0_buf(ep0buf);
         sie_wr(S_INTRUSBE, 0x07);
         sie_wr(S_INTRTX1E, 0x01);
@@ -1300,6 +1412,15 @@ static void usb_poll(void)                              /* TIMER5 ISR, 2 kHz */
     }
     if (it & 0x01u)
         ep0_service();
+#if FELUCCA_DISK
+    if (usb_disk_on) {                                  /* the disk: EP1 is its bulk pair, nothing else runs */
+        if (ir & 0x02u)
+            usb.rx_pend = 1;
+        if (usb.config)
+            msc_service();
+        return;
+    }
+#endif
     if (ir & 0x02u)
         usb.rx_pend = 1;
     if (usb.rx_pend)                                    /* not every poll: 3 SIE round trips each */
@@ -1375,5 +1496,30 @@ static __attribute__((unused)) void usb_cdc_switch(uint32_t on)
     cdc.dtr = 0;                                        /* the console stops writing */
     cdc.rx_pend = 0;
     usb_cdc_on = (uint8_t)on;
+}
+#endif
+
+#if FELUCCA_DISK
+/* M-Vave-OP1, MENU > USB DISK (usbdisk.c): presented as the disk (1) or as MIDI + audio again (0), as usb_cdc_switch
+ * does it: off the bus now, usb_retry attaches within a second with the other descriptors (main loop) */
+static void usb_disk_switch(uint32_t on)
+{
+    on = on != 0;
+    if (on == usb_disk_on)
+        return;
+    if (usb.up) {
+        usb.up = 0;                                     /* usb_poll (TIMER5) stops before the SIE goes */
+        RING_PUBLISH();
+        fm1_usb_off();
+    }
+    usb.config = 0;
+#if FELUCCA_CDC
+    cdc.dtr = 0;
+    cdc.rx_pend = 0;
+#endif
+    usb.rx_pend = 0;
+    msc_reset();
+    msc.ejected = 0;
+    usb_disk_on = (uint8_t)on;
 }
 #endif

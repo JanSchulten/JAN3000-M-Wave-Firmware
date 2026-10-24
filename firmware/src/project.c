@@ -1460,6 +1460,26 @@ static int autosave_quiet(void)
 
 static void autosave_hold(void) { as.t = fm1_ms; }   /* the editor's transfers: their staging RAM is proj_wire */
 
+#if FELUCCA_FLASH
+/* the music as it is now (its signature sig) into the autosave, its extras and scenes after it; 0 written. autosave_poll
+ * when the time has come, M-Vave-OP1's USB DISK before it shows the music as CURRENT.FM1 (usbdisk.c), stopped */
+static int autosave_write(uint32_t sig)
+{
+    as.last = fm1_ms;
+    as.wrote = 1;
+    project_capture(&proj_scratch);
+    proj_wire_gen++;
+    as.err = !proj_pack(&proj_wire, &proj_scratch) || st_save(OBJ_AUTOSAVE, &proj_wire, sizeof proj_wire) != 0 ||
+             xtra_autosaved(xtra_id(&proj_wire, sizeof proj_wire)) != 0 ||   /* (M-Vave-OP1: the FX TRACKS after it, */
+             scene_autosaved(xtra_id(&proj_wire, sizeof proj_wire)) != 0;   /* the other scenes) */
+    if (!as.err) {
+        as.saved = sig;
+        as.writes++;
+    }
+    return as.err;
+}
+#endif
+
 /* main loop, every pass (after settings_poll) */
 static void autosave_poll(void)
 {
@@ -1477,17 +1497,7 @@ static void autosave_poll(void)
     if (sig == as.saved || (ui_prefs & PREF_RESTORE_OFF) || fm1_ms - as.t < AS_IDLE_MS ||
         (as.wrote && fm1_ms - as.last < (as.err ? AS_RETRY_MS : AS_GAP_MS)))
         return;
-    as.last = fm1_ms;
-    as.wrote = 1;
-    project_capture(&proj_scratch);
-    proj_wire_gen++;
-    as.err = !proj_pack(&proj_wire, &proj_scratch) || st_save(OBJ_AUTOSAVE, &proj_wire, sizeof proj_wire) != 0 ||
-             xtra_autosaved(xtra_id(&proj_wire, sizeof proj_wire)) != 0 ||   /* (M-Vave-OP1: the FX TRACKS after it, */
-             scene_autosaved(xtra_id(&proj_wire, sizeof proj_wire)) != 0;   /* the other scenes) */
-    if (!as.err) {
-        as.saved = sig;
-        as.writes++;
-    }
+    autosave_write(sig);
 #endif
 }
 

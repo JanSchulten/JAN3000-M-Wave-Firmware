@@ -112,6 +112,10 @@
 #                   128), LEN 64 as before; SAVE / LOAD keep them (the extras' tail, XTRA_V7), what firmware of 64 steps
 #                   reads of the slot, extras of before; a song's slot; scenes of 64 steps pack as before, wider ones
 #                   wide (SCN_F_WIDE); STEP's bank 8, AUTOMATION's rows past 64 (the flash's: opstore_test.c).
+# USB DISK (tests/vdisk_test.c, M-Vave-OP1): MENU > USB DISK's mass storage (msc.c) driven as a host drives a drive:
+#                   TEST UNIT READY, INQUIRY, the capacities, MODE SENSE write-protected, a write refused, an unknown
+#                   command, sense, eject; the whole made-up FAT16 (vdisk.c) read and read back by tests/vdisk_check.py,
+#                   a reader of its own; README.TXT, CURRENT.FM1 and the slots' PROJ_x.FM1 the flash's own bytes.
 # SCENE SONG (tests/ssong_test.c, M-Vave-OP1): SEQ > SCENE SONG's rows (+ ADD, SCENE, REPS, END, EDIT deletes), the
 #                   scenes one after another at each one's end (passes counted, the switch on its block), LOOP / STOP,
 #                   a row on the scene playing, NEXT BAR ignored, live edits, a pick by hand or STOP ends it, kept.
@@ -275,6 +279,17 @@ EOF
         tests/usb_desc_test.c
     run "USB descriptors: CDC $t_cdc (presented $t_on), UAC $t_uac (48 kHz $t_48), layout $t_lay" "$OUT/usb_desc_test"
 done
+# M-Vave-OP1, MENU > USB DISK (FELUCCA_DISK, the firmware's default): its mass storage device besides, the MIDI + audio
+# device's descriptors unchanged with it built in
+for v in 1.1.0.1.1 1.1.0.0.1; do
+    IFS=. read -r t_cdc t_uac t_lay t_on t_48 <<EOF
+$v
+EOF
+    $CC -DT_CDC="$t_cdc" -DT_UAC="$t_uac" -DT_LAYOUT="$t_lay" -DT_ON="$t_on" -DT_48K="$t_48" -DT_DISK=1 \
+        -o "$OUT/usb_desc_test" tests/usb_desc_test.c
+    run "USB descriptors with USB DISK: CDC $t_cdc (presented $t_on), UAC $t_uac (48 kHz $t_48), the disk's own" \
+        "$OUT/usb_desc_test"
+done
 # FELUCCA_UAC_AS_FIRST=0 (#67): the AC collection of 1.0 .. 1.5 (MIDI first), 1.0's bytes; the parser model of the
 # kernel AppleUSBAudio (macOS <= 15) stops before the audio streaming interface there
 for v in 1.1.0.1.1 1.1.0.0.1 1.1.0.1.0 1.1.0.0.0 0.1.0.1.1; do
@@ -395,6 +410,11 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "retriggers without a click (TRIO, PHASE), bit-crushers without DC (SAMPLE, LOFI, NOISE, FX CRUSH)" "$OUT/retrig_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/persistence_test" tests/persistence_test.c -lm
     run "persistence: deferred settings (until STOP and quiet), retry and failed-save rollback" "$OUT/persistence_test"
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/vdisk_test" tests/vdisk_test.c -lm
+    run "USB DISK: SCSI over bulk-only, the made-up FAT16 read whole and read back (vdisk_check.py), the .FM1 files" \
+        "$OUT/vdisk_test" build/vdisk
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/vdisk_screen_test" tests/vdisk_screen_test.c -lm
+    run "USB DISK's screen: title, files and names, status, hint; fits, both palettes" "$OUT/vdisk_screen_test" build/vdisk
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/opstore_test" tests/opstore_test.c -lm
     run "M-Vave-OP1 stores in USR3 / USR2: FX TRACKS, the KEY and scenes with projects and the autosave, USR2 / USR3 empty" "$OUT/opstore_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/backup_test" tests/backup_test.c -lm

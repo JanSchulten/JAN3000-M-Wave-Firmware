@@ -6,6 +6,9 @@
  * every element remembers what it last drew and is redrawn only on change. */
 static int project_save(uint32_t slot);
 static void panel_setup(void);
+#if FELUCCA_DISK
+static void usb_disk_run(void);                         /* M-Vave-OP1: MENU > USB DISK (usbdisk.c) */
+#endif
 static void project_load(uint32_t slot);
 static void project_new(uint32_t slot);         /* (M-Vave-OP1: SAVE > PROJECT > NEW; slot 0..3, else none) */
 static int project_used(uint32_t slot);
