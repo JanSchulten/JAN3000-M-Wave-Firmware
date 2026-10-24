@@ -6,7 +6,7 @@
  *   F#3 CLEAR   G#3 REVERSE  A#3 SHIFT <  C#4 SHIFT >     the whole sequence
  *   D#4 RANDOM  F#4 COOK     G#4 BEAT (DRUM)               new / a little changed
  *   A#4 CLEAR   C#5 REVERSE  D#5 FILL     F#5 RANDOM      the selected lane (DRUM: ui.lane, PRESETS picks it)
- * M-Vave-OP1: VDRUM and DBOX are kits as DRUM is (BEAT, the lane row, RANDOM and COOK as beats: kitlane.c; VDRUM's six
+ * M-Vave-OP1: VDRUM is a kit as DRUM is (BEAT, the lane row, RANDOM and COOK as beats: kitlane.c; VDRUM's six
  * lanes its parts)
  * Each works on the selected track's steps 1..LEN (the steps past LEN stay) and is one undo: SAVE held swaps back
  * the copy taken just before it (ui.c undo, UNDO_PAT; unlike a load the track's automation stays), so after a few
@@ -25,7 +25,7 @@ static uint32_t tl_len(const track_t *t) { return (uint32_t)clamp(t->p[P_SLEN], 
 static uint32_t tl_rnd(uint32_t n) { return n ? rng() % n : 0u; }
 static int tl_gate(const step_t *s) { return s->time == ST_NOTE && s->n; }
 static uint32_t tl_lane(const track_t *t, const step_t *s, uint32_t l) { return (step_lanes(t->eng_req, s) >> l) & 1u; }
-/* place p's action is there for this track (the lane row and BEAT: a kit's, DRUM VDRUM DBOX) */
+/* place p's action is there for this track (the lane row and BEAT: a kit's, DRUM VDRUM) */
 static int tl_cell(const track_t *t, uint32_t p) { return p < TL_N && p != TL_GAP && (p < TL_BEAT || kit_track(t)); }
 
 /* the undo copy of t as it is now (ui.c load_begin, but the automation is copied and stays): one action */

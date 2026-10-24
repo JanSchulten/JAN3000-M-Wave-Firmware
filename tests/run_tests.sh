@@ -151,11 +151,8 @@
 #                   listening set in build/reverb_demo/ (drums, pluck, piano: dry and each model at SIZE 40 / 90 / 127).
 #                   M-Vave-OP1: ROOM in exact silence after its tail (27 settings and levels: no hum at DAMP 0), a
 #                   delay TIME / BPM change crossfading the taps (no step larger than the echo's own).
-# SLICE (tests/slice_test.c): slice tables, AUTO onsets of a user-slot loop, reverse, keys, modes, the MAN slices
-#                   (SLICES page) and their store in the slot (src/slice_store.c); the presets and the loop;
-#                   demos in build/slice_demo/.
 # SAMPLE (tests/sample_test.c, 1.5): PIANO is the 5-zone piano of 1.0 .. 1.1.5 again: zones, splits, pitch over the
-#                   keyboard (YIN), 0.75 s at a root, the aliases, GRAIN SRC 0; SLICE's PIANO its middle C zone (shared);
+#                   keyboard (YIN), 0.75 s at a root, the aliases, GRAIN SRC 0;
 #                   1.2's PIANO HD user-slot file (gen_samples.py --user-slot: build/piano_hd/PIANO_HD), as old users may
 #                   have installed it: valid in USR1 and bit for bit as SET 0.
 # INPUT (tests/input_test.c): the key / button debounce of hal/fm1_input.h against the TIMER5 scan and bouncing
@@ -175,7 +172,7 @@
 #                   220-sample pulse on the left each eighth while playing, at the DAC's full scale (not the mix's -6 dB),
 #                   the mono mix on the right, none stopped or OFF; around a flash erase the ISR fades the DAC out over a
 #                   half, keeps it at exactly 0, fades it in after (M-Vave-OP1); build/click_demo/.
-# RETRIG (tests/retrig_test.c, M-Vave-OP1): retriggers without a click (TRIO MONO over-lapping notes, PHASE STRING in its
+# RETRIG (tests/retrig_test.c, M-Vave-OP1): retriggers without a click (ANLG2 MONO over-lapping notes, LOFI PULSE LD in its
 #                   release: the engines' .keep), the bit-crushers rounding to the nearest step (SAMPLE BITS, LOFI CRSH,
 #                   NOISE CRSH: no DC against the uncrushed note; the FX layer's CRUSH keeps silence at 0).
 # USB audio (tests/uac_test.c): the UAC1 descriptors as a host parses them (with and without CDC; 44100 and
@@ -201,10 +198,6 @@
 #                   the GM map, the choke groups, the resonator's pitch (TUNE), DECAY, MIX 0, its sleep; KIT OWN; one
 #                   voice a part; the cost; demos in build/vdrum_demo/. tests/vdrum_ui_test.c: its EDIT > LAYER .. PART 2
 #                   pages (the part struck by hand, LYR, KIT OWN, undo), its kit in projects and user presets.
-# DBOX (tests/dbox_test.c, M-Vave-OP1): the engine (src/eng_dbox.c): every kit's 12 sounds under full scale, no DC,
-#                   they sound and end, a retrigger from rest the same, each MODE its own and bounded, the octaves;
-#                   its EDIT > OSC 1, OSC 2, SOUND pages (src/ui_dbox.c), its kit in projects and user presets;
-#                   screens in build/dbox_shots/, demos in build/dbox_demo/.
 # PRESET FX (tests/preset_fx_test.c, M-Vave-OP1): a factory preset brings the sound, not the effects (src/ui.c
 #                   preset_fx): every factory preset, the PRESETS knob, an engine switch and a Program Change keep the
 #                   track's sends and INSERT; a user preset brings the ones it was saved with; the power-on sounds load
@@ -213,6 +206,9 @@
 #                   waveshaper it runs (src/plaits_ws.c): the exact checks, the waveshaper's hash the unit compares
 #                   against (FPB_WS_HASH), bounded over the keyboard; OCT+ refused in the boot guard's 30 s, then a run
 #                   a press, the rows drawn; a screen in build/fpu_shots/.
+# RETIRED (tests/retired_test.c, M-Vave-OP1): PHASE, VOICE, TRIO, SLICE and DBOX retired (src/engines.c ENG_GONE, core.h
+#                   eng_successor): none offered, silent; picked, a project's track, a user preset: the successor's first
+#                   preset (DBOX DRUM, the others ANALOG), the rest as stored, the motion on the E values dropped.
 # NOISE (tests/noise_test.c): the engine (src/eng_noise.c): COLR's slope (white, pink, brown), the filter and the
 #                   register clock following the key, META periodic at the key, no DC, no clipping at the
 #                   corners, a note from silence the same twice, the cost per voice; demos in build/noise_demo/.
@@ -387,7 +383,7 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/click_test" tests/click_test.c -lm
     run "metronome and count-in: beats sample for sample (internal and external clock), accent, level, MASTER, not in USB, count-in timing, notes onto step 1" "$OUT/click_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/retrig_test" tests/retrig_test.c -lm
-    run "retriggers without a click (TRIO, PHASE), bit-crushers without DC (SAMPLE, LOFI, NOISE, FX CRUSH)" "$OUT/retrig_test"
+    run "retriggers without a click (ANLG2, LOFI), bit-crushers without DC (SAMPLE, LOFI, NOISE, FX CRUSH)" "$OUT/retrig_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/persistence_test" tests/persistence_test.c -lm
     run "persistence: deferred settings (until STOP and quiet), retry and failed-save rollback" "$OUT/persistence_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/opstore_test" tests/opstore_test.c -lm
@@ -459,11 +455,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/vdrum_ui_test" tests/vdrum_ui_test.c -lm
     mkdir -p build/vdrum_shots
     run "VDRUM: the part pages (part struck by hand, LYR, KIT OWN, undo), the kit in projects and user presets, screens" "$OUT/vdrum_ui_test" build/vdrum_shots
-    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/dbox_test" tests/dbox_test.c -lm
-    mkdir -p build/dbox_shots build/dbox_demo
-    run "DBOX: kits under full scale, DC, ends, retrigger, MODEs, octaves, the key pages, its kit stored, screens, demos" "$OUT/dbox_test" build/dbox_shots build/dbox_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/preset_fx_test" tests/preset_fx_test.c -lm
     run "PRESET FX: factory presets keep the track's sends and INSERT, user presets bring theirs, power-on as ever" "$OUT/preset_fx_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/retired_test" tests/retired_test.c -lm
+    run "RETIRED: PHASE VOICE TRIO SLICE DBOX never offered; picked, projects, user presets load their successors" "$OUT/retired_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fpu_probe_test" tests/fpu_probe_test.c -lm
     mkdir -p build/fpu_shots
     run "FPU PROBE: exact checks, the waveshaper's hash, bounded; INFO's OCT+ after the boot guard, its rows, a screen" "$OUT/fpu_probe_test" build/fpu_shots
@@ -473,24 +468,12 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fm6_test" tests/fm6_test.c -lm
     mkdir -p build/fm6_demo
     run "FM6: algorithms, envelopes, retrigger, DC, clipping, macros, patch formats, voices, cost, demos" "$OUT/fm6_test" build/fm6_demo
-    # SLICE is in the standard build (firmware/src/core.h): its test always runs (after #22 by andreahaku)
-    if grep -q '^#define SLC_BREAK_BPM ' build/gen/felucca_samples.h; then
-        mkdir -p build/slice_demo
-        python3 tests/slice_loop.py build/slice_demo/loop
-        python3 tools/fm1_sample_upload.py build LOOP build/slice_demo/loop build/slice_demo/loop.wav:60 >/dev/null
-        $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/slice_test" tests/slice_test.c -lm
-        run "SLICE: tables, onsets, reverse, keys, modes, MAN slices and their store, demos" "$OUT/slice_test" \
-            build/slice_demo/loop build/slice_demo
-    else
-        echo "== SLICE: build/ was made with FELUCCA_SLICE=0 (no BREAK); run ./build.sh without it first"
-        fail=1
-    fi
-    # SAMPLE's PIANO (1.5: as 1.1.5), SLICE's PIANO (its middle C zone), 1.2's PIANO HD in a user slot
+    # SAMPLE's PIANO (1.5: as 1.1.5), 1.2's PIANO HD in a user slot
     if grep -q '^    {"PIANO", 0, 5},' build/gen/felucca_samples.h; then
         mkdir -p build/sample_demo build/piano_hd
         python3 tools/gen_samples.py --user-slot PIANO "PIANO HD" build/piano_hd/PIANO_HD >/dev/null
         $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/sample_test" tests/sample_test.c -lm
-        run "SAMPLE: PIANO (5 zones as 1.1.5: splits, pitch, length, GRAIN), SLICE's PIANO, a PIANO HD slot" "$OUT/sample_test" \
+        run "SAMPLE: PIANO (5 zones as 1.1.5: splits, pitch, length, GRAIN), a PIANO HD slot" "$OUT/sample_test" \
             build/piano_hd/PIANO_HD build/sample_demo
     else
         echo "== skip SAMPLE's PIANO (no CC0 library: assets/samples-cc0, tools/fetch_cc0.py)"

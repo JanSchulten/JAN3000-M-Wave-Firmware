@@ -3,13 +3,13 @@
 /* A new project's sounds, drawn at random (firmware/src/newproj.c, M-Vave-OP1), through the UI harness:
  *   NEW      SAVE > PROJECT's F#5 asks START A NEW PROJECT? (UNSAVED MUSIC IS LOST); OCT- keeps the music; OCT+
  *            makes a new project in no slot: T1 a factory BASS, T2 the power-on pad (FM6 PAD), T3 a LEAD, T4 a kit
- *            (one of DRUM's six, named after it: "66 KIT"; or a VDRUM or DBOX kit, not their INIT); no steps on any
+ *            (one of DRUM's six, named after it: "66 KIT"; or a VDRUM kit, not its INIT); no steps on any
  *            track, no song, no FX TRACKS, no KEY, ORCHID off, Felucca's chorus, the globals' defaults (BPM).
  *   SLOT     OCT- on an empty slot asks NEW PROJECT IN SLOT C?; OCT+ makes the new project there (SAVE goes to it).
  *   BOOT     power-on with nothing restored (main.c: project_boot_new): felucca_init's project, the sounds drawn;
  *            boots with other stirs draw other sounds.
  *   DRAWS    900 draws from different states: every BASS and LEAD factory preset of category.c's list (no alias, no
- *            SAMPLE set this build lacks), every DRUM kit and every VDRUM / DBOX kit but INIT comes up, nothing else.
+ *            SAMPLE set this build lacks), every DRUM kit and every VDRUM kit but INIT comes up, nothing else.
  * jan_test.c checks the page's keys, LOAD? and OVERWRITE?. Built and run by tests/run_tests.sh. */
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
@@ -187,9 +187,9 @@ static void test_draws(void)
         }
     for (k = 0; k < NELEM(NP_KITS); k++)
         kits += seen[2][ENGI_DRUM][NP_KITS[k]];
-    snprintf(what, sizeof what, "900 draws: %u of %u BASS / LEAD presets, %u of 6 DRUM kits, %u of %u VDRUM / DBOX kits, "
-             "%u off the lists", got, want, kits, dgot, dwant, wrong);
-    ck(what, want >= 15u && got == want && kits == 6u && dwant == 10u && dgot == dwant && !wrong);
+    snprintf(what, sizeof what, "900 draws: %u of %u BASS / LEAD presets, %u of 6 DRUM kits, %u of %u VDRUM kits (DBOX "
+             "retired), %u off the lists", got, want, kits, dgot, dwant, wrong);
+    ck(what, want >= 15u && got == want && kits == 6u && dwant == 7u && dgot == dwant && !wrong);
 }
 
 int main(void)

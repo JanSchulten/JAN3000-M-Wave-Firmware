@@ -40,8 +40,8 @@ static uint32_t up_gen;                      /* bumped on every user bank change
 #include "favorites.c"
 /* favorites.c fav_at: the engines from 14 on in the upper halves of ANALOG's, PHASE's, LOFI's rows */
 _Static_assert(NENGINES <= 14u + sizeof FAV_HOST, "favorites.c: an engine from 14 on needs a row's upper half (FAV_HOST)");
-_Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u && NELEM(DBOX_PRESETS) <= 128u &&
-               NELEM(ANALOG_PRESETS) <= 128u && NELEM(PHASE_PRESETS) <= 128u && NELEM(LOFI_PRESETS) <= 128u,
+_Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&   /* (PHASE's row: retired, none of */
+               NELEM(ANALOG_PRESETS) <= 128u && NELEM(LOFI_PRESETS) <= 128u,      /* its own; LOFI's holds DBOX's, retired) */
                "favorites.c: an engine from 14 on and its host share a row of 256 presets");
 #include "category.c"                   /* sound categories (Discussion #90): PRESETS > LIST */
 /* MENU's two-valued settings (ui_menu.c MENU_FLAGS), a bit each in a byte no engine uses (as ui_layer.c layer_seen):
@@ -356,7 +356,7 @@ static const page_t *cur_page(void) { return page_over ? page_over : &PAGES[ui.p
  *            scope, ENV's ADSR, LFO's wave, MIXER's four tracks (name, state, meter) small; the
  *            page's title and number in L on the others (their charts cannot be read that small);
  *   LK_LABEL the list and graph pages (PRESETS, USER, PROJECT, PHRASES, SONG, the piano roll and the drum grid,
- *            AUTOMATION, SLICES), HOME with MENU > HOME TRACKS (1.3) and the quick layers' maps: the layout as it
+ *            AUTOMATION), HOME with MENU > HOME TRACKS (1.3) and the quick layers' maps: the layout as it
  *            is, the card labels in M;
  *   LK_OFF   LARGE off; the menu (its own LARGE: ui_menu.c), the dialogs and NAME keep their own layout in every case. */
 enum { LK_OFF, LK_LABEL, LK_TALL };
@@ -384,7 +384,7 @@ static uint32_t large_kind(void)
         return home_tracks() ? LK_LABEL : LK_TALL;      /* a list page; the rows' names in M: draw_home_tracks) */
     g = cur_page()->graph;
     return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_PATS || g == GR_SONG || g == GR_ROLL ||
-           g == GR_SLICES || g == GR_EVENTS || g == GR_KEY || g == GR_FXT || g == GR_FXT2 ||
+           g == GR_EVENTS || g == GR_KEY || g == GR_FXT || g == GR_FXT2 ||
            g == GR_FX1 || g == GR_CLOUD ? LK_LABEL
                                                                                                           : LK_TALL;
 }
@@ -414,8 +414,7 @@ static int layer_locked(void);
 static uint32_t layer_leds(uint32_t *br);
 static uint32_t layer_btn(void);
 
-/* FM operator pages belong to DIGITAL; they never appear on other instruments (without FELUCCA_FM4: never). SLICES:
- * a SLICE track's (ui_slice.c); LANES / LANES 2 a DRUM track's (its lane levels); FILTER an ANALOG track's; OPERATOR, OP ENV, OPERATOR 2 an FM6
+/* FM operator pages belong to DIGITAL; they never appear on other instruments (without FELUCCA_FM4: never). LANES / LANES 2 a DRUM track's (its lane levels); FILTER an ANALOG track's; OPERATOR, OP ENV, OPERATOR 2 an FM6
  * track's (its patch's operators, ui_fm6op.c) */
 static int page_visible(uint32_t i)
 {
@@ -432,17 +431,8 @@ static int page_visible(uint32_t i)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
     if (PAGES[i].graph >= GR_VDL && PAGES[i].graph <= GR_VDP2)   /* (M-Vave-OP1) VDRUM's part pages (ui_vdrum.c) */
         return TSEL->eng_req % NENGINES == ENGI_VDRUM;
-    if (PAGES[i].graph >= GR_DBO1 && PAGES[i].graph <= GR_DBHIT)   /* (M-Vave-OP1) DBOX's key pages (ui_dbox.c) */
-        return TSEL->eng_req % NENGINES == ENGI_DBOX;
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)
         return TSEL->eng_req % NENGINES == ENGI_FM6;
-#if FELUCCA_SLICE
-    if (PAGES[i].graph == GR_SLICES)
-        return ENGINES[TSEL->eng_req % NENGINES] == &ENG_SLICE;
-#else
-    if (PAGES[i].graph == GR_SLICES)
-        return 0;
-#endif
     return !(PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] >= P_FM1_ATK &&
              PAGES[i].id[0] <= P_FM4_LEVEL) || (FELUCCA_FM4 && TSEL->eng_req % NENGINES == ENGI_DIGITAL);
 }
@@ -470,8 +460,8 @@ static void ui_say(const char *a, const char *b)
 static void ui_message(const char *s) { ui_say(s, ""); }
 /* a message led by an icon: its first byte (ui_draw.c draw_head draws the icon, then the words) */
 #define MSG_NOFILE "\x01"                      /* the no-file icon (ICON_X_NOFILE) */
-/* a missing sample (ui_input.c sample_notice): NO SAMPLE (SAMPLE NOT FOUND, the SLICES page's, is 4 px too wide
- * for the header's 130 px after the icon) */
+/* a missing sample (ui_input.c sample_notice): NO SAMPLE (SAMPLE NOT FOUND is 4 px too wide for the header's 130 px
+ * after the icon) */
 #define MSG_NO_SAMPLE MSG_NOFILE "NO SAMPLE"
 
 static int chain_busy(void) { return chain.running || chain.armed; }
@@ -603,7 +593,7 @@ static uint32_t note_set_len(track_t *t, uint32_t i, uint32_t want)
  * down / up. KNOB 1 STEP, 2 LANE, 3 HIT, 4 ACC edit the cursor step. A sound load never converts the
  * steps: the grid shows a step's notes on their lanes (kitlane.c step_lanes) and an edit makes the lane its
  * own (grid_own). Live recording on a DRUM track writes hits (seq.c rec_note). M-Vave-OP1: a VDRUM track's grid too
- * (its six parts: black keys 1..6) and a DBOX track's (eight lanes on its keys): kitlane.c */
+ * (its six parts: black keys 1..6): kitlane.c */
 static int grid_on(void) { return !ui.home && !ui.menu && !ui.confirm && cur_page()->graph == GR_ROLL && kit_track(TSEL); }
 /* SEQ > DETAIL (1.5.1, Discussion #199; params.c, between STEP and AUTOMATION): a step page as STEP (the cursor, the
  * roll's keys, the grid's lane and page keys), its knobs the cursor step's CHANCE RATCH NUDGE VEL (ui_input.c sd_turn),
@@ -831,7 +821,6 @@ static struct {
     uint8_t fm6_slot;            /* the track's FM6 patch and its SLOT (eng_fm6.c): an edited or a project's */
     uint8_t fm6[FP_SIZE + 1u];   /* patch is the track's own, not a factory one */
     uint8_t vdk[VK_SIZE];        /* (M-Vave-OP1) the track's own VDRUM kit (eng_vdrum.c vd_own) */
-    uint8_t dbk[VK_SIZE];        /* .. and DBOX kit (eng_dbox.c dbx_own) */
     int16_t p[P_COUNT];
     step_t step[NSTEP];
     motion_store_t motion_backup; /* one track only, swaps with the shared event pool on undo */
@@ -869,7 +858,6 @@ static uint32_t track_sig(const track_t *t)      /* the sound (an FM6 track's pa
     uint32_t h = fnv(fnv(steps_sig(t), t->p, sizeof t->p), id, 3), k = trk_index(t);
     h = fnv(h, fm6_patch[k], sizeof fm6_patch[k]); /* (a patch the editor sent between two loads) */
     h = fnv(h, vd_own[k], VK_SIZE);                /* (VDRUM's own kit: its part pages) */
-    h = fnv(h, dbx_own[k], VK_SIZE);               /* (DBOX's) */
     for (uint32_t j = 0; j < motion.count; j++)
         if ((motion.event[j].place >> 6) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
     return h ^ ((motion.on >> k) & 1u);
@@ -964,7 +952,6 @@ static void load_begin(track_t *t, uint32_t what)
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
     memcpy(undo.vdk, vd_own[i], VK_SIZE);
-    memcpy(undo.dbk, dbx_own[i], VK_SIZE);
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -1025,7 +1012,6 @@ static void edit_undo_take(track_t *t, uint32_t tag, uint32_t what)
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
     memcpy(undo.vdk, vd_own[i], VK_SIZE);
-    memcpy(undo.dbk, dbx_own[i], VK_SIZE);
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -1117,9 +1103,6 @@ static void undo_swap(void)
         memcpy(vd_own[tr], undo.vdk, VK_SIZE);
         memcpy(undo.vdk, kv, VK_SIZE);
         vd_kgen[tr]++;
-        memcpy(kv, dbx_own[tr], VK_SIZE);
-        memcpy(dbx_own[tr], undo.dbk, VK_SIZE);
-        memcpy(undo.dbk, kv, VK_SIZE);
         uint8_t v[FP_SIZE + 1u], sl = fm6_slot[tr];
         memcpy(v, fm6_patch[tr], FP_SIZE);
         fm6_set_patch(tr, undo.fm6);
@@ -1151,7 +1134,7 @@ static void load_pat16(track_t *t, const uint8_t *note, const uint8_t *flags)
         s->vel = n ? 96 : 0;
         s->hit = s->acc = 0;
         s->probability = 0;
-        if (kit_track(t))                            /* a kit (DRUM, VDRUM, DBOX): the lanes' notes as its grid */
+        if (kit_track(t))                            /* a kit (DRUM, VDRUM): the lanes' notes as its grid */
             step_to_grid(t->eng_req, s);
     }
     t->p[P_SLEN] = 16;
@@ -1185,8 +1168,8 @@ static void track_defaults_steps(track_t *t)
 /* SAVE > PHRASES: the factory patterns (PATTERNS[], "01".."13"), then the used user presets that hold
  * one ("U07"): list index n. Loading one replaces the track's steps 1..16 (the rest cleared) and LEN;
  * a user preset's pattern brings its stored LEN (at most 16), DIV, SWING and GATE too. The notes are
- * loaded as they are: the patterns are written for the register of their kind of sound, DRUM and
- * SLICE patterns are drum and slice numbers, and SCL TRANS / OCT transpose what plays */
+ * loaded as they are: the patterns are written for the register of their kind of sound, DRUM
+ * patterns are drum numbers, and SCL TRANS / OCT transpose what plays */
 static uint32_t pat_count(void) { return NPATTERNS + up_pat_count(); }
 
 static void pat_label(uint32_t n, char *tag, char *name)   /* tag: 4 bytes ("01", "U07"), name: 13 */
@@ -1379,8 +1362,10 @@ static void apply_preset_to(track_t *t, uint32_t pi) { preset_load_to(t, pi, 0);
  * its values or the new one with its own (voice.c engine_block), never one with the other's */
 static void set_engine_of(track_t *t, uint32_t ei)
 {
-    const engine_t *e = ENGINES[ei % NENGINES];
+    const engine_t *e;
     uint32_t i;
+    ei = eng_successor(ei % NENGINES);               /* (M-Vave-OP1: a retired engine asked for: its successor) */
+    e = ENGINES[ei];
 #if !FELUCCA_FM4
     if (ei % NENGINES == ENGI_DIGITAL) {             /* DIGITAL (retired): its first preset, as FM6 */
         fm4_load_preset(t, 0);
@@ -1722,12 +1707,11 @@ static void track_select(uint32_t i)
     ui.force = 1;
 }
 
-#include "ui_slice.c"                             /* EDIT > SLICES: SLICE's slices by hand (an action page too) */
 #include "ui_events.c"                            /* SEQ > AUTOMATION: locks, events, CHANCE, RATCH as a list (an action page) */
 #include "midi_learn.c"                           /* MIDI LEARN (1.5): GLO + D4, a knob, a CC */
 
 /* ---------------------------------------------------- action pages --- */
-/* Pages whose purpose is an action (SAVE > USER, PHRASES, PROJECT, TOOLS, EDIT > SLICES, SEQ > AUTOMATION): the knobs pick,
+/* Pages whose purpose is an action (SAVE > USER, PHRASES, PROJECT, TOOLS, SEQ > AUTOMATION): the knobs pick,
  * OCT+ does it, OCT- cancels the picked action or goes HOME (ui_input.c). There OCT- / OCT+ do not
  * shift the octave */
 static int go_id(uint32_t id) { return id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND; }
@@ -1748,8 +1732,6 @@ static uint32_t act_cols(void)                   /* the columns that are actions
         return 2u;                               /* LOAD */
     if (pg->graph == GR_USER)
         return 14u;                              /* LOAD ERASE SAVE */
-    if (pg->graph == GR_SLICES)
-        return slice_page_ok() ? 12u : 0u;       /* SPLIT JOIN (a SLICE track only) */
     if (pg->graph == GR_SLOTS)
         return 0;                                /* M-Vave-OP1: the keys and OCT+ / OCT- (ui_input.c slots_keys) */
     if (pg->scope == SC_GLOBAL)
@@ -1784,8 +1766,6 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
         return "LOAD";
     if (cur_page()->graph == GR_USER)
         return UP_GO[(c + 2u) % 3u];
-    if (cur_page()->graph == GR_SLICES)
-        return c == 3u ? "JOIN" : "SPLIT";
     if (cur_page()->graph == GR_SLOTS && (c & 3u) == 1u)
         return "NEW";
     return id == G_CLRSEQ ? "CLEAR" : id == G_INITSND ? "INIT" : id == G_LOAD ? "LOAD" : "SAVE";
@@ -1810,10 +1790,6 @@ static int act_ready(void)
         return pat_last[s] != pat_pick() + 1u || steps_sig(TSEL) != pat_sig[s];
     if (cur_page()->graph == GR_USER)
         return c == 3u ? !song.playing : up_used(ui.uslot) && (c == 1u || !song.playing);
-#if FELUCCA_SLICE
-    if (cur_page()->graph == GR_SLICES)
-        return slice_act_ready(c);
-#endif
     if (cur_page()->graph == GR_SLOTS && c == 1u)       /* NEW: stopped (the whole song changes) */
         return !transport_busy();
     id = cur_page()->id[c & 3u];

@@ -53,8 +53,8 @@ async function editorMock() {
   inp.onmidimessage = (e) => link.receive(e.data);
   const rq = async (r, o) => link.request(r, o);
   const info = E.parse[E.CMD.INFO](await rq(E.req.info()));
-  ok(info.nengines === 17 && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "SLICE" && info.engines[14] === "ANLG2" && info.engines[15] === "VDRUM" && info.engines[16] === "DBOX"
- && info.engines[5] === "VOICE" && info.engines[6] === "TRIO" && info.engines[7] === "WHEEL" && info.engines[8] === "GRAIN" && info.engines[9] === "PHYS" && info.engines[10] === "DRUM" && info.engines[11] === "NOISE" && info.pcount === 111 && info.pe0 === 103 && info.engines[4] === "SAMPLE",
+  ok(info.nengines === 17 && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANLG2" && info.engines[15] === "VDRUM" && info.engines[16] === "-"
+ && info.engines[2] === "-" && info.engines[5] === "-" && info.engines[6] === "-" && info.engines[7] === "WHEEL" && info.engines[8] === "GRAIN" && info.engines[9] === "PHYS" && info.engines[10] === "DRUM" && info.engines[11] === "NOISE" && info.pcount === 111 && info.pe0 === 103 && info.engines[4] === "SAMPLE",
     "editor: INFO");
   let descs = 0;
   for (let i = 0; i < info.pcount; i++) if (E.parse[E.CMD.DESC](await rq(E.req.desc(0, i))).label) descs++;
@@ -143,9 +143,9 @@ async function editorMock() {
   await rq(E.req.uiSet(3, 1));
   prefs = await E.readDevicePreferences(rq, info, names, prefs);
   ok(E.devicePresetRows(info, names, prefs).length === 1 && prefs.favorites[0][0], "editor: favorites filter follows device state");
-  m.state.favorites[0][0] = false; m.state.favorites[2][0] = true;
+  m.state.favorites[0][0] = false; m.state.favorites[3][0] = true;   /* (LOFI; PHASE 2, retired, before) */
   prefs = await E.readDevicePreferences(rq, info, names, prefs);
-  ok(!prefs.favorites[0][0] && prefs.favorites[2][0], "editor: panel-side favorite changes refresh");
+  ok(!prefs.favorites[0][0] && prefs.favorites[3][0], "editor: panel-side favorite changes refresh");
   await rq(E.req.upStore(31, "FAVORITE"));
   await rq(E.req.favSet(info.nengines, 31, true));
   prefs = await E.readDevicePreferences(rq, info, names, prefs);
@@ -156,20 +156,20 @@ async function editorMock() {
   await rq(E.req.upErase(31));
   prefs = await E.readDevicePreferences(rq, info, names, prefs);
   ok(!prefs.favorites[info.nengines][31] && !E.devicePresetRows(info, names, prefs).some((r) => r.user), "editor: erased slot disappears and loses star");
-  {   /* the lists in the device's order (engines.c ENGINE_ORDER): ANALOG2 second, FM6 third, DRUM, VDRUM, DBOX last, "-"
-       * never; the numbers stay */
+  {   /* the lists in the device's order (engines.c ENGINE_ORDER): ANALOG2 second, FM6 third, DRUM, VDRUM last, "-"
+       * (DIGITAL, M-Vave-OP1's retired five) never; the numbers stay */
     const shown = E.engineOrder(info.engines).map((i) => info.engines[i]);
-    ok(shown.join() === "ANALOG,ANLG2,FM6,PHASE,LOFI,SAMPLE,VOICE,TRIO,WHEEL,GRAIN,PHYS,NOISE,SLICE,DRUM,VDRUM,DBOX" &&
-       E.engineOrder(info.engines)[1] === 14 && E.engineOrder(info.engines)[2] === 12 && E.engineOrder(info.engines)[13] === 10 &&
-       E.engineOrder(info.engines)[14] === 15 && E.engineOrder(info.engines)[15] === 16,
-       "editor: engines listed ANALOG2 second, FM6 third, DRUM, VDRUM, DBOX last (indices kept)");
+    ok(shown.join() === "ANALOG,ANLG2,FM6,LOFI,SAMPLE,WHEEL,GRAIN,PHYS,NOISE,DRUM,VDRUM" &&
+       E.engineOrder(info.engines)[1] === 14 && E.engineOrder(info.engines)[2] === 12 && E.engineOrder(info.engines)[9] === 10 &&
+       E.engineOrder(info.engines)[10] === 15,
+       "editor: engines listed ANALOG2 second, FM6 third, DRUM, VDRUM last (indices kept)");
     ok(E.engineOrder(["ANALOG", "X", "-", "DRUM", "FM6"]).join() === "0,4,3,1", "editor: an unknown engine follows the known ones");
     m.state.favorites[10][0] = m.state.favorites[12][0] = true;
     await rq(E.req.uiSet(3, 0));
     prefs = await E.readDevicePreferences(rq, info, names, prefs);
     const rows = E.devicePresetRows(info, names, prefs).filter((r) => !r.user), eng = [...new Set(rows.map((r) => r.engine))];
-    ok(eng[0] === 0 && eng[1] === 14 && eng[2] === 12 && eng[eng.length - 3] === 10 && eng[eng.length - 2] === 15 &&
-       eng[eng.length - 1] === 16, "editor: device presets in the device's engine order");
+    ok(eng[0] === 0 && eng[1] === 14 && eng[2] === 12 && eng[eng.length - 2] === 10 && eng[eng.length - 1] === 15,
+       "editor: device presets in the device's engine order");
   }
   const none = await E.readDevicePreferences(() => { throw new Error("unexpected request"); }, { uiCaps: 0 }, []);
   ok(none === null, "editor: old firmware receives no unsupported preference requests");
@@ -655,8 +655,8 @@ async function editorLibrarian() {
   const rcEmpty = await E.bank.load(rq, 11);
   ok(rc === 0 && !b2.slots[11].used && b2.slots[10].used && rcEmpty === 1, "librarian: UP_ERASE, UP_LOAD of an empty slot -> rc 1");
 
-  /* audition: a PHASE patch that holds a pattern; the sound only, the sequence (with notes) stays */
-  const bass = await E.bank.get(rq, info, 2);   /* PHASE RESO, with the ACID pattern */
+  /* audition: an ANLG2 patch that holds a pattern; the sound only, the sequence (with notes) stays */
+  const bass = await E.bank.get(rq, info, 2);   /* DUO BASS, with the OFFBEAT pattern */
   await rq(E.req.stepSet(20, { n: 1, notes: [50, 0, 0, 0], time: 0, flags: 0, vel: 90 }));
   await rq(E.req.set(0, 29, 24));               /* the track's own: LEN 24, ARP MODE 2 */
   await rq(E.req.set(0, 17, 2));
@@ -704,11 +704,11 @@ async function editorLibrarian() {
     "library file: versioned, with P_COUNT, labels and engines");
   const back = E.readLibraryFile(file, ctx);
   ok(back.patches.length === 2 && !back.skipped && eq(back.patches[0].p, cap.p) && eq(back.patches[1].p, bass.p)
-    && js(back.patches[1].pattern) === js(bass.pattern) && back.patches[1].tags.join() === "bass,device" && back.patches[1].engineName === "PHASE",
+    && js(back.patches[1].pattern) === js(bass.pattern) && back.patches[1].tags.join() === "bass,device" && back.patches[1].engineName === "ANLG2",
     "library file: write -> read round trip");
   /* a future firmware: one more parameter at id 5, engines in another order and one of them gone */
   const keys2 = [...keys.slice(0, 5), "NEW", ...keys.slice(5)];
-  const eng2 = ["PHASE", "ANALOG", "SAMPLE"];
+  const eng2 = ["ANLG2", "ANALOG", "SAMPLE"];
   const fut = E.readLibraryFile(file, { keys: keys2, engines: eng2 });
   const p0 = fut.patches[0].p;
   ok(fut.patches.length === 2 && p0.length === 112 && p0[5] === null && p0[6] === cap.p[5] && p0[111] === cap.p[110]

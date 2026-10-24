@@ -215,24 +215,17 @@ BEAT pattern and MIDI drum parts play on it.
   TOOLS has BEAT and the lane tools. A DRUM beat moved onto VDRUM keeps its lanes (its RIM and BELL hits play and show
   on CLAP and HAT OP).
 
-## DBOX: twelve keys of two oscillators
+- **Steps written as notes before the grid** become hits when the project loads or the scene is picked: the same
+  notes at the same velocities, nothing sounds different; other notes stay notes, shown on their lane.
 
-After the OP-1's DBOX (our own design and sounds). Each of the twelve keys C .. B is its own drum sound; the next octave
-plays the same twelve an octave up. The factory kits (INIT, 808-ISH, CHIP, METAL) put their sounds on the GM notes, so
-the BEAT pattern plays on them.
+## Retired: PHASE, VOICE, TRIO, SLICE and DBOX
 
-- **A sound:** two oscillators, each PITCH, WAVE (a morph sine, triangle, saw, square, noise) and ENV (one value: short
-  decays, then longer ones with an attack), a cross modulation MODE 1..7 (MIX, FM, RING, SYNC, AM, NOISE, FILT) at XMOD,
-  a low-pass CUT and LVL.
-- **HOME's KNOB 1..4:** TUNE, DECY, TONE, DRV on every sound at once; EDIT 1: KIT TUNE DECY TONE, EDIT 2: ACC DRV.
-- **Editing a key:** strike it, then EDIT > OSC 1 (PITCH WAVE ENV XMOD), OSC 2 (PITCH WAVE ENV CUT), SOUND (MODE LVL);
-  KIT OWN, undo and storage as on VDRUM.
-- **On the sequencer as DRUM:** SEQ > STEP is the drum grid with DRUM's eight lanes on the keys the kits give those
-  drums: C kick, D snare, D# clap, F# closed hat, A# open hat, A tom, C# rim, and B the cowbell (CB). A note of the other
-  keys shows on the lane of its drum (E on SD, F G on TM, G# on CH). Live recording, the lane mutes (EDIT held + a black
-  key) and SEQ TOOLS' BEAT and lane tools as on DRUM.
-- **Steps written as notes before the grid** (on VDRUM or DBOX) become hits when the project loads or the scene is
-  picked: the same notes at the same velocities, nothing sounds different; other notes stay notes, shown on their lane.
+Five engines made room for engines after Mutable Instruments' Plaits (the module Behringer's Grind builds on; the plan:
+[docs/PLAITS_PLAN.md](docs/PLAITS_PLAN.md)): about 46 KB of flash and 5 KB of RAM. Their numbers stay reserved, so
+nothing that names one breaks: a project, the autosave, a user preset or the editor that asks for one loads its
+successor's first preset instead (DBOX becomes DRUM, the others ANALOG for now; the rest of the sound and the steps as
+stored). The Plaits engines will take their places: WAVESHAPE for PHASE, WAVETABLE for VOICE, SWARM for SLICE,
+HARMONIC and PARTICLE for TRIO and DBOX.
 
 ## Other changes to Felucca's workflow
 
@@ -250,7 +243,7 @@ the BEAT pattern plays on them.
   KEY or scenes, no slot), stopped only (STOP FIRST). OCT- on an empty project asks NEW PROJECT IN SLOT C? and starts
   the new one there (SAVE goes to it). SELECT goes on to USER, PRESETS, PHRASES, TOOLS.
 - **A new project draws its sounds:** T1 a bass, T3 a lead (any factory preset of those categories, any engine), T4 a
-  kit (one of DRUM's six, STD 808 10 66 55 77, or a VDRUM or DBOX kit); T2 keeps its pad. So does power-on when
+  kit (one of DRUM's six, STD 808 10 66 55 77, or a VDRUM kit); T2 keeps its pad. So does power-on when
   nothing is restored (RESTORE LAST OFF, the first start). A DRUM track is named after its kit ("66 KIT") in the
   footer and on HOME.
 - **STEP: a note turned OFF with KNOB 2.** Turning NOTE past the lowest note (or the highest) sets the step OFF (a
@@ -272,7 +265,15 @@ the BEAT pattern plays on them.
   piece of STD / 808 / 10 / 66 / 55 / 77: an 808 kick under a 10 snare). The screen lists all eight. Projects and user
   presets keep them (in track parameters the retired DIGITAL engine left free); a preset load sets them back.
 - **DRUM, SEQ grid:** a lane's black key lights for a moment whenever that lane plays (a hi-hat's key flashes with
-  each hit). VDRUM and DBOX have the grid too (above).
+  each hit). VDRUM has the grid too (above).
+- **A factory preset brings the sound, not the effects:** the track's sends (DIST, CHORUS, DELAY, REVERB) and its
+  INSERT stay as they are when a factory preset loads (PRESETS, the EDIT layer, the editor, a Program Change, an engine
+  switch, a new project's draw). A user preset brings the effects it was saved with. The power-on sounds keep their
+  sends, so the power-on project sounds as it always did.
+- **MENU > SYSTEM > INFO: the FPU probe.** OCT+ checks the chip's floating-point unit (which Felucca never used) and
+  times it: FPU OK (results bit for bit as on a computer, a Plaits waveshaper rendered exactly as Plaits renders it),
+  the ns of a float and an integer multiply-add and a float divide, and one waveshaper voice in % of the audio's
+  time. It runs only on request and only after the first 30 s, so it can never count as a failed boot.
 
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
   the cards in place of the scope: every page's values, the row the knobs edit raised. SELECT goes to the next

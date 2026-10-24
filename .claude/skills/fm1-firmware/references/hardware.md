@@ -32,15 +32,15 @@ AL-255/FM-1-RE (reverse engineering of the stock firmware), measurements from bu
 
 The RAM / POOL split is only a budget line in the linker script; both are the same SRAM.
 
-### Budgets (measured 2026-10, after the KEY per scene and SYNC OUT PO; toolchain 20260730)
+### Budgets (measured 2026-10, after M-Vave-OP1's step 4; toolchain 20260730)
 
 | | Used | Limit | Note |
 | --- | --- | --- | --- |
-| RAM `.data`+`.bss` | 56 616 B | 73 728 B | M2b: 56 152 |
-| Pool | 340 188 B | 368 640 B | build.py demands ≥ 8 192 B free |
-| App image (XIP) | 569 516 B | 581 564 B | **12 048 B free** (the FPU probe and its Plaits tables: 12 192 B); M2b: 509 164. `FELUCCA_SLICE=0` frees 31 532 B |
-| Audio ISR static cost `fm1_alnk0_irq` | 37 800 | 41 252 | 37 502 + 10 % (tests/target_budget.py) |
-| Key-scan ISR `fm1_timer5_irq` | 33 951 | 36 725 | |
+| RAM `.data`+`.bss` | 51 640 B | 73 728 B | before step 4 (PHASE VOICE TRIO SLICE DBOX retired): 56 616 |
+| Pool | 339 548 B | 368 640 B | build.py demands ≥ 8 192 B free |
+| App image (XIP) | 522 836 B | 581 564 B | **58 728 B free**; before step 4: 569 516 (the FPU probe and its Plaits tables in it: 12 192 B) |
+| Audio ISR static cost `fm1_alnk0_irq` | 37 802 | 41 252 | 37 502 + 10 % (tests/target_budget.py) |
+| Key-scan ISR `fm1_timer5_irq` | 33 887 | 36 725 | |
 
 What things cost (measured with `nm` on the target build): a synth track ~23 KB (its `trk[]` entry 1 824 B, engine
 memory 12 888 B, SLICER buffer 8 KB), an FX TRACK lane 66 B, a song pattern in RAM (`chain_pattern_t`) ~3.4 KB, the

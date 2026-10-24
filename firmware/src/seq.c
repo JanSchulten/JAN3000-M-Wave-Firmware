@@ -65,7 +65,7 @@ static int32_t midi_base(void)
 static uint32_t trk_midi_ch(uint32_t i) { return (midi_base() > 0 ? (uint32_t)midi_base() : 0u) + i % NTRK; }
 
 static int drum_track(const track_t *t) { return ENGINES[eng_idx(t->eng_req)] == &ENG_DRUM; }
-/* a track with a kit's grid (DRUM, M-Vave-OP1: VDRUM, DBOX; kitlane.c): its lanes, 0 for the piano roll */
+/* a track with a kit's grid (DRUM, M-Vave-OP1: VDRUM; kitlane.c): its lanes, 0 for the piano roll */
 static uint32_t kit_track(const track_t *t) { return kit_lanes(t->eng_req); }
 
 /* the 27 keys from F: black or white, and the key's place among the keys of its colour (white 0..15, black
@@ -486,7 +486,7 @@ static void rec_note(track_t *t, uint32_t note, uint32_t vel)
     /* the step's notes play later in this pass (it is the next one, not played early yet, or the one playing whose
      * nudge has not come yet): what sounds now must not play again there (rskip) */
     sounds = next ? t->nd_fired != idx + 1u : t->nd_late != ND_NONE;
-    if (kit_track(t)) {                             /* a kit (DRUM, VDRUM, DBOX): into the grid, no holds (hits) */
+    if (kit_track(t)) {                             /* a kit (DRUM, VDRUM): into the grid, no holds (hits) */
         uint32_t l = lane_of(t->eng_req, note);
         if (s->time != ST_NOTE || (!s->n && !s->hit)) {
             s->n = s->hit = s->acc = 0;
@@ -623,9 +623,6 @@ static void input_on(track_t *t, uint32_t note, uint32_t vel)
     if (t->eng_req == ENGI_VDRUM) {                 /* (M-Vave-OP1) the part the VDRUM pages edit (ui_vdrum.c) */
         int32_t st;
         vd_pick[trk_index(t)] = (uint8_t)(vd_part_note(note, &st) + 1u);
-    } else if (t->eng_req == ENGI_DBOX) {           /* .. the key the DBOX pages edit (ui_dbox.c) */
-        int32_t o;
-        dbx_pick[trk_index(t)] = (uint8_t)(dbx_key(note, &o) + 1u);
     }
     if (cin_left)
         cin_keep(t, note, vel);
@@ -901,7 +898,7 @@ static void seq_stop(void)
 }
 
 /* play one step: TIE extends, REST releases, NOTE (re)triggers its notes, then its lane hits (their GM
- * notes, DRUM_LANE_NOTE; DBOX's own, kitlane.c kit_notes; an accented hit at 127); a SLIDE on the previous step
+ * notes, DRUM_LANE_NOTE, kitlane.c kit_notes; an accented hit at 127); a SLIDE on the previous step
  * makes this one legato with a glide (acid style). skip: bit k = note k, bit 8 + l = the hit of lane l already
  * sounds from live recording (not triggered, not released here); SEQ_REP: a RATCH repeat (seq_ratchet).
  * RATCH x2..x4 (core.h step_ratchet): a NOTE step plays all of it again in equal parts of its swung length, each

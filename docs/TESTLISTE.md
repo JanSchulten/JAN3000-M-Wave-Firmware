@@ -58,11 +58,10 @@ kann nur das echte Gerät zeigen.
 - [ ] **VDRUM im Raster:** eine Spur auf VDRUM, SEQ > STEP zeigt das Raster mit **6 Lanes** (BD SD CP CH OH TM).
       Schwarze Tasten 1–6 wählen die Lane und spielen sie, 7 und 8 bleiben dunkel und tun nichts. Weiße Tasten setzen
       Hits, ACC (schwarze Taste 9) gehalten setzt Akzente, die Lanes blinken beim Abspielen.
-- [ ] **DBOX im Raster:** wie DRUM mit **8 Lanes**; schwarze Taste 8 (CB) ist die Cowbell (Taste B des Kits).
-- [ ] VDRUM / DBOX: REC und live einspielen (auf dem Raster oder mit den normalen Tasten): Die Schläge landen als Hits.
-- [ ] VDRUM / DBOX: EDIT halten + schwarze Taste: die Lane stumm (Display „SNARE MUTED“), nochmal: wieder an.
-- [ ] VDRUM / DBOX: SEQ halten: BEAT, RANDOM, COOK und die Lane-Werkzeuge (CLR, REV, FILL, RND der gewählten Lane).
-- [ ] Ein altes Projekt mit VDRUM/DBOX-Noten laden: klingt **genau wie vorher**, die Schläge stehen jetzt als Hits im
+- [ ] VDRUM: REC und live einspielen (auf dem Raster oder mit den normalen Tasten): Die Schläge landen als Hits.
+- [ ] VDRUM: EDIT halten + schwarze Taste: die Lane stumm (Display „SNARE MUTED“), nochmal: wieder an.
+- [ ] VDRUM: SEQ halten: BEAT, RANDOM, COOK und die Lane-Werkzeuge (CLR, REV, FILL, RND der gewählten Lane).
+- [ ] Ein altes Projekt mit VDRUM-Noten laden: klingt **genau wie vorher**, die Schläge stehen jetzt als Hits im
       Raster. Dasselbe beim Wechseln auf eine alte Szene.
 - [ ] Spur mit ALGORITHM wechseln, dann FX: FX beginnt wieder auf der ersten Karte (SEND).
 - [ ] DETAIL und AUTOMATION (Knopfbewegungen aufnehmen) funktionieren.

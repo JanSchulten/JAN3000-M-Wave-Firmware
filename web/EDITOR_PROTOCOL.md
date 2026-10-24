@@ -90,7 +90,7 @@ watches (v2, `WATCH`), the device also sends push frames (cmds 23, 24, 26) at an
 | string | ASCII bytes, ended by a 0 byte |
 | scope | 0 = parameter of the selected track (`P_*`, 0..P_COUNT−1); 1 = global parameter (`G_*`, 0..G_COUNT−1) |
 | track | 0..3: tracks 1..4 (synth parts) |
-| engine byte | 0..NENGINES−1 (firmware before 1.0: NENGINES = its drum track, no engine). The numbers are fixed, new engines are appended: 0 ANALOG, 1 reserved (DIGITAL before 1.0: see below), 2 PHASE, 3 LOFI, 4 SAMPLE, 5 VOICE, 6 TRIO, 7 WHEEL, 8 GRAIN, 9 PHYS, 10 DRUM, 11 NOISE, 12 FM6, 13 SLICE, 14 ANALOG2, 15 VDRUM, 16 DBOX (M-Vave-OP1; NENGINES 17; a build with `FELUCCA_SLICE=0` keeps 13 as a reserved "-"; Felucca had NENGINES 14). ANALOG2's WAVE 2 values (CUT2 RES2 LFO2 RATE2) are track parameters 61..64 (DIGITAL's former OP1 ATK DEC SUS REL): with an ANALOG2 sound the descriptors name them so. A VDRUM or DBOX track's 128 bytes where an FM6 track keeps its patch (projects, user presets) hold its own kit (`firmware/src/eng_vdrum.c`, tag 0x56; `eng_dbox.c`, tag 0x44): `FM6_GET` of such a user preset answers rc 2. The device and the editor list them in another order (ANALOG ANALOG2 FM6 PHASE LOFI SAMPLE VOICE TRIO WHEEL GRAIN PHYS NOISE SLICE DRUM VDRUM DBOX: `ENGINE_ORDER`); the numbers stay |
+| engine byte | 0..NENGINES−1 (firmware before 1.0: NENGINES = its drum track, no engine). The numbers are fixed, new engines are appended: 0 ANALOG, 1 reserved (DIGITAL before 1.0: see below), 2 reserved (PHASE), 3 LOFI, 4 SAMPLE, 5 reserved (VOICE), 6 reserved (TRIO), 7 WHEEL, 8 GRAIN, 9 PHYS, 10 DRUM, 11 NOISE, 12 FM6, 13 reserved (SLICE), 14 ANALOG2, 15 VDRUM, 16 reserved (DBOX) (M-Vave-OP1; NENGINES 17; Felucca had NENGINES 14). M-Vave-OP1 retired PHASE, VOICE, TRIO, SLICE and DBOX: `INFO` names them "-", their descriptors are empty, they have no presets, and a sound that names one (a project, a user preset, `G_ENGSEL`, `PRESET`) plays as its successor's first preset: DBOX as DRUM, the others as ANALOG. ANALOG2's WAVE 2 values (CUT2 RES2 LFO2 RATE2) are track parameters 61..64 (DIGITAL's former OP1 ATK DEC SUS REL): with an ANALOG2 sound the descriptors name them so. A VDRUM track's 128 bytes where an FM6 track keeps its patch (projects, user presets) hold its own kit (`firmware/src/eng_vdrum.c`, tag 0x56): `FM6_GET` of such a user preset answers rc 2. The device and the editor list them in another order (ANALOG ANALOG2 FM6 LOFI SAMPLE WHEEL GRAIN PHYS NOISE DRUM VDRUM: `ENGINE_ORDER`); the numbers stay |
 
 The engine parameters are `P_E0..P_E7`: P_COUNT−8 .. P_COUNT−1 (103..110 since 1.5; 96..103 in 1.2 .. 1.4; 91..98 in
 1.1), and `INFO` gives `P_E0`.
@@ -147,7 +147,7 @@ The chord keys (SCL > CHORD on the device, `firmware/src/chord.c`) are two track
 | 82 | VOIC | enum: 0 CLOSE, 1 OPEN (1-5-3), 2 INV1, 3 INV2, 4 +OCT (the root an octave down; a seventh drops its fifth) |
 
 With CHRD on, a key, a MIDI note of that track and so the arp's held notes play the chord (at most 4 notes),
-and live recording writes it into one step; MONO / LEGATO / UNISON play its root; a kit (DRUM, SLICE)
+and live recording writes it into one step; MONO / LEGATO / UNISON play its root; a kit (DRUM)
 ignores it. Both defaults are 0: nothing changes until CHRD is set. They are the track's, like ARP and SCL: a
 sound load (a factory preset, `UP_LOAD`, an audition) keeps them, and motion never records them.
 
@@ -249,9 +249,8 @@ checked byte for byte by `web/test_web.mjs`): header at 0, ADPCM data at 512.
 Data is IMA ADPCM, 4 bit, low nibble first, starting from predictor 0 and step index 0.
 All little endian.
 
-The slot's last 4 KiB sector (offset 0x13000) holds SLICE's slices set by hand on the device (`src/slice_store.c`:
-magic `"SLM1"`, the sample's length and data CRC, the slice starts) when the data leaves it free (at most 77,312
-bytes). An upload writes over it like any other data; a record that is not the slot's sample's is ignored.
+(Up to M-Vave-OP1's step 4 the slot's last 4 KiB sector held SLICE's slices set by hand, magic `"SLM1"`; SLICE is
+retired, nothing reads or writes that record now, and an upload writes over it like any other data.)
 
 `fmt` values (`firmware/src/core.h`):
 
@@ -307,7 +306,7 @@ numbered 0..31 (the device shows U01..U32).
   5 KEYS, 6 DRUM, 7 FX, 8 OTHER (append-only; the device's PRESETS > LIST filters by it, its NAME screen sets it).
   `UP_LIST` sends one byte per listed slot after all the slot entries (0 for an empty slot); `UP_GET` ends with it
   (after kind 0, or after kind 1's 16 bytes). A record saved without one (before 1.2, or by an editor that sends none)
-  reports its engine's: 6 DRUM for DRUM and SLICE, else 8 OTHER. `UP_PUT` takes it as one byte after the kind and its
+  reports its engine's: 6 DRUM for DRUM and VDRUM, else 8 OTHER. `UP_PUT` takes it as one byte after the kind and its
   16 bytes (send kind 0 and 16 zeros for a note pattern); 0 stores none, 9 or more is rc 1. An older editor reads up to
   where it knows and ignores the rest; firmware before 1.2 rejects an `UP_PUT` with the category (rc 1), so send it
   only to a device that answers `UP_GET` with it. The device keeps it in a byte of the record no value uses (the

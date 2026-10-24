@@ -1,5 +1,9 @@
 # Felucca
 
+> **M-Vave-OP1:** this is Felucca's own README, kept as it was. In this fork PHASE, VOICE, TRIO and SLICE (and
+> M-Vave-OP1's DBOX) are retired for the engines after Plaits ([PLAITS_PLAN.md](PLAITS_PLAN.md)); their sounds load as
+> ANALOG (DBOX as DRUM).
+
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/Sponsor-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/hugelton)
 

@@ -147,7 +147,7 @@ static uint32_t drum_gm(const int16_t *p, uint32_t note, int32_t *st)
 
 /* ----------------------------------------------------- the grid's lanes --- */
 /* A step's lane hits (step_t.hit / acc, the DRUM grid: SEQ > STEP on a DRUM track) play these GM notes, on any
- * engine: DRUM strikes its lanes, a synth plays the pitches (M-Vave-OP1: DBOX its own BELL, kitlane.c kit_notes). Each
+ * engine: DRUM strikes its lanes, a synth plays the pitches (kitlane.c kit_notes). Each
  * is the designed pitch of its lane (st 0 in DRUM_GM) */
 static const uint8_t DRUM_LANE_NOTE[NLANE] = {36, 38, 39, 42, 46, 45, 37, 56};
 /* M-Vave-OP1: the grid lanes each track's drums hit since the UI looked (bit l: lane l, DRUM_LANE_NOTE), set by the ISR
@@ -161,8 +161,8 @@ static uint32_t drum_lane(uint32_t note)
     return DV_TYPE_LANE[DRUM_GM[n - 35u][0]];
 }
 
-/* KIT's swaps of lanes 6..8 (1 TOM -> CONGA, 2 RIM -> CLAVE, 4 BELL -> CYM); a VDRUM or DBOX track (M-Vave-OP1:
- * kitlane.c, their lanes named as DRUM's, VDRUM's six its parts) none */
+/* KIT's swaps of lanes 6..8 (1 TOM -> CONGA, 2 RIM -> CLAVE, 4 BELL -> CYM); a VDRUM track (M-Vave-OP1:
+ * kitlane.c, its lanes named as DRUM's, its six its parts) none */
 static uint32_t drum_swaps(const track_t *t)
 {
     uint32_t kit = drum_kit_plays(t->p[P_E0]);

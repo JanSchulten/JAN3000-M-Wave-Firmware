@@ -14,7 +14,6 @@
 static int32_t graph_ht = 100;
 #include "ui_fm6op.c"                                /* EDIT > OPERATOR, OP ENV, OPERATOR 2: FM6's operators (their charts below) */
 #include "ui_vdrum.c"                                /* (M-Vave-OP1) EDIT > LAYER .. PART 2: VDRUM's parts */
-#include "ui_dbox.c"                                 /* .. EDIT > OSC 1, OSC 2, SOUND: DBOX's keys */
 
 /* Matches voice.c: attack is linear, decay and release are exponential
  * (env += (target - env) * k each tick, ~99 % after the set time). Time
@@ -259,7 +258,7 @@ static void graph_roll(const track_t *t, uint16_t c)
     }
 }
 /* SEQ > STEP on a DRUM track: the grid, 8 lanes x the 16 steps of the page shown. Lanes by their two-letter
- * names (BD SD CP CH OH TM RS CB; CG CL CY on the other kits; M-Vave-OP1: VDRUM's six parts BD .. TM, DBOX's eight).
+ * names (BD SD CP CH OH TM RS CB; CG CL CY on the other kits; M-Vave-OP1: VDRUM's six parts BD .. TM).
  * A hit is a rounded square (accented: the accent; a RATCH step's: its 2..4 parts as bars), an empty step a dot (brighter on the beats and on the selected lane); the selected lane is
  * underlaid RAISE, the cursor framed in TEXT; a TEXT bar over the step playing. 1.4.1: a muted lane (the EDIT layer's
  * black keys, eng_drum.c drum_mute): its name DIM, the MUTE icon after it, its hits DIM */
@@ -1146,61 +1145,6 @@ static void graph_sample(uint16_t c)
     }
 }
 
-#if FELUCCA_SLICE
-/* SLICES (ui_slice.c): the waveform from the marker before the selected one to the one after it (the selected
- * slice tinted, its marker the accent, outside the slices DIM), under it the whole material with every marker and
- * the view; then the selected slice's length and the source */
-static void graph_slices(void)
-{
-    uint32_t a, b, len, n = slice_count(), j = slice_sel(), i, src, div, ma, mb;
-    char t[20], u[12];
-    if (!slice_src(&src, &div) || !n) {             /* (it plays a sine: eng_slice.c) */
-        panel_alert(ICON_X_NOFILE, "SAMPLE NOT FOUND");
-        return;
-    }
-    slice_view(&a, &b, &len);
-    slice_env(a, b);
-    ma = slice_mark(0);
-    mb = slice_mark(n);
-#define SPX(p) (12 + (int32_t)((uint32_t)((p) - a) * SP_COLS / (b - a)))   /* p in [a, b] */
-    if (j < n) {                                     /* the selected slice */
-        uint32_t s0 = slice_mark(j), s1 = slice_mark(j + 1u);
-        int32_t x0 = SPX(s0 > a ? s0 : a), x1 = SPX(s1 < b ? s1 : b);
-        if (x1 > x0)
-            cv_rect(x0, 6, x1 - x0, 80, T_TINT);
-    }
-    for (i = 0; i < SP_COLS; i++) {
-        uint32_t p = a + (uint32_t)((uint32_t)i * (b - a) / SP_COLS);
-        cv_line(12 + (int32_t)i, 46 - sp.hi[i] * 38 / 64, 12 + (int32_t)i, 46 - sp.lo[i] * 38 / 64,
-                p >= ma && p < mb ? T_THEME : T_DIM);
-    }
-    for (i = 0; i <= n; i++) {                       /* the markers in the view (the selected one last: on top) */
-        uint32_t p = slice_mark(i);
-        if (i != j && p >= a && p <= b)
-            cv_rect(SPX(p), 4, 1, 84, T_MID);
-    }
-    {
-        uint32_t p = slice_mark(j);
-        if (p >= a && p <= b)
-            cv_rect(SPX(p) > 226 ? 226 : SPX(p), 2, 2, 88, T_ACCENT);
-    }
-#undef SPX
-    cv_rrect(12, 96, (int32_t)SP_COLS, 3, 1, T_RAISE, T_SURF);   /* the whole: every marker, the view */
-    for (i = 0; i <= n; i++)
-        cv_rect(12 + (int32_t)((uint32_t)slice_mark(i) * (SP_COLS - 1u) / len), 94, 1, 7, i == j ? T_ACCENT : T_MID);
-    {
-        int32_t x0 = 12 + (int32_t)((uint32_t)a * SP_COLS / len), x1 = 12 + (int32_t)((uint32_t)b * SP_COLS / len);
-        cv_rect(x0, 103, x1 - x0 < 2 ? 2 : x1 - x0, 2, T_THEME);
-    }
-    str_cpy(t, "LEN ", sizeof t);
-    slice_time(u, j < n ? slice_mark(j + 1u) - slice_mark(j) : len - mb);
-    str_cpy(t + 4, u, sizeof t - 4);
-    str_cpy(t + str_len(t), " S", sizeof t - str_len(t));
-    cv_text(12, 104, &AF_M, t, T_MID);                  /* the slice's detail (M): its capitals rows 108 .. 118 */
-    cv_text_r(228, 104, &AF_M, N_SLC_SRC[src], src && src != SLC_SRC_PIANO ? T_THEME : T_DIM, T_SURF);
-}
-#endif
-
 /* WHEEL: the nine drawbars as rounded bars over RAISE slots (the bars of the knob just turned: the accent),
  * their footages under them */
 static void graph_wheel(const track_t *t, uint16_t c)
@@ -1788,9 +1732,6 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_EVENTS)                      /* AUTOMATION: the rows, the one selected, + ADD's place, PLAY,
                                                       * QUANTIZE */
         h = (h ^ ev_sig()) * 16777619u;
-#if FELUCCA_SLICE
-    if (pg->graph == GR_SLICES && slice_page_ok()) h ^= slice_sig();
-#endif
     if (pg->scope == SC_ENGINE && (ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL || t->eng_req % NENGINES == ENGI_FM6 ||
                                    (FELUCCA_FM4 && t->eng_req % NENGINES == ENGI_DIGITAL)))
         h ^= (ui.hot_t ? ui.hot_col + 1u : 0u) * 65537u;
@@ -1799,7 +1740,6 @@ static uint32_t graph_signature(void)
         h ^= (fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u + (fop_op + 1u) * 40503u + (fop_stg + 1u) * 7919u;
     if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_SAMPLE) h ^= sample_wave.pos * 13u + sample_wave.key;
     if (vdu_page(pg->graph) && vdu_ok()) h ^= vdu_sig();   /* (M-Vave-OP1) VDRUM: the part, its bytes, LYR, KIT */
-    if (dbu_page(pg->graph) && dbu_ok()) h ^= dbu_sig();   /* .. DBOX: the key, its bytes, KIT */
     if (pg->graph == GR_ROLL) {
         uint32_t ph = song.playing ? t->seq_idx : 0xFFFFu;
         if (ph / 16u != ui.bank)
@@ -1827,13 +1767,13 @@ static const char *eng_abbr(const char *name)
 #if FELUCCA_FM4
                                        {"DIGITAL", "DGTL"},
 #endif
-                                       {"PHASE", "PHAS"}, {"LOFI", "LOFI"},
-                                       {"SAMPLE", "SMPL"}, {"VOICE", "VOCL"}, {"TRIO", "TRIO"}, {"WHEEL", "WHEL"},
+                                       {"LOFI", "LOFI"},
+                                       {"SAMPLE", "SMPL"}, {"WHEEL", "WHEL"},
                                        {"GRAIN", "GRAN"}, {"PHYS", "PHYS"}, {"DRUM", "DRUM"},
-                                       {"NOISE", "NOIS"}, {"FM6", "FM6"}, {"SLICE", "SLCE"},
+                                       {"NOISE", "NOIS"}, {"FM6", "FM6"},
                                        {"ANLG2", "ANL2"},   /* (M-Vave-OP1: ANLG2 is 1 px too wide for the EDIT
                                                              * layer's 20 px cells beside the engine's icon) */
-                                       {"VDRUM", "VDRM"}, {"DBOX", "DBOX"}};
+                                       {"VDRUM", "VDRM"}};
     uint32_t i;
     for (i = 0; i < sizeof A / sizeof A[0]; i++)
         if (str_eq(name, A[i][0]))
@@ -3133,12 +3073,6 @@ static void draw_graph(void)
             cv_oy = 0;
             panel_note("TURN TO PICK", "[OCT+] CONFIRM", 0);
             break;
-#if FELUCCA_SLICE
-        case GR_SLICES:
-            cv_oy = 0;
-            graph_slices();
-            break;
-#endif
         case GR_FMOP:
         case GR_FMOP2:
             if (fop_ok()) graph_fm6(t, c, fop_op % 6u);   /* the chart, the operator picked */
@@ -3152,11 +3086,6 @@ static void draw_graph(void)
         case GR_VDP:
         case GR_VDP2:
             if (vdu_ok()) graph_vdrum(t, c);
-            break;
-        case GR_DBO1:
-        case GR_DBO2:
-        case GR_DBHIT:
-            if (dbu_ok()) graph_dbox(t, c);
             break;
         default:
             if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL) graph_wheel(t, c);

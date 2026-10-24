@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
-/* VDRUM and DBOX on the sequencer as DRUM (firmware/src/kitlane.c, M-Vave-OP1), through the UI harness:
- *   MODEL    the lanes: DRUM 8, VDRUM 6 (its parts), DBOX 8 (BELL its cowbell, B 47); every other engine none; a note's
- *            lane on each (VDRUM: its part, DBOX: its key); VDRUM's and DBOX's lanes named as DRUM's, whatever their
- *            P_E0 means (no conga, no clave)
- *   GRID     SEQ > STEP is the grid; black keys 1..6 (VDRUM) / 1..8 (DBOX) pick the lane,
- *            VDRUM's 7 and 8 do nothing and stay dark; white keys toggle hits; the keys play their lanes' notes (DBOX
- *            BELL 47); a DRUM hit on RIM / BELL shows on VDRUM's CLAP / HATOP and an edit there makes it the lane's own;
+/* VDRUM on the sequencer as DRUM (firmware/src/kitlane.c, M-Vave-OP1), through the UI harness:
+ *   MODEL    the lanes: DRUM 8, VDRUM 6 (its parts); every other engine none (DBOX, retired, too); a note's lane on
+ *            VDRUM its part; VDRUM's lanes named as DRUM's, whatever its P_E0 means (no conga, no clave)
+ *   GRID     SEQ > STEP is the grid; black keys 1..6 pick the lane,
+ *            7 and 8 do nothing and stay dark; white keys toggle hits; the keys play their lanes' notes;
+ *            a DRUM hit on RIM / BELL shows on VDRUM's CLAP / HATOP and an edit there makes it the lane's own;
  *            a lane 7 or 8 picked on DRUM is lane 6 on VDRUM; the lanes' keys flash as they play
  *   REC      live recording writes hits (a lane's note; vel > 110 its accent), other notes stay notes on their lane
- *   MUTE     the EDIT layer's black keys mute the lanes (VDRUM 6, DBOX 8): a muted lane silent, the others as ever, its
- *            name said; DBOX's mute takes every key on the lane (E with SNARE)
+ *   MUTE     the EDIT layer's black keys mute the lanes (VDRUM 6): a muted lane silent, the others as ever, its
+ *            name said
  *   TOOLS    SEQ TOOLS' BEAT and the lane row are there; BEAT the basic beat; RANDOM fills VDRUM's six lanes only
- *   LOAD     a VDRUM or DBOX track's notes on its lanes' notes become hits when a project loads, a scene is picked, a
+ *   LOAD     a VDRUM track's notes on its lanes' notes become hits when a project loads, a scene is picked, a
  *            pattern loads; other notes stay; DRUM's steps of today's format stay as stored; nothing sounds different
  *            (the sequencer's output bit for bit, the notes as written against the converted steps)
  *   PRESET   a user preset of a VDRUM track stores its grid
@@ -86,24 +85,6 @@ static void pat_vdrum(step_t *s)
     step_notes(&s[14], 49, 0);                           /* a crash: VDRUM's HATOP, not its note: stays */
     step_notes(&s[15], 37, 0);                           /* a rim: VDRUM's CLAP part, not its note: stays */
 }
-static void pat_dbox(step_t *s)
-{
-    uint32_t i;
-    memset(s, 0, NSTEP * sizeof *s);
-    for (i = 0; i < NSTEP; i++)
-        step_clear(&s[i]);
-    step_notes(&s[0], 36, 0);
-    step_notes(&s[2], 42, 0);
-    step_notes(&s[4], 38, 42);
-    step_notes(&s[6], 44, 0);                            /* G#: the pedal hat, not a lane's note */
-    step_notes(&s[8], 36, 46);
-    s[8].flags = SF_ACCENT;
-    step_notes(&s[10], 39, 0);
-    step_notes(&s[12], 47, 0);                           /* B: the cowbell, BELL's */
-    step_notes(&s[13], 40, 0);                           /* E: snare 2, stays */
-    step_notes(&s[14], 37, 0);
-    step_notes(&s[15], 45, 0);
-}
 
 /* the whole mix over two loops of the 16 steps from the top, hashed (FNV-1a); track 4 plays steps st on engine e */
 static uint64_t play_hash(uint32_t e, const step_t *st)
@@ -157,31 +138,20 @@ static void kg_model(void)
     track_t *t = &trk[0];
     uint32_t e, ok = 1;
     for (e = 0; e < NENGINES; e++)
-        ok &= kit_lanes(e) == (e == ENGI_DRUM || e == ENGI_DBOX ? 8u : e == ENGI_VDRUM ? 6u : 0u);
-    ck("the lanes: DRUM 8, VDRUM 6, DBOX 8, every other engine none (the piano roll)", ok);
-    ok = kit_notes(ENGI_DBOX)[DV_BELL] == 47u && kit_notes(ENGI_VDRUM) == DRUM_LANE_NOTE && kit_notes(ENGI_DRUM) == DRUM_LANE_NOTE;
-    for (e = 0; e < DV_BELL; e++)
-        ok &= kit_notes(ENGI_DBOX)[e] == DRUM_LANE_NOTE[e];
-    ck("the lanes' notes: DRUM's 36 38 39 42 46 45 37 56; DBOX's the same but BELL on B, its cowbell (47)", ok);
+        ok &= kit_lanes(e) == (e == ENGI_DRUM ? 8u : e == ENGI_VDRUM ? 6u : 0u);
+    ck("the lanes: DRUM 8, VDRUM 6, every other engine none (the piano roll; DBOX, retired, too)", ok);
+    ok = kit_notes(ENGI_VDRUM) == DRUM_LANE_NOTE && kit_notes(ENGI_DRUM) == DRUM_LANE_NOTE;
+    ck("the lanes' notes: DRUM's 36 38 39 42 46 45 37 56", ok);
     ok = lane_of(ENGI_VDRUM, 37) == DV_CLAP && lane_of(ENGI_VDRUM, 56) == DV_HATO && lane_of(ENGI_VDRUM, 49) == DV_HATO &&
          lane_of(ENGI_VDRUM, 41) == DV_TOM && lane_of(ENGI_VDRUM, 72) == DV_TOM && lane_of(ENGI_VDRUM, 35) == DV_KICK;
     for (e = 0; e < 6u; e++)
         ok &= lane_of(ENGI_VDRUM, DRUM_LANE_NOTE[e]) == e;
     ck("VDRUM: a note on its part's lane (RIM 37 on CLAP, BELL 56 / crash 49 on HATOP, toms and percussion on TOM)", ok);
-    ok = lane_of(ENGI_DBOX, 40) == DV_SNARE && lane_of(ENGI_DBOX, 41) == DV_TOM && lane_of(ENGI_DBOX, 43) == DV_TOM &&
-         lane_of(ENGI_DBOX, 44) == DV_HATC && lane_of(ENGI_DBOX, 56) == DV_HATC && lane_of(ENGI_DBOX, 59) == DV_BELL;
-    for (e = 0; e < NLANE; e++)
-        ok &= lane_of(ENGI_DBOX, DBX_LANE_NOTE[e]) == e;
-    ck("DBOX: a note on its key's lane (E SNARE, F G TOM, G# HATCL in any octave, B BELL)", ok);
     ui_power_on();
     set_engine_of(t, ENGI_VDRUM);
     t->p[P_E0] = 1;                                     /* (TYPE STRNG: as DRUM's KIT it would be 66, a conga on TOM) */
     ok = str_eq(drum_lane_name(t, 0), "KICK") && str_eq(drum_lane_name(t, DV_TOM), "TOM") &&
          str_eq(drum_lane_abbr(t, DV_TOM), "TM") && str_eq(drum_lane_name(t, DV_HATC), "HATCL");
-    set_engine_of(t, ENGI_DBOX);
-    t->p[P_E0] = 3;                                     /* (KIT METAL) */
-    ok &= str_eq(drum_lane_name(t, DV_RIM), "RIM") && str_eq(drum_lane_abbr(t, DV_BELL), "CB") &&
-          str_eq(drum_lane_name(t, DV_TOM), "TOM");
     ck("the lanes named as DRUM's (VDRUM: its parts), whatever their P_E0 is (no CONGA, no CLAVE, no CYM)", ok);
 }
 
@@ -270,70 +240,13 @@ static void kg_grid(const char *shots)
         screen_save(shots, "kitgrid_vdrum");
         drum_mute[3] = 0;
     }
-
-    t = kit_on(ENGI_DBOX);
-    ok = grid_on() && kit_track(t) == 8u;
-    tap_key(key_at(1, 7));
-    tap_key(key_at(0, 2));
-    ok &= ui.lane == DV_BELL && t->step[2].hit == 1u << DV_BELL;
-    glow = grid_glow();
-    ok &= (glow >> key_at(1, 7) & 1u) && (glow >> key_at(1, 6) & 1u);
-    kb_prev = 0;
-    fm1_in.notes = (1u << key_at(1, 7)) | (1u << key_at(1, 6));
-    keyboard_block();
-    ok &= kb_note[key_at(1, 7)] == 47u && kb_note[key_at(1, 6)] == 37u;
-    fm1_in.notes = 0;
-    keyboard_block();
-    ck("DBOX: the grid with eight lanes; black key 8 BELL (plays 47, B: the cowbell), its hit on step 3", ok);
-    {
-        int32_t o[2u * CTL];
-        drum_lit[3] = 0;
-        trk_note_on(t, 40, 100);                        /* (E: snare 2, on SNARE) */
-        trk_note_on(t, 59, 100);                        /* (B an octave up: BELL) */
-        mix_block(o, CTL);
-        ck("  a key struck flashes its lane (E on SNARE, a B on BELL)", drum_lit[3] == (1u << DV_SNARE | 1u << DV_BELL));
-    }
-    {   /* the hits play the lanes' notes: lane 8 at 47 */
-        step_t st[NSTEP];
-        uint64_t hn, hh;
-        uint32_t k;
-        for (k = 0; k < NSTEP; k++)
-            step_clear(&st[k]);
-        step_notes(&st[0], 47, 0);
-        step_notes(&st[4], 47, 0);
-        hn = play_hash_fork(ENGI_DBOX, st);
-        for (k = 0; k < NSTEP; k++)
-            step_clear(&st[k]);
-        st[0].time = st[4].time = ST_NOTE;
-        st[0].hit = st[4].hit = 1u << DV_BELL;
-        st[0].vel = st[4].vel = 100;
-        hh = play_hash_fork(ENGI_DBOX, st);
-        ck("  (the render from one state twice: the same)", hh == play_hash_fork(ENGI_DBOX, st) && hh);
-        ck("  BELL's hits sound as the note B (47) did, bit for bit", hn == hh);
-    }
-    if (shots) {
-        uint32_t k;
-        t = kit_on(ENGI_DBOX);
-        for (k = 0; k < 16u; k += 4u)
-            grid_hit(t, k, DV_KICK, 1);
-        for (k = 4; k < 16u; k += 8u)
-            grid_hit(t, k, DV_SNARE, 1);
-        for (k = 0; k < 16u; k += 2u)
-            grid_hit(t, k, DV_HATC, 1);
-        grid_hit(t, 14, DV_BELL, 1);
-        grid_acc(t, 14, DV_BELL, 1);
-        ui.lane = DV_BELL;
-        ui.cursor = 14;
-        frame();
-        screen_save(shots, "kitgrid_dbox");
-    }
 }
 
 static void kg_rec(void)
 {
     uint32_t e, ok;
-    for (e = 0; e < 2u; e++) {
-        uint32_t eng = e ? ENGI_DBOX : ENGI_VDRUM;
+    for (e = 0; e < 1u; e++) {                          /* (DBOX, retired, was e 1) */
+        uint32_t eng = ENGI_VDRUM;
         track_t *t = kit_on(eng);
         song.rec = 1u << 3;
         song.playing = 1;
@@ -346,23 +259,21 @@ static void kg_rec(void)
         ok = t->step[5].hit == 1u << DV_HATC && !t->step[5].n;
         t->seq_idx = 9;
         rec_note(t, 36, 120);                           /* (a lane's note, hard: accented) */
-        rec_note(t, e ? 40u : 49u, 90);                 /* (VDRUM a crash, DBOX snare 2: notes on their lanes) */
+        rec_note(t, 49u, 90);                           /* (a crash: a note on its lane) */
         ok &= t->step[9].hit == 1u << DV_KICK && t->step[9].acc == 1u << DV_KICK && t->step[9].n == 1u &&
-              t->step[9].note[0] == (e ? 40u : 49u) &&
-              step_lanes(eng, &t->step[9]) == (1u << DV_KICK | 1u << (e ? DV_SNARE : DV_HATO));
+              t->step[9].note[0] == 49u && step_lanes(eng, &t->step[9]) == (1u << DV_KICK | 1u << DV_HATO);
         song.rec = 0;
         song.playing = 0;
-        ck(e ? "REC on DBOX: a lane's key a hit, a lane's note hard an accented hit, E a note on SNARE"
-             : "REC on VDRUM: a lane's key a hit, a lane's note hard an accented hit, a crash a note on HATOP", ok);
+        ck("REC on VDRUM: a lane's key a hit, a lane's note hard an accented hit, a crash a note on HATOP", ok);
     }
 }
 
 static void kg_mute(void)
 {
-    static const uint8_t NOTE[2][3] = {{36, 38, 46}, {36, 38, 40}};
+    static const uint8_t NOTE[1][3] = {{36, 38, 46}};
     uint32_t e, ok, a, b2, i;
-    for (e = 0; e < 2u; e++) {
-        uint32_t eng = e ? ENGI_DBOX : ENGI_VDRUM, n = e ? 8u : 6u;
+    for (e = 0; e < 1u; e++) {                          /* (DBOX, retired, was e 1) */
+        uint32_t eng = ENGI_VDRUM, n = 6u;
         track_t *t = kit_on(eng);
         double en[3];
         go_home();
@@ -375,7 +286,7 @@ static void kg_mute(void)
         key_down(black(1)); frame(); key_up(black(1)); frame();
         ok &= drum_mute[3] == 1u << DV_SNARE && msg_is("SNARE MUTED");
         btn_up(B_EDIT); frame();
-        ck(e ? "DBOX: EDIT + black key 2 mutes SNARE (8 lane keys lit)" : "VDRUM: EDIT + black key 2 mutes SNARE (6 part keys lit)", ok);
+        ck("VDRUM: EDIT + black key 2 mutes SNARE (6 part keys lit)", ok);
         for (i = 0; i < 3u; i++) {                      /* each struck alone: its energy, SNARE muted */
             int32_t o[CTL];
             uint32_t b, k, p;
@@ -392,9 +303,8 @@ static void kg_mute(void)
             trk_note_off(t, NOTE[e][i]);
         }
         drum_mute[3] = 0;
-        ok = en[0] > 0.0 && en[1] == 0.0 && (e ? en[2] == 0.0 : en[2] > 0.0);
-        ck(e ? "  DBOX: the snare (D) silent and snare 2 (E, on SNARE) too; the kick sounds"
-             : "  VDRUM: the snare part silent (its send too: no resonance); the kick and the open hat sound", ok);
+        ok = en[0] > 0.0 && en[1] == 0.0 && en[2] > 0.0;
+        ck("  VDRUM: the snare part silent (its send too: no resonance); the kick and the open hat sound", ok);
     }
 }
 
@@ -417,39 +327,29 @@ static void kg_tools(void)
         ok &= !(hits >> 6);
     }
     ck("  RANDOM and COOK (40 times): beats in the six lanes only, the kick on step 1", ok);
-    t = kit_on(ENGI_DBOX);
-    tl_do(t, TL_LFILL, DV_BELL);
-    ck("DBOX: FILL LANE on BELL: every step", kg_lanes_of(t, DV_BELL) == 0xFFFFu && t->step[3].hit == 1u << DV_BELL);
 }
 
 static void kg_load(void)
 {
     step_t raw[NSTEP], conv[NSTEP];
     uint32_t e, ok, i;
-    for (e = 0; e < 2u; e++) {
-        uint32_t eng = e ? ENGI_DBOX : ENGI_VDRUM;
+    for (e = 0; e < 1u; e++) {                          /* (DBOX, retired, was e 1) */
+        uint32_t eng = ENGI_VDRUM;
         track_t *t;
         uint64_t h0, h1;
-        if (e)
-            pat_dbox(raw);
-        else
-            pat_vdrum(raw);
+        pat_vdrum(raw);
         memcpy(conv, raw, sizeof conv);
         kit_steps_load(eng, conv);
         ok = conv[0].hit == 1u << DV_KICK && !conv[0].n && conv[4].hit == (1u << DV_SNARE | 1u << DV_HATC) &&
              conv[8].hit == (1u << DV_KICK | 1u << DV_HATO) && conv[8].acc == conv[8].hit && !(conv[8].flags & SF_ACCENT) &&
-             conv[12].hit == (e ? 1u << DV_BELL : (1u << DV_SNARE | 1u << DV_TOM)) &&
+             conv[12].hit == (1u << DV_SNARE | 1u << DV_TOM) &&
              conv[13].n == 1u && conv[13].note[0] == raw[13].note[0];
-        ok &= e ? conv[6].n == 1u && conv[6].note[0] == 44u && step_lanes(eng, &conv[6]) == 1u << DV_HATC &&
-                      step_lanes(eng, &conv[13]) == 1u << DV_SNARE && conv[14].hit == 1u << DV_RIM && !conv[14].n &&
-                      conv[15].hit == 1u << DV_TOM
-                : conv[14].n == 1u && !conv[14].hit && step_lanes(eng, &conv[14]) == 1u << DV_HATO &&
+        ok &= conv[14].n == 1u && !conv[14].hit && step_lanes(eng, &conv[14]) == 1u << DV_HATO &&
                       conv[15].note[0] == 37u && step_lanes(eng, &conv[15]) == 1u << DV_CLAP &&
                       step_lanes(eng, &conv[13]) == 1u << DV_TOM && !memcmp(&conv[3], &raw[3], sizeof conv[3]) &&
                       !memcmp(&conv[5], &raw[5], sizeof conv[5]) &&
                       step_lanes(eng, &conv[3]) == (1u << DV_HATC | 1u << DV_HATO);
-        ck(e ? "DBOX: its lane notes (36 38 39 42 46 45 37 47) hits, G# E stay notes on their lanes"
-             : "VDRUM: its lane notes (36 38 39 42 46 45) hits, the accent the hits'; 41 49 37 stay notes on their lanes; "
+        ck("VDRUM: its lane notes (36 38 39 42 46 45) hits, the accent the hits'; 41 49 37 stay notes on their lanes; "
                "a step out of lane order ([46 42], [45 41]) stays as it was", ok);
         h0 = play_hash_fork(eng, raw);
         h1 = play_hash_fork(eng, conv);
@@ -467,7 +367,7 @@ static void kg_load(void)
         memset(t->step, 0, sizeof t->step);
         project_load(0);
         ok &= trk[3].eng_req == eng && !memcmp(trk[3].step, conv, sizeof conv) && !memcmp(trk[2].step, raw, sizeof raw);
-        ck("  a project's VDRUM / DBOX steps load as hits (DRUM's of today's format as stored)", ok);
+        ck("  a project's VDRUM steps load as hits (DRUM's of today's format as stored)", ok);
 
         /* a scene of the notes: picked, it is hits */
         t = kit_on(eng);

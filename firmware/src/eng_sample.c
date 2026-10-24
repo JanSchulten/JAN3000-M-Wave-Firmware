@@ -68,15 +68,10 @@ static const char *const SMP_ALL_NAMES[SMP_NALL] = {SMP_SET_NAMES_INIT, "USR1", 
 #define SMP_USER_XIP(k) fm1_xip_ptr(SMP_USER_BASE + (k) * SMP_USER_SIZE)
 #endif
 static const uint8_t *smp_user_xip(uint32_t k) { return SMP_USER_XIP(k); }
-#if FELUCCA_SLICE
-static void slc_user_scan(uint32_t k, int valid);   /* eng_slice.c: SLICE's slice table of the slot */
-#else
-#define slc_user_scan(k, valid) ((void)0)
-#endif
 static uint32_t smp_user_gen;                       /* + 1 per slot scan (GRAIN: its seek index follows uploads) */
 
 /* (re)read slot k from flash: valid header -> zones usable; call after boot and after an upload
- * (main loop: SLICE scans the slot's audio here). The zones are checked in a copy: an unusable slot leaves
+ * (main loop). The zones are checked in a copy: an unusable slot leaves
  * every zone of it empty (n 0: a voice still on it ends), never a half-checked one */
 static void smp_user_scan(uint32_t k)
 {
@@ -85,7 +80,6 @@ static void smp_user_scan(uint32_t k)
     uint32_t i, base, nz = 0;
     smp_user_gen++;
     usr_nz[k] = 0;
-    slc_user_scan(k, 0);
     if (k < SMP_USER_WRITABLE && h->magic == SMP_USER_MAGIC && h->version == 1 && h->nz && h->nz <= 16u &&
         h->data_len <= SMP_USER_SIZE - SMP_USER_DATA) {
         base = (uint32_t)(uintptr_t)(smp_user_xip(k) + SMP_USER_DATA) - (uint32_t)(uintptr_t)SMP_DATA;
@@ -105,10 +99,9 @@ static void smp_user_scan(uint32_t k)
     if (!nz)
         return;
     usr_nz[k] = (uint8_t)nz;
-    slc_user_scan(k, 1);
 }
 
-/* A missing sample (SAMPLE, GRAIN, SLICE: an empty or invalid user slot, a set this build has no data for) plays
+/* A missing sample (SAMPLE, GRAIN: an empty or invalid user slot, a set this build has no data for) plays
  * this instead, like a hardware sampler with its sample gone: a plain sine at the note's pitch (+ d16, 1/16
  * semitones), at half the peak of a full sample, through the engine's one-pole low-pass (lp Q15, state *y) and the
  * voice's amp (the ADSR: no click at the start, phase 0, or the end). *ph its phase. The UI says so once

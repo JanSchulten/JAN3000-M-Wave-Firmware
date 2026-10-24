@@ -1170,41 +1170,6 @@ static void draw_columns(void)
         draw_act_column(3, "SAVE", T_THEME, ICON_AUTO);
         return;
     }
-#if FELUCCA_SLICE
-    if (cur_page()->graph == GR_SLICES) {                /* SLICE POS, then SPLIT JOIN (ui_slice.c) */
-        uint32_t n = slice_count(), j = slice_sel(), src, div, ok = slice_src(&src, &div) && src;
-        char u[8];
-        if (j < n) {
-            fmt_int(val, (int32_t)j + 1);
-            str_cpy(u, "/", 8);
-            fmt_int(u + 1, (int32_t)n);
-        } else {
-            str_cpy(val, n ? "END" : "--", sizeof val);
-            u[0] = 0;
-        }
-        draw_column(0, "SLICE", val, u, VAL(0u), -1, ICON_SLICE);
-        slice_time(val, slice_mark(j));
-        draw_column(1, "POS", val, "S", ok ? VAL(1u) : T_DIM, -1, ICON_AUTO);
-        draw_act_column(2, "SPLIT", ok ? T_THEME : T_DIM, ICON_AUTO);
-        draw_act_column(3, "JOIN", ok ? T_THEME : T_DIM, ICON_AUTO);
-        return;
-    }
-#endif
-    if (dbu_page(cur_page()->graph)) {                   /* (M-Vave-OP1) DBOX: the key's bytes (ui_dbox.c) */
-        for (c = 0; c < 4u; c++) {
-            const char *lb, *u;
-            int32_t r;
-            uint32_t ic;
-            int on;
-            if (!dbu_ok()) {                             /* (the engine changed before ui_draw left the page) */
-                draw_column(c, "", "", "", T_THEME, -1, ICON_NONE);
-                continue;
-            }
-            on = dbu_card(c, &lb, val, &u, &r, &ic);
-            draw_column(c, lb, val, u, on ? VAL(c) : T_DIM, r, ic);
-        }
-        return;
-    }
     if (vdu_page(cur_page()->graph)) {                   /* (M-Vave-OP1) VDRUM: the part's bytes (ui_vdrum.c) */
         for (c = 0; c < 4u; c++) {
             const char *lb, *u;

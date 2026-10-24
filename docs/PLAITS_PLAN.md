@@ -117,7 +117,7 @@ immer (`ui.c` `preset_fx`, `preset_load_to`; Test: `tests/preset_fx_test.c`).
 1. ~~Werks-Presets ohne Effekte~~ (erledigt)
 2. ~~Phase 0: Machbarkeit~~ (dieses Dokument)
 3. ~~FPU-Probe auf dem Gerät~~ (gemessen 2026-10-24, Abschnitt 6)
-4. Alte Engines umwandeln und entfernen (SLICE, PHASE, VOICE, TRIO, DBOX), Tests für das Laden alter Projekte
+4. ~~Alte Engines entfernen~~ (SLICE, PHASE, VOICE, TRIO, DBOX; Abschnitt 7)
 5. Neue Engines: WAVESHAPE → HARMONIC → PARTICLE → WAVETABLE → SWARM
 6. Presets, UI, Golden-Tests, Emulator; erst dann aufs Gerät, nur mit Okay
 
@@ -155,3 +155,34 @@ Folgerung: acht WAVESHAPE-Stimmen kosten ~35 % der Audio-Zeit, dazu Filter und H
 echten Interrupt, Cache-Fehlgriffe auf die Tabellen im Flash. Die anderen vier Modelle liegen im statischen Kostenmaß
 gleichauf (Abschnitt 2): **alle fünf können mit der vollen Stimmenzahl (NVOICE 8) geplant werden**; jede Engine wird
 nach dem Einbau mit INFO > CPU bei acht gehaltenen Noten nachgemessen.
+
+## 7. Schritt 4: die fünf Engines entfernt
+
+Entschieden mit dem Nutzer: Es gibt keine wichtigen Daten, also werden alte Sounds nicht umgerechnet, sondern laden
+als Standard-Sound eines Nachfolgers. Umgesetzt:
+
+- `engines.c`: PHASE (2), VOICE (5), TRIO (6), SLICE (13) und DBOX (16) sind `ENG_GONE` (stumm, keine Parameter, keine
+  Presets, nie angeboten). Ihre Nummern bleiben reserviert, denn Projekte, User-Presets und das Editor-Protokoll
+  speichern Engine-Nummern.
+- `core.h` `eng_retired`, `eng_successor`: DBOX → DRUM, die anderen vier → ANALOG (bis WAVESHAPE, WAVETABLE und SWARM
+  ihre Plätze einnehmen: dann ändert sich nur diese Zeile). Wer eine der Nummern nennt, bekommt das erste Preset des
+  Nachfolgers: `set_engine_of` (Editor, Engine-Wechsel), `project.c` `proj_retired` (Projekte, Autosave; die Bewegung
+  auf den E-Werten fällt weg, der Rest des Sounds und die Steps bleiben), `upreset.c` (User-Presets: Liste, Name, Laden).
+- Entfernt: `eng_phase.c`, `eng_formant.c`, `eng_trio.c`, `eng_dbox.c`, `ui_dbox.c`, `eng_slice.c`, `ui_slice.c`,
+  `slice_store.c`, das BREAK-Sample und die Slice-Tabellen in `tools/gen_samples.py`, der Schalter `FELUCCA_SLICE`, die
+  DBOX-Lanes im Raster, die DBOX- und SLICES-Seiten, der Credit für CrispyZebra (PHASE) und klattsch (VOICE).
+- Tests: `tests/dbox_test.c`, `tests/slice_test.c` entfernt; neu `tests/retired_test.c` (nie angeboten, stumm, Wählen,
+  Projekte, User-Presets; schlägt an, wenn `proj_retired` fehlt). Was TRIO, PHASE und VOICE in anderen Tests prüften,
+  prüfen jetzt ANLG2, LOFI und PHYS (`retrig_test`, `mod_test`, `regress`: die Stimmengrenze einer Engine). Golden:
+  0 Renders verändert, nur die der fünf entfernt; `union_test`: 546 Engine-Wechsel, keiner weicht ab.
+
+| | vorher | nachher |
+| --- | --- | --- |
+| Image | 569 516 B | **522 836 B** (58 728 B frei) |
+| RAM `.data`+`.bss` | 56 616 B | 51 640 B |
+| Pool | 340 188 B | 339 548 B |
+
+Was die fünf Plaits-Engines noch brauchen (die Tabellen von Sinus, Faltern und Waveshaper sind mit der FPU-Probe schon im
+Image): Code und Hülle ~15 KB (geschätzt), dazu die Wavetables. Mit **16 Bit** (50,7 KB) sind das ~66 KB: **~7 KB mehr,
+als frei ist**; mit 8 Bit (25,3 KB) ~41 KB, das passt mit ~18 KB Reserve. Die genaue Rechnung kommt mit den ersten
+Engines (Code gemessen statt geschätzt); reicht es nicht für 16 Bit, gilt die Entscheidung „sonst 8 Bit“.

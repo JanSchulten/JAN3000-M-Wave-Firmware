@@ -665,13 +665,6 @@ static void state(void)                          /* a playing song with steps on
     my_steps(&trk[1]);
     trk[0].step[2].flags |= SF_ACCENT;
     trk[0].step[6].flags |= SF_SLIDE;
-#if FELUCCA_SLICE
-    if (usr_nz[0]) {                              /* (slices_usr filled USR1: empty again) */
-        memset(host_slots, 0, sizeof host_slots);
-        smp_user_scan(0);
-        slc_man_save = 0;
-    }
-#endif
     for (i = 0; i < SCOPE_N; i++)                 /* a stand-in signal for the scope */
         scope_buf[i] = (int16_t)((int32_t)((i * 37u) % 128u) * 200 - 12800 + (int32_t)((i % 32u) < 16u ? 3000 : -3000));
     scope_w = 0;
@@ -751,7 +744,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_NAME_USER, S_NAME_TYPING, S_NAME_123, S_NAME_EMPTY, S_NAME_FULL, S_NAME_PLAYING, S_PROJECT_NAMED, S_SONG_NAMED,
        S_PRESETS_CAT, S_PRESETS_CAT_EMPTY, S_NAME_CAT, S_NAME_RANDOM, S_MENU_ANIM_IDLE, S_MOMENTARY, S_MOMENTARY_EDIT,
        S_SONG_LONG, S_SONG_PLAYING, S_SONG_LONG_PLAYING, S_SONG_UNSAVED, S_SONG_ADD,
-       S_USER_FOOT, S_SLICES_BREAK, S_SLICES_USR, S_SLICES_NOFILE,
+       S_USER_FOOT,
        S_ROLL_EMPTY, S_ROLL_ACID, S_ROLL_CHORDS, S_ROLL_TIES, S_ROLL_LEN32, S_ROLL_HIGH, S_ROLL_LOW, S_ROLL_WIDE, S_ROLL_PLAYING,
        S_ROLL_LOCKS, S_ROLL_LOCK_HELD, S_DRUM_LOCKS, S_DRUM_LOCK_HELD, S_MOTION_LOCKS, S_AUTO_LIST, S_AUTO_LIST_ADD, S_AUTO_LIST_DRUM,
        S_AUTO_NUDGE, S_AUTO_QNT, S_AUTO_ADD_NUDGE, S_ROLL_LEN, S_AUTO_VEL, S_AUTO_ADD_VEL, S_LFO2, S_REC_LAYER, S_REC_LAYER_SET, S_REC_LAYER_SONG,
@@ -781,7 +774,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "name_user", "name_typing", "name_123", "name_empty", "name_full", "name_playing", "project_named", "song_named",
     "presets_bass", "presets_other_empty", "name_category", "name_random", "menu_anim_idle", "momentary", "momentary_edit",
     "song_long", "song_playing", "song_long_playing", "song_unsaved", "song_add",
-    "user_foot", "slices_break", "slices_usr", "slices_nofile",
+    "user_foot",
     "roll_empty", "roll_acid", "roll_chords", "roll_ties", "roll_len32_p2", "roll_high", "roll_low", "roll_wide", "roll_playing",
     "roll_locks", "roll_lock_held", "drum_locks", "drum_lock_held", "motion_locks", "auto_list", "auto_list_add", "auto_list_drum",
     "auto_nudge", "auto_quantize", "auto_add_nudge", "roll_len", "auto_vel", "auto_add_vel", "lfo2", "layer_rec", "layer_rec_set", "layer_rec_song",
@@ -1207,10 +1200,11 @@ static void setup(int s)
     case S_LEARN_WAIT: go_page(GR_TRK); ml_toggle(); ui.msg_t = 0; break;
     case S_LEARN_PICK: go_title("EDIT 2"); ml_toggle(); ml_knob(TSEL, P_E4); ui.msg_t = 0; ui.hot_col = 0; ui.hot_t = 30; break;
     case S_LEARN_SET: go_title("EDIT 2"); ml_toggle(); ml_learn(74, 0, P_E4); ml_knob(TSEL, P_E4); break;
-    case S_LEARN_LONG: {                             /* "T4 WAVE2: SEND A CC" (PHASE's WAVE2: the widest label) */
+    case S_LEARN_LONG: {                             /* "T4 WAVE2: SEND A CC" (ANLG2's WAVE2: the widest label; PHASE's
+                                                      * before, retired) */
         uint32_t k;
-        song.sel = 3; eng(2); go_title("EDIT 2"); ml_toggle();
-        for (k = 0; k < 7u && !str_eq(ENGINES[2]->edit[k].label, "WAVE2"); k++)
+        song.sel = 3; eng(14); go_title("EDIT 1"); ml_toggle();
+        for (k = 0; k < 7u && !str_eq(ENGINES[14]->edit[k].label, "WAVE2"); k++)
             ;
         ml_knob(TSEL, P_E0 + k); ui.msg_t = 0;
         break;
@@ -1387,7 +1381,7 @@ static void setup(int s)
     case S_EDIT_PEEK: go_title("EDIT 1"); ui.layer = LAYER_EDIT; break;
     case S_EDIT_ACTIVE: eng(E_FM); apply_preset_to(TSEL, 2); favorite_set(E_FM, 2, 1); go_home(); ui.layer = LAYER_EDIT;
         ui.hot_col = 0; ui.hot_t = 30; break;
-    case S_EDIT_USER: song.playing = 0; eng(6); up_store(6, "MY LONG TRIO NAME"); up_load(6); favorite_set(NENGINES, 6, 1);
+    case S_EDIT_USER: song.playing = 0; eng(3); up_store(6, "MY LONG LOFI NAME"); up_load(6); favorite_set(NENGINES, 6, 1);
         go_home(); ui.layer = LAYER_EDIT; break;
     case S_LAYER_HINT: go_page(GR_TRK); ui.msg_t = 0; layer_tap(LAYER_GLO); break;
     /* #83: locked open by a double tap (the lock after the header's name): EDIT and FX */
@@ -1602,18 +1596,6 @@ static void setup(int s)
     case S_AUTO_ADD_VEL: go_auto_add(EV_VEL, 3); break;
     case S_LFO2: TSEL->p[P_LSYNC] = 6; TSEL->p[P_LTRIG] = 1; TSEL->p[P_LPOL] = 1; go_title("LFO 2"); break;
     case S_USER_FOOT: song.playing = 0; up_store(3, "MY BASS"); ui.uslot = 3; go_page(GR_USER); break;   /* EDIT NAME lit */
-#if FELUCCA_SLICE
-    /* EDIT > SLICES: BREAK's 16 slices (slice 6 selected); a user sample's slices set by hand: DIV 8 taken as MAN,
-     * slice 3's start moved (KNOB 2 hot), SPLIT picked (OCT+ lit) */
-    case S_SLICES_BREAK: eng(13u); go_page(GR_SLICES); sp.sel = 5; break;
-    case S_SLICES_USR:
-        eng(13u); host_slot_make(0); smp_user_scan(0);
-        TSEL->p[P_E0] = 1; TSEL->p[P_E1] = 1;
-        go_page(GR_SLICES); sp.sel = 0; slice_knob(0, 2); slice_knob(1, 6); ui.act = 3; ui.msg_t = 0;
-        ui.hot_col = 1; ui.hot_t = 30;
-        break;
-    case S_SLICES_NOFILE: eng(13u); TSEL->p[P_E0] = 2; go_page(GR_SLICES); ui.msg_t = 0; break;   /* USR2 empty: SAMPLE NOT FOUND */
-#endif
     default: break;
     }
 }

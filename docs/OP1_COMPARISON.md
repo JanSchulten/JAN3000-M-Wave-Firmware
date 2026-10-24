@@ -82,16 +82,16 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | OP-1 | Bestes Gegenstück auf dem FM-1 | Stand |
 | --- | --- | --- |
 | FM (4 Operatoren: Topology, Freq, FM Amount, Detune) | FM6 (6 Operatoren, 32 Algorithmen, DX7-artig) | 🟡 mehr als das OP-1, aber keine 4-Regler-Makroseite |
-| Cluster (bis 6 Oszillatoren) | TRIO (3 Oszillatoren), ANALOG mit UNISON | 🟡 |
+| Cluster (bis 6 Oszillatoren) | ANALOG / ANLG2 mit UNISON (TRIO ausgemustert; geplant: SWARM nach Plaits) | 🟡 |
 | Digital (Wave Shaper, Octave, Ring Mod, Digitalness) | LOFI (Chip-Wellen) | 🟡 |
 | String (Waveguide) | PHYS (Saiten, Modal, Rings-Saiten) | ✅ |
 | Pulse (zwei Pulszüge) | ANALOG (Puls), LOFI PULSE | 🟡 |
-| Phase (Phase Distortion) | PHASE (CrispyZebra-Oszillator) | ✅ |
+| Phase (Phase Distortion) | – (PHASE ausgemustert; geplant: WAVESHAPE nach Plaits, [PLAITS_PLAN.md](PLAITS_PLAN.md)) | ❌ vorerst |
 | Dr Wave (Frequenzbereich) | WHEEL (additiv, 9 Teiltöne) | 🟡 |
 | Synth-Sampler (6 s) | SAMPLE (3 Nutzer-Slots, ~7 s bei 22 kHz) | 🟡 Samples kommen per USB, nicht über ein Mikrofon |
-| Drum-Sampler (12 s, Teile auf Tasten) | SLICE (Slices auf den Tasten) | ✅ das Prinzip ist dasselbe |
+| Drum-Sampler (12 s, Teile auf Tasten) | SAMPLE mit Nutzer-Slot (SLICE ausgemustert) | 🟡 |
 | DBOX (Drum-Synth) | DRUM (synthetische Kits, GM-Belegung) | ✅ |
-| – | VOICE (Formant), GRAIN, NOISE | Extras des FM-1 |
+| – | GRAIN, NOISE (VOICE ausgemustert; geplant: WAVETABLE nach Plaits) | Extras des FM-1 |
 
 ### Hüllkurve, Play Mode, Effekte, LFO
 
@@ -202,7 +202,7 @@ mit jeder Engine, wie bisher) und **zwei FX-Spuren**, die nur Schritte speichern
 
 | OP-Z | M-Vave-OP1 | Stand |
 | --- | --- | --- |
-| Spuren 1–8 (Drums, Synths) | vier Spuren, jede mit beliebiger Engine (DRUM, FM6, SAMPLE, SLICE …) | ✅ |
+| Spuren 1–8 (Drums, Synths) | vier Spuren, jede mit beliebiger Engine (DRUM, FM6, SAMPLE, VDRUM …) | ✅ |
 | FX1 / FX2 (Send-Effekte mit Schritten) | FX TRACKS: zwei Spuren mit den Effekten der FX-Ebene, eigene Länge 1–64 | ✅ |
 | Punch-in-FX (SHIFT + Tasten) | FX halten + weiße Tasten (Effekte), schwarze 1–4 (Mutes) | ✅ (aus Felucca) |
 | Punch-in-FX mit REC aufnehmen | REC auf FX TRACKS armt eine Spur; quantisiert, gehalten = TIE, Overdub, Punch | ✅ |

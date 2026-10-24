@@ -27,12 +27,6 @@ static int sample_slots(void)
     h->magic = SMP_USER_MAGIC; h->version = 1; h->nz = 16; h->data_len = dl;
     for (i = 0; i < 16u; i++) zone_set(&h->zone[i], 32u * i, 2u * (dl - 32u * i));
     smp_user_scan(0);
-#if FELUCCA_SLICE
-    printf("robust: SLICE material of 16 overlapping zones: %u samples (the slot holds %u)\n", slc_usr[0].len,
-           2u * dl);
-    bad += check("16 overlapping zones: the SLICE scan is at most the slot's size", usr_nz[0] == 16u &&
-                 slc_usr[0].len && slc_usr[0].len <= 2u * dl);
-#endif
     /* zone 0 good, zone 1 malformed: nothing of the slot is left (usr_zone[0][0] was copied before the check; the
      * 16 zones above gone too). USR1: M-Vave-OP1's only sample slot (USR2 and USR3 hold its stores) */
     h = (smp_user_hdr_t *)host_samples[0];

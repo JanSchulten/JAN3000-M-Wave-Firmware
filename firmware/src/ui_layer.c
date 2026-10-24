@@ -14,7 +14,7 @@
  *   SCL  SET   any key: its note name is ROOT; KNOB 1..4 ROOT SCL CHRD VOIC (LY_SCL: the SCL page's first two,
  *              the CHORD page's two; QNT TRN stay on SCL); the LEDs show the root lit and the scale's notes breathing
  *   EDIT SET   the white keys from F3: the engines in PRESETS order (one key each, the NENG_SHOWN one can pick:
- *              engines.c eng_vis; M-Vave-OP1: 16 since VDRUM and DBOX, every white key F3 .. G5), the last black key
+ *              engines.c eng_vis; M-Vave-OP1: 11 since five retired, F3 .. C5), the last black key
  *              F#5 INIT (LY_INIT_B; it was the white key after the engines)
  *              (the dialog); KNOB 1 ENG, 2 No. (the engine's sounds), 3 FAV. Sound loads as on PRESETS: the steps
  *              stay, SAVE held undoes, the editor gets RELOAD; they apply while playing too. 1.4.1: the black keys
@@ -82,8 +82,8 @@ static const page_t *ly_page(uint32_t l) { return l == LAYER_SCL ? &LY_SCL : l =
 #define LY_OPEN 2u                     /* ui.ly_t0: the map opened (no tap any more) */
 #define LY_COMBO 4u                    /* .. by a combo */
 #define LY_DEAD 8u                     /* .. pressed where there is no layer: does nothing */
-/* EDIT (M-Vave-OP1): the engines on the 16 white keys F3 .. G5 (LY_NENG: a FELUCCA_FM4 build shows 17, its last one,
- * DBOX, PRESETS only), INIT on the last black key F#5 (place 10), past the engine's quick actions (EQA: up to 10) */
+/* EDIT (M-Vave-OP1): the engines on the white keys from F3 (LY_NENG, at most 16: G5), INIT on the last black key F#5
+ * (place 10), past the engine's quick actions (EQA: up to 10) */
 #define LY_NENG ((uint32_t)(NENG_SHOWN < 16 ? NENG_SHOWN : 16))
 #define LY_INIT_B 10u
 typedef char ly_eng_fits[NENG_SHOWN <= 16 || FELUCCA_FM4 ? 1 : -1];   /* (a white key each: F3 .. G5) */
@@ -502,7 +502,7 @@ static void scene_key(uint32_t p)
     ui_message(r == SQ_FULL ? "SCENE MEMORY FULL" : r == SQ_SONG ? "STOP THE SONG FIRST" : r == SQ_BAD ? "SCENE DAMAGED" : b);
     ui.force = 1;
 }
-/* SEQ + PRESETS on a kit track (DRUM, VDRUM, DBOX): the lane the lane tools work on (as the grid's KNOB 2) */
+/* SEQ + PRESETS on a kit track (DRUM, VDRUM): the lane the lane tools work on (as the grid's KNOB 2) */
 static void seq_lane(int32_t s)
 {
     if (!kit_track(TSEL))
@@ -684,8 +684,7 @@ static void fx_default(void)
  * actions: a table and its row in EQA, and what OCT- puts back in eqa_put_back.
  *   DRUM  1..8 MUTE of the lanes KICK .. BELL (eng_drum.c drum_mute; the cells the kit's names), latched: lit =
  *         sounding, dark = muted (as GLO's track mutes); the cell of a muted lane as a muted track's (KEY)
- *   VDRUM 1..6 the same, its parts KICK .. TOM (M-Vave-OP1: the SEQ grid's lanes, kitlane.c; eng_vdrum.c vd_render)
- *   DBOX  1..8 the same, its lanes KICK .. BELL: each mutes the keys that show on it (eng_dbox.c dbx_render) */
+ *   VDRUM 1..6 the same, its parts KICK .. TOM (M-Vave-OP1: the SEQ grid's lanes, kitlane.c; eng_vdrum.c vd_render) */
 enum { EQ_SHOW_SEL, EQ_SHOW_MUTE };                /* the cell: on = the selection's fill; on = idle, off = KEY */
 typedef struct {
     uint8_t kind, show, arg;                       /* LK_HOLD / LK_SET, EQ_SHOW_*, the handler's argument */
@@ -710,7 +709,6 @@ static const eqa_t EQA_DRUM[NLANE] = {EQA_LANE(0), EQA_LANE(1), EQA_LANE(2), EQA
 static const eqa_set_t EQA[] = {
     {ENGI_DRUM, NLANE, EQA_DRUM},
     {ENGI_VDRUM, VD_NP, EQA_DRUM},                 /* (M-Vave-OP1: the kits' lanes, kitlane.c) */
-    {ENGI_DBOX, NLANE, EQA_DRUM},
 };
 typedef char eqa_fits[NLANE <= LY_INIT_B ? 1 : -1];   /* (10 black keys: the 11th, F#5, is INIT) */
 

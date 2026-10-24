@@ -61,7 +61,6 @@ Build options (environment, `0` or `1`; defaults in `firmware/src/felucca.c`, `c
 | `FELUCCA_UAC_48K` | 1 | `0`: the USB audio input at 44.1 kHz only, as up to 1.0.5.2 (`firmware/src/usb.c`) |
 | `FELUCCA_UAC_AS_FIRST` | 1 | the audio control header lists the audio streaming interface before the MIDI one, so the USB audio driver of older macOS (up to 15) finds it; `0`: 1.0 to 1.5's order, byte for byte (`firmware/src/usb.c`) |
 | `FELUCCA_UART` | 1 | TRS MIDI IN |
-| `FELUCCA_SLICE` | 1 | the SLICE engine |
 | `FELUCCA_ICONS` | 1 | parameter icons on the knob cards |
 | `FELUCCA_FM4` | 0 | the retired DIGITAL engine (4-operator FM) instead of its FM6 conversion |
 
@@ -73,7 +72,7 @@ Build options (environment, `0` or `1`; defaults in `firmware/src/felucca.c`, `c
 The CC0 instrument samples that the SAMPLE engine uses are in `assets/samples-cc0/`
 (Versilian Studios, see `ATTRIBUTION.txt` there). `tools/fetch_cc0.py` downloads them
 again from the source repositories. Without that folder the build still works, with no
-instrument sets in the SAMPLE engine and no PIANO in SLICE (the PIANO set's middle C): they play a plain sine
+instrument sets in the SAMPLE engine: it plays a plain sine
 at the note's pitch instead, and the screen says NO SAMPLE.
 
 ## Browser emulator
@@ -101,8 +100,8 @@ Runs the host tests and, with Node.js, the web page tests (and, with Emscripten 
 user presets, projects of every format, backup, the keys and knobs, MIDI (USB, TRS, clock,
 control), USB audio, the update entry and loader, the command-line installer, the UI (the real
 drawing code against stubs: every screen in every palette is rendered and checked for clipped or
-overlapping text; PNGs land in `build/ui_new/`), every engine (DRUM, NOISE, PHYS, FM6, SLICE, the
-DIGITAL conversion), the chord keys, the modulation matrix, the FX layer, the reverbs, the SLICER
+overlapping text; PNGs land in `build/ui_new/`), every engine (DRUM, NOISE, PHYS, FM6, the
+DIGITAL conversion; the retired ones' successors), the chord keys, the modulation matrix, the FX layer, the reverbs, the SLICER
 and swing. With `DAISYSP` pointing at a DaisySP checkout, the PHYS models are also compared with
 their floating-point originals; without it that test is skipped.
 

@@ -516,7 +516,7 @@ static uint32_t scene_queue(uint32_t k)
     off = scb_off(k);
     if (!scn_decode(scb.data + off, scb.len[k], SCN_BUF, tm))
         return SQ_BAD;
-    for (j = 0; j < NTRK; j++)                   /* (a VDRUM or DBOX track's lane notes as hits: kitlane.c) */
+    for (j = 0; j < NTRK; j++)                   /* (a VDRUM track's lane notes as hits: kitlane.c) */
         kit_steps_load(trk[j].eng_req, SCN_BUF->step[j]);
     {
         scn_view_t v;

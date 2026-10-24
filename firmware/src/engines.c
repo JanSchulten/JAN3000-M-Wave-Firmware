@@ -5,7 +5,7 @@
 #include "dsp.c"
 
 /* The parts' engine memory (1.5): a part plays one engine at a time, so the engines with large per-part state
- * (engine_t.mem: PHYS's slots, GRAIN's grains and index, DRUM's lanes, FM6's notes, SLICE's reverse windows)
+ * (engine_t.mem: PHYS's slots, GRAIN's grains and index, DRUM's lanes, FM6's notes)
  * keep it in one region per part instead of an array each. The region holds the state of the engine that
  * last claimed it (eng_mem_owner); a switch to another such engine zeroes its engine_t.mem bytes, which is
  * the state each had at power-on, so a switch sounds as it did with the arrays (tests/union_test.c). State
@@ -23,11 +23,8 @@ static uint8_t eng_mem_owner[NPART];       /* engine index + 1 whose state is in
 
 #include "eng_analog.c"
 #include "eng_analog2.c"        /* ANALOG2 (M-Vave-OP1): two oscillators, a filter and an LFO each */
-#include "eng_phase.c"
 #include "eng_lofi.c"
 #include "eng_sample.c"
-#include "eng_formant.c"
-#include "eng_trio.c"
 #include "eng_wheel.c"
 #include "eng_grain.c"
 #include "eng_phys.c"           /* PHYS: DaisySP physical models (phys_dsp.c, MIT) */
@@ -38,25 +35,25 @@ static uint8_t eng_mem_owner[NPART];       /* engine index + 1 whose state is in
 #if FELUCCA_FM4
 #include "eng_digital.c"        /* DIGITAL: four-operator FM (retired; FELUCCA_FM4=1 builds it) */
 #endif
-#if FELUCCA_SLICE
-#include "eng_slice.c"
-#else
-static void slice_gone_note_on(struct track *t, voice_t *v) { (void)t; (void)v; }
-static void slice_gone_render(struct track *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
+/* M-Vave-OP1: the retired engines (docs/PLAITS_PLAN.md step 4): PHASE 2, VOICE 5, TRIO 6, SLICE 13, DBOX 16. Their
+ * numbers stay reserved (projects, user presets and the editor protocol store engine numbers): never offered (eng_ok),
+ * silent, and a sound stored with one loads as its successor's first preset (core.h eng_successor: project.c
+ * proj_retired, upreset.c up_load, set_engine_of). The successors are today's nearest engines; the Plaits engines take their place
+ * as they come (PHASE -> WAVESHAPE, VOICE -> WAVETABLE, SLICE -> SWARM) */
+static void gone_note_on(struct track *t, voice_t *v) { (void)t; (void)v; }
+static void gone_render(struct track *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
 {
     (void)t; (void)v; (void)out; (void)n; (void)m;
 }
-static const engine_t ENG_SLICE_GONE = {         /* engine 13 without FELUCCA_SLICE: silent, never offered (eng_ok) */
+static const engine_t ENG_GONE = {
     .name = "-",
     .page_title = {"-", "-"},
-    .note_on = slice_gone_note_on,
-    .render = slice_gone_render,
+    .note_on = gone_note_on,
+    .render = gone_render,
     .knob = {P_E4, P_E5, P_E6, P_REL},
 };
-#endif
 #include "eng_vdrum.c"          /* VDRUM: six parts of two layers into a resonator (M-Vave-OP1) */
-#include "kitlane.c"            /* the kits' grid lanes: DRUM, VDRUM, DBOX (M-Vave-OP1) */
-#include "eng_dbox.c"           /* DBOX: twelve keys of two oscillators (M-Vave-OP1) */
+#include "kitlane.c"            /* the kits' grid lanes: DRUM, VDRUM (M-Vave-OP1) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
 static const engine_t *const ENGINES[NENGINES] = {
@@ -66,29 +63,26 @@ static const engine_t *const ENGINES[NENGINES] = {
 #else
     &ENG_FM4_GONE,               /* 1: reserved (DIGITAL, retired: its sounds convert to FM6, fm4_convert.c) */
 #endif
-    &ENG_PHASE,                  /* 2 */
+    &ENG_GONE,                   /* 2: reserved (PHASE, retired: its sounds load as ANALOG) */
     &ENG_LOFI,                   /* 3 */
     &ENG_SAMPLE,                 /* 4 */
-    &ENG_FORMANT,                /* 5 VOICE (eng_formant.c: "voice" is a sounding note in voice.c) */
-    &ENG_TRIO,                   /* 6 */
+    &ENG_GONE,                   /* 5: reserved (VOICE, retired: ANALOG) */
+    &ENG_GONE,                   /* 6: reserved (TRIO, retired: ANALOG) */
     &ENG_WHEEL,                  /* 7 */
     &ENG_GRAIN,                  /* 8 */
     &ENG_PHYS,                   /* 9 (ENGI_PHYS) */
     &ENG_DRUM,                   /* 10 (ENGI_DRUM) */
     &ENG_NOISE,                  /* 11 */
     &ENG_FM6,                    /* 12 (ENGI_FM6) */
-#if FELUCCA_SLICE
-    &ENG_SLICE,                  /* 13 */
-#else
-    &ENG_SLICE_GONE,             /* 13: reserved (FELUCCA_SLICE=0 builds without SLICE) */
-#endif
+    &ENG_GONE,                   /* 13: reserved (SLICE, retired: ANALOG) */
     &ENG_ANALOG2,                /* 14 (M-Vave-OP1) */
     &ENG_VDRUM,                  /* 15 (ENGI_VDRUM, M-Vave-OP1) */
-    &ENG_DBOX,                   /* 16 (ENGI_DBOX, M-Vave-OP1) */
+    &ENG_GONE,                   /* 16: reserved (DBOX, M-Vave-OP1, retired: DRUM) */
 };
 
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return e < NENGINES ? e : 0u; }
+
 
 /* part t's engine memory goes to its engine (t->engine; voice.c engine_block, once a block: on a switch, after
  * the old engine's fade, before any note on the new one): zeroed (its engine_t.mem bytes) when another
@@ -109,7 +103,7 @@ static void eng_mem_claim(const track_t *t)
     eng_mem_owner[p] = (uint8_t)(e + 1u);
 }
 
-/* the sample source a track's sound plays that has no data (SAMPLE's SET, GRAIN's SRC, SLICE's SRC: an empty or
+/* the sample source a track's sound plays that has no data (SAMPLE's SET, GRAIN's SRC: an empty or
  * invalid user slot, a set or PIANO this build lacks): its name (it plays a sine: eng_sample.c smp_sine), 0 = none;
  * *code a small number for it (1.., per engine and source) so the UI says it once (ui_input.c sample_notice) */
 static uint8_t snd_said[NTRK];   /* per track: the code last said, 0 = none (a project load clears them: said again) */
@@ -117,13 +111,6 @@ static const char *snd_missing(const track_t *t, uint32_t *code)
 {
     const engine_t *e = ENGINES[eng_idx(t->eng_req)];
     uint32_t si = (uint32_t)t->p[P_E0] % SMP_NALL;
-#if FELUCCA_SLICE
-    if (e == &ENG_SLICE) {
-        si = slc_src_of(t->p);
-        *code = 64u + si;
-        return slc_get(si) ? 0 : N_SLC_SRC[si];
-    }
-#endif
     if (e != &ENG_SAMPLE && e != &ENG_GRAIN)
         return 0;
     *code = (e == &ENG_GRAIN ? 32u : 1u) + si % 32u;
@@ -140,28 +127,24 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
 #if FELUCCA_FM4
     1,                           /* DIGITAL */
 #endif
-    2, 3, 4, 5, 6, 7, 8, 9,      /* PHASE LOFI SAMPLE VOICE TRIO WHEEL GRAIN PHYS */
+    3, 4, 7, 8, 9,               /* LOFI SAMPLE WHEEL GRAIN PHYS */
     11,                          /* NOISE */
-#if FELUCCA_SLICE
-    13,                          /* SLICE */
-#endif
     10,                          /* DRUM */
     15,                          /* VDRUM */
-    16,                          /* DBOX */
 };
 
-/* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them
- * eng_vis(n), e's place among them eng_rank(e), the next / previous one eng_step(e, dir) (wraps) */
+/* the engines one can pick (engine 1 only with FELUCCA_FM4; never a retired one), in ENGINE_ORDER: eng_ok(e), the n-th
+ * of them eng_vis(n), e's place among them eng_rank(e), the next / previous one eng_step(e, dir) (wraps) */
 static int eng_ok(uint32_t e)
 {
-    return e < NENGINES && (FELUCCA_FM4 || e != ENGI_DIGITAL) && (FELUCCA_SLICE || e != ENGI_SLICE);
+    return e < NENGINES && (FELUCCA_FM4 || e != ENGI_DIGITAL) && !eng_retired(e);
 }
 static uint32_t eng_vis(uint32_t n) { return ENGINE_ORDER[n % NENG_SHOWN]; }
 static uint32_t eng_rank(uint32_t e)
 {
     uint32_t n;
-    if (!eng_ok(e))
-        e = ENGI_FM6;                            /* (DIGITAL without FELUCCA_FM4: its sounds play as FM6) */
+    if (!eng_ok(e))                              /* (DIGITAL without FELUCCA_FM4: its sounds play as FM6; a retired */
+        e = e == ENGI_DIGITAL ? ENGI_FM6 : eng_successor(eng_idx(e));   /* engine as its successor) */
     for (n = 0; n < NENG_SHOWN && ENGINE_ORDER[n] != e; n++)
         ;
     return n < NENG_SHOWN ? n : 0u;
@@ -173,7 +156,7 @@ static uint32_t eng_step(uint32_t e, int32_t dir)
 
 /* factory sequence patterns: SAVE > PHRASES loads one into the selected track (ui.c pat_load); a preset
  * only suggests one with PAT(n), loading a sound never touches the steps. Absolute notes, loaded as they
- * are (DRUM plays them as GM drums, SLICE as slices; SCL TRANS and OCT transpose): 0 = rest;
+ * are (DRUM plays them as GM drums; SCL TRANS and OCT transpose): 0 = rest;
  * flags 1 = accent, 2 = slide, 4 = tie (holds the previous note). Names: at most 8 characters */
 #define T_ 4
 static const struct {
@@ -196,7 +179,7 @@ static const struct {
      {1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
     {"SUB", {36, 0, 0, 0, 0, 0, 0, 36, 0, 0, 34, 0, 0, 0, 0, 0},                   /* 8 low, held */
      {1, T_, T_, T_, 0, 0, 0, 0, 0, 0, 0, T_, T_, T_, 0, 0}},
-    /* SLICE (eng_slice.c): note = C4 + slice */
+    /* written for SLICE (retired: note = C4 + slice), kept: stored pattern numbers stay valid */
     {"CHOP", {60, 61, 62, 67, 64, 65, 60, 69, 68, 70, 62, 67, 72, 72, 74, 64},     /* 9 16 slices re-ordered */
      {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0}},
     {"STUTTER", {60, 60, 61, 61, 62, 0, 63, 63, 64, 65, 65, 0, 66, 66, 66, 67},    /* 10 8 slices, repeats */
