@@ -100,8 +100,9 @@ geschätzt (wird in Schritt 4 gemessen).
 
 ## 3. Offene Punkte
 
-1. **WAVESHAPE exakt oder schnell:** nach einem Hörvergleich.
-2. **Was die FPU auf dem Gerät kostet:** die FPU-Probe (Abschnitt 6).
+1. ~~WAVESHAPE exakt oder schnell~~: exakt. Die Division kostet auf dem Gerät so viel wie ein Multiplizieren-Addieren
+   (Abschnitt 6), die schnelle Variante spart nichts und wäre nicht mehr bitgleich mit Plaits.
+2. ~~Was die FPU auf dem Gerät kostet~~: gemessen (Abschnitt 6).
 
 ## 4. Umgesetzt: Werks-Presets ohne Effekte
 
@@ -115,7 +116,7 @@ immer (`ui.c` `preset_fx`, `preset_load_to`; Test: `tests/preset_fx_test.c`).
 
 1. ~~Werks-Presets ohne Effekte~~ (erledigt)
 2. ~~Phase 0: Machbarkeit~~ (dieses Dokument)
-3. FPU-Probe auf dem Gerät (gebaut, Abschnitt 6; die Messung am Gerät steht aus)
+3. ~~FPU-Probe auf dem Gerät~~ (gemessen 2026-10-24, Abschnitt 6)
 4. Alte Engines umwandeln und entfernen (SLICE, PHASE, VOICE, TRIO, DBOX), Tests für das Laden alter Projekte
 5. Neue Engines: WAVESHAPE → HARMONIC → PARTICLE → WAVETABLE → SWARM
 6. Presets, UI, Golden-Tests, Emulator; erst dann aufs Gerät, nur mit Okay
@@ -141,3 +142,16 @@ automatisch.
 
 Kosten: 12,2 KB Flash (vor allem die Plaits-Tabellen, die WAVESHAPE ohnehin braucht), 336 B RAM. Das Image hat
 keine Soft-Float-Hilfsfunktion (`__mulsf3` …) gelinkt.
+
+### Gemessen am Gerät (2026-10-24, Firmware 2f426e6)
+
+| Zeile | Wert | Was es heißt |
+| --- | --- | --- |
+| FPU | OK | Feluccas eigener Start lässt die FPU nutzbar; die Ergebnisse sind bitgleich mit dem Host, also IEEE-Single wie erwartet, und der Waveshaper rechnet auf dem Gerät exakt wie Plaits |
+| F I DIV NS | 33,7 / 28,2 / 30,9 | ein Glied der Kette (mit Schleife): Float-Multiplizieren-Addieren kaum langsamer als Integer, eine Float-Division nicht teurer als ein Multiplizieren-Addieren |
+| WS VOICE | 4,3 % | eine Waveshaper-Stimme (32 Samples, die kürzeste von 64 Messungen, Cache warm) |
+
+Folgerung: acht WAVESHAPE-Stimmen kosten ~35 % der Audio-Zeit, dazu Filter und Hüllkurve des Stimmenpfads und, im
+echten Interrupt, Cache-Fehlgriffe auf die Tabellen im Flash. Die anderen vier Modelle liegen im statischen Kostenmaß
+gleichauf (Abschnitt 2): **alle fünf können mit der vollen Stimmenzahl (NVOICE 8) geplant werden**; jede Engine wird
+nach dem Einbau mit INFO > CPU bei acht gehaltenen Noten nachgemessen.
