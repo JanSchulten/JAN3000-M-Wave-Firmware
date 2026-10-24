@@ -16,8 +16,9 @@ Every file in this tree that carries an `SPDX-License-Identifier: GPL-3.0-only` 
 - the web pages (installer, editor, the browser emulator `web/emu/`) and their tests: `web/` (not the Fukiai and DotGothic16 fonts, below)
 - the host tests: `tests/`
 
-Three source files are ports and keep the licence of their originals:
-`firmware/src/phys_dsp.c` (DaisySP, MIT), `firmware/src/phys_symp.c` (Rings, MIT) and
+Five source files are ports and keep the licence of their originals:
+`firmware/src/phys_dsp.c` (DaisySP, MIT), `firmware/src/phys_symp.c` (Rings, MIT),
+`firmware/src/plaits_ws.c` and `firmware/src/plaits_tables.h` (Plaits, MIT) and
 `firmware/src/fm6_core.c` (msfa, Apache-2.0). The firmware built with them is GPL-3.0-only as
 a whole.
 
@@ -46,6 +47,7 @@ All by Hügelton Instruments (Leo Kuroshita), in this tree:
 | Instrument samples (Versilian Studios VSCO-2 Community Edition, VCSL): the SAMPLE sets, also the SLICE engine's PIANO (the PIANO set's middle C) | CC0 1.0 | `assets/samples-cc0/`, provenance in `ATTRIBUTION.txt` there |
 | DaisySP by Electrosmith, Corp and Emilie Gillet (<https://github.com/electro-smith/DaisySP>): the PHYS engine's modal and string models and the resonator, ported to fixed point | MIT | `firmware/src/phys_dsp.c`, `LICENSES/MIT-DaisySP.txt` |
 | Rings by Emilie Gillet (<https://github.com/pichenettes/eurorack>): the PHYS engine's sympathetic strings, ported to fixed point | MIT | `firmware/src/phys_symp.c`, `LICENSES/MIT-Rings.txt` |
+| Plaits and stmlib by Emilie Gillet (<https://github.com/pichenettes/eurorack>), M-Vave-OP1: the waveshaping model and its tables, ported to C for the FPU (run by the FPU probe, MENU > SYSTEM > INFO; the coming WAVESHAPE engine) | MIT | `firmware/src/plaits_ws.c`, `firmware/src/plaits_tables.h`, `LICENSES/MIT-Plaits.txt` |
 | msfa by Google Inc. and Pascal Gauthier, from Dexed (<https://github.com/asb2m10/dexed>): the FM6 engine's synthesis, ported to integer C (Dexed itself is GPL-3.0; only msfa is used; the FM6 factory patches are Felucca's own) | Apache-2.0 | `firmware/src/fm6_core.c`, `LICENSES/Apache-2.0-msfa.txt` |
 | klattsch by Tony Gies (<https://github.com/tgies/klattsch>): design reference for the VOICE engine; no code copied. Formant data from Klatt (1980) / Hillenbrand et al. (1995) | MIT (klattsch) | credit only |
 | ChoralRoot FM-1 by Quixotic7 (<https://github.com/Quixotic7/ChoralRootFM1>), a Felucca derivative: SCL > ORCHID (M-Vave-OP1), the keyboard after the Telepathic Instruments Orchid: its chord block, chord tables, voicing, LOCK behaviour and chord names, rewritten in C for this tree; credited in the file's header | GPL-3.0-only | `firmware/src/orchid.c` |
