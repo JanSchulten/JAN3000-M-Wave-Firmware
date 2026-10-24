@@ -118,7 +118,7 @@ immer (`ui.c` `preset_fx`, `preset_load_to`; Test: `tests/preset_fx_test.c`).
 2. ~~Phase 0: Machbarkeit~~ (dieses Dokument)
 3. ~~FPU-Probe auf dem Gerät~~ (gemessen 2026-10-24, Abschnitt 6)
 4. ~~Alte Engines entfernen~~ (SLICE, PHASE, VOICE, TRIO, DBOX; Abschnitt 7)
-5. Neue Engines: ~~WAVESHAPE~~ (Abschnitt 8) → HARMONIC → PARTICLE → WAVETABLE → SWARM
+5. Neue Engines: ~~WAVESHAPE~~ (Abschnitt 8) → ~~HARMONIC~~ (Abschnitt 9) → PARTICLE → WAVETABLE → SWARM
 6. Presets, UI, Golden-Tests, Emulator; erst dann aufs Gerät, nur mit Okay
 
 ## 6. Die FPU-Probe (MENU > SYSTEM > INFO)
@@ -224,3 +224,36 @@ zweiter Falter), OUT bleibt bitgleich (`tests/wshape_test.c`); das Dreieck läuf
 (`pws_tri_follow`), AUX kommt danach innerhalb von 0,001 wieder. Bei AUX 127 fällt der erste Falter weg. Statisch
 kostet das Modell bei AUX 0 ~224 statt ~385 pro Sample (~40 % weniger): erwartet ~4,5 % pro Stimme, 8 Töne ~50 %.
 Noch einmal am Gerät messen.
+
+## 9. Schritt 5b: HARMONIC (Engine 18, `HRMNC`)
+
+- `plaits_add.c` (MIT): Plaits' Additive-Engine, bitgleich mit Plaits (`tools/plaits_proto/ref_add.cc`: Differenz 0).
+  24 Sinus-Teiltöne (zwei Batches zu 12 aus einer Tschebyscheff-Rekursion), AUX die Orgel-Teiltöne 1 2 3 4 6 8 10 12.
+  Die drei Oszillatoren von Plaits haben dieselbe Phase (gleiche Frequenz, gleicher Start), deshalb nur eine.
+- Das Spektrum wird einmal pro Block geglättet. Plaits: 0,001 pro 12-Sample-Block bei 48 kHz; bei 32 Samples und
+  44,1 kHz ist es für dieselbe Zeit 0,0029 (`HAR_LP`).
+- `plaits_voice.c`: der Felucca-Teil beider Engines (Parameter, Mischung OUT/AUX, Drive, Filter, DC-Blocker, die acht
+  Regler). WSHAPE nutzt ihn jetzt auch, bitgleich wie vorher (Golden: 0 verändert).
+- Regler wie WSHAPE: HARM (Plaits HARMONICS: Nebenbuckel), TIMB (Lage des Spektrum-Gipfels, Grundton bis Teilton 24),
+  MORPH (Breite: 0 breit und hell, 127 ein einziger Teilton), AUX (Orgel). Bei AUX 0 wird die Orgel nicht gerechnet.
+- Acht Presets: DRAWBARS, AIR PAD, BRIGHT LEAD, SUB BASS, GLASS BELL, VOWEL, COMB KEYS, SPECTRAL. TRIO-Sounds laden
+  als DRAWBARS (`eng_successor`: TRIO → HRMNC). In der Liste nach WSHAPE; EDIT-Tasten jetzt 13. Angezeigt als
+  „HRMNC“: „HARMON“ ist auf der PRESETS-Seite zu breit (der Layout-Test schneidet es ab).
+- Hohe Töne mit hellem Spektrum werden leiser: Plaits blendet Teiltöne über der halben Abtastrate aus (bei C7 sind
+  GLASS BELL und SPECTRAL still). Der Test prüft deshalb „klingt“ nur bis C6.
+- Test `tests/harm_test.c` (wie der von WSHAPE). Golden: 8 neue Renders.
+- `tests/target_budget.py`: objdump kennt die 4-Byte-FPU-Befehle nicht (`3f e5`/`3f f5`) und las ihre zweite Hälfte
+  als eigenen Befehl, manchmal als Sprung: daher die scheinbar verschachtelten Schleifen. Jetzt zählt ein
+  FPU-Befehl einmal; die Ganzzahl-Funktionen behalten ihre Werte.
+
+| | vorher | nachher |
+| --- | --- | --- |
+| Image | 525 316 B | **527 544 B** (+2 228 B; 54 020 B frei) |
+| RAM `.data`+`.bss` | 52 024 B | 52 024 B |
+
+Rechenzeit (statisch, Befehle pro Sample, ohne Filter): ~400 bei AUX 0 (nur OUT), ~244 bei AUX 127 (nur die Orgel),
+~556 dazwischen (beide); WSHAPE ~224 bei AUX 0, ~385 mit beiden (gemessen ~6,3 % pro Stimme mit beiden). Erwartet für
+HRMNC pro Stimme: **~6,5 % bei AUX 0, ~4,7 % bei AUX 127, ~8 % dazwischen**; 8 Töne auf ~14 % Grundlast also ~66 %,
+~52 %, ~80 %. Mit AUX zwischen 1 und 126 an der Grenze, ab der `audio.c` Stimmen wegnimmt (85 %). Am Gerät messen
+(je 8 Töne: BRIGHT LEAD, AUX 0; DRAWBARS, AUX 127; AIR PAD, AUX 30); danach entscheiden, ob HRMNC eine Stimmengrenze
+braucht (`engine_t.poly`, wie FM6 6).

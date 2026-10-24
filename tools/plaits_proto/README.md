@@ -1,8 +1,8 @@
 # Plaits tools (docs/PLAITS_PLAN.md)
 
 Not built into the firmware. `extract.py` writes Plaits' tables as a C header (`firmware/src/plaits_tables.h` was made
-with it); `ref.cc` compares `firmware/src/plaits_ws.c` sample by sample with Plaits' own waveshaping engine (it must
-print a difference of 0); `scost.py` counts the static loop cost of `clang -S` output the way `tests/target_budget.py`
+with it); `ref.cc` compares `firmware/src/plaits_ws.c` sample by sample with Plaits' own waveshaping engine, `ref_add.cc`
+`firmware/src/plaits_add.c` with its additive engine (each must print a difference of 0); `scost.py` counts the static loop cost of `clang -S` output the way `tests/target_budget.py`
 counts the objdump listing, FPU instructions included.
 
 ```sh
@@ -13,6 +13,9 @@ python3 -I tools/plaits_proto/extract.py /tmp/eurorack/plaits/resources.cc firmw
 g++ -O2 -w -I/tmp/eurorack -Ifirmware/src -o /tmp/ws_ref tools/plaits_proto/ref.cc \
     /tmp/eurorack/plaits/dsp/engine/waveshaping_engine.cc /tmp/eurorack/plaits/resources.cc /tmp/eurorack/stmlib/dsp/units.cc
 /tmp/ws_ref
+g++ -O2 -w -I/tmp/eurorack -Ifirmware/src -o /tmp/add_ref tools/plaits_proto/ref_add.cc \
+    /tmp/eurorack/plaits/dsp/engine/additive_engine.cc /tmp/eurorack/plaits/resources.cc /tmp/eurorack/stmlib/dsp/units.cc
+/tmp/add_ref
 T=~/.jieli/toolchain/pi32v2/bin   # the loop cost on the target: compile with the FPU on, as core.h FM1_FPU does
 printf 'typedef short int16_t; typedef int int32_t; typedef unsigned uint32_t;\n#define FM1_FPU __attribute__((target("fprev1")))\n#include "plaits_ws.c"\nFM1_FPU void r(pws_t *s, float *o, float *a) { pws_render(s, 0.01f, 0.5f, 0.5f, 0.5f, o, a, 32, 3u); }\n' > /tmp/ws_cost.c
 $T/clang -target pi32v2 -Os -fno-builtin -ffreestanding -Ifirmware/src -S /tmp/ws_cost.c -o /tmp/ws.s

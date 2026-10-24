@@ -243,6 +243,7 @@ static uint32_t engine_icon(const char *name)
         {"NOISE", ICON_NOISE},
         {"FM6", ICON_MOD},                    /* (symbol_modular: six operators patched; a glyph of its own wanted) */
         {"WSHAPE", ICON_FOLD},                /* (M-Vave-OP1: the wavefolder) */
+        {"HRMNC", ICON_W_SIN},               /* (M-Vave-OP1: sine partials) */
     };
     uint32_t i;
     for (i = 0; i < sizeof M / sizeof M[0]; i++)

@@ -236,7 +236,7 @@ static void test_shape(void)
                 m.shape = (64 + (k ? 60 : 0)) << 8;
             }
             wsh_model(&trk[0], &trk[0].v[0], model_of(0), CTL, &m);
-            memcpy(y + i * CTL, wsh_o, sizeof(int32_t) * CTL);
+            memcpy(y + i * CTL, plv_o, sizeof(int32_t) * CTL);
         }
     }
     for (i = 0; i < CTL * 16u; i++)
@@ -250,7 +250,7 @@ static void test_shape(void)
             m.shape = (64 + 87) << 8;
             wsh_model(&trk[0], &trk[0].v[0], model_of(0), CTL, &m);
             for (k = 0; k < CTL; k++)
-                eq &= wsh_o[k] == c[i * CTL + k];
+                eq &= plv_o[k] == c[i * CTL + k];
         }
     }
     check("SHP moves TIMBRE (another sound); past the end clamped (as TIMB at 127)", diff && eq);
