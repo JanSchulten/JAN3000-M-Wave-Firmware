@@ -10,9 +10,9 @@ static favorites_t favorites __attribute__((section(".pool")));
 /* engine e's preset k: its row and bit. Rows 14 and 15 hold other settings (14 MIDI LEARN's map, midi_control.c; 15 the
  * settings', settings_persist.c), so M-Vave-OP1's engines from 14 on keep theirs in the upper half of another's row
  * (presets 128..255 of an engine with far fewer: ui.c checks it): ANALOG2 (14) ANALOG's, VDRUM (15) PHASE's, DBOX (16)
- * LOFI's, WSHAPE (17) VOICE's, HRMNC (18) TRIO's (PHASE, VOICE, TRIO and DBOX retired since: the rows stay where the
- * settings put them) */
-static const uint8_t FAV_HOST[5] = {0, 2, 3, 5, 6};   /* (WSHAPE 17, HRMNC 18: the retired VOICE's, TRIO's rows) */
+ * LOFI's, WSHAPE (17) VOICE's, HRMNC (18) TRIO's, PRTCL (19) SLICE's (PHASE, VOICE, TRIO, SLICE and DBOX retired since:
+ * the rows stay where the settings put them) */
+static const uint8_t FAV_HOST[6] = {0, 2, 3, 5, 6, 13};   /* (17 .. 19: the retired VOICE's, TRIO's, SLICE's rows) */
 static int fav_at(uint32_t *engine, uint32_t *preset)
 {
     if (*engine >= 14u) {

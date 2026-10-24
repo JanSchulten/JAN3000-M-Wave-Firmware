@@ -43,6 +43,9 @@ pws_render 226
 pws_slope 92
 har_model 324
 pad_spectrum 55
+prt_model 493
+prt_post 266
+pun_sqrt 24
 fm1_alnk0_irq 37502
 fm1_timer5_irq 33387
 click_render 30

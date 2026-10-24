@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
-/* The Felucca side of the Plaits engines (M-Vave-OP1: WSHAPE, HRMNC; docs/PLAITS_PLAN.md), as Behringer's Grind plays
+/* The Felucca side of the Plaits engines (M-Vave-OP1: WSHAPE, HRMNC, PRTCL; docs/PLAITS_PLAN.md), as Behringer's Grind plays
  * a model: the model's two outputs blended, then a drive, a filter and the ADSR. Every one of them has the same eight
  * values, so the same code reads them:
  *   E0 HARM  E1 TIMB  E2 MORPH  Plaits' HARMONICS, TIMBRE, MORPH (0..127 -> 0..1); the SHP routings (ENV / LFO DEST

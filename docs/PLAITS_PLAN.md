@@ -118,7 +118,8 @@ immer (`ui.c` `preset_fx`, `preset_load_to`; Test: `tests/preset_fx_test.c`).
 2. ~~Phase 0: Machbarkeit~~ (dieses Dokument)
 3. ~~FPU-Probe auf dem Gerät~~ (gemessen 2026-10-24, Abschnitt 6)
 4. ~~Alte Engines entfernen~~ (SLICE, PHASE, VOICE, TRIO, DBOX; Abschnitt 7)
-5. Neue Engines: ~~WAVESHAPE~~ (Abschnitt 8) → ~~HARMONIC~~ (Abschnitt 9) → PARTICLE → WAVETABLE → SWARM
+5. Neue Engines: ~~WAVESHAPE~~ (Abschnitt 8) → ~~HARMONIC~~ (Abschnitt 9) → ~~PARTICLE~~ (Abschnitt 10) → WAVETABLE →
+   SWARM
 6. Presets, UI, Golden-Tests, Emulator; erst dann aufs Gerät, nur mit Okay
 
 ## 6. Die FPU-Probe (MENU > SYSTEM > INFO)
@@ -257,3 +258,35 @@ HRMNC pro Stimme: **~6,5 % bei AUX 0, ~4,7 % bei AUX 127, ~8 % dazwischen**; 8 T
 ~52 %, ~80 %. Mit AUX zwischen 1 und 126 an der Grenze, ab der `audio.c` Stimmen wegnimmt (85 %). Am Gerät messen
 (je 8 Töne: BRIGHT LEAD, AUX 0; DRAWBARS, AUX 127; AIR PAD, AUX 30); danach entscheiden, ob HRMNC eine Stimmengrenze
 braucht (`engine_t.poly`, wie FM6 6).
+
+## 10. Schritt 5c: PARTICLE (Engine 19, `PRTCL`)
+
+- `plaits_part.c` (MIT): Plaits' Particle-Engine mit ihren 6 Partikeln (Zufallsimpulse durch je einen Bandpass), dem
+  Tiefpass am Ton und dem Diffusor; dazu stmlibs SVF, Zufallsgenerator und `SemitonesToRatio` (mit seinen Tabellen,
+  `stmlib_tables.h`, 2 KB). Bitgleich mit Plaits (`tools/plaits_proto/ref_part.cc` mit Plaits' Delay-Längen: Differenz
+  0, auch Diffusor und Zufallsfolge).
+- Kein `sqrtf` in der Firmware (keine libc): `pun_sqrt` rechnet die Wurzel ganzzahlig, korrekt gerundet wie IEEE
+  (geprüft: 57 Mio. Werte, alle gleich `sqrtf`). Sie läuft nur, wenn ein Partikel feuert, und einmal pro Block.
+- **Diffusor einmal pro Part** (wie besprochen), hinter den Stimmen (`engine_t.post`, wie der Resonator von VDRUM);
+  Delays auf **7/10** gekürzt: 5670 Samples (11,3 KB) statt 8100, damit Partikel (8 Stimmen × 164 B) und Diffusor in
+  den Engine-Speicher eines Parts passen (12 888 B). Der Ring ist kein Zweierpotenz-Puffer mehr (Vergleich statt Maske).
+  Bei MORPH ab 64 läuft er nicht; still und ohne Nachhall auch nicht.
+- Ein Zufallsgenerator pro Part (in seinem Speicher): Ein Part aus der Ruhe spielt eine Note immer gleich.
+- Dichte pro Sekunde wie am Modul (`PRT_RATE`: 47 872 Hz des Moduls gegen unsere 44 100 Hz).
+- Ein Ton feuert alle Partikel (Plaits' Trigger) im zweiten Block: im ersten steigt die Hüllkurve noch von 0 an und
+  würde den Impuls verschlucken (0,7 ms später, nicht hörbar).
+- Regler: HARM (Verstimmung der Bandpässe, bis ±4 Oktaven), TIMB (Dichte), MORPH (unter 64 Diffusor, über 64 Resonanz),
+  AUX (die rohen Impulse). Acht Presets: DUST CLOUD, RAIN, RESO PING, CRACKLE, GLITTER PAD, WOOD TAPS, GEIGER, SHIMMER.
+  In der Liste nach HRMNC; EDIT-Tasten jetzt 14. Kein Nachfolger eines alten Engines (DBOX bleibt DRUM).
+- Test `tests/part_test.c`; Golden: 8 neue Renders.
+
+| | vorher | nachher |
+| --- | --- | --- |
+| Image | 527 544 B | **533 248 B** (+5 704 B; 48 316 B frei) |
+| RAM `.data`+`.bss` | 52 024 B | 52 152 B |
+
+Rechenzeit (statisch): ~255 Befehle pro Sample und Stimme (WSHAPE voll ~385), also erwartet **~5 % pro Stimme**; der
+Diffusor ~200 pro Sample und Part (~2 %), nur bei MORPH unter 64. 8 Töne DUST CLOUD erwartet ~55 %. Am Gerät messen.
+
+Platz für den Rest: 48 KB frei. WAVETABLE mit 8-Bit-Tabellen (25,3 KB) plus Code passt, 16 Bit (50,7 KB) nicht mehr;
+nach der Entscheidung „16 Bit wenn es passt, sonst 8 Bit“ also **8 Bit**.

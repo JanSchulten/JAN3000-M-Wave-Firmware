@@ -218,6 +218,10 @@
 # HRMNC (tests/harm_test.c, M-Vave-OP1): the Plaits additive engine (src/eng_harm.c around src/plaits_add.c, the
 #                   filter of src/plaits_voice.c): the same checks as WSHAPE's (C1..C6 sounding: Plaits fades out the
 #                   partials past Nyquist), OUT bit for bit without AUX; demos in build/harm_demo/.
+# PRTCL (tests/part_test.c, M-Vave-OP1): the Plaits particle engine (src/eng_part.c around src/plaits_part.c, the
+#                   diffuser once a part): presets and corners bounded without DC, the band-passes ring at the note,
+#                   a note fires the particles, TIMB the density, the diffuser's tail ends, a part from rest alike,
+#                   pun_sqrt is sqrtf, switches; demos in build/part_demo/.
 # NOISE (tests/noise_test.c): the engine (src/eng_noise.c): COLR's slope (white, pink, brown), the filter and the
 #                   register clock following the key, META periodic at the key, no DC, no clipping at the
 #                   corners, a note from silence the same twice, the cost per voice; demos in build/noise_demo/.
@@ -474,6 +478,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/harm_test" tests/harm_test.c -lm
     mkdir -p build/harm_demo
     run "HRMNC: presets sound without DC, corners bounded, in tune, MONO / UNISON phases, SHP, determinism, switches, demos" "$OUT/harm_test" build/harm_demo
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/part_test" tests/part_test.c -lm
+    mkdir -p build/part_demo
+    run "PRTCL: presets and corners bounded, no DC, rings at the note, note-on burst, density, diffuser tail, switches, demos" "$OUT/part_test" build/part_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fpu_probe_test" tests/fpu_probe_test.c -lm
     mkdir -p build/fpu_shots
     run "FPU PROBE: exact checks, the waveshaper's hash, bounded; INFO's OCT+ after the boot guard, its rows, a screen" "$OUT/fpu_probe_test" build/fpu_shots

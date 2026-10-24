@@ -56,6 +56,7 @@ static const engine_t ENG_GONE = {
 #include "eng_vdrum.c"          /* VDRUM: six parts of two layers into a resonator (M-Vave-OP1) */
 #include "eng_wshape.c"         /* WSHAPE: Plaits' waveshaper (plaits_ws.c, MIT), filter, ADSR (M-Vave-OP1) */
 #include "eng_harm.c"           /* HRMNC: Plaits' additive model (plaits_add.c, MIT), filter, ADSR (M-Vave-OP1) */
+#include "eng_part.c"           /* PRTCL: Plaits' particles and diffuser (plaits_part.c, MIT), filter, ADSR (M-Vave-OP1) */
 #include "kitlane.c"            /* the kits' grid lanes: DRUM, VDRUM (M-Vave-OP1) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
@@ -83,6 +84,7 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_GONE,                   /* 16: reserved (DBOX, M-Vave-OP1, retired: DRUM) */
     &ENG_WSHAPE,                 /* 17 (ENGI_WSHAPE, M-Vave-OP1: PHASE's successor) */
     &ENG_HARMON,                 /* 18 (ENGI_HARMON, M-Vave-OP1: TRIO's successor) */
+    &ENG_PRTCL,                  /* 19 (ENGI_PRTCL, M-Vave-OP1) */
 };
 
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
@@ -131,6 +133,7 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     12,                          /* FM6 */
     17,                          /* WSHAPE (M-Vave-OP1: where PHASE was) */
     18,                          /* HRMNC (M-Vave-OP1) */
+    19,                          /* PRTCL (M-Vave-OP1) */
 #if FELUCCA_FM4
     1,                           /* DIGITAL */
 #endif

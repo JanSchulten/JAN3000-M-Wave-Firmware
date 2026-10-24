@@ -259,6 +259,26 @@ for sample the module's own on the FPU, then the same filter and ADSR as WSHAPE.
 - Eight presets: DRAWBARS, AIR PAD, BRIGHT LEAD, SUB BASS, GLASS BELL, VOWEL, COMB KEYS, SPECTRAL. HOME's knobs: HARM,
   TIMB, MORPH, CUT. A sound stored with TRIO loads as DRAWBARS.
 
+## PRTCL: Plaits' particles, a filter, the ADSR, a diffuser
+
+The third engine after Plaits (engine 19, shown **PRTCL**, after HRMNC in PRESETS): Plaits' particle model, sample
+for sample the module's own on the FPU, then the same filter and ADSR as WSHAPE; Plaits' diffuser once for the part,
+after its voices.
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| DUST | HARM | TIMB | MORPH | AUX |
+| FLT | CUT | RES | DRV | KTR |
+
+- Six particles a voice: random impulses, each through a band-pass at the note. **TIMB** is the density, from a sparse
+  crackle to a dense hiss (the SHP routings move it); **HARM** detunes each band-pass at random, up to 4 octaves.
+- **MORPH:** below 64 the diffuser (a smear of short echoes, the most at 0: the part rings on after its notes), above
+  64 the band-passes' resonance (ringing, pitched pings at 127).
+- **AUX** blends into the raw impulses, unfiltered (dust).
+- A note fires every particle at once (0.7 ms in), so even a sparse setting starts with a tap.
+- Eight presets: DUST CLOUD, RAIN, RESO PING, CRACKLE, GLITTER PAD, WOOD TAPS, GEIGER, SHIMMER.
+- The diffuser's delays are 7/10 of Plaits' (it fits the part's memory): a slightly shorter smear.
+
 ## Retired: PHASE, VOICE, TRIO, SLICE and DBOX
 
 Five engines made room for engines after Mutable Instruments' Plaits (the module Behringer's Grind builds on; the plan:
