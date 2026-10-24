@@ -368,6 +368,21 @@ on USB DISK while it is up; MIDI, USB audio, the editor and the console are off 
 `FELUCCA_DISK` (on in the firmware). Tested on the host (`tests/vdisk_test.c` reads the whole drive the way a host
 does and checks it with a FAT reader of its own, `tests/vdisk_check.py`); a phone or a computer has not seen it yet.
 
+## Bounce: the projects as WAV, without the FM-1
+
+`web/bounce` is a page that takes a `.FM1` file (USB DISK, above) and renders it with the FM-1's own firmware as
+WebAssembly, offline: no FM-1 needed, about 30 to 100 times faster than real time. Out come `NAME_MIX.wav` (16-bit,
+the master exactly as USB audio sends it: USB LEVEL FIXED, SPEAKER EQ FLAT, no click) and, if wanted, the stems
+`NAME_T1.wav` .. `NAME_T4.wav` and `NAME_FX.wav` (32-bit float, before the master's limiter: each track's share of the
+mix, and the FX buses' returns with the FX layer's punch-ins; together they make the master up to its limiter), one by
+one or as a ZIP, or shared into the Files app on a phone. What it plays: the scene (so many bars), the scene song to
+its end, or the SONG chain. Each bounce boots a fresh FM-1: the same file gives the same samples every time (chance and
+RANDOM fall the same way each time, not as a particular run on the device did).
+
+The site (front page, bounce, emulator) is static: `sh tools/make_vercel_site.sh` (after `./build.sh`, with the
+emsdk) builds it into `site/`, which is committed; `vercel.json` serves `site/` as it is (no build on Vercel, which has
+no Emscripten). On Vercel: import the repository, keep the defaults (vercel.json sets them), deploy.
+
 ## Try it in the browser
 
 `web/lab` is an emulator page with guided workflows (in German): the whole firmware as WebAssembly, with a

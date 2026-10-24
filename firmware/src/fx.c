@@ -1062,8 +1062,12 @@ static void mix_block(int32_t *out, uint32_t n)
         send_c[i] = send_d[i] = send_r[i] = mix_l[i] = mix_r[i] = 0;
     events_block(n);
     perf = perf_begin(n);                               /* the FX hold layer at work (perform.c) */
-    for (i = 0; i < NPART; i++)
+    for (i = 0; i < NPART; i++) {
         mix_part(&trk[i], n);
+#ifdef FX_PART_TAP
+        FX_PART_TAP(i, n);                              /* (M-Vave-OP1, web/bounce: each part's share of mix_l / mix_r) */
+#endif
+    }
     if (perf)
         perf_pre(mix_l, mix_r, send_d, send_r, n);
     fx_buses(send_c, send_d, send_r, wet, n);
@@ -1073,6 +1077,10 @@ static void mix_block(int32_t *out, uint32_t n)
         scope_take_mix(n);
     if (perf) {
         perf_master(out, n);
+#ifdef FX_MIX_TAP
+        FX_MIX_TAP(out, n, 1);                          /* (web/bounce: the master as USB audio has it; mix_l / mix_r
+                                                         * what went into master_out, the buses and the layer in it) */
+#endif
         return;
     }
     for (i = 0; i < n; i++) {
@@ -1082,4 +1090,7 @@ static void mix_block(int32_t *out, uint32_t n)
         out[2u * i] = l;
         out[2u * i + 1u] = r;
     }
+#ifdef FX_MIX_TAP
+    FX_MIX_TAP(out, n, 0);                              /* (mix_l / mix_r the parts', the HALL's side; wet the buses') */
+#endif
 }

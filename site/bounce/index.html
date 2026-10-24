@@ -1,0 +1,236 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Copyright (C) 2026 M-Vave-OP1 contributors
+     M-Vave-OP1's offline bounce: a .FM1 file (MENU > USB DISK) rendered by the FM-1's own firmware as WebAssembly
+     (felucca_bounce.wasm, web/bounce/bounce_web.c), as fast as the device allows, into WAV files. bounce.js does the
+     work; this page asks for the file and the options and hands the files out. In German, as web/lab. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JAN3000 Bounce</title>
+<meta name="description" content="Projekte vom M-VAVE FM-1 (JAN3000, based on Felucca) offline als WAV rendern: Mix und Einzelspuren, mit der Firmware des Geräts im Browser.">
+<meta name="theme-color" content="#101312">
+<style>
+:root { --bg: #f4f5f2; --card: #ffffff; --text: #161a18; --mid: #5d6661; --line: #dde1dc; --accent: #12a150;
+        --accent-ink: #ffffff; --warn: #b3261e; --field: #eef0ec; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #101312; --card: #191d1b; --text: #e9ece9; --mid: #9aa39e; --line: #2a302d;
+                                    --accent: #3ddc84; --accent-ink: #06210f; --warn: #ff8a80; --field: #222825;
+                                    color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #101312; --card: #191d1b; --text: #e9ece9; --mid: #9aa39e; --line: #2a302d;
+                           --accent: #3ddc84; --accent-ink: #06210f; --warn: #ff8a80; --field: #222825; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 640px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 40px; }
+h1 { font-size: 28px; line-height: 1.2; margin: 8px 0 2px; letter-spacing: -0.01em; }
+h1 span { color: var(--accent); }
+.sub { color: var(--mid); margin: 0 0 20px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 0 0 14px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--mid); margin: 0 0 12px; font-weight: 600; }
+button, .btn { appearance: none; border: 0; border-radius: 10px; padding: 12px 16px; font: inherit; font-weight: 600;
+               background: var(--accent); color: var(--accent-ink); cursor: pointer; text-decoration: none;
+               display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; }
+button.ghost, .btn.ghost { background: var(--field); color: var(--text); }
+button:disabled { opacity: 0.45; cursor: default; }
+.wide { width: 100%; }
+input[type=file] { display: none; }
+.info { margin-top: 12px; display: none; }
+.info.on { display: block; }
+.name { font-size: 22px; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+.meta { color: var(--mid); font-size: 14px; margin: 2px 0 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--field); border-radius: 999px; padding: 2px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.opt { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.opt:first-of-type { border-top: 0; padding-top: 0; }
+.opt input[type=radio], .opt input[type=checkbox] { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+.opt label { flex: 1; }
+.opt small { display: block; color: var(--mid); font-size: 13px; }
+.opt.off { opacity: 0.45; }
+.row { display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.row label { color: var(--mid); font-size: 14px; }
+input[type=number] { width: 84px; padding: 8px 10px; font: inherit; border-radius: 8px; border: 1px solid var(--line);
+                     background: var(--field); color: var(--text); }
+.bar { height: 8px; border-radius: 999px; background: var(--field); overflow: hidden; margin: 12px 0 6px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+.status { color: var(--mid); font-size: 14px; min-height: 21px; overflow-wrap: anywhere; }
+.status.err { color: var(--warn); }
+.files { list-style: none; padding: 0; margin: 12px 0 0; }
+.files li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.files li span { flex: 1; overflow-wrap: anywhere; }
+.files li small { color: var(--mid); white-space: nowrap; }
+.files a { color: var(--accent); font-weight: 600; text-decoration: none; }
+audio { width: 100%; margin-top: 10px; }
+.actions { display: grid; gap: 10px; grid-template-columns: 1fr; margin-top: 12px; }
+@media (min-width: 480px) { .actions { grid-template-columns: 1fr 1fr; } }
+footer { color: var(--mid); font-size: 13px; margin-top: 22px; }
+footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>JAN3000 <span>Bounce</span></h1>
+  <p class="sub">Projekte vom M-VAVE FM-1 offline als WAV rendern: Mix und Einzelspuren. Die Firmware des Geräts rechnet
+    hier im Browser, das FM-1 muss nicht angeschlossen sein.</p>
+
+  <section>
+    <h2>1 · Projekt</h2>
+    <label class="btn wide" for="file">.FM1-Datei wählen</label>
+    <input id="file" type="file" accept=".fm1,.FM1,application/octet-stream">
+    <div class="info" id="info">
+      <p class="name" id="pname"></p>
+      <p class="meta" id="pmeta"></p>
+      <div class="chips" id="pchips"></div>
+    </div>
+    <p class="status" id="fstatus">Am FM-1: MENU › SYSTEM › USB DISK, dann die Datei vom Laufwerk „FM-1“ kopieren
+      (CURRENT.FM1 ist der Stand von gerade eben).</p>
+  </section>
+
+  <section>
+    <h2>2 · Was bouncen</h2>
+    <div class="opt"><input type="radio" name="mode" id="m0" value="0" checked>
+      <label for="m0">Szene<small>Die Patterns der Szene, die das Projekt spielt, so oft wie unten angegeben.</small>
+        <span class="row"><label for="bars">Takte</label><input id="bars" type="number" min="1" max="512" value="4"></span></label></div>
+    <div class="opt" id="o1"><input type="radio" name="mode" id="m1" value="1">
+      <label for="m1">Szenen-Song<small>Alle Zellen der Reihe nach, bis zum Ende (einmal durch, auch bei LOOP).</small></label></div>
+    <div class="opt" id="o2"><input type="radio" name="mode" id="m2" value="2">
+      <label for="m2">Song-Kette<small>Die SONG-Seite: die Kette von vorn, bis sie endet (höchstens 10 Minuten).</small></label></div>
+    <div class="opt"><input type="checkbox" id="stems" checked>
+      <label for="stems">Einzelspuren<small>T1–T4 und FX (Hall, Delay, Chorus, Punch-ins) zusätzlich zum Mix, vor dem Limiter
+        des Masters, als 32-Bit-Float-WAV.</small></label></div>
+    <div class="row"><label for="tail">Ausklang (Sekunden)</label><input id="tail" type="number" min="0" max="30" value="3"></div>
+  </section>
+
+  <section>
+    <h2>3 · Rendern</h2>
+    <button class="wide" id="go" disabled>Bouncen</button>
+    <div class="bar"><i id="prog"></i></div>
+    <p class="status" id="status">Zuerst eine .FM1-Datei wählen.</p>
+    <div id="out" hidden>
+      <audio id="player" controls preload="none"></audio>
+      <ul class="files" id="files"></ul>
+      <div class="actions">
+        <button id="zip">Alles als ZIP</button>
+        <button class="ghost" id="share" hidden>Teilen / In Dateien sichern</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    JAN3000 v0.8, based on <a href="https://github.com/hugelton/Felucca">Felucca</a> v1.5.1 by Leo Kuroshita
+    (Hügelton Instruments), GPL-3.0-only. Quelltext: <a href="https://github.com/JanSchulten/M-Vave-OP1">github.com/JanSchulten/M-Vave-OP1</a>.
+    Der Mix ist das, was das FM-1 über USB-Audio ausgibt (USB LEVEL FIXED, SPEAKER EQ FLAT, ohne Klick); 44,1 kHz.
+    Nichts verlässt dein Gerät: die Datei wird nur hier im Browser gelesen.
+  </footer>
+</main>
+<script type="module">
+import { parseFM1, loadWasm, prepare, render, bounceFiles, zipParts } from "./bounce.js";
+
+const $ = (id) => document.getElementById(id);
+let mod = null, fm1 = null, files = [], urls = [], base = "BOUNCE";
+const fmtSize = (n) => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.ceil(n / 1024)} KB`;
+const say = (el, t, err) => { el.textContent = t; el.classList.toggle("err", !!err); };
+const wasmReady = fetch("felucca_bounce.wasm").then((r) => {
+  if (!r.ok) throw new Error(`felucca_bounce.wasm: ${r.status}`);
+  return r.arrayBuffer();
+}).then((b) => WebAssembly.compile(b)).then((m) => (mod = m));
+
+function setModes(has) {
+  for (const [i, ok] of [[1, has[0]], [2, has[1]]]) {
+    $(`m${i}`).disabled = !ok;
+    $(`o${i}`).classList.toggle("off", !ok);
+    if (!ok && $(`m${i}`).checked) $("m0").checked = true;
+  }
+}
+
+$("file").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  $("go").disabled = true;
+  $("out").hidden = true;
+  try {
+    fm1 = parseFM1(new Uint8Array(await f.arrayBuffer()));
+    await wasmReady;
+    const prep = prepare(await loadWasm(mod), fm1);
+    const barMs = 240000 / prep.bpm, bars = Math.max(1, Math.ceil(prep.loopMs / barMs - 0.01));
+    base = (fm1.name || f.name.replace(/\.fm1$/i, "") || "BOUNCE").replace(/[^A-Za-z0-9_-]+/g, "_");
+    $("bars").value = bars;
+    setModes(prep.has);
+    $("pname").textContent = fm1.name || f.name;
+    $("pmeta").textContent = `${fm1.slot === 4 ? "Stand von gerade eben (CURRENT)" : `Projekt-Platz ${fm1.slotName}`} · ` +
+      `${prep.bpm} BPM · ein Durchlauf ${bars} ${bars === 1 ? "Takt" : "Takte"} · Firmware ${fm1.fw || "?"}`;
+    $("pchips").replaceChildren(...fm1.entries.map((x) => Object.assign(document.createElement("span"),
+      { className: "chip", textContent: `${x.tag} ${fmtSize(x.len)}` })));
+    $("info").classList.add("on");
+    say($("fstatus"), "Datei geprüft: alle Prüfsummen stimmen.");
+    say($("status"), "Bereit.");
+    $("go").disabled = false;
+  } catch (err) {
+    fm1 = null;
+    $("info").classList.remove("on");
+    say($("fstatus"), err.message, true);
+  }
+});
+
+$("go").addEventListener("click", async () => {
+  if (!fm1) return;
+  const mode = +document.querySelector("input[name=mode]:checked").value, stems = $("stems").checked;
+  $("go").disabled = true;
+  $("out").hidden = true;
+  urls.forEach((u) => URL.revokeObjectURL(u));
+  urls = [];
+  say($("status"), "Das FM-1 startet …");
+  $("prog").style.width = "0";
+  try {
+    const prep = prepare(await loadWasm(mod), fm1);
+    const barMs = 240000 / prep.bpm;
+    const maxMs = mode === 0 ? Math.max(1, +$("bars").value || 1) * barMs : 600000;
+    const t0 = performance.now();
+    let last = t0;
+    const r = await render(prep, { mode, maxMs, tailMs: Math.max(0, +$("tail").value || 0) * 1000, stems,
+      onProgress: (ms, total) => {
+        if (performance.now() - last < 80) return;
+        last = performance.now();
+        $("prog").style.width = `${Math.min(100, ms / total * 100)}%`;
+        say($("status"), `${(ms / 1000).toFixed(1)} s gerechnet …`);
+        return new Promise((ok) => setTimeout(ok, 0));
+      } });
+    $("prog").style.width = "100%";
+    files = bounceFiles(r, base);
+    const secs = r.frames / r.rate;
+    say($("status"), `${secs.toFixed(1)} s Musik in ${((performance.now() - t0) / 1000).toFixed(1)} s gerechnet.`);
+    $("files").replaceChildren(...files.map((f) => {
+      const blob = new Blob(f.parts, { type: "audio/wav" }), u = URL.createObjectURL(blob), li = document.createElement("li");
+      urls.push(u);
+      f.blob = blob;
+      li.innerHTML = `<span></span><small>${fmtSize(blob.size)}</small><a download>Laden</a>`;
+      li.firstChild.textContent = f.name;
+      li.querySelector("a").href = u;
+      li.querySelector("a").download = f.name;
+      return li;
+    }));
+    $("player").src = urls[0];
+    const share = files.map((f) => new File([f.blob], f.name, { type: "audio/wav" }));
+    $("share").hidden = !(navigator.canShare && navigator.canShare({ files: share }));
+    $("share").onclick = () => navigator.share({ files: share, title: base }).catch(() => {});
+    $("out").hidden = false;
+  } catch (err) {
+    say($("status"), err.message, true);
+  }
+  $("go").disabled = false;
+});
+
+$("zip").addEventListener("click", () => {
+  const a = document.createElement("a"), u = URL.createObjectURL(new Blob(zipParts(files), { type: "application/zip" }));
+  urls.push(u);
+  a.href = u;
+  a.download = `${base}.zip`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+});
+</script>
+</body>
+</html>

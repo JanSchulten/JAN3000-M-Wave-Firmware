@@ -197,6 +197,10 @@
 # web (web/test_web.mjs): the editor protocol against its mock device, whose tables must equal the
 #                   firmware's (tests/descdump.c -> build/host/desc.json; the MENU settings: tests/editor_test.c -> build/host/menu.json),
 #                   the package builder, the updater.
+# Offline bounce (web/bounce, M-Vave-OP1, when emcc is there): the emulator's firmware with taps on the mixer (fx.c
+#                   FX_PART_TAP / FX_MIX_TAP); tests/vdisk_test.c's .FM1 files checked (a byte changed, cut short: refused),
+#                   loaded (a slot, the autosave), bounced for 2 bars: the master and T1 sound, the empty tracks silent,
+#                   the stems add up to the master below its limiter, twice the same samples; the WAVs and the ZIP.
 # Browser emulator (web/emu, when emcc is there): the firmware in WebAssembly (build/emu) boots, plays keys and MIDI,
 #                   draws, lights its LEDs, keeps a save across instances, plays a song bit for bit as the same file
 #                   built with cc (web/emu/native_check.c); the cost of 1 s of a heavy song against real time.
@@ -575,6 +579,10 @@ else
     run "browser emulator: the same song from the native build" "$OUT/emu_native" "$OUT/emu_native.f32"
     run "browser emulator: boot, keys, MIDI, screen, LEDs, PLAY, a save kept across instances, = native, cost" \
         node web/emu/emu_test.mjs build/emu/felucca.wasm "$OUT/emu_native.f32"
+    run "offline bounce: the firmware with the mixer's taps to WebAssembly (web/bounce/build.sh -> build/bounce)" \
+        sh web/bounce/build.sh
+    run "offline bounce: USB DISK's .FM1 files read, loaded, bounced (master + stems, = twice), WAV and ZIP" \
+        node web/bounce/bounce_test.mjs build/bounce/felucca_bounce.wasm build/vdisk/files
 fi
 
 [ $fail -eq 0 ] && echo "ALL HOST TESTS PASSED" || { echo "HOST TESTS FAILED"; exit 1; }
