@@ -1876,10 +1876,10 @@ function makeMockDevice(opt = {}) {
     for (let i = 0; i < 8; i++) st.p[P_E0 + i] = pr.e[i];
     [1, 2, 3, 4].forEach((id, k) => { st.p[id] = pr.env[k]; });
     st.p[37] = pr.mono ? 2 : 0;
-    st.p[33] = 0; st.p[34] = 24; st.p[35] = 28; st.p[36] = 36;
-    for (let i = P_SLCR + 4; i < P_E0; i++) if (!trackOwn(i, P_E0)) st.p[i] = TP[i].def;   /* a factory preset turns the
-                                                     matrix off; the SLICER, the chord keys, the steps and the other track
-                                                     settings stay (ui.c apply_preset_to) */
+    for (let i = P_SLCR + 4; i < P_E0; i++) if (!trackOwn(i, P_E0) && !(i >= 96 && i <= 100)) st.p[i] = TP[i].def;   /* a
+                                                     factory preset turns the matrix off; the SLICER, the chord keys, the
+                                                     steps, the other track settings and the effects stay: the sends
+                                                     33..36 and the INSERT 96..100 (ui.c preset_fx) */
     if (st.engine === FM6_E) {                    /* eng_fm6.c fm6_track_loaded */
       const t = st.tracks[st.sel];
       t.own = null;

@@ -84,8 +84,9 @@ static void host_tracks_init(void)                /* as felucca_init: defaults, 
     song.master_q12 = 4096;
 }
 
-/* the factory preset as ui.c apply_preset_to sets it (sound, sends; not the steps, not the track's own:
- * the mix, ARP, SCL, the pattern parameters, the SLICER);
+/* the factory preset as ui.c preset_load_to sets it with its sends (the power-on sounds' load: the renders keep
+ * hearing each preset through its own sends; a load from the PRESETS list keeps the track's, ui.c preset_fx) (sound,
+ * sends; not the steps, not the track's own: the mix, ARP, SCL, the pattern parameters, the SLICER);
  * the engine as the UI asks for it (eng_req: the audio side switches; host_preset: at once) */
 static void host_preset_values(track_t *t, uint32_t e, uint32_t pi, const preset_t *p)
 {

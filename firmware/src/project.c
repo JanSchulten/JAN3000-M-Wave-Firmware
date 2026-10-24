@@ -1052,7 +1052,7 @@ static int project_restore_runtime(const project_t *input)
         track_t *t = &trk[k];
         int16_t keep[P_COUNT];
         if (p->t[k].preset == PROJ_DEF_SOUND) {
-            apply_preset_to(t, TRK_DEF[k][1]);
+            preset_load_to(t, TRK_DEF[k][1], 1);   /* with its sends, as saved then (ui.c preset_fx) */
             track_defaults_steps(t);
         } else if (p->t[k].preset == PROJ_DEF_KEEP) {   /* the steps, LEVEL PAN MUTE, LEN DIV SWING GATE kept */
             memcpy(keep, t->p, sizeof keep);

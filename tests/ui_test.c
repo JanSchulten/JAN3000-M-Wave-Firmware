@@ -215,7 +215,7 @@ static void ui_power_on(void)
         track_t *t = &trk[i];
         track_defaults(t);
         set_engine_of(t, TRK_DEF[i][0]);
-        apply_preset_to(t, TRK_DEF[i][1]);
+        preset_load_to(t, TRK_DEF[i][1], 1);   /* with its sends (main.c) */
         t->engine = t->eng_req;
         track_defaults_steps(t);
         if (TRK_DEF[i][2])

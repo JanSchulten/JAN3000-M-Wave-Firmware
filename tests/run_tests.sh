@@ -205,6 +205,10 @@
 #                   they sound and end, a retrigger from rest the same, each MODE its own and bounded, the octaves;
 #                   its EDIT > OSC 1, OSC 2, SOUND pages (src/ui_dbox.c), its kit in projects and user presets;
 #                   screens in build/dbox_shots/, demos in build/dbox_demo/.
+# PRESET FX (tests/preset_fx_test.c, M-Vave-OP1): a factory preset brings the sound, not the effects (src/ui.c
+#                   preset_fx): every factory preset, the PRESETS knob, an engine switch and a Program Change keep the
+#                   track's sends and INSERT; a user preset brings the ones it was saved with; the power-on sounds load
+#                   with their sends as ever.
 # NOISE (tests/noise_test.c): the engine (src/eng_noise.c): COLR's slope (white, pink, brown), the filter and the
 #                   register clock following the key, META periodic at the key, no DC, no clipping at the
 #                   corners, a note from silence the same twice, the cost per voice; demos in build/noise_demo/.
@@ -454,6 +458,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/dbox_test" tests/dbox_test.c -lm
     mkdir -p build/dbox_shots build/dbox_demo
     run "DBOX: kits under full scale, DC, ends, retrigger, MODEs, octaves, the key pages, its kit stored, screens, demos" "$OUT/dbox_test" build/dbox_shots build/dbox_demo
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/preset_fx_test" tests/preset_fx_test.c -lm
+    run "PRESET FX: factory presets keep the track's sends and INSERT, user presets bring theirs, power-on as ever" "$OUT/preset_fx_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/noise_test" tests/noise_test.c -lm
     mkdir -p build/noise_demo
     run "NOISE: colour slopes, key-tracked filter and clock, META period, DC, clipping, retrigger, cost, demos" "$OUT/noise_test" build/noise_demo

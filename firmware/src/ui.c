@@ -1315,8 +1315,16 @@ static void fm4_load_preset(track_t *t, uint32_t k)
 #endif
 
 static void set_engine_of(track_t *t, uint32_t ei);
-/* preset pi of the engine the track asked for: the sound only (not the steps, not param_kept) */
-static void apply_preset_to(track_t *t, uint32_t pi)
+/* M-Vave-OP1: a factory preset brings the sound, not the effects. The track's sends (DIST CHORUS DELAY REVERB) and
+ * its INSERT stay as they are on every load from the PRESETS list, the editor, a Program Change, a new project's
+ * draw and an engine switch; a user preset brings what was saved with it (upreset.c up_load: param_kept only).
+ * Only the power-on sounds still load with their sends (preset_load_to with sends: main.c felucca_init, project.c's
+ * format-1 tracks), so the power-on project and the projects saved with it sound as they always did */
+static int preset_fx(uint32_t i) { return (i >= P_DIST && i <= P_REV) || (i >= P_ITYPE && i <= P_IMIX); }
+
+/* preset pi of the engine the track asked for: the sound only (not the steps, not param_kept); sends: also the
+ * preset's sends (or 0 24 28 36) and the INSERT OFF, as every load set them before M-Vave-OP1 */
+static void preset_load_to(track_t *t, uint32_t pi, uint32_t sends)
 {
     const engine_t *e = ENGINES[t->eng_req % NENGINES];
     uint32_t i;
@@ -1344,7 +1352,7 @@ static void apply_preset_to(track_t *t, uint32_t pi)
     pi = preset_orig(e, pi % e->npresets);
     t->preset = (uint8_t)pi;
     for (i = 0; i < P_E0; i++)                        /* the rest of the sound to its defaults: a preset */
-        if (!param_kept(i))                           /* sounds the same after any edit */
+        if (!param_kept(i) && (sends || !preset_fx(i)))   /* sounds the same after any edit */
             t->p[i] = TP[i].def;
     for (i = 0; i < 8u; i++)
         t->p[P_E0 + i] = (int16_t)e->presets[pi].e[i];
@@ -1354,7 +1362,7 @@ static void apply_preset_to(track_t *t, uint32_t pi)
     t->p[P_REL] = e->presets[pi].env[3];
     t->p[P_ED_FLT] = e->presets[pi].fenv;
     t->p[P_VOICE] = e->presets[pi].mono ? V_LEGATO : V_POLY;   /* mono presets keep the legato feel */
-    {   /* the sends */
+    if (sends) {   /* the power-on sounds' sends */
         static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
         const preset_t *pr = &e->presets[pi];
         for (i = 0; i < 4u; i++)
@@ -1365,6 +1373,7 @@ static void apply_preset_to(track_t *t, uint32_t pi)
         a2_preset(t, pi);
     load_end(t);
 }
+static void apply_preset_to(track_t *t, uint32_t pi) { preset_load_to(t, pi, 0); }
 
 /* the engine's defaults and its first preset. With the audio IRQ off: the ISR sees the old engine with
  * its values or the new one with its own (voice.c engine_block), never one with the other's */
