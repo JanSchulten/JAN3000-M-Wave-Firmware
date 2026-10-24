@@ -163,9 +163,25 @@ FM1_FPU static void pws_start(pws_t *s, float phase, float f0, float harmonics, 
     pws_ends(f0, harmonics, timbre, morph, &s->shape, &s->wf, &s->ot);
 }
 
-/* one block of n samples into out (the model) and aux (Plaits' AUX: the triangle's sine blended into the second fold) */
+/* the triangle after a block it skipped: where it would be (its phase and frequency are the slope's: the same start,
+ * the same ramps), at rest on its course (the BLEP's carry of a corner in the block's last sample left out) */
+FM1_FPU static void pws_tri_follow(pws_t *s)
+{
+    pws_osc_t *o = &s->tri;
+    const float f = s->slope.freq, p = pws_clamp(0.5f, f * 2.0f, 1.0f - 2.0f * f);
+    o->phase = s->slope.phase;
+    o->freq = f;
+    o->pw = p;
+    o->high = o->phase < p;
+    o->next = o->high ? o->phase / p : 1.0f - (o->phase - p) / (1.0f - p);
+}
+
+/* one block of n samples into out (the model) and aux (Plaits' AUX: the triangle's sine blended into the second fold).
+ * need: bit 0 out, bit 1 aux (3 both, as Plaits). Without bit 1 the triangle, its sine and the second fold are not
+ * computed (aux is left as scratch; pws_tri_follow keeps the triangle on course), without bit 0 the first fold (out
+ * then holds the slope). out is Plaits' own whatever need says; aux too, except for the block after one without it */
 FM1_FPU static void pws_render(pws_t *s, float f0, float harmonics, float timbre, float morph, float *out, float *aux,
-                               uint32_t n)
+                               uint32_t n, uint32_t need)
 {
     const float pw = morph * 0.45f + 0.5f;
     float sh = s->shape, wf = s->wf, ot = s->ot, sh_e, wf_e, ot_e, sh_i, wf_i, ot_i;
@@ -175,6 +191,34 @@ FM1_FPU static void pws_render(pws_t *s, float f0, float harmonics, float timbre
     wf_i = (wf_e - wf) / (float)n;
     ot_i = (ot_e - ot) / (float)n;
     pws_slope(&s->slope, f0, pw, out, n);
+    if (!(need & 2u)) {                            /* OUT alone: the slope through the shapes and the first fold */
+        for (i = 0; i < n; i++) {
+            float shape, wsi, x, y;
+            int32_t si, wi;
+            const int16_t *s1, *s2;
+            sh += sh_i;
+            wf += wf_i;
+            shape = sh * 3.9999f;
+            si = (int32_t)shape;
+            shape -= (float)si;
+            s1 = PWS_SHAPES[si];
+            s2 = PWS_SHAPES[si + 1];
+            wsi = 127.0f * out[i] + 128.0f;
+            wi = (int32_t)wsi;
+            wsi -= (float)wi;
+            wi &= 255;
+            x = (float)s1[wi] / 32768.0f;
+            x += ((float)s1[wi + 1] / 32768.0f - x) * wsi;
+            y = (float)s2[wi] / 32768.0f;
+            y += ((float)s2[wi + 1] / 32768.0f - y) * wsi;
+            out[i] = pws_hermite(lut_fold + 1, (x + (y - x) * shape) * wf + 0.5f, 512.0f);
+        }
+        pws_tri_follow(s);
+        s->shape = sh;
+        s->wf = wf;
+        s->ot = ot_e;
+        return;
+    }
     pws_slope(&s->tri, f0, 0.5f, aux, n);
     for (i = 0; i < n; i++) {
         float shape, wsi, x, y, mix, index, fold, fold_2, sine;
@@ -198,7 +242,7 @@ FM1_FPU static void pws_render(pws_t *s, float f0, float harmonics, float timbre
         y += ((float)s2[wi + 1] / 32768.0f - y) * wsi;
         mix = x + (y - x) * shape;
         index = mix * wf + 0.5f;                   /* then through the folders */
-        fold = pws_hermite(lut_fold + 1, index, 512.0f);
+        fold = need & 1u ? pws_hermite(lut_fold + 1, index, 512.0f) : out[i];
         fold_2 = -pws_hermite(lut_fold_2 + 1, index, 512.0f);
         sine = pws_sine(aux[i] * 0.25f + 0.5f);
         out[i] = fold;

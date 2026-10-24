@@ -18,7 +18,7 @@ int main() {
     p.note = 36.0f + 48.0f * (0.5f + 0.5f * sinf(t * 7.0f));
     p.harmonics = 0.5f + 0.5f * sinf(t * 13.0f); p.timbre = 0.5f + 0.5f * sinf(t * 5.0f + 1.0f); p.morph = 0.5f + 0.5f * sinf(t * 3.0f + 2.0f);
     bool env = false; ref.Render(p, ro, ra, N, &env);
-    fw::pws_render(&port, plaits::NoteToFrequency(p.note), p.harmonics, p.timbre, p.morph, po, pa, N);
+    fw::pws_render(&port, plaits::NoteToFrequency(p.note), p.harmonics, p.timbre, p.morph, po, pa, N, 3u);
     for (int i = 0; i < N; i++) { maxd = fmax(maxd, fabs(ro[i] - po[i])); maxa = fmax(maxa, fabs(ra[i] - pa[i])); }
   }
   printf("firmware plaits_ws.c vs Plaits: %d samples, max |out diff| %g, max |aux diff| %g\n", N * B, maxd, maxa);

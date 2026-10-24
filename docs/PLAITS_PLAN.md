@@ -215,4 +215,12 @@ Der Code einer Engine kostet also ~2 KB statt der geschätzten ~3 KB. Für die v
 Wavetables. Mit 16 Bit (50,7 KB) sind das ~60 KB bei 56,8 KB frei: **knapp zu viel**; die Entscheidung fällt mit
 WAVETABLE, wenn HARMONIC und PARTICLE gemessen sind.
 
-Noch offen: am Gerät INFO > CPU mit 8 gehaltenen WSHAPE-Tönen messen (erwartet ~35 % für 8 Stimmen).
+Gemessen am Gerät (2026-10-24, INFO > CPU, Firmware 9e149ba): 4 Töne 39 %, 8 Töne 64 %, also **~6,3 % pro Stimme**
+(das Modell 4,3 %, Filter, Drive, Hüllkurve und Umrechnung ~2 %) auf ~14 % Grundlast. Die 8 Stimmen sind das ganze
+gemeinsame Budget aller Parts (`NVOICE`), ab 85 % nimmt `audio.c` Stimmen weg: WSHAPE braucht keine Grenze.
+
+Danach sparsamer gemacht: Bei AUX 0 rechnet `pws_render` (`need` 1) Plaits' zweiten Ausgang nicht (Dreieck, Sinus,
+zweiter Falter), OUT bleibt bitgleich (`tests/wshape_test.c`); das Dreieck läuft auf seiner Bahn weiter
+(`pws_tri_follow`), AUX kommt danach innerhalb von 0,001 wieder. Bei AUX 127 fällt der erste Falter weg. Statisch
+kostet das Modell bei AUX 0 ~224 statt ~385 pro Sample (~40 % weniger): erwartet ~4,5 % pro Stimme, 8 Töne ~50 %.
+Noch einmal am Gerät messen.

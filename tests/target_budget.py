@@ -22,7 +22,8 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "dv_rim_run", "dv_bell_run", "dv_cym_run", "dv_out", "dv_metal_mix",
          "slicer_track",
          "vd_render", "vd_layer_run", "vd_post",             # M-Vave-OP1: VDRUM (eng_vdrum.c): the parts, a layer, the resonator
-         "wsh_render", "wsh_model",                         # M-Vave-OP1: WSHAPE (eng_wshape.c): the voice, the Plaits model (FPU)
+         "wsh_render", "wsh_model", "pws_render", "pws_slope",   # M-Vave-OP1: WSHAPE (eng_wshape.c; plaits_ws.c on the FPU: its
+         # -Os layout puts branches out of line, which this count takes for nested loops: pws_render reads high)
          "fm1_alnk0_irq", "fm1_timer5_irq",               # the audio ISR; TIMER5: the key / LED scan (hal/fm1_input.h)
          "uac_tap48",                                       # the USB audio input at 48 kHz: the 44.1 -> 48 resampler (usb.c)
          "click_render",                                    # the metronome's click (click.c), while it sounds

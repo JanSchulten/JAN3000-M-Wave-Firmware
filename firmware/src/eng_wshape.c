@@ -19,7 +19,8 @@
  * v->ph[0] (UNISON's voices: voice.c spreads them); a retrigger of a sounding voice keeps the model running (v->s[4],
  * set by note_on, is the start flag: .keep 0x10 puts back the 0 of a running voice), the filter and the blocker
  * (.keep 0x07).
- * Cost on the unit: the FPU probe measured the model at 4.3 % of the audio's time a voice (2026-10-24). */
+ * Cost on the unit (2026-10-24, INFO's CPU): ~6.3 % of the audio's time a voice with AUX at 0 or not (the model 4.3 %:
+ * the FPU probe), before AUX 0 left Plaits' second output out (pws_render need 1: OUT alike, ~40 % less model). */
 #include "plaits_ws.c"
 
 typedef struct {
@@ -35,13 +36,14 @@ static void wsh_note_on(track_t *t, voice_t *v)
     v->s[4] = 1;                                      /* start the model at the first render */
 }
 
-/* the model's n samples of voice v as Q15 into o (OUT and AUX blended by AUX); its float side, on the FPU */
+/* the model s's n samples of voice v as Q15 into wsh_o (OUT and AUX blended by AUX); its float side, on the FPU */
 static int32_t wsh_o[CTL];
-FM1_FPU __attribute__((noinline)) static void wsh_model(track_t *t, voice_t *v, uint32_t n, const vmod_t *m)
+FM1_FPU __attribute__((noinline)) static void wsh_model(const track_t *t, voice_t *v, pws_t *s, uint32_t n,
+                                                        const vmod_t *m)
 {
     static float out[CTL], aux[CTL];
+    const float *b;
     const int16_t *p = t->p;
-    pws_t *s = &((wsh_mem_t *)ENG_MEM((uint32_t)(t - trk)))->v[(uint32_t)(v - t->v) % NVOICE];
     const float f0 = (float)m->inc * (1.0f / 4294967296.0f);
     const float harm = (float)p[P_E0] * (1.0f / 127.0f), morph = (float)p[P_E2] * (1.0f / 127.0f);
     const float blend = (float)p[P_E3] * (1.0f / 127.0f);
@@ -50,15 +52,15 @@ FM1_FPU __attribute__((noinline)) static void wsh_model(track_t *t, voice_t *v, 
     uint32_t i;
     tq = tq < 0 ? 0 : tq > (127 << 8) ? (127 << 8) : tq;
     timb = (float)tq * (1.0f / (127.0f * 256.0f));
-    if (n > CTL)
-        n = CTL;
     if (v->s[4]) {
         pws_start(s, (float)(v->ph[0] >> 8) * (1.0f / 16777216.0f), f0, harm, timb, morph);
         v->s[4] = 0;
     }
-    pws_render(s, f0, harm, timb, morph, out, aux, n);
+    /* AUX 0: OUT alone (Plaits' second output not computed, b reads OUT: x is OUT exactly); 127: the first fold not */
+    pws_render(s, f0, harm, timb, morph, out, aux, n, !p[P_E3] ? 1u : p[P_E3] >= 127 ? 2u : 3u);
+    b = p[P_E3] ? aux : out;
     for (i = 0; i < n; i++) {
-        float x = out[i] + (aux[i] - out[i]) * blend;
+        float x = out[i] + (b[i] - out[i]) * blend;
         x = x > 1.0f ? 1.0f : x < -1.0f ? -1.0f : x;
         wsh_o[i] = (int32_t)(x * 32767.0f);
     }
@@ -75,7 +77,7 @@ static void wsh_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const v
     uint32_t i;
     if (n > CTL)
         n = CTL;
-    wsh_model(t, v, n, m);
+    wsh_model(t, v, &((wsh_mem_t *)ENG_MEM((uint32_t)(t - trk)))->v[(uint32_t)(v - t->v) % NVOICE], n, m);
     tsvf_coef(&flt, cut, p[P_E5]);
     for (i = 0; i < n; i++) {
         int32_t s = wsh_o[i];

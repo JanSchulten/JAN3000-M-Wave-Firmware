@@ -60,7 +60,7 @@ static float fpb_out[32], fpb_aux[32];
 FM1_FPU static void fpb_ws_block(uint32_t b)
 {
     float t = (float)b * (1.0f / 16.0f);
-    pws_render(&fpb_ws, 0.0025f + 0.01f * t, 0.2f + 0.6f * t, 0.9f - 0.7f * t, 0.1f + 0.8f * t, fpb_out, fpb_aux, 32u);
+    pws_render(&fpb_ws, 0.0025f + 0.01f * t, 0.2f + 0.6f * t, 0.9f - 0.7f * t, 0.1f + 0.8f * t, fpb_out, fpb_aux, 32u, 3u);
 }
 static uint32_t fpb_ws_hash(void)
 {

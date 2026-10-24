@@ -14,7 +14,7 @@ g++ -O2 -w -I/tmp/eurorack -Ifirmware/src -o /tmp/ws_ref tools/plaits_proto/ref.
     /tmp/eurorack/plaits/dsp/engine/waveshaping_engine.cc /tmp/eurorack/plaits/resources.cc /tmp/eurorack/stmlib/dsp/units.cc
 /tmp/ws_ref
 T=~/.jieli/toolchain/pi32v2/bin   # the loop cost on the target: compile with the FPU on, as core.h FM1_FPU does
-printf 'typedef short int16_t; typedef int int32_t; typedef unsigned uint32_t;\n#define FM1_FPU __attribute__((target("fprev1")))\n#include "plaits_ws.c"\nFM1_FPU void r(pws_t *s, float *o, float *a) { pws_render(s, 0.01f, 0.5f, 0.5f, 0.5f, o, a, 32); }\n' > /tmp/ws_cost.c
+printf 'typedef short int16_t; typedef int int32_t; typedef unsigned uint32_t;\n#define FM1_FPU __attribute__((target("fprev1")))\n#include "plaits_ws.c"\nFM1_FPU void r(pws_t *s, float *o, float *a) { pws_render(s, 0.01f, 0.5f, 0.5f, 0.5f, o, a, 32, 3u); }\n' > /tmp/ws_cost.c
 $T/clang -target pi32v2 -Os -fno-builtin -ffreestanding -Ifirmware/src -S /tmp/ws_cost.c -o /tmp/ws.s
 python3 -I tools/plaits_proto/scost.py /tmp/ws.s=r,pws_slope   # r: pws_render inlined; pws_slope runs twice a block
 ```

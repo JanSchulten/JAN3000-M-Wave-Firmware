@@ -235,7 +235,7 @@ static void test_shape(void)
             } else {
                 m.shape = (64 + (k ? 60 : 0)) << 8;
             }
-            wsh_model(&trk[0], &trk[0].v[0], CTL, &m);
+            wsh_model(&trk[0], &trk[0].v[0], model_of(0), CTL, &m);
             memcpy(y + i * CTL, wsh_o, sizeof(int32_t) * CTL);
         }
     }
@@ -248,12 +248,42 @@ static void test_shape(void)
         trk[0].v[0].s[4] = 1;
         for (i = 0; i < 16u; i++) {
             m.shape = (64 + 87) << 8;
-            wsh_model(&trk[0], &trk[0].v[0], CTL, &m);
+            wsh_model(&trk[0], &trk[0].v[0], model_of(0), CTL, &m);
             for (k = 0; k < CTL; k++)
                 eq &= wsh_o[k] == c[i * CTL + k];
         }
     }
     check("SHP moves TIMBRE (another sound); past the end clamped (as TIMB at 127)", diff && eq);
+}
+
+/* pws_render's need (AUX 0: the second output not computed): OUT bit for bit as with both, over notes and settings;
+ * the triangle kept on course: the AUX output after blocks without it within a hair of the full model's */
+static void test_need(void)
+{
+    static float o1[CTL], a1[CTL], o3[CTL], a3[CTL];
+    pws_t s1, s3;
+    uint32_t c, b, i, same = 1;
+    float worst = 0.0f;
+    for (c = 0; c < 24u; c++) {
+        const float f0 = 0.0008f * (float)(1u + c * 7u % 61u), hm = (float)(c * 5u % 24u) / 23.0f;
+        const float tb = (float)(c * 11u % 24u) / 23.0f, mo = (float)(c * 17u % 24u) / 23.0f;
+        pws_start(&s1, 0.3f, f0, hm, tb, mo);
+        s3 = s1;
+        for (b = 0; b < 64u; b++) {
+            const float tw = tb * (float)(64u - b) / 64.0f;   /* (TIMBRE and the pitch moving: the ramps) */
+            const float fw = f0 * (1.0f + 0.01f * (float)b);
+            const uint32_t skip = b >= 16u && b < 40u;    /* blocks 16..39 without AUX */
+            pws_render(&s1, fw, hm, tw, mo, o1, a1, CTL, skip ? 1u : 3u);
+            pws_render(&s3, fw, hm, tw, mo, o3, a3, CTL, 3u);
+            same &= !memcmp(o1, o3, sizeof o1);
+            if (b >= 40u)
+                for (i = 0; i < CTL; i++)
+                    worst = fabsf(a1[i] - a3[i]) > worst ? fabsf(a1[i] - a3[i]) : worst;
+        }
+    }
+    printf("wshape: AUX after 24 blocks without it: at most %.5f from the full model's\n", worst);
+    check("pws_render need 1: OUT bit for bit as with both outputs (24 settings, moving ramps)", same);
+    check("  the AUX output back on course after blocks without it (within 0.01)", worst < 0.01f);
 }
 
 static void test_determinism(void)
@@ -346,6 +376,7 @@ int main(int argc, char **argv)
     test_unison();
     test_shape();
     test_determinism();
+    test_need();
     test_switch();
     if (argc > 1)
         check("demos written", demos(argv[1]));

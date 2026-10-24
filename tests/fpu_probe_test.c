@@ -34,7 +34,7 @@ static void dsp_test(void)
         double e = 0.0;
         pws_init(&fpb_ws);
         for (b = 0; b < 200u; b++) {
-            pws_render(&fpb_ws, f0, hm, tb, mo, fpb_out, fpb_aux, 32u);
+            pws_render(&fpb_ws, f0, hm, tb, mo, fpb_out, fpb_aux, 32u, 3u);
             for (i = 0; i < 32u; i++) {
                 float a = fpb_out[i] < 0.0f ? -fpb_out[i] : fpb_out[i];
                 ok &= fpb_out[i] == fpb_out[i] && fpb_aux[i] == fpb_aux[i];   /* (no NaN) */

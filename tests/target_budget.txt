@@ -37,8 +37,10 @@ slicer_track 632
 vd_render 165
 vd_layer_run 115
 vd_post 124
-wsh_render 106
-wsh_model 97
+wsh_render 107
+wsh_model 22
+pws_render 5082
+pws_slope 213
 fm1_alnk0_irq 37502
 fm1_timer5_irq 33387
 click_render 30
