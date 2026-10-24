@@ -1860,7 +1860,7 @@ static int test_menu_tabs(void)
     frame();
     ok &= oct_leds() == OCT_BREATH;
     press(B_OCTDN); ok &= ui.menu == 1 && ui.menu_sel == MI_INFO;
-    press(B_OCTUP); ok &= ui.menu == 3 && oct_leds() == 1u;
+    press(B_OCTUP); ok &= ui.menu == 3 && oct_leds() == (1u | OCT_BREATH);   /* (M-Vave-OP1: OCT+ the FPU probe) */
     turn(EN_PRESET, 3); turn(EN_K1, 1); turn(EN_ALGO, 1);
     ok &= ui.menu == 3 && !ui.menu_scroll && ui.menu_sel == MI_INFO;
     press(B_OCTDN); ok &= ui.menu == 1 && ui.menu_sel == MI_INFO;

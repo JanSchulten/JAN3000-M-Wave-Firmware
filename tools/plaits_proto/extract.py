@@ -2,7 +2,7 @@
 """Pull Plaits tables out of resources.cc into a C header: extract.py RESOURCES_CC OUT_H name..."""
 import re, sys
 src = open(sys.argv[1]).read()
-out = ["/* Tables from Mutable Instruments Plaits (resources.cc), Emilie Gillet, MIT licence. Extracted. */", "#pragma once"]
+out = ["/* SPDX-License-Identifier: MIT\n * Tables from Mutable Instruments Plaits (plaits/resources.cc), Copyright 2016 Emilie Gillet, MIT licence (the notice:\n * plaits_ws.c). Extracted by tools/plaits_proto/extract.py. */", "#pragma once"]
 for name in sys.argv[3:]:
     m = re.search(r"const\s+(float|int16_t|uint16_t|int8_t|uint8_t|uint32_t)\s+" + name + r"\[\]\s*=\s*\{(.*?)\};", src, re.S)
     if not m:

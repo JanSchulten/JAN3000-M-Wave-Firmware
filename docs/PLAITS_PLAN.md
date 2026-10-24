@@ -12,13 +12,15 @@ fünf bestehende Engines. Dieses Dokument hält die Entscheidungen fest und was 
 | VOICE | **WAVETABLE** | WAVETABLE |
 | TRIO | **HARMONIC** (Additive) | ANALOG |
 | DBOX | **PARTICLE** | DRUM (Kit-Lanes und Pattern bleiben) |
-| SLICE | **SWARM** | SAMPLE mit derselben Quelle (Vorschlag, noch offen) |
+| SLICE | **SWARM** | SWARM |
 
 - Fünf eigene Engines, keine Sammel-Engine mit MODEL-Parameter.
 - Die neuen Engines werden an `ENGINES[]` angehängt (17 … 21); die alten Nummern bleiben reserviert und werden beim
   Laden umgewandelt, wie DIGITAL → FM6 (`fm4_convert.c`). Im PRESETS-Menü rücken die neuen an die Stelle der alten.
 - Polyphonie: so viele Stimmen, wie die CPU schafft, pro Engine gemessen.
 - Werks-Presets bringen keine Effekte mehr mit (umgesetzt, Abschnitt 4).
+- PARTICLE: ein Diffusor pro Part, die Verzögerungen auf ~6 000 Samples gekürzt (12 KB, im Engine-Speicher des Parts).
+- WAVETABLE: 16-Bit-Tabellen, wenn der Flash nach dem Aufräumen reicht, sonst 8 Bit.
 
 ## 2. Was Phase 0 gemessen hat
 
@@ -96,15 +98,10 @@ Bedarf der fünf neuen Engines: Code und Hülle ~15 KB, Tabellen ~9 KB, dazu die
 (~50 KB zusammen) passt es mit ~17 KB Reserve**; mit 16 Bit (~75 KB) nur, wenn das Entfernen mehr bringt als
 geschätzt (wird in Schritt 4 gemessen).
 
-## 3. Offene Entscheidungen
+## 3. Offene Punkte
 
-1. **Diffusor von PARTICLE:** 16 KB passen nicht in den Engine-Speicher eines Parts (12 888 B). Möglich: einer pro
-   Part mit auf ~6 000 Samples gekürzten Verzögerungen (12 KB, passt; etwas kürzere Fahne), ein gemeinsamer für alle
-   PARTICLE-Spuren (16 KB Pool), oder ganz ohne und stattdessen der Reverb-Send.
-2. **Wavetables:** 16 Bit (50,7 KB) oder 8 Bit (25,3 KB); hängt an dem, was der Flash nach dem Aufräumen hergibt.
-3. **WAVESHAPE exakt oder schnell:** nach einem Hörvergleich.
-4. **SLICE-Sounds:** als SAMPLE mit derselben Quelle laden?
-5. **FPU-Probe auf dem Gerät:** braucht eine Installation.
+1. **WAVESHAPE exakt oder schnell:** nach einem Hörvergleich.
+2. **Was die FPU auf dem Gerät kostet:** die FPU-Probe (Abschnitt 6).
 
 ## 4. Umgesetzt: Werks-Presets ohne Effekte
 
@@ -118,7 +115,29 @@ immer (`ui.c` `preset_fx`, `preset_load_to`; Test: `tests/preset_fx_test.c`).
 
 1. ~~Werks-Presets ohne Effekte~~ (erledigt)
 2. ~~Phase 0: Machbarkeit~~ (dieses Dokument)
-3. FPU-Probe auf dem Gerät (Takte pro FPU-Befehl, Start ohne SDK)
+3. FPU-Probe auf dem Gerät (gebaut, Abschnitt 6; die Messung am Gerät steht aus)
 4. Alte Engines umwandeln und entfernen (SLICE, PHASE, VOICE, TRIO, DBOX), Tests für das Laden alter Projekte
 5. Neue Engines: WAVESHAPE → HARMONIC → PARTICLE → WAVETABLE → SWARM
 6. Presets, UI, Golden-Tests, Emulator; erst dann aufs Gerät, nur mit Okay
+
+## 6. Die FPU-Probe (MENU > SYSTEM > INFO)
+
+`firmware/src/fpu_probe.c` misst am Gerät, was der Host nicht kann. Unter den drei Zeilen von INFO steht ein zweiter
+Block: **FPU**, **F I DIV NS**, **WS VOICE**. OCT+ startet die Probe, jeder Druck einmal:
+
+- **FPU:** `OK`, wenn ein paar Ergebnisse bitgenau stimmen (Multiplizieren-Addieren, Division, Float ↔ Int) und
+  16 Blöcke des Waveshapers denselben Hash ergeben wie auf dem Host (`FPB_WS_HASH`); `WS DIFFERS`, wenn nur der
+  Waveshaper abweicht; `WRONG`, wenn schon die einfachen Ergebnisse falsch sind.
+- **F I DIV NS:** Nanosekunden für ein Float-Multiplizieren-Addieren, ein Integer-Multiplizieren-Addieren und eine
+  Float-Division (je eine abhängige Kette, die kürzeste von 16 Messungen, TIMER4 mit 24 MHz).
+- **WS VOICE:** eine Stimme des Waveshapers (`plaits_ws.c`, bitgleich mit Plaits), ein 32-Sample-Block, in Prozent
+  der Zeit, die das Audio dafür hat (32 Samples bei 44,1 kHz). Daraus folgt die Stimmenzahl.
+
+Sicherheit: Die Probe läuft nur auf Tastendruck in der Hauptschleife, nie beim Start. In den ersten 30 s nach dem
+Einschalten verweigert sie („FPU TEST AFTER 30 S“), solange der Boot-Schutz den Start noch mitzählt. Ein Absturz
+kann also nie als fehlgeschlagener Start zählen. Stürzt sie ab, weil die FPU aus ist, zeigt das Gerät den
+Crash-Bildschirm und startet nach 4 s neu. Vorher das Projekt speichern: Nach einem Absturz lädt RESTORE LAST nicht
+automatisch.
+
+Kosten: 12,2 KB Flash (vor allem die Plaits-Tabellen, die WAVESHAPE ohnehin braucht), 336 B RAM. Das Image hat
+keine Soft-Float-Hilfsfunktion (`__mulsf3` …) gelinkt.

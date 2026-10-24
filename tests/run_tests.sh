@@ -209,6 +209,10 @@
 #                   preset_fx): every factory preset, the PRESETS knob, an engine switch and a Program Change keep the
 #                   track's sends and INSERT; a user preset brings the ones it was saved with; the power-on sounds load
 #                   with their sends as ever.
+# FPU PROBE (tests/fpu_probe_test.c, M-Vave-OP1): MENU > SYSTEM > INFO's FPU probe (src/fpu_probe.c) and the Plaits
+#                   waveshaper it runs (src/plaits_ws.c): the exact checks, the waveshaper's hash the unit compares
+#                   against (FPB_WS_HASH), bounded over the keyboard; OCT+ refused in the boot guard's 30 s, then a run
+#                   a press, the rows drawn; a screen in build/fpu_shots/.
 # NOISE (tests/noise_test.c): the engine (src/eng_noise.c): COLR's slope (white, pink, brown), the filter and the
 #                   register clock following the key, META periodic at the key, no DC, no clipping at the
 #                   corners, a note from silence the same twice, the cost per voice; demos in build/noise_demo/.
@@ -460,6 +464,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "DBOX: kits under full scale, DC, ends, retrigger, MODEs, octaves, the key pages, its kit stored, screens, demos" "$OUT/dbox_test" build/dbox_shots build/dbox_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/preset_fx_test" tests/preset_fx_test.c -lm
     run "PRESET FX: factory presets keep the track's sends and INSERT, user presets bring theirs, power-on as ever" "$OUT/preset_fx_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fpu_probe_test" tests/fpu_probe_test.c -lm
+    mkdir -p build/fpu_shots
+    run "FPU PROBE: exact checks, the waveshaper's hash, bounded; INFO's OCT+ after the boot guard, its rows, a screen" "$OUT/fpu_probe_test" build/fpu_shots
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/noise_test" tests/noise_test.c -lm
     mkdir -p build/noise_demo
     run "NOISE: colour slopes, key-tracked filter and clock, META period, DC, clipping, retrigger, cost, demos" "$OUT/noise_test" build/noise_demo

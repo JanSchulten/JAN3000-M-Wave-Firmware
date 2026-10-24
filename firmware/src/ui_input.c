@@ -116,7 +116,8 @@ static uint32_t oct_leds(void)
         return ui.ly != LAYER_SEQ ? 1u :                /* SEQ: the scene before / after, lit where there is one */
                (scene_target() > 0u ? 1u : 0u) | (scene_target() + 1u < SCN_N ? 2u : 0u);
     if (ui.menu && !ui.confirm)
-        return ui.menu >= 2u ? 1u :                    /* (INFO, ABOUT: OCT- back, lit) */
+        return ui.menu >= 2u ? (ui.menu == 3u ? 1u | OCT_BREATH : 1u) :   /* (INFO, ABOUT: OCT- back, lit; INFO's
+                                                        * OCT+ the FPU probe, M-Vave-OP1) */
                ui.menu_sel == MI_LCLEAR ? (ml_count() ? OCT_BREATH : 0u) :   /* LEARN CLEAR: while CCs are learned */
                ui.menu_sel >= MI_VALUES ? OCT_BREATH :  /* CALIBRATION / INFO / ABOUT: OCT+ opens */
                (menu_step(ui.menu_sel, -1) != menu_get(ui.menu_sel) ? OCT_BREATH_DN : 0u) |   /* a value: each */

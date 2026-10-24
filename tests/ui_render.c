@@ -1973,7 +1973,7 @@ static void align_sweeps(void)
             draw_menu();
         }
         song.g[G_TUNE] = 0; song.g[G_ROUTE] = 0;
-        cur_name = st ? "sweep LINE: INFO" : "sweep FLAT: INFO";   /* (1.2: every USB state, the CPU 0..99 %, S and M) */
+        cur_name = st ? "sweep LINE: INFO" : "sweep FLAT: INFO";   /* (1.2: every USB state, the CPU 0..99 %, S and M; the FPU probe) */
         {
             uint8_t up0 = usb.up, cf0 = usb.config;
             uint32_t su0 = usb.setups, sof0 = usb.sof_seen;
@@ -1983,8 +1983,12 @@ static void align_sweeps(void)
                 usb.up = (uint8_t)(u != 0u); usb.config = (uint8_t)(u == 4u); usb.setups = u >= 3u; usb.sof_seen = u >= 2u;
                 song.cpu_q8 = (k / 10u) * 28u; info.t = fm1_ms - INFO_CPU_MS;
                 ui_prefs = k / 5u & 1u ? PREF_LARGE : 0u; ui.force = 1;
+                fpb.state = (uint8_t)(k / 2u % 4u);     /* (M-Vave-OP1: the FPU probe's rows, every verdict, the widest values) */
+                fpb.f_ns10 = fpb.i_ns10 = fpb.d_ns10 = (uint16_t)(k & 1u ? 9999u : 42u);
+                fpb.ws_pm = (uint16_t)(k & 1u ? 999u : 98u);
                 draw_menu();
             }
+            memset(&fpb, 0, sizeof fpb);
             usb.up = up0; usb.config = cf0; usb.setups = su0; usb.sof_seen = sof0; song.cpu_q8 = 0;
             ui.menu = 1;
         }

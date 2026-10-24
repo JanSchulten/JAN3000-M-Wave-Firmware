@@ -427,6 +427,14 @@ static inline uint32_t swing_step_len(const track_t *t, uint32_t base, uint32_t 
 
 /* ----------------------------------------------------------- system --- */
 #define RING_PUBLISH() __asm__ volatile("" ::: "memory")   /* slot store before the index update */
+/* M-Vave-OP1: the chip's FPU (JieLi's SDK builds WL82 with -mfprev1; this build does not, its code is integer only). A
+ * function marked FM1_FPU computes its floats with it; every float helper it calls needs the mark too, else that helper
+ * is not inlined and runs as soft float (docs/PLAITS_PLAN.md). Host and browser builds: plain float */
+#ifdef __PI32V2__
+#define FM1_FPU __attribute__((target("fprev1")))
+#else
+#define FM1_FPU
+#endif
 static volatile uint32_t fm1_ms;  /* milliseconds since boot (TIMER4-based, TIMER5 ISR in main.c) */
 /* boot-loop guard (main.c): two boots in a row that die in the first 30 s -> UBOOT */
 #define BOOTGUARD_MAGIC 0x42475244u
