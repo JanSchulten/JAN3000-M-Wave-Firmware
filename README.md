@@ -279,14 +279,33 @@ after its voices.
 - Eight presets: DUST CLOUD, RAIN, RESO PING, CRACKLE, GLITTER PAD, WOOD TAPS, GEIGER, SHIMMER.
 - The diffuser's delays are 7/10 of Plaits' (it fits the part's memory): a slightly shorter smear.
 
+## WTABLE: Plaits' wavetables, a filter, the ADSR
+
+The fourth engine after Plaits (engine 20, shown **WTABLE**, after PRTCL in PRESETS): Plaits' wavetable model, then the
+same filter and ADSR. TIMB / MORPH / HARM pick the row, column and bank of 4 x 64 waves (the fourth bank a shuffle of
+the others); from HARM's middle up the banks come back in reverse and the moves between waves turn to steps. AUX blends
+into a 5-bit copy. The tables are stored in 8 bits (25 KB instead of 50): playing, they stay within 49 dB of Plaits'
+own. A sound stored with VOICE loads as WAVE SCAN. Presets: WAVE SCAN, DIGI BASS, GLASS KEYS, SCAN PAD, BIT LEAD, STEP
+TABLE, HOLLOW, CHAOS ROW.
+
+## SWARM: Plaits' swarm, a filter, the ADSR
+
+The fifth engine after Plaits (engine 21, shown **SWARM**, after WTABLE): 8 saws a voice (AUX: 8 sines) under grain
+envelopes. HARM spreads them around the note, TIMB is the grains' rate, MORPH their size: short grains low, held and
+gliding oscillators high. Each note starts a burst (as Plaits with its trigger patched): the swarm restarts fast, then
+settles. A sound stored with SLICE loads as SAW CLOUD. Presets: SAW CLOUD, SUPERSAW, GRAIN BUZZ, DRONE, SINE SWARM,
+BURST PLUCK, BEE HIVE, CHORUS BASS.
+
+All five Plaits engines play at Plaits' own relative levels (its `voice.cc`: WSHAPE 0.7, HRMNC 0.8, WTABLE 0.6, PRTCL
+and SWARM into Plaits' limiter).
+
 ## Retired: PHASE, VOICE, TRIO, SLICE and DBOX
 
 Five engines made room for engines after Mutable Instruments' Plaits (the module Behringer's Grind builds on; the plan:
 [docs/PLAITS_PLAN.md](docs/PLAITS_PLAN.md)): about 46 KB of flash and 5 KB of RAM. Their numbers stay reserved, so
 nothing that names one breaks: a project, the autosave, a user preset or the editor that asks for one loads its
-successor's first preset instead (PHASE becomes WSHAPE, TRIO HRMNC, DBOX DRUM, the others ANALOG for now; the rest of
-the sound and the steps as stored). The Plaits engines take their places: WSHAPE for PHASE and HRMNC for TRIO (here
-now), WAVETABLE for VOICE, SWARM for SLICE, PARTICLE beside DBOX.
+successor's first preset instead (PHASE becomes WSHAPE, TRIO HRMNC, VOICE WTABLE, SLICE SWARM, DBOX DRUM; the rest of the
+sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 
 ## Other changes to Felucca's workflow
 

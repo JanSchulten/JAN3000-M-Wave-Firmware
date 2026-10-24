@@ -34,7 +34,7 @@ FM1_FPU __attribute__((noinline)) static void har_model(const track_t *t, voice_
     }
     pad_update(s, q.harm, q.timb, q.morph, HAR_LP);
     pad_render(s, q.f0, plv_out, plv_aux, n, q.need);
-    plv_blend(&q, n);
+    plv_blend(&q, v, n, 0.8f, 0.8f);                   /* (Plaits' levels: voice.cc) */
 }
 
 static void har_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)

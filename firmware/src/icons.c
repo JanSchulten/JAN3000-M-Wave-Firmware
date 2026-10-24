@@ -245,6 +245,8 @@ static uint32_t engine_icon(const char *name)
         {"WSHAPE", ICON_FOLD},                /* (M-Vave-OP1: the wavefolder) */
         {"HRMNC", ICON_W_SIN},               /* (M-Vave-OP1: sine partials) */
         {"PRTCL", ICON_PROB},                /* (M-Vave-OP1: random particles) */
+        {"WTABLE", ICON_WAVE},               /* (M-Vave-OP1: the wavetables) */
+        {"SWARM", ICON_W_SAW},               /* (M-Vave-OP1: a swarm of saws) */
     };
     uint32_t i;
     for (i = 0; i < sizeof M / sizeof M[0]; i++)

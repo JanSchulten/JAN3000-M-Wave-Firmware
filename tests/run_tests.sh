@@ -208,7 +208,7 @@
 #                   a press, the rows drawn; a screen in build/fpu_shots/.
 # RETIRED (tests/retired_test.c, M-Vave-OP1): PHASE, VOICE, TRIO, SLICE and DBOX retired (src/engines.c ENG_GONE, core.h
 #                   eng_successor): none offered, silent; picked, a project's track, a user preset: the successor's first
-#                   preset (DBOX DRUM, PHASE WSHAPE, TRIO HRMNC, the others ANALOG), the rest as stored, the motion on the E values
+#                   preset (DBOX DRUM, PHASE WSHAPE, TRIO HRMNC, VOICE WTABLE, SLICE SWARM), the rest as stored, the motion on the E values
 #                   dropped.
 # WSHAPE (tests/wshape_test.c, M-Vave-OP1): the Plaits waveshaping engine (src/eng_wshape.c around src/plaits_ws.c):
 #                   every preset sounding C1..C7 without DC, bounded; the corners within the filter's knee; C4 in tune
@@ -222,6 +222,12 @@
 #                   diffuser once a part): presets and corners bounded without DC, the band-passes ring at the note,
 #                   a note fires the particles, TIMB the density, the diffuser's tail ends, a part from rest alike,
 #                   pun_sqrt is sqrtf, switches; demos in build/part_demo/.
+# WTABLE (tests/wtable_test.c, M-Vave-OP1): the Plaits wavetable engine (src/eng_wtable.c around src/plaits_wt.c, its
+#                   8-bit tables and the part's cache of decoded waves): WSHAPE's checks, the cache's decoding, map and
+#                   eviction, 8 voices sweeping the table; demos in build/wtable_demo/.
+# SWARM (tests/swarm_test.c, M-Vave-OP1): the Plaits swarm engine (src/eng_swarm.c around src/plaits_swarm.c): presets
+#                   and corners bounded without DC, in tune, a note's burst, Plaits' level through the limiter, a part
+#                   from rest alike, switches; demos in build/swarm_demo/.
 # NOISE (tests/noise_test.c): the engine (src/eng_noise.c): COLR's slope (white, pink, brown), the filter and the
 #                   register clock following the key, META periodic at the key, no DC, no clipping at the
 #                   corners, a note from silence the same twice, the cost per voice; demos in build/noise_demo/.
@@ -481,6 +487,12 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/part_test" tests/part_test.c -lm
     mkdir -p build/part_demo
     run "PRTCL: presets and corners bounded, no DC, rings at the note, note-on burst, density, diffuser tail, switches, demos" "$OUT/part_test" build/part_demo
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/wtable_test" tests/wtable_test.c -lm
+    mkdir -p build/wtable_demo
+    run "WTABLE: presets sound without DC, bounded, in tune, MONO / UNISON, SHP, the wave cache, switches, demos" "$OUT/wtable_test" build/wtable_demo
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/swarm_test" tests/swarm_test.c -lm
+    mkdir -p build/swarm_demo
+    run "SWARM: presets and corners bounded, no DC, in tune, a note's burst, Plaits' level, switches, demos" "$OUT/swarm_test" build/swarm_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fpu_probe_test" tests/fpu_probe_test.c -lm
     mkdir -p build/fpu_shots
     run "FPU PROBE: exact checks, the waveshaper's hash, bounded; INFO's OCT+ after the boot guard, its rows, a screen" "$OUT/fpu_probe_test" build/fpu_shots

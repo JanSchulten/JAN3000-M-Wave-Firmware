@@ -4,7 +4,7 @@
  * UI harness (tests/ui_test.c):
  *   OFFERED  none of them: not eng_ok, not in ENGINE_ORDER nor the PRESETS list, no factory preset, silent (ENG_GONE)
  *   PICKED   set_engine_of (the editor's engine command, an engine switch) on one: its successor's first preset
- *            (core.h eng_successor: DBOX -> DRUM, PHASE -> WSHAPE, TRIO -> HRMNC, the others -> ANALOG); the engine knob steps on from the successor
+ *            (core.h eng_successor: DBOX -> DRUM, PHASE -> WSHAPE, TRIO -> HRMNC, VOICE -> WTABLE, SLICE -> SWARM); the engine knob steps on from the successor
  *   PROJECT  a project with a track of each: every one loads as its successor's first preset (E values the preset's,
  *            the rest of the sound and the steps as stored, the motion on its E values gone, the other events kept)
  *   USER     a user preset record of one: listed and named as its successor, loads as its successor's first preset
@@ -23,7 +23,7 @@ static int ck(const char *what, int ok)
 static const uint32_t RET[5] = {2, 5, 6, ENGI_SLICE, ENGI_DBOX};
 static uint32_t want_of(uint32_t e)
 {
-    return e == ENGI_DBOX ? ENGI_DRUM : e == 2u ? ENGI_WSHAPE : e == 6u ? ENGI_HARMON : 0u;
+    return e == ENGI_DBOX ? ENGI_DRUM : e == 2u ? ENGI_WSHAPE : e == 6u ? ENGI_HARMON : e == 5u ? ENGI_WTABLE : ENGI_SWARM;
 }
 static int e_is_preset0(const track_t *t, uint32_t e)   /* its E values: engine e's first preset's */
 {
@@ -79,7 +79,7 @@ static void picked_test(void)
               TSEL->p[P_LEVEL] == 77;
         ok &= eng_step(RET[i], 1) == eng_step(want_of(RET[i]), 1);
     }
-    ck("set_engine_of on one: its successor's first preset (DBOX DRUM, PHASE WSHAPE, TRIO HRMNC, else ANALOG), the mix kept", ok);
+    ck("set_engine_of on one: its successor's first preset (DBOX DRUM, the others the Plaits engines), the mix kept", ok);
 }
 
 static void project_test(void)
@@ -136,8 +136,11 @@ static void user_test(void)
         up_rec(11)->engine = (uint8_t)RET[i];          /* (a record stored by a build that had the engine) */
         ok &= up_engine(11) == want_of(RET[i]);
         up_auto_name(b, RET[i], 11);
-        ok &= str_eq(b, want_of(RET[i]) == ENGI_DRUM ? "DRUM 12" : want_of(RET[i]) == ENGI_WSHAPE ? "WSHAPE 12" :
-                         want_of(RET[i]) ? "HRMNC 12" : "ANALOG 12");
+        {
+            char want[16];
+            snprintf(want, sizeof want, "%s 12", ENGINES[want_of(RET[i])]->name);
+            ok &= str_eq(b, want);
+        }
         set_engine_of(TSEL, ENGI_FM6);
         ok &= !up_load(11) && TSEL->eng_req == want_of(RET[i]) && e_is_preset0(TSEL, want_of(RET[i])) &&
               TSEL->p[P_LEVEL] == 70;

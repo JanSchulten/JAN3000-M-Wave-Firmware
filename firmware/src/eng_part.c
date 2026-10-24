@@ -51,7 +51,7 @@ FM1_FPU __attribute__((noinline)) static void prt_model(const track_t *t, voice_
     ppa_render(s, rng, v->s[5] == 1, &pq, q.f0, plv_out, plv_aux, n, q.need);
     if (v->s[5])
         v->s[5]--;
-    plv_blend(&q, n);
+    plv_blend(&q, v, n, -2.0f, 1.0f);                   /* (Plaits' levels: voice.cc) */
 }
 
 static void prt_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)

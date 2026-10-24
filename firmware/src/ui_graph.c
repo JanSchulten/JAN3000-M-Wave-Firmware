@@ -1773,7 +1773,7 @@ static const char *eng_abbr(const char *name)
                                        {"NOISE", "NOIS"}, {"FM6", "FM6"},
                                        {"ANLG2", "ANL2"},   /* (M-Vave-OP1: ANLG2 is 1 px too wide for the EDIT
                                                              * layer's 20 px cells beside the engine's icon) */
-                                       {"VDRUM", "VDRM"}, {"WSHAPE", "WSHP"}, {"HRMNC", "HRMN"}, {"PRTCL", "PRTC"}};
+                                       {"VDRUM", "VDRM"}, {"WSHAPE", "WSHP"}, {"HRMNC", "HRMN"}, {"PRTCL", "PRTC"}, {"WTABLE", "WTBL"}, {"SWARM", "SWRM"}};
     uint32_t i;
     for (i = 0; i < sizeof A / sizeof A[0]; i++)
         if (str_eq(name, A[i][0]))

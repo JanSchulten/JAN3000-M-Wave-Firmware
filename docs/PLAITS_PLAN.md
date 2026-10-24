@@ -118,8 +118,7 @@ immer (`ui.c` `preset_fx`, `preset_load_to`; Test: `tests/preset_fx_test.c`).
 2. ~~Phase 0: Machbarkeit~~ (dieses Dokument)
 3. ~~FPU-Probe auf dem Gerät~~ (gemessen 2026-10-24, Abschnitt 6)
 4. ~~Alte Engines entfernen~~ (SLICE, PHASE, VOICE, TRIO, DBOX; Abschnitt 7)
-5. Neue Engines: ~~WAVESHAPE~~ (Abschnitt 8) → ~~HARMONIC~~ (Abschnitt 9) → ~~PARTICLE~~ (Abschnitt 10) → WAVETABLE →
-   SWARM
+5. ~~Neue Engines~~: WAVESHAPE (Abschnitt 8) → HARMONIC (9) → PARTICLE (10) → WAVETABLE (11) → SWARM (12); Pegel (13)
 6. Presets, UI, Golden-Tests, Emulator; erst dann aufs Gerät, nur mit Okay
 
 ## 6. Die FPU-Probe (MENU > SYSTEM > INFO)
@@ -290,3 +289,44 @@ Diffusor ~200 pro Sample und Part (~2 %), nur bei MORPH unter 64. 8 Töne DUST C
 
 Platz für den Rest: 48 KB frei. WAVETABLE mit 8-Bit-Tabellen (25,3 KB) plus Code passt, 16 Bit (50,7 KB) nicht mehr;
 nach der Entscheidung „16 Bit wenn es passt, sonst 8 Bit“ also **8 Bit**.
+
+## 11. Schritt 5d: WAVETABLE (Engine 20, `WTABLE`)
+
+- `plaits_wt.c` (MIT): Plaits' Wavetable-Engine; bitgleich mit Plaits bei Plaits' 16-Bit-Tabellen
+  (`tools/plaits_proto/ref_wt.cc`, `PWT_FULL`: Differenz 0).
+- **8 Bit** (die Regel „16 Bit wenn es passt, sonst 8 Bit“: 16 Bit hätten 50,7 KB gebraucht, frei waren 48 KB). Plaits'
+  Tabellen sind *integrierte* Wellen (beim Spielen differenziert: das ist ihr Anti-Aliasing); deren Schritte sind 11 Bit
+  breit, 8 Bit direkt auf die integrierte Welle wären nur ~27 dB sauber. Deshalb (`tools/plaits_proto/gen_wt8.py`):
+  das Integral auf einem Raster von 9, gespeichert als erster Wert und 131 Schritte zu 8 Bit; das Raster wird bei jedem
+  Sample neu gerundet, der Fehler summiert sich nicht (jeder Wert ±4 von Plaits', jede Periode schließt wie bei Plaits).
+  Beim Spielen **49 dB** Abstand zu Plaits' 16 Bit. 25,5 KB statt 50,7.
+- Dekodiert wird eine Welle, wenn eine Stimme sie liest, in einen Cache pro Part (44 Wellen à 264 B im Engine-Speicher;
+  die Stimmen eines Parts brauchen höchstens 32: TIMB pro Stimme, MORPH und HARM pro Part). Im Test: 8 Stimmen auf
+  eigenen Reihen, MORPH über die ganze Tabelle: 26 Dekodierungen in 2000 Blöcken.
+- Regler: HARM die Bank (ab der Mitte rückwärts und in Stufen), TIMB die Reihe, MORPH die Spalte, AUX die 5-Bit-Kopie.
+  VOICE-Sounds laden als WAVE SCAN.
+
+## 12. Schritt 5e: SWARM (Engine 21, `SWARM`)
+
+- `plaits_swarm.c` (MIT): Plaits' Swarm-Engine (8 Sägezähne und 8 Sinus pro Stimme unter Grain-Hüllkurven); bitgleich
+  mit Plaits, mit und ohne Trigger (`tools/plaits_proto/ref_swarm.cc`).
+- Jeder Ton startet einen **Burst** (Plaits mit gestecktem Trigger, wie die Tasten des Grind): der Schwarm startet
+  schnell und wird dann ruhiger. (Ohne Trigger läuft er gleichmäßig; das wäre eine Option, wenn dir der Burst bei
+  langen Flächen nicht gefällt.)
+- SLICE-Sounds laden als SAW CLOUD.
+
+## 13. Pegel wie in Plaits
+
+Plaits gleicht seine Engines in `voice.cc` aus: Waveshaping 0,7 (AUX 0,6), Additiv 0,8, Wavetable 0,6, Particle ×2
+und Swarm ×3 jeweils in stmlibs Limiter. Das machen jetzt alle fünf (`plaits_voice.c` `plv_blend`); WSHAPE, HRMNC und
+PRTCL klingen dadurch etwas anders laut als im ZIP davor (die Golden-Renders der fünf neu, alle anderen unverändert).
+
+## 14. Stand
+
+| | vor Schritt 4 | jetzt |
+| --- | --- | --- |
+| Image | 569 516 B | **566 796 B** (14 768 B frei) |
+| RAM `.data`+`.bss` | 56 616 B | 52 152 B |
+| Engines | ANALOG LOFI SAMPLE WHEEL GRAIN PHYS DRUM NOISE FM6 ANLG2 VDRUM + PHASE VOICE TRIO SLICE DBOX | dieselben elf + WSHAPE HRMNC PRTCL WTABLE SWARM |
+
+Am Gerät zu messen: siehe `docs/CHECKLISTE.md`.

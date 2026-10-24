@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
-/* The Felucca side of the Plaits engines (M-Vave-OP1: WSHAPE, HRMNC, PRTCL; docs/PLAITS_PLAN.md), as Behringer's Grind plays
+/* The Felucca side of the Plaits engines (M-Vave-OP1: WSHAPE, HRMNC, PRTCL, WTABLE, SWARM; docs/PLAITS_PLAN.md), as Behringer's Grind plays
  * a model: the model's two outputs blended, then a drive, a filter and the ADSR. Every one of them has the same eight
  * values, so the same code reads them:
  *   E0 HARM  E1 TIMB  E2 MORPH  Plaits' HARMONICS, TIMBRE, MORPH (0..127 -> 0..1); the SHP routings (ENV / LFO DEST
@@ -10,8 +10,10 @@
  *            it; KTR the cutoff following the note, 64 one octave an octave); ENV / LFO / matrix -> FLT move CUT
  * A voice's state: the filter in v->s[0] v->s[1], a DC blocker's mean in v->s[2] (Plaits' shapes carry DC; the module's
  * output is AC-coupled), the model's start flag in v->s[4] (plv_note_on sets it, the model's first block clears it:
- * .keep 0x17 keeps a running voice's 0, the filter and the blocker over a retrigger); the model itself in the part's
- * engine memory. */
+ * .keep 0x17 keeps a running voice's 0, the filter and the blocker over a retrigger), the limiter's peak in v->s[6]
+ * (PRTCL's, SWARM's: their OUT gains into stmlib's limiter, as Plaits'); the model itself in the part's engine memory.
+ * Every engine's outputs at Plaits' levels (voice.cc: WSHAPE 0.7 / 0.6, HRMNC 0.8, PRTCL 2 limited / 1, WTABLE 0.6,
+ * SWARM 3 limited / 1). */
 
 typedef struct {
     float f0, harm, timb, morph, blend;        /* the model's parameters, Plaits' units */
@@ -27,6 +29,7 @@ static void plv_note_on(track_t *t, voice_t *v)
     v->s[0] = v->s[1] = 0;                            /* filter */
     v->s[2] = 0;                                      /* the DC blocker's mean */
     v->s[4] = 1;                                      /* start the model at the first render */
+    v->s[6] = 0x3F000000;                             /* the limiter's peak (plv_blend): 0.5f, its bits */
 }
 
 /* the model's parameters from the track's values and the voice's modulation; the outputs it needs */
@@ -46,12 +49,32 @@ FM1_FPU static inline void plv_params(const track_t *t, const vmod_t *m, plv_par
 /* the voice's phase 0..1 (v->ph[0]: UNISON's voices, voice.c spreads them) */
 FM1_FPU static inline float plv_phase(const voice_t *v) { return (float)(v->ph[0] >> 8) * (1.0f / 16777216.0f); }
 
-/* plv_out and plv_aux blended by AUX into plv_o (at AUX 0 b reads OUT: x is OUT exactly; at 127 AUX alone) */
-FM1_FPU static inline void plv_blend(const plv_par_t *q, uint32_t n)
+/* plv_out and plv_aux at their engine's levels (Plaits' voice.cc out_gain, aux_gain: a negative gain is a pre-gain into
+ * stmlib's Limiter, its peak per voice in v->s[6]), blended by AUX into plv_o (at AUX 0 b reads OUT: x is OUT exactly; at
+ * 127 AUX alone) */
+FM1_FPU static inline void plv_blend(const plv_par_t *q, voice_t *v, uint32_t n, float gout, float gaux)
 {
     const float *b = q->need == 1u ? plv_out : plv_aux;
     const float *a = q->need == 2u ? plv_aux : plv_out;
     uint32_t i;
+    if (q->need & 1u) {
+        if (gout < 0.0f) {                             /* stmlib Limiter::Process(-gout) */
+            union { int32_t i; float f; } pk;
+            pk.i = v->s[6];
+            for (i = 0; i < n; i++) {
+                const float x = plv_out[i] * -gout, ax = x < 0.0f ? -x : x, e = ax - pk.f;
+                pk.f += (e > 0.0f ? 0.05f : 0.00002f) * e;   /* (SLOPE) */
+                plv_out[i] = x * (pk.f <= 1.0f ? 1.0f : 1.0f / pk.f) * 0.8f;
+            }
+            v->s[6] = pk.i;
+        } else if (gout != 1.0f) {
+            for (i = 0; i < n; i++)
+                plv_out[i] *= gout;
+        }
+    }
+    if ((q->need & 2u) && gaux != 1.0f)
+        for (i = 0; i < n; i++)
+            plv_aux[i] *= gaux;
     for (i = 0; i < n; i++) {
         int32_t x = (int32_t)((a[i] + (b[i] - a[i]) * q->blend) * 32767.0f);   /* (clamped as an integer: the same */
         plv_o[i] = x > 32767 ? 32767 : x < -32767 ? -32767 : x;                 /* as clamping x to +-1 first) */

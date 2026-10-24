@@ -26,6 +26,8 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "wsh_model", "pws_render", "pws_slope",            # .. WSHAPE (eng_wshape.c, plaits_ws.c: on the FPU)
          "har_model", "pad_spectrum",                       # .. HRMNC (eng_harm.c, plaits_add.c: on the FPU)
          "prt_model", "prt_post", "pun_sqrt",               # .. PRTCL (eng_part.c, plaits_part.c: on the FPU)
+         "wtb_model", "pwt_mix",                            # .. WTABLE (eng_wtable.c, plaits_wt.c: on the FPU)
+         "swm_model",                                       # .. SWARM (eng_swarm.c, plaits_swarm.c: on the FPU)
          "fm1_alnk0_irq", "fm1_timer5_irq",               # the audio ISR; TIMER5: the key / LED scan (hal/fm1_input.h)
          "uac_tap48",                                       # the USB audio input at 48 kHz: the 44.1 -> 48 resampler (usb.c)
          "click_render",                                    # the metronome's click (click.c), while it sounds

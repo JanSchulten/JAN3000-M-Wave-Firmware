@@ -3966,11 +3966,13 @@ static int test_quick_layers(void)
     ok &= TSEL->eng_req == ENGI_FM6;                    /* (A3: FM6, third) */
     key_down(white(eng_rank(ENGI_DRUM))); key_up(white(eng_rank(ENGI_DRUM))); frame();
     ok &= TSEL->eng_req == ENGI_DRUM;                   /* (DRUM, then M-Vave-OP1's VDRUM last) */
-    key_down(white(eng_rank(ENGI_VDRUM))); key_up(white(eng_rank(ENGI_VDRUM))); frame();
-    ok &= TSEL->eng_req == ENGI_VDRUM;
+    if (eng_rank(ENGI_VDRUM) < LY_NENG) {               /* (FELUCCA_FM4's 17 engines: VDRUM past the 16 keys) */
+        key_down(white(eng_rank(ENGI_VDRUM))); key_up(white(eng_rank(ENGI_VDRUM))); frame();
+        ok &= TSEL->eng_req == ENGI_VDRUM;
+    }
     key_down(white(0)); key_up(white(0)); frame();
     key_down(white(LY_NENG - 1u)); key_up(white(LY_NENG - 1u)); frame();   /* (the last engine key: VDRUM) */
-    ok &= TSEL->eng_req == ENGI_VDRUM && LY_NENG == NENG_SHOWN;
+    ok &= TSEL->eng_req == eng_vis(LY_NENG - 1u) && (FELUCCA_FM4 || (TSEL->eng_req == ENGI_VDRUM && LY_NENG == NENG_SHOWN));
     ok &= !memcmp(TSEL->step, before.step, sizeof before.step) && TSEL->p[P_SLEN] == before.p[P_SLEN] &&
           TSEL->p[P_SLCR] == SL_STUT;
     btn_up(B_EDIT); frame();
@@ -4829,9 +4831,10 @@ static int test_bughunt_ui2(void)
         }
         bad += check("piano roll: the C-1 label stays inside the panel (every palette)", !out);
     }
-    {   /* 7. EDIT (M-Vave-OP1): a white key an engine (14: five retired, WSHAPE HRMNC PRTCL added), INIT the last black key (F#5, drawn bottom
+    {   /* 7. EDIT (M-Vave-OP1): a white key an engine (16: five retired, the five Plaits engines added), INIT the last black key (F#5, drawn bottom
          * right), no other */
-        uint32_t p, ok = LY_NENG == NENG_SHOWN && LY_NENG == 14u + FELUCCA_FM4 && LY_INIT_B == 10u;
+        uint32_t p, ok = LY_NENG == 16u && NENG_SHOWN == 16u + FELUCCA_FM4 && LY_INIT_B == 10u;   /* (all 16 white keys:
+                                                                        * FELUCCA_FM4's 17th has none) */
         for (p = 0; p < 11u; p++) {
             ui_power_on(); go_home(); frame();
             btn_down(B_EDIT); key_down(black(p)); frame(); frames(50);
@@ -4984,12 +4987,13 @@ static int test_fm4_retired(void)
     }
     bad += check("PRESETS KNOB 2: the engines in order, DIGITAL skipped, back to the first",
                  seen == all && TSEL->eng_req == 0u && eng_step(0, 1) == 14u && eng_step(14, 1) == ENGI_FM6 &&
-                 eng_step(ENGI_FM6, 1) == ENGI_WSHAPE && eng_step(ENGI_WSHAPE, 1) == ENGI_HARMON && eng_step(ENGI_HARMON, 1) == ENGI_PRTCL && eng_step(ENGI_PRTCL, 1) == 3u &&
+                 eng_step(ENGI_FM6, 1) == ENGI_WSHAPE && eng_step(ENGI_WSHAPE, 1) == ENGI_HARMON && eng_step(ENGI_HARMON, 1) == ENGI_PRTCL && eng_step(ENGI_PRTCL, 1) == ENGI_WTABLE && eng_step(ENGI_WTABLE, 1) == ENGI_SWARM &&
+                 eng_step(ENGI_SWARM, 1) == 3u &&
                  eng_step(ENGI_FM6, -1) == 14u && eng_step(0, -1) == ENGI_VDRUM &&
                  eng_step(ENGI_VDRUM, -1) == ENGI_DRUM && eng_step(ENGI_DBOX, 1) == ENGI_VDRUM);   /* (a retired engine: as
                                                                                         * its successor) */
     {   /* the display order (engines.c ENGINE_ORDER): every engine one can pick once; the PRESETS list follows it */
-        static const char *const ORDER[] = {"ANALOG", "ANLG2", "FM6", "WSHAPE", "HRMNC", "PRTCL", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS",
+        static const char *const ORDER[] = {"ANALOG", "ANLG2", "FM6", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS",
                                             "NOISE", "DRUM", "VDRUM"};
         uint32_t last = 0xFFu, r = 0, n = 0;
         ok = NENG_SHOWN == NELEM(ORDER);
@@ -5005,7 +5009,7 @@ static int test_fm4_retired(void)
             last = e;
             r++;
         }
-        bad += check("engines shown ANALOG ANALOG2 FM6 WSHAPE HRMNC PRTCL ... NOISE DRUM VDRUM (ENGINE_ORDER); PRESETS lists them so",
+        bad += check("engines shown ANALOG ANALOG2 FM6 WSHAPE HRMNC PRTCL WTABLE SWARM ... NOISE DRUM VDRUM (ENGINE_ORDER); PRESETS lists them so",
                      ok && r == NENG_SHOWN);
     }
     /* a user preset stored with engine 1: kept as it is, it loads as FM6 with the converted patch */

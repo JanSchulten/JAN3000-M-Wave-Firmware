@@ -37,7 +37,7 @@ FM1_FPU __attribute__((noinline)) static void wsh_model(const track_t *t, voice_
         v->s[4] = 0;
     }
     pws_render(s, q.f0, q.harm, q.timb, q.morph, plv_out, plv_aux, n, q.need);
-    plv_blend(&q, n);
+    plv_blend(&q, v, n, 0.7f, 0.6f);                   /* (Plaits' levels: voice.cc) */
 }
 
 static void wsh_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)

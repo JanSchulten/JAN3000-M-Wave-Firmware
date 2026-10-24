@@ -39,7 +39,7 @@ static uint8_t eng_mem_owner[NPART];       /* engine index + 1 whose state is in
  * numbers stay reserved (projects, user presets and the editor protocol store engine numbers): never offered (eng_ok),
  * silent, and a sound stored with one loads as its successor's first preset (core.h eng_successor: project.c
  * proj_retired, upreset.c up_load, set_engine_of). The successors: PHASE's WSHAPE (the Plaits waveshaper), TRIO's
- * HRMNC (the Plaits additive model); the others
+ * HRMNC (the Plaits additive model), VOICE's WTABLE (the Plaits wavetables), SLICE's SWARM; DBOX's
  * today's nearest engines until the Plaits engines take their place (VOICE -> WAVETABLE, SLICE -> SWARM) */
 static void gone_note_on(struct track *t, voice_t *v) { (void)t; (void)v; }
 static void gone_render(struct track *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
@@ -57,6 +57,8 @@ static const engine_t ENG_GONE = {
 #include "eng_wshape.c"         /* WSHAPE: Plaits' waveshaper (plaits_ws.c, MIT), filter, ADSR (M-Vave-OP1) */
 #include "eng_harm.c"           /* HRMNC: Plaits' additive model (plaits_add.c, MIT), filter, ADSR (M-Vave-OP1) */
 #include "eng_part.c"           /* PRTCL: Plaits' particles and diffuser (plaits_part.c, MIT), filter, ADSR (M-Vave-OP1) */
+#include "eng_wtable.c"         /* WTABLE: Plaits' wavetables (plaits_wt.c, MIT; 8-bit tables), filter, ADSR (M-Vave-OP1) */
+#include "eng_swarm.c"          /* SWARM: Plaits' swarm of saws (plaits_swarm.c, MIT), filter, ADSR (M-Vave-OP1) */
 #include "kitlane.c"            /* the kits' grid lanes: DRUM, VDRUM (M-Vave-OP1) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
@@ -70,7 +72,7 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_GONE,                   /* 2: reserved (PHASE, retired: its sounds load as WSHAPE) */
     &ENG_LOFI,                   /* 3 */
     &ENG_SAMPLE,                 /* 4 */
-    &ENG_GONE,                   /* 5: reserved (VOICE, retired: ANALOG) */
+    &ENG_GONE,                   /* 5: reserved (VOICE, retired: its sounds load as WTABLE) */
     &ENG_GONE,                   /* 6: reserved (TRIO, retired: its sounds load as HRMNC) */
     &ENG_WHEEL,                  /* 7 */
     &ENG_GRAIN,                  /* 8 */
@@ -78,13 +80,15 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_DRUM,                   /* 10 (ENGI_DRUM) */
     &ENG_NOISE,                  /* 11 */
     &ENG_FM6,                    /* 12 (ENGI_FM6) */
-    &ENG_GONE,                   /* 13: reserved (SLICE, retired: ANALOG) */
+    &ENG_GONE,                   /* 13: reserved (SLICE, retired: its sounds load as SWARM) */
     &ENG_ANALOG2,                /* 14 (M-Vave-OP1) */
     &ENG_VDRUM,                  /* 15 (ENGI_VDRUM, M-Vave-OP1) */
     &ENG_GONE,                   /* 16: reserved (DBOX, M-Vave-OP1, retired: DRUM) */
     &ENG_WSHAPE,                 /* 17 (ENGI_WSHAPE, M-Vave-OP1: PHASE's successor) */
     &ENG_HARMON,                 /* 18 (ENGI_HARMON, M-Vave-OP1: TRIO's successor) */
     &ENG_PRTCL,                  /* 19 (ENGI_PRTCL, M-Vave-OP1) */
+    &ENG_WTABLE,                 /* 20 (ENGI_WTABLE, M-Vave-OP1: VOICE's successor) */
+    &ENG_SWARM,                  /* 21 (ENGI_SWARM, M-Vave-OP1: SLICE's successor) */
 };
 
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
@@ -134,6 +138,8 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     17,                          /* WSHAPE (M-Vave-OP1: where PHASE was) */
     18,                          /* HRMNC (M-Vave-OP1) */
     19,                          /* PRTCL (M-Vave-OP1) */
+    20,                          /* WTABLE (M-Vave-OP1) */
+    21,                          /* SWARM (M-Vave-OP1) */
 #if FELUCCA_FM4
     1,                           /* DIGITAL */
 #endif
