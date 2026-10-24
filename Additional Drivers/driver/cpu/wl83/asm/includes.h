@@ -1,0 +1,31 @@
+#ifndef __ASM_INCLUDES_H__
+#define __ASM_INCLUDES_H__
+
+#include "audio.h"
+#include "adc_api.h"
+#include "cache.h"
+#include "cpu.h"
+#include "dma.h"
+#include "debug.h"
+#include "gpio.h"
+#include "hwi.h"
+#include "iic.h"
+#include "irq.h"
+#include "sdmmc.h"
+#include "uart.h"
+#include "imc.h"
+#include "rtc.h"
+#include "clock.h"
+#include "crc16.h"
+#include "spi.h"
+#include "can.h"
+#include "gpcnt.h"
+#include "ledc.h"
+#include "dpi.h"
+#include "pap.h"
+#include "power_interface.h"
+#include "pwm.h"
+#include "wdt.h"
+#include "sfc_norflash_api.h"
+
+#endif
