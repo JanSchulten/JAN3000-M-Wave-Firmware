@@ -128,6 +128,15 @@ Außerdem gibt es weiterhin **SCL > CHORD** (CHRD, VOIC: eine Taste ein Akkord d
       oder Bibliothek > User-Presets > Laden). Bearbeiten, mit SAVE am virtuellen Gerät bzw. im Editor ablegen.
 - [ ] Wieder **Verbinden**: Button „Presets von „Ohne Gerät“ aufs FM-1“ bringt sie zurück (fragt vorher, Liste).
 
+## 11. Werks-Presets der Reihe nach überarbeiten
+
+- [ ] Sound-Tab: „Werks-Presets bearbeiten: Änderungen merken“ ist an (Standard).
+- [ ] Ein Werks-Preset in der Liste wählen, Regler drehen: rechts steht „<NAME>: deine Fassung“. Das nächste Preset
+      wählen, wieder drehen, … Zurück zum ersten: deine Fassung kommt wieder (in der Liste mit ✎ markiert).
+- [ ] „Zurück zum Werkszustand“ verwirft die eigene Fassung des gewählten Presets.
+- [ ] Am Ende „Bearbeitete exportieren“: eine Datei mit allen bearbeiteten Presets, die schickst du mir (sie ersetzen
+      die Werks-Presets gleichen Namens). Die Fassungen liegen auch in der Bibliothek (Tag „edited“).
+
 ## 8. Erledigt in diesem Durchgang
 
 - [x] WSHAPE sparsamer (AUX 0: Plaits' zweiter Ausgang wird nicht gerechnet, OUT bitgleich)

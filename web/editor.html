@@ -227,6 +227,9 @@
       <div>
         <p class="bar"><button id="init" data-t="initSound"></button>
           <button id="factlib" data-t="factoryToLib" data-ic="symbol_folder"></button></p>
+        <p class="bar"><label><input type="checkbox" id="draftmode"> <span data-t="draftMode"></span></label></p>
+        <p class="bar"><button id="draftrevert" data-t="draftRevert"></button>
+          <button id="draftexport" data-t="draftExport" data-ic="symbol_download"></button> <span class="dim" id="draftinfo"></span></p>
         <p class="bar"><button id="savefile" data-t="saveFile" data-ic="symbol_download"></button>
           <button id="loadfile" data-t="loadFile" data-ic="symbol_upload"></button>
           <input type="file" id="file" accept=".json,application/json" hidden></p>
@@ -1189,6 +1192,8 @@ function cleanPatch(pt) {
     created: pt.created || now, modified: pt.modified || pt.created || now,
   };
   if (Number.isInteger(pt.slot)) o.slot = pt.slot;
+  if (pt.factory && typeof pt.factory.engine === "string" && typeof pt.factory.name === "string")   /* (M-Vave-OP1: a factory */
+    o.factory = { engine: pt.factory.engine, name: pt.factory.name };                                  /* preset edited) */
   if (Array.isArray(pt.fm6) && pt.fm6.length === FM6.PACKED) o.fm6 = pt.fm6.map((x) => (x | 0) & 127);   /* (a converted */
   if (Array.isArray(pt.fm4)) o.fm4 = pt.fm4.map((v) => (Number.isFinite(v) ? Math.round(v) : null));    /* DIGITAL sound) */
   return o;
@@ -2662,6 +2667,9 @@ const TEXT = {
     mirAskEmu: "本体のスロットを「本体なし」のプリセット {n} 個で置き換えますか (空きスロットは本体で消去)?",
     renamedSlot: "名前を変更しました: ", pickSound: "このファイルには {n} 個の音色があります。どれにしますか?", loadedFile: "ファイルから読み込みました (音色のみ; ステップはそのまま): ",
     rowPlay: "試聴", rowSave: "ファイルに保存", cancel: "キャンセル", emuFile: "ページがファイルとして開かれています: インストーラーのフォルダーの START-Mac.command (または START-Windows.bat) で起動してください", emuNoCore: "「本体なし」のファームウェアを読み込めませんでした",
+    draftMode: "工場プリセットを編集: 変更を保持", draftRevert: "工場出荷時に戻す", draftExport: "編集したものを書き出し",
+    draftMine: "あなたの版", draftFactory: "工場出荷時", draftPick: "編集するプリセットを選んでください", draftCount: "{n} 個編集済み",
+    draftLoaded: "編集した版: ", draftAskRevert: "{name} のあなたの版を捨てて工場出荷時の音に戻しますか?",
     emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
     kbdHelp: "キーボード: {keys} で演奏 ({range}) · {oct} オクターブ · {vel} ベロシティ {v}",
     connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
@@ -2781,6 +2789,9 @@ const TEXT = {
     mirAskEmu: "Replace the FM-1's slots with the {n} presets of No device (their empty slots erased on the FM-1)?",
     renamedSlot: "Renamed: ", pickSound: "This file holds {n} sounds. Which one?", loadedFile: "Loaded from the file (the sound; the steps stay): ",
     rowPlay: "Audition", rowSave: "Save as a file", cancel: "Cancel", emuFile: "The page was opened as a file: start it with START-Mac.command (or START-Windows.bat) from the installer folder", emuNoCore: "The firmware for No device could not be loaded",
+    draftMode: "Edit the factory presets: keep my changes", draftRevert: "Back to factory", draftExport: "Export edited",
+    draftMine: "your version", draftFactory: "factory", draftPick: "pick a preset to edit it", draftCount: "{n} edited",
+    draftLoaded: "Your edited version: ", draftAskRevert: "Drop your version of {name} and go back to the factory sound?",
     emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
     kbdHelp: "Keyboard: {keys} play ({range}) · {oct} octave · {vel} velocity {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Init sound",
@@ -2899,6 +2910,9 @@ const TEXT = {
     mirAskEmu: "Die Plätze des FM-1 durch die {n} Presets von „Ohne Gerät“ ersetzen (deren leere Plätze werden am FM-1 gelöscht)?",
     renamedSlot: "Umbenannt: ", pickSound: "Diese Datei enthält {n} Sounds. Welchen?", loadedFile: "Aus der Datei geladen (der Sound; die Steps bleiben): ",
     rowPlay: "Anhören", rowSave: "Als Datei speichern", cancel: "Abbrechen", emuFile: "Die Seite wurde als Datei geöffnet: bitte mit START-Mac.command (oder START-Windows.bat) aus dem Installer-Ordner starten", emuNoCore: "Die Firmware für „Ohne Gerät“ ließ sich nicht laden",
+    draftMode: "Werks-Presets bearbeiten: Änderungen merken", draftRevert: "Zurück zum Werkszustand", draftExport: "Bearbeitete exportieren",
+    draftMine: "deine Fassung", draftFactory: "Werkszustand", draftPick: "ein Preset wählen, um es zu bearbeiten", draftCount: "{n} bearbeitet",
+    draftLoaded: "Deine bearbeitete Fassung: ", draftAskRevert: "Deine Fassung von {name} verwerfen und zum Werks-Sound zurück?",
     emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
     kbdHelp: "Tastatur: {keys} spielen ({range}) · {oct} Oktave · {vel} Anschlag {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Sound zurücksetzen",
@@ -3451,6 +3465,9 @@ async function connect() {
 function disconnect(reasonKey = "disconnected") {
   samplesLeave();                                   /* the Samples tab goes: so do the input and the preview */
   kbdAllOff();
+  draftOrigin.clear();
+  clearTimeout(draftTm);
+  draftPending = false;
   if (dev) {
     dev.link.close();
     dev.input.onmidimessage = null;
@@ -3597,6 +3614,7 @@ function renderTrackbar() {
 function selectTrack(i) {
   if (!dev || !hasTracks() || i === dev.sel) return;
   op(async () => {
+    await draftFlush();
     dev.sel = parse[CMD.TRACK](await rq(req.track(i))).sel;
     await afterSoundChange();
   });
@@ -3624,7 +3642,8 @@ function updateBrowser() {
   const ps = $("preset");
   const names = dev.names[e] || [];
   if (ps.dataset.engine !== String(e)) {
-    ps.replaceChildren(...names.map((n, i) => el("option", { value: i, text: n, hidden: aliasOf(names, i) !== i })));
+    const en = dev.info.engines[e], mark = (n) => (draftOn() && draftOf(en, n) ? "✎ " + n : n);
+    ps.replaceChildren(...names.map((n, i) => el("option", { value: i, text: mark(n), hidden: aliasOf(names, i) !== i })));
     ps.dataset.engine = String(e);
   }
   if (document.activeElement !== ps) ps.value = String(dev.dump.preset);
@@ -3960,6 +3979,7 @@ function userSet(s, id, v, final) {
   (s ? dev.dump.g : dev.dump.p)[id] = v;
   showValue(k, v, false);
   mixFromDump();
+  if (!s) draftTouch();
   let st = sets.get(k);
   if (!st) sets.set(k, (st = { last: 0, sent: null }));
   st.last = performance.now();
@@ -3984,15 +4004,92 @@ async function sendSet(s, id, k) {
 /* engine / preset browser */
 $("engine").addEventListener("change", () => choosePreset(+$("engine").value, 0));
 $("preset").addEventListener("change", () => { if (dev) choosePreset(dev.dump.engine, +$("preset").value); });
-async function choosePreset(e, p) {
+async function choosePreset(e, p, factory = false) {
   if (!dev) return;
+  await draftFlush();
   const releaseBusy = beginBusy();
   try {
     selfLoad(true);
     parse[CMD.PRESET](await rq(req.preset(e, p)));
     await afterSoundChange();
-  } catch (err) { report(err); } finally { releaseBusy(); }
+    const o = { engine: dev.info.engines[dev.dump.engine], name: (dev.names[dev.dump.engine] || [])[dev.dump.preset] || "", e: dev.dump.engine, p: dev.dump.preset };
+    draftOrigin.set(dev.sel ?? 0, o);
+    const dr = !factory && draftOn() && draftOf(o.engine, o.name);
+    if (dr) {                                       /* this preset was edited: the edited version, not the factory one */
+      selfLoad(true);
+      await auditionPatch(rq, dev.info, { ...dr, p: fullParams(dr) }, { gEng: gEng(), track: dev.sel ?? 0 });
+      await afterSoundChange();
+      sayK("draftLoaded", o.name);
+    }
+  } catch (err) { report(err); } finally { releaseBusy(); renderDraft(); }
 }
+
+/* M-Vave-OP1: EDIT THE FACTORY PRESETS: a factory preset picked here and then changed in the editor is kept, as you
+   leave it, as an edited copy in the library (its name, tag "edited", the preset it came from); picked again, that
+   copy loads instead of the factory sound (marked in the list); REVERT drops it, EXPORT EDITED writes them all as one
+   preset file (tools/import_presets.py: the same names replace the factory presets). The origin is the preset picked
+   in the editor, per track; a change made on the device's own knobs is not followed */
+const DRAFT_KEY = "felucca-editor-drafts";
+const draftOrigin = new Map();                      /* track -> {engine (name), name, e, p} */
+let draftTm = 0, draftPending = false;
+const draftOn = () => $("draftmode").checked;
+const draftOf = (engine, name) => lib.find((x) => x.factory && x.factory.engine === engine && x.factory.name === name);
+function draftTouch() {
+  if (!dev || !draftOn() || !draftOrigin.get(dev.sel ?? 0)) return;
+  draftPending = true;
+  clearTimeout(draftTm);
+  draftTm = setTimeout(() => { draftSave(); }, 900);
+}
+async function draftFlush() { if (draftPending) { clearTimeout(draftTm); await draftSave(); } }
+async function draftSave() {
+  const d = dev, o = d && draftOrigin.get(d.sel ?? 0);
+  if (!o || !draftPending) return;
+  if (libBusy) { draftTm = setTimeout(() => { draftSave(); }, 400); return; }
+  draftPending = false;
+  await libOp(async (dd, rqf) => {
+    const { patch } = await capturePatch(rqf, dd.info, o.name);
+    if (patch.engineName !== o.engine) return;      /* (the engine changed meanwhile: not this preset any more) */
+    const old = draftOf(o.engine, o.name);
+    if (old) {
+      Object.assign(old, { p: patch.p, pattern: patch.pattern, grid: patch.grid, engine: patch.engine });
+      if (patch.fm6) old.fm6 = patch.fm6; else delete old.fm6;
+      await libUpdate(old);
+    } else await libAdd([{ ...patch, tags: ["edited"], factory: { engine: o.engine, name: o.name } }]);
+    $("preset").dataset.engine = "";               /* (the list's marks) */
+    updateBrowser();
+  });
+  renderDraft();
+}
+function renderDraft() {
+  const o = dev && draftOrigin.get(dev.sel ?? 0), dr = o && draftOf(o.engine, o.name), n = lib.filter((x) => x.factory).length;
+  $("draftrevert").disabled = !dr || !dev;
+  $("draftexport").disabled = !n;
+  $("draftinfo").textContent = !draftOn() ? "" : (o ? `${o.name}: ${t(dr ? "draftMine" : "draftFactory")}` : t("draftPick")) +
+    (n ? ` · ${t("draftCount").replace("{n}", n)}` : "");
+}
+try { $("draftmode").checked = localStorage.getItem(DRAFT_KEY) !== "0"; } catch { $("draftmode").checked = true; }
+$("draftmode").addEventListener("change", () => {
+  try { localStorage.setItem(DRAFT_KEY, draftOn() ? "1" : "0"); } catch { /* */ }
+  $("preset").dataset.engine = "";
+  if (dev) updateBrowser();
+  renderDraft();
+});
+$("draftrevert").addEventListener("click", async () => {
+  const o = dev && draftOrigin.get(dev.sel ?? 0), dr = o && draftOf(o.engine, o.name);
+  if (!dr || !(await askOk(t("draftAskRevert").replace("{name}", o.name)))) return;
+  clearTimeout(draftTm);
+  draftPending = false;
+  lib = lib.filter((x) => x !== dr);
+  try { await store.del(dr.id); } catch (e) { console.warn(e); }
+  renderLib();
+  $("preset").dataset.engine = "";
+  await choosePreset(o.e, o.p, true);
+});
+$("draftexport").addEventListener("click", async () => {
+  await draftFlush();
+  const all = lib.filter((x) => x.factory);
+  if (all.length) download(`m-vave-op1-edited-presets-${today()}.json`, libraryFile("presets", all, libCtx()));
+});
 async function afterSoundChange(msg = "ready", d = dev) {
   assertSession(d);
   needReload = false;                               /* this re-reads everything a RELOAD asks for */
@@ -5438,6 +5535,7 @@ function renderLib() {
   $("libsave").disabled = !dev || libBusy;
   $("libexport").disabled = !lib.length;
   $("libpresets").disabled = !v.length;
+  renderDraft();
   $("libpresets").title = t("exportPresetsTip");
 }
 ["libq", "libeng", "libtag", "libsort"].forEach((id) => $(id).addEventListener(id === "libq" ? "input" : "change", renderLib));
