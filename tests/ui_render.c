@@ -997,9 +997,9 @@ static void setup(int s)
     case S_AUTO_STEPS:
         step_set_chance(&TSEL->step[0], 65); step_set_chance(&TSEL->step[4], 25); step_set_ratchet(&TSEL->step[4], 3);
         step_set_ratchet(&TSEL->step[8], 2); motion_set_event(TSEL, 2, P_LRATE, 70); motion_set_lock(TSEL, 4, P_REV, 100);
-        go_page(GR_EVENTS); (void)auto_pick(EVC(EVK_CHANCE, 4)); ui.hot_col = 3; ui.hot_t = 30;
+        go_page(GR_EVENTS); (void)auto_pick(EVC(EVK_REC, (uint32_t)motion_find(TSEL, 4, P_REV))); ui.hot_col = 3; ui.hot_t = 30;
         break;
-    case S_AUTO_ADD_CHANCE: go_auto_add(EV_CHANCE, 3); break;
+    case S_AUTO_ADD_CHANCE: go_title("DETAIL"); cursor_set(3); break;
     case S_MOTION:
         motion_set_event(TSEL, 1, P_REV, 40); motion_set_lock(TSEL, 2, P_REV, 100); step_set_chance(&TSEL->step[3], 50);
         go_auto_top();
@@ -1567,10 +1567,10 @@ static void setup(int s)
         if (s == S_AUTO_QNT) {
             ui.ev_row = 1;
         } else {
-            (void)auto_pick(EVC(EVK_NUDGE, 6)); ui.hot_col = 3; ui.hot_t = 30;
+            go_title("DETAIL"); cursor_set(6); ui.hot_col = 3; ui.hot_t = 30;
         }
         break;
-    case S_AUTO_ADD_NUDGE: TSEL->p[P_SQNT] = 0; go_auto_add(EV_NUDGE, 3); break;
+    case S_AUTO_ADD_NUDGE: TSEL->p[P_SQNT] = 0; go_title("DETAIL"); cursor_set(3); break;
     /* 1.5 (#173): AUTOMATION's VEL rows shown (+ ADD VEL's SHOW): every note step's velocity, step 5's just turned, the
      * ACC step 9's dimmed (it plays 127), among a CHANCE and a lock; + ADD VEL (SHOW) */
     case S_AUTO_VEL: {
@@ -1584,10 +1584,10 @@ static void setup(int s)
             TSEL->step[i].vel = VEL[i / 2u];
         }
         step_set_chance(&TSEL->step[2], 70); motion_set_lock(TSEL, 4, P_REV, 100);
-        go_page(GR_EVENTS); ui.ev_vel = 1; (void)auto_pick(EVC(EVK_VEL, 4)); ui.hot_col = 3; ui.hot_t = 30;
+        go_page(GR_EVENTS); ui.ev_vel = 1; go_title("DETAIL"); cursor_set(4); ui.hot_col = 3; ui.hot_t = 30;
         break;
     }
-    case S_AUTO_ADD_VEL: go_auto_add(EV_VEL, 3); break;
+    case S_AUTO_ADD_VEL: go_title("DETAIL"); cursor_set(3); break;
     case S_LFO2: TSEL->p[P_LSYNC] = 6; TSEL->p[P_LTRIG] = 1; TSEL->p[P_LPOL] = 1; go_title("LFO 2"); break;
     case S_USER_FOOT: song.playing = 0; up_store(3, "MY BASS"); ui.uslot = 3; go_page(GR_USER); break;   /* EDIT NAME lit */
     default: break;

@@ -70,11 +70,30 @@ static void wf_rec_menu(void)
     wf_check("AUDIO menu contains no CLICK, CLICK LEVEL or COUNT-IN; REC owns these settings", ok);
 }
 
+static void wf_step_fields(void)
+{
+    uint16_t rows[EV_ROWS];
+    uint32_t i, n;
+    int ok = 1;
+    ui_power_on();
+    step_set_chance(&TSEL->step[0], 50);
+    step_set_ratchet(&TSEL->step[0], 3);
+    step_set_nudge(&TSEL->step[0], 4);
+    TSEL->step[0].time = ST_NOTE; TSEL->step[0].n = 1; TSEL->step[0].note[0] = 60; TSEL->step[0].vel = 80;
+    motion_set_lock(TSEL, 0, P_ATK, 70);
+    go_auto_top(); ui.ev_vel = 1;
+    n = ev_list(rows);
+    for (i = 0; i < n; i++) ok &= !ev_skd(rows[i] >> 8);
+    ok &= !ev_id_ok(TSEL, EV_CHANCE) && !ev_id_ok(TSEL, EV_RATCH) && !ev_id_ok(TSEL, EV_NUDGE) && !ev_id_ok(TSEL, EV_VEL);
+    wf_check("AUTOMATION lists parameter records only, with no step fields or ADD VEL", ok && n == 4u);
+}
+
 int main(void)
 {
     wf_octaves();
     wf_mixer();
     wf_rec_menu();
+    wf_step_fields();
     printf(wf_bad ? "WORKFLOW TESTS FAILED\n" : "WORKFLOW TESTS PASSED\n");
     return wf_bad != 0;
 }

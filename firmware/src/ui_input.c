@@ -961,39 +961,8 @@ static void lock_clear(uint64_t held)
     ui_message(n ? "LOCKS CLEARED" : "NO LOCKS");
 }
 
-/* NUDGE (1.2, #162; core.h step_nudge): the steps `held` move by one sixteenth of a step (-8..+7) a detent: SEQ > STEP
- * with steps held (as for a lock: the grid's step keys, the roll's step being entered) and the PRESETS knob; let go,
- * PRESETS moves the cursor again (MENU > STEP PREVIEW: it sounds). SEQ > AUTOMATION's NUDGE rows (ui_events.c) are the
- * other way. They play with the track's QUANTIZE OFF (AUTOMATION's QUANTIZE row; ON, the default, plays every step on
- * its start: the message says so). One undo per turn (SAVE held), as AUTOMATION's */
-static void nudge_turn(uint64_t held, int32_t steps)
-{
-    uint32_t i;
-    int32_t v = 0;
-    char b[16] = "NUDGE ";
-    if (chain_busy()) {
-        ui_message("STOP TO EDIT");
-        return;
-    }
-    ui.plk_rm &= ~held;                                 /* (a grid key held for it: its hit stays) */
-    step_undo_take(TSEL, 0x800u);                       /* (a knob turned on: one) */
-    for (i = 0; i < NSTEP; i++)
-        if ((held >> i) & 1u) {
-            v = clamp(step_nudge(&TSEL->step[i]) + (steps > 0 ? 1 : -1), -8, 7);
-            step_set_nudge(&TSEL->step[i], v);
-        }
-    motion_undo_done(TSEL);
-    if (TSEL->p[P_SQNT]) {
-        ui_message("QUANTIZE IS ON");
-        return;
-    }
-    ev_nudge_fmt(b + 6, v);
-    ui_message(b);
-}
-
 /* SEQ > DETAIL (1.5.1, Discussion #199; ui.c detail_on): KNOB 1 CHANCE (0..100 %), 2 RATCH (x1..x4), 3 NUDGE (-8..+7
- * sixteenths), 4 VEL (1..127) of the cursor step, the fields SEQ > AUTOMATION lists as rows (ui_events.c ev_sval,
- * ev_sput: one storage, nothing new stored; back at its default a field is no row there). On the DRUM grid the white
+ * sixteenths), 4 VEL (1..127) of the cursor step, the step's own fields (ui_events.c ev_sval / ev_sput, no format change). On the DRUM grid the white
  * keys held pick several steps: each moves by the turn. A step that plays nothing takes none (sd_takes: NO NOTE).
  * One undo per knob gesture on a step (SAVE held): walking to the next step starts another */
 static uint64_t sd_held(void)                           /* the grid's step keys held on DETAIL (bit = step), 0 none */
@@ -1557,16 +1526,11 @@ static void presets_turn(int32_t s)
 {
     const page_t *pg = cur_page();
     uint32_t g = pg->graph;
-    uint64_t held = lock_held();
     if (detail_on()) {                                    /* DETAIL (1.5.1): the cursor (its KNOB 1 is CHANCE) */
         if (chain_busy())
             ui_message("STOP TO EDIT");
         else
             cursor_move(ui.cursor + s);
-        return;
-    }
-    if (held) {                                           /* STEP with steps held: their NUDGE (1.2) */
-        nudge_turn(held, s);
         return;
     }
     if (ui.home || g == GR_BROWSE) {

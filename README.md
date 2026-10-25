@@ -458,3 +458,7 @@ ALLOC, DTUNE and SPRD. HOME offers TRACKS and SCOPE; a saved LEVELS view loads a
 
 CLICK, COUNT-IN and CLICK LEVEL are edited in the REC layer only (hold REC, KNOB 1..3). Their saved values
 and their effect on recording and playback are unchanged. MENU > AUDIO no longer repeats these controls.
+
+SEQ > DETAIL is the only editor for a step's CHANCE, RATCH, NUDGE and VEL. AUTOMATION lists parameter locks and
+recorded knob moves, with PLAY / CLEAR and QUANTIZE as its controls. PRESETS always moves the STEP cursor,
+even while a step is held; it never edits NUDGE. Stored step values and their playback are unchanged.
