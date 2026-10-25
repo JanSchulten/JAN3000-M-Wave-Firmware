@@ -35,6 +35,19 @@
   dialog.ask { background: var(--bg); color: var(--fg); border: 1px solid var(--fg); padding: 16px 20px; max-width: min(90vw, 560px); }
   dialog.ask::backdrop { background: rgba(0, 0, 0, .35); }
   td.acts { white-space: nowrap; text-align: right; }
+  /* M-Vave-OP1: the TD-3 grid (Sequencer): a column a step, 16 a row (8 on a phone) */
+  .tdpanel { background: var(--card); border-top: 3px solid var(--c); border-radius: 6px; padding: 8px 10px 10px; margin: 6px 0 12px; }
+  .tdpanel > h2 { border-bottom: 0; color: var(--c); letter-spacing: .06em; text-transform: uppercase; }
+  .td { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 6px 3px; }
+  @media (max-width: 700px) { .td { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+  .td .col { display: grid; gap: 2px; min-width: 0; }
+  .td .col.beat { box-shadow: -2px 0 0 var(--c); padding-left: 2px; }
+  .td .n { text-align: center; color: var(--dim); font-size: 11px; }
+  .td .col.off .n { opacity: .5; }
+  .td select { width: 100%; min-width: 0; padding: 1px 0; font-size: 12px; text-align: center; }
+  .td button { width: 100%; min-width: 0; padding: 2px 0; font-size: 11px; background: var(--bg); color: var(--fg);
+               border: 1px solid var(--line); border-radius: 3px; }
+  .td button.on { background: var(--c); color: var(--bg); border-color: var(--c); font-weight: 600; }
   td.acts button { padding: 0 6px; margin-left: 2px; }
   select, input[type=text], input[type=number], input[type=search] {
     font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 1px 3px; border-radius: 0; }
@@ -273,6 +286,13 @@
         <button id="clearseq" data-t="clearSeq" data-ic="symbol_trash"></button>
         <span class="dim" id="noteshelp"></span></p>
       <div class="grid" id="stepgrid"></div>
+      <div class="group sec-arp tdpanel" id="tdpanel" hidden>
+        <h2 data-t="tdTitle" data-ic="note_eight"></h2>
+        <p class="dim" data-t="tdHelp"></p>
+        <p class="bar"><label><span data-t="tdOct"></span> <select id="tdoct"></select></label>
+          <button id="tdroll" data-t="tdRoll"></button> <span class="dim" id="tdinfo"></span></p>
+        <div class="td" id="tdgrid"></div>
+      </div>
       <div class="stepcols" id="steptables"></div>
     </div>
     <div id="motion-panel" hidden style="margin-top:16px">
@@ -1762,7 +1782,7 @@ function makeMockDevice(opt = {}) {
     E("MIDI", ["USB", "TRS"], 0), E("SYNC", NDASH, 0), E("ROUT", ["CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16"], 0), D("CPU", F.INT, 0, 0, 0),
     D("SLOT", F.INT, 1, 4, 1), E("NAME", NDASH, 0), E("LOAD", NGO, 0), E("SAVE", NGO, 0),
     E("ENG", ["ANALOG", "-", "-", "LOFI", "SAMPLE", "-", "-", "WHEEL",
-      "GRAIN", "PHYS", "DRUM", "NOISE", "FM6", "-", "ANLG2", "VDRUM", "-", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM"], 0), E("SET", NGO, 0),   /* ("-": reserved) */
+      "GRAIN", "PHYS", "DRUM", "NOISE", "FM6", "-", "ANLG2", "VDRUM", "-", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM", "ACID"], 0), E("SET", NGO, 0),   /* ("-": reserved) */
     E("CLRSQ", NGO, 0), E("INIT", NGO, 0),
     E("TYPE", ["ROOM", "SPRING", "HALL", "SHIMMER"], 2),   /* G_RTYPE (id 24, was G_DRCH): the reverb's model (HALL: 1.2; SHIMMER: M-Vave-OP1) */
     D("-", F.INT, 0, 0, 0), D("-", F.INT, 0, 0, 0),   /* G_DRLVL, G_DRREV: inert since 1.0 */
@@ -1887,6 +1907,13 @@ function makeMockDevice(opt = {}) {
         P("GRAIN BUZZ", [50, 90, 20, 0, 100, 20, 0, 64], [2, 70, 100, 40], 0, 3), P("DRONE", [30, 20, 100, 60, 90, 10, 0, 32], [80, 90, 120, 100], 0, 5),
         P("SINE SWARM", [60, 50, 90, 127, 120, 0, 0, 64], [30, 80, 110, 80], 0, 5), P("BURST PLUCK", [80, 100, 40, 0, 100, 20, 0, 64], [0, 75, 0, 50], 0, 7),
         P("BEE HIVE", [100, 110, 60, 0, 90, 30, 10, 64], [10, 80, 110, 70], 0, 5), P("CHORUS BASS", [20, 30, 120, 0, 70, 30, 20, 64], [0, 60, 80, 30], 1, 2)] },
+    /* M-Vave-OP1: ACID (engine 22, eng_acid.c): a TB-303 bass line: diode ladder, accent, slide; its own envelopes */
+    { name: "ACID", titles: ["ACID", "ENV"], edit: [E("WAVE", ["SAW", "SQR"], 0), D("TUNE", F.SEMI, -12, 12, 0), D("CUT", F.CUTOFF, 0, 127, 40),
+        D("RES", F.PCT, 0, 127, 100), D("ENV", F.PCT, 0, 127, 80), D("DEC", F.PCT, 0, 127, 45), D("ACC", F.PCT, 0, 127, 80), D("DIST", F.PCT, 0, 127, 0)],
+      presets: [P("ACID LINE", [0, 0, 40, 100, 80, 45, 80, 0], [0, 64, 127, 10], 1, 1), P("SQUELCH", [0, 0, 30, 118, 100, 60, 100, 20], [0, 64, 127, 10], 1, 14),
+        P("SQR ACID", [1, 0, 45, 90, 70, 40, 70, 0], [0, 64, 127, 10], 1, 15), P("RUBBER", [0, 0, 55, 60, 50, 25, 60, 0], [0, 64, 127, 10], 1, 2),
+        P("DIST 303", [0, 0, 42, 105, 85, 55, 90, 90], [0, 64, 127, 10], 1, 16), P("DEEP SUB", [1, -12, 30, 40, 30, 30, 40, 0], [0, 64, 127, 10], 1, 8),
+        P("SCREAM", [0, 0, 60, 124, 110, 80, 110, 60], [0, 64, 127, 10], 1, 17), P("SOFT BASS", [0, 0, 35, 50, 40, 35, 30, 0], [0, 64, 127, 10], 1, 2)] },
   ];
   const FM6_E = ENG.findIndex((e) => e.name === "FM6"), FM6_OWN = FM6.FACTORY_PK.length, DRUM_E = ENG.findIndex((e) => e.name === "DRUM");
   /* factory PATTERNS[] (engines.c; the device loads them from SAVE > PHRASES, presets only suggest one): absolute
@@ -1906,6 +1933,11 @@ function makeMockDevice(opt = {}) {
     [[60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75], [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]],
     [[36, 42, 42, 42, 38, 42, 36, 42, 36, 42, 42, 36, 38, 42, 46, 42], [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]],   /* 12 BEAT (DRUM) */
     [[48, 51, 55, 60, 63, 67, 72, 75, 48, 51, 55, 60, 63, 67, 72, 75], [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]],   /* 13 ARP */
+    /* M-Vave-OP1: 14 .. 17, the acid lines (ACID) */
+    [[36, 36, 48, 36, 0, 39, 36, 46, 36, 0, 43, 36, 48, 36, 39, 34], [1, 0, 2, 0, 0, 1, 0, 2, 1, 0, 0, 0, 1, 2, 0, 0]],
+    [[40, 40, 41, 40, 52, 40, 43, 40, 40, 47, 40, 52, 41, 40, 38, 40], [1, 0, 2, 0, 1, 0, 0, 2, 1, 0, 2, 0, 1, 0, 2, 0]],
+    [[33, 45, 33, 45, 33, 0, 45, 33, 36, 48, 36, 0, 31, 43, 31, 43], [1, 2, 0, 2, 1, 0, 0, 2, 1, 2, 0, 0, 1, 2, 0, 2]],
+    [[36, 0, 0, 39, 41, 0, 36, 43, 0, 36, 46, 0, 0, 48, 0, 36], [1, T_, 0, 2, 0, 0, 1, 0, 0, 2, 1, T_, 0, 2, 0, 1]],
   ];
   for (let op = 0; op < 4; op++) TP.push(D("ATK", F.TIME, 0, 127, 0), D("DEC", F.TIME, 0, 127, 0), D("SUS", F.PCT, 0, 127, 127), D("REL", F.TIME, 0, 127, 0), D("LVL", F.PCT, 0, 127, 127));
   TP.push(E("CHRD", ["OFF", "DIA3", "DIA7", "MAJ", "MIN", "DOM7", "MAJ7", "MIN7", "SUS4", "POW"], 0),   /* the chord keys 81, 82 */
@@ -2542,7 +2574,7 @@ function enumShown(d) {
 /* the order the device shows its engines in (src/engines.c ENGINE_ORDER): the lists here follow it, the protocol keeps
    the engine numbers. engineOrder(names): the indices of names in that order, "-" (a reserved number) left out; a name
    the list does not know (another firmware) follows in index order */
-const ENGINE_ORDER = ["ANALOG", "ANLG2", "FM6", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM", "DIGITAL", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS", "NOISE", "DRUM", "VDRUM"];
+const ENGINE_ORDER = ["ANALOG", "ANLG2", "FM6", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM", "DIGITAL", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS", "NOISE", "DRUM", "VDRUM", "ACID"];
 function engineOrder(names) {
   const rank = (n) => { const k = ENGINE_ORDER.indexOf(n); return k < 0 ? ENGINE_ORDER.length : k; };
   return (names || []).map((n, i) => i).filter((i) => names[i] !== "-")
@@ -2670,6 +2702,7 @@ const TEXT = {
     draftMode: "工場プリセットを編集: 変更を保持", draftRevert: "工場出荷時に戻す", draftExport: "編集したものを書き出し",
     draftMine: "あなたの版", draftFactory: "工場出荷時", draftPick: "編集するプリセットを選んでください", draftCount: "{n} 個編集済み",
     draftLoaded: "編集した版: ", draftAskRevert: "{name} のあなたの版を捨てて工場出荷時の音に戻しますか?",
+    tdTitle: "TD-3 グリッド", tdHelp: "各ステップを TD-3 のように: 音、オクターブ下 / 上、ノート · タイ · 休符、アクセント、スライド。「Acid を生成」はトラックのスケール (ROOT, SCL) で新しいアシッドラインを書き込みます。本体では ACID トラックで SEQ + RANDOM。", tdOct: "オクターブ", tdRoll: "Acid を生成", tdRolled: "新しいアシッドライン", tdOctBtn: "オクターブ下 / 上", tdTime: "ノート / タイ / 休符",
     emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
     kbdHelp: "キーボード: {keys} で演奏 ({range}) · {oct} オクターブ · {vel} ベロシティ {v}",
     connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
@@ -2792,6 +2825,7 @@ const TEXT = {
     draftMode: "Edit the factory presets: keep my changes", draftRevert: "Back to factory", draftExport: "Export edited",
     draftMine: "your version", draftFactory: "factory", draftPick: "pick a preset to edit it", draftCount: "{n} edited",
     draftLoaded: "Your edited version: ", draftAskRevert: "Drop your version of {name} and go back to the factory sound?",
+    tdTitle: "TD-3 grid", tdHelp: "Each step as a TD-3 enters it: its note, octave down / up, note · tie · rest, accent, slide. Roll acid writes a new acid line in the track's scale (ROOT, SCL); on the device SEQ + RANDOM does it on an ACID track.", tdOct: "Octave", tdRoll: "Roll acid", tdRolled: "New acid line", tdOctBtn: "Octave down / up", tdTime: "Note / tie / rest",
     emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
     kbdHelp: "Keyboard: {keys} play ({range}) · {oct} octave · {vel} velocity {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Init sound",
@@ -2913,6 +2947,7 @@ const TEXT = {
     draftMode: "Werks-Presets bearbeiten: Änderungen merken", draftRevert: "Zurück zum Werkszustand", draftExport: "Bearbeitete exportieren",
     draftMine: "deine Fassung", draftFactory: "Werkszustand", draftPick: "ein Preset wählen, um es zu bearbeiten", draftCount: "{n} bearbeitet",
     draftLoaded: "Deine bearbeitete Fassung: ", draftAskRevert: "Deine Fassung von {name} verwerfen und zum Werks-Sound zurück?",
+    tdTitle: "TD-3-Raster", tdHelp: "Jeder Step wie bei der TD-3: Note, Oktave runter / hoch, Note · Tie · Pause, Accent, Slide. „Acid würfeln“ schreibt eine neue Acid-Linie in der Tonart der Spur (ROOT, SCL); am Gerät macht das SEQ + RANDOM auf einer ACID-Spur.", tdOct: "Oktave", tdRoll: "Acid würfeln", tdRolled: "Neue Acid-Linie", tdOctBtn: "Oktave runter / hoch", tdTime: "Note / Tie / Pause",
     emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
     kbdHelp: "Tastatur: {keys} spielen ({range}) · {oct} Oktave · {vel} Anschlag {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Sound zurücksetzen",
@@ -4349,8 +4384,95 @@ function updateStepRows() {
   renderGrid();
 }
 /* the step grid: one cell per step up to LEN; a cell jumps to its row in the table */
+/* M-Vave-OP1: the TD-3 grid: a column a step (up to LEN): its note (C .. B), its octave (down / - / up from the octave
+   chosen above), NOTE / TIE / REST, ACCENT, SLIDE, as the TD-3's step entry has them; each change writes the step
+   (STEP_SET: the rest of the step as it was). ROLL ACID writes a new acid line (as the device's SEQ + RANDOM does on
+   an ACID track, ui_tools.c tl_random_acid) in the track's scale. Not on a kit track */
+const TD_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const TD_SCALES = [0xFFF, 0xAB5, 0x5AD, 0x6AD, 0x6B5, 0x295, 0x4A9, 0x9AD, 0x5AB, 0xAD5, 0x56B, 0xAAD, 0x4E9, 0x555, 0x6DB, 0xB6D];
+let tdOct = 2;
+try { const v = localStorage.getItem("felucca-editor-tdoct"); if (v !== null && +v >= 0 && +v <= 5) tdOct = +v; } catch { /* */ }
+function tdKit() { const n = engName(); return n === "DRUM" || n === "VDRUM"; }
+function renderTd() {
+  const box = $("tdpanel");
+  box.hidden = !dev || !dev.steps.length || tdKit();
+  if (box.hidden) return;
+  const o = $("tdoct");
+  if (!o.options.length) o.replaceChildren(...[0, 1, 2, 3, 4, 5].map((k) => el("option", { value: k, text: "C" + k })));
+  o.value = String(tdOct);
+  const base = 12 * (tdOct + 1), len = stepLen(), g = $("tdgrid");
+  if (g.contains(document.activeElement) && g.children.length === len) return;
+  g.replaceChildren(...Array.from({ length: len }, (_, i) => {
+    const st = dev.steps[i] || { n: 0, notes: [0, 0, 0, 0], time: 2, flags: 0 };
+    const on = st.time === 0 && st.n > 0, nt = on ? st.notes[0] : base, rel = Math.max(-1, Math.min(1, Math.floor(nt / 12) - (tdOct + 1)));
+    const sel = el("select", { "aria-label": `${t("notes")} ${i + 1}` }, ...TD_NAMES.map((n, k) => el("option", { value: k, text: n, selected: k === nt % 12 })));
+    sel.addEventListener("change", () => tdWrite(i, { note: base + 12 * rel + +sel.value, time: 0 }));
+    const btn = (txt, isOn, fn, title) => el("button", { type: "button", class: isOn ? "on" : null, title, onclick: fn }, txt);
+    return el("div", { class: "col" + (i % 4 === 0 ? " beat" : "") + (on || st.time === 1 ? "" : " off") },
+      el("div", { class: "n", text: String(i + 1) }), sel,
+      btn(rel > 0 ? "▲" : rel < 0 ? "▼" : "·", rel !== 0, () => tdWrite(i, { note: base + 12 * (rel === 0 ? 1 : rel > 0 ? -1 : 0) + nt % 12, time: 0 }), t("tdOctBtn")),
+      btn(st.time === 0 ? "♪" : st.time === 1 ? "—" : "·", st.time !== 2, () => tdWrite(i, { time: (st.time + 1) % 3, note: on ? nt : base + nt % 12 }), t("tdTime")),
+      btn("ACC", !!(st.flags & 1), () => tdWrite(i, { flags: st.flags ^ 1 }), t("acc")),
+      btn("SLD", !!(st.flags & 2), () => tdWrite(i, { flags: st.flags ^ 2 }), t("slide")));
+  }));
+  $("tdinfo").textContent = "";
+}
+async function tdWrite(i, ch) {
+  if (!dev) return;
+  const old = dev.steps[i] || { n: 0, notes: [0, 0, 0, 0], time: 2, flags: 0, vel: 0, hit: 0, acc: 0 };
+  const note = ch.note ?? (old.n ? old.notes[0] : 12 * (tdOct + 1));
+  const time = ch.time ?? old.time;
+  const s = { ...old, n: time === 2 ? old.n : 1, notes: [note & 0x7F, 0, 0, 0], time, flags: ch.flags ?? old.flags,
+    vel: old.vel || 100, hit: old.hit | 0, acc: old.acc | 0 };
+  if (time === 2) s.n = 0;
+  stepEdit.set(i, performance.now());
+  try {
+    dev.steps[i] = parse[CMD.STEP_SET](await rq(req.stepSet(i, s)));
+    renderSteps();
+  } catch (err) { report(err); }
+}
+/* an acid line (ui_tools.c tl_random_acid's rules) -> steps 0 .. len - 1 */
+function tdRollLine(len, root, mask) {
+  if (mask === 0xFFF) mask = TD_SCALES[2];
+  const deg = []; for (let k = 0; k < 12; k++) if ((mask >> k) & 1) deg.push(k);
+  const r = (n) => Math.floor(Math.random() * n), out = [];
+  let prev = 0;
+  for (let i = 0; i < len; i++) {
+    const x = r(100);
+    if (i && x < 14) { out.push({ n: 0, notes: [0, 0, 0, 0], time: 2, flags: 0, vel: 0 }); continue; }
+    if (i && prev && x < 20) { out.push({ n: 0, notes: [0, 0, 0, 0], time: 1, flags: 0, vel: 0 }); continue; }
+    let n = !i || r(100) < 45 ? root : root + deg[r(deg.length)];
+    const o = r(100);
+    n += !i ? 0 : o < 20 ? 12 : o < 28 && n >= 24 ? -12 : 0;
+    out.push({ n: 1, notes: [Math.max(12, Math.min(108, n)), 0, 0, 0], time: 0, flags: (!i || r(100) < 30 ? 1 : 0) | (r(100) < 22 ? 2 : 0), vel: 100 });
+    prev = 1;
+  }
+  return out;
+}
+$("tdoct").addEventListener("change", () => {
+  tdOct = +$("tdoct").value;
+  try { localStorage.setItem("felucca-editor-tdoct", String(tdOct)); } catch { /* */ }
+  $("tdgrid").replaceChildren();
+  renderTd();
+});
+$("tdroll").addEventListener("click", () => op(async () => {
+  const len = stepLen(), rootId = pById("ROOT", 25), sclId = pById("SCL", 26);
+  const root = 12 * (tdOct + 1) + ((dev.dump.p[rootId] | 0) % 12), mask = TD_SCALES[(dev.dump.p[sclId] | 0) % TD_SCALES.length];
+  const line = tdRollLine(len, root, mask);
+  for (let i = 0; i < len; i++) {
+    const old = dev.steps[i] || {};
+    const s = { ...old, ...line[i], hit: 0, acc: 0 };
+    if (i % 8 === 0) sayK("applying", `${i}/${len}`);
+    dev.steps[i] = parse[CMD.STEP_SET](await rq(req.stepSet(i, s)));
+  }
+  $("tdgrid").replaceChildren();
+  renderSteps();
+  sayK("tdRolled");
+}));
+
 function renderGrid() {
   const box = $("stepgrid");
+  renderTd();
   if (!dev || !dev.steps.length) { box.replaceChildren(); return; }
   const len = stepLen();
   if (box.children.length !== len) {

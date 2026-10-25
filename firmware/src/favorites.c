@@ -13,7 +13,8 @@ static favorites_t favorites __attribute__((section(".pool")));
  * LOFI's, WSHAPE (17) VOICE's, HRMNC (18) TRIO's, PRTCL (19) SLICE's, WTABLE (20) WHEEL's, SWARM (21) GRAIN's (PHASE,
  * VOICE, TRIO, SLICE and DBOX retired since: the rows stay where the settings put them; WHEEL's and GRAIN's upper halves
  * were free) */
-static const uint8_t FAV_HOST[8] = {0, 2, 3, 5, 6, 13, 7, 8};   /* (17 ..: VOICE's, TRIO's, SLICE's, WHEEL's, GRAIN's) */
+static const uint8_t FAV_HOST[9] = {0, 2, 3, 5, 6, 13, 7, 8, 10};   /* (17 ..: VOICE's, TRIO's, SLICE's, WHEEL's, GRAIN's;
+                                                                 * ACID (22) DRUM's, M-Vave-OP1) */
 static int fav_at(uint32_t *engine, uint32_t *preset)
 {
     if (*engine >= 14u) {

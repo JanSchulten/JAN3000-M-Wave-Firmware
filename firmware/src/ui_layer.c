@@ -86,7 +86,10 @@ static const page_t *ly_page(uint32_t l) { return l == LAYER_SCL ? &LY_SCL : l =
  * (place 10), past the engine's quick actions (EQA: up to 10) */
 #define LY_NENG ((uint32_t)(NENG_SHOWN < 16 ? NENG_SHOWN : 16))
 #define LY_INIT_B 10u
-typedef char ly_eng_fits[NENG_SHOWN <= 16 || FELUCCA_FM4 ? 1 : -1];   /* (a white key each: F3 .. G5) */
+#define LY_ENG17_B 9u                  /* M-Vave-OP1: a 17th engine (ACID) on the black key D#5, past every engine's quick
+                                        * actions (DRUM's 8: F#3 .. A#4) and before INIT */
+typedef char ly_eng_fits[NENG_SHOWN <= 17 || FELUCCA_FM4 ? 1 : -1];   /* (a white key each: F3 .. G5; the 17th D#5) */
+#define LY_HAS17 (NENG_SHOWN > 16 && !FELUCCA_FM4)
 #define layer_seen (favorites.factory[15][31])   /* bit l: layer l opened once (a byte no engine uses) */
 static const khint_t FX_LATCH_FOOT[3] = {{KC_KEYS, "ON / OFF"}, {KC_K14, "MACROS"}, {KC_OCTDN, "ALL OFF"}};
 static const khint_t FX_KEY_FOOT[3] = {{KC_PRESETS, "ASSIGN"}, {KC_EDIT, "DEFAULT"}, {KC_K14, "MACROS"}};   /* (a key held) */
@@ -796,6 +799,8 @@ static void layer_key(uint32_t l, uint32_t k)
     } else if (l == LAYER_EDIT && !key_black(k)) {
         if (p < LY_NENG)
             edit_load(eng_vis(p), 0);
+    } else if (l == LAYER_EDIT && LY_HAS17 && p == LY_ENG17_B) {   /* D#5: the 17th engine (ACID) */
+        edit_load(eng_vis(16), 0);
     } else if (l == LAYER_EDIT && p == LY_INIT_B) {     /* F#5: INIT */
         if (chain_busy())
             ui_message("STOP TO EDIT");
@@ -1004,6 +1009,9 @@ static uint32_t layer_leds(uint32_t *br)
         } else if (l == LAYER_EDIT && !b) {             /* the engine lit, the others breathe */
             on = p < LY_NENG && eng_vis(p) == TSEL->eng_req % NENGINES;
             can = p < LY_NENG;
+        } else if (l == LAYER_EDIT && LY_HAS17 && p == LY_ENG17_B) {   /* D#5: the 17th engine, as the white keys' */
+            on = eng_vis(16) == TSEL->eng_req % NENGINES;
+            can = 1;
         } else if (l == LAYER_EDIT && p == LY_INIT_B) { /* F#5 INIT breathes */
             can = !chain_busy();
         } else if (l == LAYER_EDIT && (a = eqa_of(TSEL, p)) != 0) {   /* the quick actions: on lit (DRUM: sounding), */
@@ -1213,7 +1221,12 @@ static void layer_edit(void)                            /* the engines from F3, 
     if (na)                                             /* the black keys' quick actions in the sound's place (KNOB 2 */
         eqa_row(na, (uint32_t)LC_X(3) - 4u);            /* still shows its number) */
     else
-        engine_sound_row(104, LC_X(3) - 4);
+        engine_sound_row(104, LC_X(LY_HAS17 ? 2 : 3) - 4);
+    if (LY_HAS17 && !na) {                              /* (D#5: the 17th engine, beside INIT; under a kit's lanes its key
+                                                         * still loads it, the row shows the lanes) */
+        const engine_t *en = ENGINES[eng_vis(16) % NENGINES];
+        lcell(LC_X(2), 100, 18, 0, 0, 0, eng_abbr(en->name), eng_vis(16) == TSEL->eng_req % NENGINES ? LS_SEL : LS_OFF, 0);
+    }
     lcell(LC_X(3), 100, 18, 0, 0, 0, "INIT", chain_busy() ? LS_DIM : LS_OFF, 0);   /* (F#5, the last cell's column) */
 }
 

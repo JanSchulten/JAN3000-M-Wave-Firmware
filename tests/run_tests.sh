@@ -502,6 +502,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/swarm_test" tests/swarm_test.c -lm
     mkdir -p build/swarm_demo
     run "SWARM: presets and corners bounded, no DC, in tune, a note's burst, Plaits' level, switches, demos" "$OUT/swarm_test" build/swarm_demo
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/acid_test" tests/acid_test.c -lm
+    mkdir -p build/acid_demo
+    run "ACID: presets bounded, no DC, in tune, corners silent after release, accent, sweep, slide, ENV and RES, demos" \
+        "$OUT/acid_test" build/acid_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fpu_probe_test" tests/fpu_probe_test.c -lm
     mkdir -p build/fpu_shots
     run "FPU PROBE: exact checks, the waveshaper's hash, bounded; INFO's OCT+ after the boot guard, its rows, a screen" "$OUT/fpu_probe_test" build/fpu_shots

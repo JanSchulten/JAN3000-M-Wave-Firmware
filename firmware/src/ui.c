@@ -42,10 +42,10 @@ static uint32_t up_gen;                      /* bumped on every user bank change
 _Static_assert(NENGINES <= 14u + sizeof FAV_HOST, "favorites.c: an engine from 14 on needs a row's upper half (FAV_HOST)");
 _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u && NELEM(WSHAPE_PRESETS) <= 128u &&
                NELEM(HARMON_PRESETS) <= 128u && NELEM(PRTCL_PRESETS) <= 128u &&
-               NELEM(WTABLE_PRESETS) <= 128u && NELEM(SWARM_PRESETS) <= 128u &&
+               NELEM(WTABLE_PRESETS) <= 128u && NELEM(SWARM_PRESETS) <= 128u && NELEM(ACID_PRESETS) <= 128u &&
                /* (PHASE's row: retired, none of */
                NELEM(ANALOG_PRESETS) <= 128u && NELEM(LOFI_PRESETS) <= 128u && NELEM(WHEEL_PRESETS) <= 128u &&
-               NELEM(GRAIN_PRESETS) <= 128u,   /* its own; LOFI's holds DBOX's, retired) */
+               NELEM(GRAIN_PRESETS) <= 128u && NELEM(DRUM_PRESETS) <= 128u,   /* its own; LOFI's holds DBOX's, retired) */
                "favorites.c: an engine from 14 on and its host share a row of 256 presets");
 #include "category.c"                   /* sound categories (Discussion #90): PRESETS > LIST */
 /* MENU's two-valued settings (ui_menu.c MENU_FLAGS), a bit each in a byte no engine uses (as ui_layer.c layer_seen):

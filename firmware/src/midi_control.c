@@ -226,6 +226,7 @@ static const uint8_t MIDI_CC_ENG[NENGINES] = {
     0x56,                                             /* ANALOG2 CUT RES (WAVE 1's) */
     0x00, 0x00,                                       /* VDRUM -, (DBOX, retired) */
     0x56, 0x56, 0x56, 0x56, 0x56,                     /* WSHAPE, HRMNC, PRTCL, WTABLE, SWARM CUT RES (M-Vave-OP1) */
+    0x34,                                             /* ACID CUT RES (M-Vave-OP1: its E2 E3) */
 };
 /* a CC sets parameter id of track t as a knob would: 0..127 over its range */
 static void midi_cc_set(track_t *t, uint32_t id, uint32_t value)

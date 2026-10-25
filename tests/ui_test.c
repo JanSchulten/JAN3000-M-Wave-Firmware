@@ -3971,7 +3971,7 @@ static int test_quick_layers(void)
     }
     key_down(white(0)); key_up(white(0)); frame();
     key_down(white(LY_NENG - 1u)); key_up(white(LY_NENG - 1u)); frame();   /* (the last engine key: VDRUM) */
-    ok &= TSEL->eng_req == eng_vis(LY_NENG - 1u) && (FELUCCA_FM4 || (TSEL->eng_req == ENGI_VDRUM && LY_NENG == NENG_SHOWN));
+    ok &= TSEL->eng_req == eng_vis(LY_NENG - 1u) && (FELUCCA_FM4 || (TSEL->eng_req == ENGI_VDRUM && LY_NENG + LY_HAS17 == NENG_SHOWN));
     ok &= !memcmp(TSEL->step, before.step, sizeof before.step) && TSEL->p[P_SLEN] == before.p[P_SLEN] &&
           TSEL->p[P_SLCR] == SL_STUT;
     btn_up(B_EDIT); frame();
@@ -3989,7 +3989,8 @@ static int test_quick_layers(void)
     }
     btn_up(B_EDIT); frame();
     bad += check("  every engine one can pick has its white key from F3 (NENG_SHOWN, not a fixed count; never DIGITAL)",
-                 ok && a == LY_NENG && (FELUCCA_FM4 || LY_NENG == NENG_SHOWN));
+                 ok && a == LY_NENG && (FELUCCA_FM4 || LY_NENG + LY_HAS17 == NENG_SHOWN));   /* (M-Vave-OP1: the 17th, ACID,
+                                                                                * on D#5) */
     set_engine_of(TSEL, 0);
     lay_combo(B_EDIT, white(eng_rank(3))); key_up(white(eng_rank(3))); frame();
     turn(EN_K2, 1);
@@ -4825,17 +4826,19 @@ static int test_bughunt_ui2(void)
         }
         bad += check("piano roll: the C-1 label stays inside the panel (every palette)", !out);
     }
-    {   /* 7. EDIT (M-Vave-OP1): a white key an engine (16: five retired, the five Plaits engines added), INIT the last black key (F#5, drawn bottom
-         * right), no other */
-        uint32_t p, ok = LY_NENG == 16u && NENG_SHOWN == 16u + FELUCCA_FM4 && LY_INIT_B == 10u;   /* (all 16 white keys:
-                                                                        * FELUCCA_FM4's 17th has none) */
+    {   /* 7. EDIT (M-Vave-OP1): a white key an engine (16: five retired, the five Plaits engines added), the 17th (ACID) on
+         * D#5, INIT the last black key (F#5, drawn bottom right), no other */
+        uint32_t p, ok = LY_NENG == 16u && NENG_SHOWN == 17u + FELUCCA_FM4 && LY_INIT_B == 10u && LY_ENG17_B == 9u;   /* (all 16
+                                                                        * white keys; FELUCCA_FM4's 18th has none) */
         for (p = 0; p < 11u; p++) {
             ui_power_on(); go_home(); frame();
+            set_engine_of(TSEL, 0);
             btn_down(B_EDIT); key_down(black(p)); frame(); frames(50);
             ok &= (ui.confirm == CF_INIT_SOUND) == (p == LY_INIT_B);
+            ok &= FELUCCA_FM4 || (TSEL->eng_req == ENGI_ACID) == (p == LY_ENG17_B);
             key_up(black(p)); btn_up(B_EDIT); frame();
         }
-        bad += check("EDIT: 11 engines on the white keys, INIT on F#5 alone", ok);
+        bad += check("EDIT: 16 engines on the white keys, ACID on D#5, INIT on F#5 alone", ok);
     }
     return bad;
 }
@@ -4983,12 +4986,12 @@ static int test_fm4_retired(void)
                  seen == all && TSEL->eng_req == 0u && eng_step(0, 1) == 14u && eng_step(14, 1) == ENGI_FM6 &&
                  eng_step(ENGI_FM6, 1) == ENGI_WSHAPE && eng_step(ENGI_WSHAPE, 1) == ENGI_HARMON && eng_step(ENGI_HARMON, 1) == ENGI_PRTCL && eng_step(ENGI_PRTCL, 1) == ENGI_WTABLE && eng_step(ENGI_WTABLE, 1) == ENGI_SWARM &&
                  eng_step(ENGI_SWARM, 1) == 3u &&
-                 eng_step(ENGI_FM6, -1) == 14u && eng_step(0, -1) == ENGI_VDRUM &&
+                 eng_step(ENGI_FM6, -1) == 14u && eng_step(0, -1) == ENGI_ACID && eng_step(ENGI_VDRUM, 1) == ENGI_ACID &&
                  eng_step(ENGI_VDRUM, -1) == ENGI_DRUM && eng_step(ENGI_DBOX, 1) == ENGI_VDRUM);   /* (a retired engine: as
                                                                                         * its successor) */
     {   /* the display order (engines.c ENGINE_ORDER): every engine one can pick once; the PRESETS list follows it */
         static const char *const ORDER[] = {"ANALOG", "ANLG2", "FM6", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS",
-                                            "NOISE", "DRUM", "VDRUM"};
+                                            "NOISE", "DRUM", "VDRUM", "ACID"};
         uint32_t last = 0xFFu, r = 0, n = 0;
         ok = NENG_SHOWN == NELEM(ORDER);
         for (i = 0; ok && i < NENG_SHOWN; i++)
@@ -5003,7 +5006,7 @@ static int test_fm4_retired(void)
             last = e;
             r++;
         }
-        bad += check("engines shown ANALOG ANALOG2 FM6 WSHAPE HRMNC PRTCL WTABLE SWARM ... NOISE DRUM VDRUM (ENGINE_ORDER); PRESETS lists them so",
+        bad += check("engines shown ANALOG ANALOG2 FM6 WSHAPE HRMNC PRTCL WTABLE SWARM ... NOISE DRUM VDRUM ACID (ENGINE_ORDER); PRESETS lists them so",
                      ok && r == NENG_SHOWN);
     }
     /* a user preset stored with engine 1: kept as it is, it loads as FM6 with the converted patch */
@@ -6702,6 +6705,49 @@ static int test_seq_tools(void)
     ok &= tl_gate(&TSEL->step[0]) && k >= 3u && tl_in_key(TSEL);
     btn_up(B_SEQ); frame();
     bad += check("  an empty pattern: COOK says NOTHING TO COOK; RANDOM writes 8ths with rests, in the scale", ok);
+
+    /* M-Vave-OP1: RANDOM on an ACID track: a whole acid line in the scale, step 1 the root (octave 2) accented, about
+     * 30 % accents and 22 % slides, some rests and ties; COOK there also slides */
+    {
+        uint32_t acc = 0, sl = 0, rests = 0, notes = 0, slc = 0;
+        ok = 1;
+        for (seed = 1; seed <= 30u; seed++) {
+            ui_power_on();
+            set_engine_of(TSEL, ENGI_ACID);
+            TSEL->p[P_ROOT] = 9; TSEL->p[P_SCALE] = 2;  /* A minor */
+            TSEL->p[P_SLEN] = 16;
+            go_page(GR_ROLL); frame();
+            rng_state = 0x6C8E9CF5u * seed;
+            btn_down(B_SEQ); frame();
+            tl_key(TL_RANDOM);
+            ok &= msg_is("RANDOM ACID") && tl_in_key(TSEL) && TSEL->step[0].time == ST_NOTE && TSEL->step[0].note[0] == 45 &&
+                  (TSEL->step[0].flags & SF_ACCENT);
+            for (i = 0; i < 16u; i++) {
+                const step_t *s = &TSEL->step[i];
+                if (s->time == ST_NOTE && s->n) {
+                    notes++;
+                    acc += (s->flags & SF_ACCENT) != 0;
+                    sl += (s->flags & SF_SLIDE) != 0;
+                    ok &= s->note[0] >= 33 && s->note[0] <= 68;
+                } else {
+                    rests++;
+                }
+            }
+            for (k = 0; k < 20u; k++) {
+                uint32_t was = 0, now = 0;
+                for (i = 0; i < 16u; i++)
+                    was += (TSEL->step[i].flags & SF_SLIDE) != 0;
+                tl_key(TL_COOK);
+                for (i = 0; i < 16u; i++)
+                    now += (TSEL->step[i].flags & SF_SLIDE) != 0;
+                slc += was != now;
+            }
+            btn_up(B_SEQ); frame();
+        }
+        ok &= acc > notes / 5u && acc < notes / 2u && sl > notes / 8u && sl < notes / 3u && rests > 16u && slc > 0u;
+        bad += check("  ACID RANDOM: an acid line in the scale, step 1 the root accented, accents, slides, rests (30 seeds); COOK slides",
+                     ok);
+    }
 
     /* DRUM: RANDOM (kick 3..5 with one on step 1, snare 2 .. 3 on 2 and 4, closed hat 8..12), COOK keeps the 1 */
     ok = okc = 1;
@@ -9530,8 +9576,8 @@ static int test_edit_quick_actions(void)
     ok = drum_track(TSEL) && !drum_mute[3];
     btn_down(B_EDIT); frames(500);
     a = leds_at(0); b2 = leds_at(250);
-    for (i = 0; i < 11u; i++)                         /* 1..8 lit, steady; 9, 10 dark; 11 (F#5) INIT breathes */
-        ok &= i == LY_INIT_B ? (((a ^ b2) >> black(i)) & 1u) != 0u
+    for (i = 0; i < 11u; i++)                         /* 1..8 lit, steady; 9 dark; 10 (D#5) ACID and 11 (F#5) INIT breathe */
+        ok &= i == LY_INIT_B || (LY_HAS17 && i == LY_ENG17_B) ? (((a ^ b2) >> black(i)) & 1u) != 0u
                              : (((a & b2) >> black(i)) & 1u) == (i < NLANE) && !(((a ^ b2) >> black(i)) & 1u);
     key_down(black(0)); frame(); key_up(black(0)); frame();
     key_down(black(5)); frame(); key_up(black(5)); frame();
@@ -9551,14 +9597,16 @@ static int test_edit_quick_actions(void)
     key_down(white(0)); frame(); key_up(white(0)); frame();
     ok = TSEL->eng_req == eng_vis(0) && !drum_mute[3] && eqa_count(TSEL) == 0u;
     a = leds_at(0); b2 = leds_at(250);
-    for (i = 0; i < 11u; i++)                         /* (ANALOG: no actions, the black keys dark and inert; F#5 INIT) */
-        ok &= i == LY_INIT_B ? (((a ^ b2) >> black(i)) & 1u) != 0u : !(((a | b2) >> black(i)) & 1u);
+    for (i = 0; i < 11u; i++)                         /* (ANALOG: no actions, the black keys dark and inert; D#5 ACID, F#5 INIT) */
+        ok &= i == LY_INIT_B || (LY_HAS17 && i == LY_ENG17_B) ? (((a ^ b2) >> black(i)) & 1u) != 0u : !(((a | b2) >> black(i)) & 1u);
     {
         track_t before = *TSEL;
         uint8_t m[NPART];
         memcpy(m, drum_mute, sizeof m);
         ui.msg_t = 0;
-        for (i = 0; i < LY_INIT_B; i++) {             /* (F#5: INIT, its dialog: test_quick_layers) */
+        for (i = 0; i < LY_INIT_B; i++) {             /* (F#5: INIT, its dialog: test_quick_layers; D#5 loads ACID) */
+            if (LY_HAS17 && i == LY_ENG17_B)
+                continue;
             key_down(black(i)); frame(); key_up(black(i)); frame();
         }
         ok &= !memcmp(m, drum_mute, sizeof m) && !ui.msg_t && !gates() && before.eng_req == TSEL->eng_req &&

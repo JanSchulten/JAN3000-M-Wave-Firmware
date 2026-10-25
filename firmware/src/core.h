@@ -17,8 +17,8 @@
 #define FELUCCA_FM4 0            /* the DIGITAL engine (eng_digital.c, four-operator FM): kept in the tree, not built
                                   * by default; replaced by FM6, its sounds convert (fm4_convert.c) */
 #endif
-#define NENGINES 22u              /* .. SLICE 13, ANALOG2 14, VDRUM 15, DBOX 16, WSHAPE 17, HRMNC 18, PRTCL 19, WTABLE 20,
-                                  * SWARM 21 (M-Vave-OP1): appended, the others keep
+#define NENGINES 23u              /* .. SLICE 13, ANALOG2 14, VDRUM 15, DBOX 16, WSHAPE 17, HRMNC 18, PRTCL 19, WTABLE 20,
+                                  * SWARM 21, ACID 22 (M-Vave-OP1): appended, the others keep
                                   * their numbers; a retired engine keeps its number as a reserved slot (engines.c ENG_GONE) */
 #define ENGI_SLICE 13u           /* (retired, M-Vave-OP1: PHASE 2, VOICE 5, TRIO 6, SLICE 13, DBOX 16) */
 #define ENGI_VDRUM 15u
@@ -28,6 +28,7 @@
 #define ENGI_PRTCL 19u           /* (M-Vave-OP1: the Plaits particle model) */
 #define ENGI_WTABLE 20u          /* (M-Vave-OP1: the Plaits wavetable model, VOICE's successor) */
 #define ENGI_SWARM 21u           /* (M-Vave-OP1: the Plaits swarm model, SLICE's successor) */
+#define ENGI_ACID 22u            /* (M-Vave-OP1: the TB-303 bass line) */
 #define NENG_RETIRED 5u
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
 #define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - NENG_RETIRED)   /* the engines one can pick: PRESETS, the EDIT layer, the editor,

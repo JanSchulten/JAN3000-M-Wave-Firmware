@@ -299,6 +299,26 @@ BURST PLUCK, BEE HIVE, CHORUS BASS.
 All five Plaits engines play at Plaits' own relative levels (its `voice.cc`: WSHAPE 0.7, HRMNC 0.8, WTABLE 0.6, PRTCL
 and SWARM into Plaits' limiter).
 
+## ACID: a TB-303 bass line
+
+Engine 22, shown **ACID**, last in the list (EDIT held + D#5): a bass line after Roland's TB-303 as Behringer's TD-3
+plays it. One oscillator (SAW or SQR) into a four-pole diode-ladder low-pass, its own envelope on the cutoff, the
+accent and the slide as the 303 makes them. The controls are the TD-3's: WAVE TUNE CUT RES ENV DEC ACC DIST (HOME
+KNOB 1..4: CUT RES ENV DEC). An accented note (a step's ACCENT, or velocity 110 and up) is louder, its envelope deeper
+and shorter, and it charges the accent sweep: accents in a row open the filter further. A step's SLIDE glides into the
+next note without restarting the envelopes. The voice's level is the engine's own (the track's ADSR does nothing).
+Presets (all MONO, each with a pattern): ACID LINE, SQUELCH, SQR ACID, RUBBER, DIST 303, DEEP SUB, SCREAM, SOFT BASS.
+
+- **Patterns:** ACID 2 .. ACID 5 (patterns 14..17) are 303 lines with accents and slides; the presets load them.
+- **SEQ + RANDOM** on an ACID track rolls a new acid line (RANDOM ACID): 16ths in the track's scale (CHR plays minor)
+  from the root in octave 2, rests and ties, about 30 % accents and 22 % slides, step 1 the root, accented. **COOK**
+  also turns slides on and off.
+- **The web editor's TD-3 grid** (Sequencer tab, an ACID track): 16 columns of note, octave up / down, time (note,
+  tie, rest), ACC and SLD, written to the track's steps as you click; "Roll acid" rolls a line as RANDOM does.
+
+The filter follows Open303's structure of the 303's diode ladder (four coupled one-pole stages, the feedback from the
+last; no code taken), with its own coefficients: the resonant peak at the cutoff, RES up to 97 % of self-oscillation.
+
 ## Retired: PHASE, VOICE, TRIO, SLICE and DBOX
 
 Five engines made room for engines after Mutable Instruments' Plaits (the module Behringer's Grind builds on; the plan:

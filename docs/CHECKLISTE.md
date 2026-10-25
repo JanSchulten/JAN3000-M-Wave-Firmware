@@ -137,6 +137,25 @@ Außerdem gibt es weiterhin **SCL > CHORD** (CHRD, VOIC: eine Taste ein Akkord d
 - [ ] Am Ende „Bearbeitete exportieren“: eine Datei mit allen bearbeiteten Presets, die schickst du mir (sie ersetzen
       die Werks-Presets gleichen Namens). Die Fassungen liegen auch in der Bibliothek (Tag „edited“).
 
+## 12. ACID (TB-303-Bassline)
+
+Noch nicht auf dem Gerät gelaufen. Engine 22, in PRESETS ganz am Ende.
+
+- [ ] EDIT gehalten + **D#5** (schwarze Taste über den weißen): lädt ACID, die LED leuchtet, solange ACID gewählt ist.
+- [ ] Presets durchhören: ACID LINE, SQUELCH, SQR ACID, RUBBER, DIST 303, DEEP SUB, SCREAM, SOFT BASS. Jedes lädt
+      sein Pattern mit (ACID 2 .. 5 bzw. ACID): PLAY drücken, es läuft eine Acid-Linie.
+- [ ] HOME KNOB 1..4 = CUT RES ENV DEC; auf der ACID-Seite auch WAVE TUNE ACC DIST. RES hoch: quietscht, pfeift aber
+      nicht dauerhaft; DIST hoch: verzerrt, ohne Brummen.
+- [ ] Accent (Schritt mit ACCENT, Velocity 127): lauter, kürzer, heller; mehrere Accents hintereinander öffnen den
+      Filter immer weiter („Wow“).
+- [ ] Slide (Schritt mit SLIDE): der Ton gleitet in den nächsten, ohne neuen Anschlag.
+- [ ] SEQ + **RANDOM** (D#4) auf einer ACID-Spur: „RANDOM ACID“, eine neue Linie in der Tonleiter der Spur (CHR = Moll),
+      Schritt 1 Grundton mit Accent. **COOK** schaltet auch Slides um.
+- [ ] Web-Editor, Sequencer-Tab mit einer ACID-Spur: das orange **TD-3-Raster** (Note, Oktave ▲/▼, Zeit ♪/—/·, ACC,
+      SLD) schreibt sofort in die Schritte; „Acid würfeln“ würfelt eine Linie.
+- [ ] CPU: 4 Spuren ACID gleichzeitig laufen lassen, MENU > SYSTEM > INFO > CPU notieren (auf dem Host kostet ACID
+      etwa ein Drittel von ANALOG).
+
 ## 8. Erledigt in diesem Durchgang
 
 - [x] WSHAPE sparsamer (AUX 0: Plaits' zweiter Ausgang wird nicht gerechnet, OUT bitgleich)

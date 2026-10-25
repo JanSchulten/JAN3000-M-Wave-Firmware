@@ -53,8 +53,8 @@ async function editorMock() {
   inp.onmidimessage = (e) => link.receive(e.data);
   const rq = async (r, o) => link.request(r, o);
   const info = E.parse[E.CMD.INFO](await rq(E.req.info()));
-  ok(info.nengines === 22 && info.engines[17] === "WSHAPE" && info.engines[18] === "HRMNC" && info.engines[19] === "PRTCL" &&
-     info.engines[20] === "WTABLE" && info.engines[21] === "SWARM" && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANLG2" && info.engines[15] === "VDRUM" && info.engines[16] === "-"
+  ok(info.nengines === 23 && info.engines[17] === "WSHAPE" && info.engines[18] === "HRMNC" && info.engines[19] === "PRTCL" &&
+     info.engines[20] === "WTABLE" && info.engines[21] === "SWARM" && info.engines[22] === "ACID" && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANLG2" && info.engines[15] === "VDRUM" && info.engines[16] === "-"
  && info.engines[2] === "-" && info.engines[5] === "-" && info.engines[6] === "-" && info.engines[7] === "WHEEL" && info.engines[8] === "GRAIN" && info.engines[9] === "PHYS" && info.engines[10] === "DRUM" && info.engines[11] === "NOISE" && info.pcount === 111 && info.pe0 === 103 && info.engines[4] === "SAMPLE",
     "editor: INFO");
   let descs = 0;
@@ -160,7 +160,7 @@ async function editorMock() {
   {   /* the lists in the device's order (engines.c ENGINE_ORDER): ANALOG2 second, FM6 third, WSHAPE fourth, DRUM, VDRUM last, "-"
        * (DIGITAL, M-Vave-OP1's retired five) never; the numbers stay */
     const shown = E.engineOrder(info.engines).map((i) => info.engines[i]);
-    ok(shown.join() === "ANALOG,ANLG2,FM6,WSHAPE,HRMNC,PRTCL,WTABLE,SWARM,LOFI,SAMPLE,WHEEL,GRAIN,PHYS,NOISE,DRUM,VDRUM" &&
+    ok(shown.join() === "ANALOG,ANLG2,FM6,WSHAPE,HRMNC,PRTCL,WTABLE,SWARM,LOFI,SAMPLE,WHEEL,GRAIN,PHYS,NOISE,DRUM,VDRUM,ACID" &&
        E.engineOrder(info.engines)[1] === 14 && E.engineOrder(info.engines)[2] === 12 && E.engineOrder(info.engines)[3] === 17 &&
        E.engineOrder(info.engines)[4] === 18 && E.engineOrder(info.engines)[5] === 19 && E.engineOrder(info.engines)[6] === 20 &&
        E.engineOrder(info.engines)[7] === 21 && E.engineOrder(info.engines)[14] === 10 && E.engineOrder(info.engines)[15] === 15,
@@ -170,7 +170,7 @@ async function editorMock() {
     await rq(E.req.uiSet(3, 0));
     prefs = await E.readDevicePreferences(rq, info, names, prefs);
     const rows = E.devicePresetRows(info, names, prefs).filter((r) => !r.user), eng = [...new Set(rows.map((r) => r.engine))];
-    ok(eng[0] === 0 && eng[1] === 14 && eng[2] === 12 && eng[eng.length - 2] === 10 && eng[eng.length - 1] === 15,
+    ok(eng[0] === 0 && eng[1] === 14 && eng[2] === 12 && eng[eng.length - 3] === 10 && eng[eng.length - 2] === 15 && eng[eng.length - 1] === 22,
        "editor: device presets in the device's engine order");
   }
   const none = await E.readDevicePreferences(() => { throw new Error("unexpected request"); }, { uiCaps: 0 }, []);
@@ -702,7 +702,7 @@ async function editorLibrarian() {
   ok(file.format === "felucca-library" && file.version === 1 && file.pCount === 111 && file.paramLabels.length === 111 && file.paramLabels[81] === "CHRD" && file.paramLabels[82] === "VOIC" &&
     file.paramLabels[83] === "KICK" && file.paramLabels[90] === "BELL" && file.paramLabels.slice(91, 96).join() === "SYNC,TRIG,POL,QNTZ,SPRD" &&
     file.paramLabels.slice(96, 103).join() === "INSRT,INS A,INS B,INS C,MIX,TYPE,ESYNC" &&
-    file.engines.length === 22,
+    file.engines.length === 23,
     "library file: versioned, with P_COUNT, labels and engines");
   const back = E.readLibraryFile(file, ctx);
   ok(back.patches.length === 2 && !back.skipped && eq(back.patches[0].p, cap.p) && eq(back.patches[1].p, bass.p)
