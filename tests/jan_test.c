@@ -69,14 +69,13 @@ static void test_slots(void)
     key_down(2); frame(); key_up(2); frame();         /* G3: B */
     ok &= song.g[G_SLOT] == 2 && !gates() && (key_leds(0) & 0x55u) == 0x55u && ((key_leds(0) >> SLOT_KEY_NEW) & 1u);
     press(B_OCTDN); frame();                            /* (M-Vave-OP1: an empty slot's OCT-, a new project there) */
-    ok &= ui.confirm == CF_NEW_PROJ && ui.confirm_trk == 2u;
-    press(B_OCTDN); frame();                            /* (OCT-: no) */
+    ok &= !ui.confirm && msg_is("EMPTY SLOT");
     ok &= !ui.confirm && !project_used(1);
     press(B_OCTUP); frame();
     ok &= name_on() && nm.kind == NK_PROJ_SAVE;
     press(B_OCTUP); frames(50);
     ok &= !name_on() && project_used(1);
-    ck("SAVE opens PROJECT: G3 picks B (silent, the keys lit); OCT- on an empty one asks NEW PROJECT IN SLOT B?; OCT+: "
+    ck("SAVE opens PROJECT: G3 picks B (silent, the keys lit); OCT- on an empty one says EMPTY SLOT; OCT+: "
        "NAME, saved", ok);
     trk[0].p[P_LEVEL] = 11;
     press(B_OCTDN); frame();

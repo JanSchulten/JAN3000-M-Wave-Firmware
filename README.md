@@ -472,3 +472,9 @@ SELECT browses the current family everywhere, including HOME → MIXER → CLOCK
 HOME always returns HOME. Pressing any other page button opens its family; pressing it again returns HOME,
 including two quick taps. Hold the button for its live layer. Tempo is CLOCK's BPM knob or GLO held + F4 TAP;
 SELECT never changes tempo, and the old BPM LOCK bit remains reserved in stored settings.
+
+PROJECT and USER share one storage workflow: white keys select the slot, OCT+ saves and OCT- asks to load.
+USER has 32 slots in two banks of 16, selected with KNOB 1; PROJECT uses its first four white keys for A–D.
+F#3 renames the selected slot, G#3 asks to delete it; OCT+ confirms and OCT- cancels. Knobs no longer pick
+PROJECT slots or storage actions. PROJECT's F#5 starts a new project after confirmation; an empty slot's
+OCT- says EMPTY SLOT. Deleting a stored project leaves the music currently in RAM intact.

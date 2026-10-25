@@ -1015,6 +1015,26 @@ static int project_rename(uint32_t slot, const char *name)
     return 0;
 }
 
+/* Commit an empty payload through the existing A/B store: interrupted deletes retain the last valid project.
+ * No project field or format changes. The music in RAM and the other slots stay as they are. */
+static int project_erase(uint32_t slot)
+{
+    uint32_t empty = 0;
+    slot &= 3u;
+    if (transport_busy()) { ui_message("STOP TO SAVE"); return 1; }
+#if FELUCCA_FLASH
+    if (flash_ok && st_save(OBJ_PROJECT0 + slot, &empty, sizeof empty)) {
+        ui_message("ERASE ERROR"); return 2;
+    }
+#endif
+    memset(proj_slot[slot].raw, 0, sizeof proj_slot[slot].raw);
+    proj_wire_gen++;
+    if (proj_cur == slot) { proj_cur = PROJ_NO_SLOT; pat_from_set(0); }
+    ui_message("PROJECT DELETED");
+    ui.force = 1;
+    return 0;
+}
+
 static int project_restore_runtime(const project_t *input)
 {
     project_t *p = &proj_scratch;

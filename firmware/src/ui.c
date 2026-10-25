@@ -31,6 +31,7 @@ static int project_save_as(uint32_t slot, const char *name);
 static int project_name(uint32_t slot, char *b);
 static int project_info(uint32_t slot, char *b, uint16_t *len48, uint32_t *den, uint8_t *n);
 static int project_rename(uint32_t slot, const char *name);
+static int project_erase(uint32_t slot);
 static void project_cur_name(char *b);
 static uint32_t user_of(const track_t *t)    /* user preset slot its sound came from, UP_SLOTS = none */
 {
@@ -220,7 +221,7 @@ static struct {
 
 enum { CF_NONE, CF_CLEAR_SEQ, CF_CLEAR_TRK, CF_OVR_PROJ, CF_OVR_USER, CF_LOAD_PAT,
        CF_DEL_ROW, CF_CLEAR_SONG, CF_INIT_SOUND, CF_CLEAR_MOTION, CF_ERASE_USER,
-       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ, CF_LOAD_PROJ };   /* ui.confirm: TOOLS' clears;
+       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ, CF_LOAD_PROJ, CF_ERASE_PROJ, CF_LOAD_USER };   /* ui.confirm: TOOLS' clears;
                                    * SAVE over a used slot; a pattern over the user's steps;
                                    * USER ERASE; FX TRACKS 2's CLEAR (a lane, both); PROJECT's NEW */
 
@@ -542,7 +543,7 @@ static void page_entered(void)
     song.seq_mode = !ui.home && pg->fam == FAM_SEQ;
     ui.entry_open = 0;
     ui.hot_t = 0;                                /* clear the previous page's emphasis */
-    ui.act = pg->graph == GR_USER ? 4u : 0u;     /* the save screen is ready for OCT+ */
+    ui.act = 0u;     /* the save screen is ready for OCT+ */
     ui.song_rec = 0;                             /* (SONG's chain typing ends with the page) */
     help_start();
     ui.force = 1;
@@ -613,7 +614,7 @@ static int song_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !u
 static int key_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_KEY; }
 /* M-Vave-OP1, SAVE > PROJECT: the keys pick the project (F3 G3 A3 B3: A..D), F#5 is NEW; OCT+ saves, OCT- loads */
 #define SLOT_KEY_NEW 25u                          /* F#5, the highest black key */
-static int slots_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_SLOTS; }
+static int slots_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && (cur_page()->graph == GR_SLOTS || cur_page()->graph == GR_USER); }
 /* FX > FX TRACKS or FX TRACKS 2 shown (fxtrack.c): REC arms the selected lane, its LED says so */
 static int fxt_page(void) { return !ui.home && (cur_page()->graph == GR_FXT || cur_page()->graph == GR_FXT2); }
 /* .. the 16 steps shown follow the selected lane's play head: playing, STEP and EFFECT not just turned (ui_graph.c) */
@@ -1725,7 +1726,7 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     if (pg->graph == GR_PATS)
         return 2u;                               /* LOAD */
     if (pg->graph == GR_USER)
-        return 14u;                              /* LOAD ERASE SAVE */
+        return 0u;                              /* LOAD ERASE SAVE */
     if (pg->graph == GR_SLOTS)
         return 0;                                /* M-Vave-OP1: the keys and OCT+ / OCT- (ui_input.c slots_keys) */
     if (pg->scope == SC_GLOBAL)

@@ -117,13 +117,16 @@ static void test_slot(void)
     frame();
     tap(4);                                             /* A3: C (empty) */
     press(B_OCTDN); frame();
+    ck("OCT- on an empty slot says EMPTY SLOT and preserves the music", song.g[G_SLOT] == 3 && !ui.confirm &&
+       msg_is("EMPTY SLOT") && !empty_ok());
+    tap(SLOT_KEY_NEW);
     confirm_text(a, b);
-    ck("OCT- on an empty slot: NEW PROJECT IN SLOT C? (no EMPTY SLOT)", song.g[G_SLOT] == 3 && ui.confirm == CF_NEW_PROJ &&
-       ui.confirm_trk == 3u && str_eq(a, "NEW PROJECT IN SLOT C?") && str_eq(b, "UNSAVED MUSIC IS LOST"));
+    ck("F#5 is the only NEW path and asks before discarding live music", ui.confirm == CF_NEW_PROJ &&
+       str_eq(a, "START A NEW PROJECT?") && str_eq(b, "UNSAVED MUSIC IS LOST"));
     np_rng = 777u;
     press(B_OCTUP); frames(50);
-    ck("  OCT+: a new project in that slot (NEW PROJECT; SAVE goes there), the slot still empty",
-       !ui.confirm && msg_is("NEW PROJECT") && proj_cur == 2u && !project_used(2));
+    ck("  OCT+ starts an unsaved project, leaving the selected empty slot unwritten",
+       !ui.confirm && msg_is("NEW PROJECT") && proj_cur == PROJ_NO_SLOT && !project_used(2));
     ck("  its sounds drawn, nothing of the old music", sounds_ok() && empty_ok());
 }
 

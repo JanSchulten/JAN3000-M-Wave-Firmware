@@ -151,6 +151,45 @@ static void wf_navigation(void)
     wf_check("SELECT pages every family including HOME/MIXER/CLOCK, never BPM; every page button toggles HOME", ok);
 }
 
+static void wf_storage(void)
+{
+    uint32_t i;
+    int ok = 1;
+    ui_power_on(); frames(400); go_page(GR_SLOTS);
+    song.g[G_SLOT] = 1; turn(EN_K1, 1); turn(EN_K3, 1); turn(EN_K4, 1); turn(EN_PRESET, 1);
+    ok &= song.g[G_SLOT] == 1 && !ui.act;
+    key_down(white(3)); frame(); key_up(white(3)); frame();
+    ok &= song.g[G_SLOT] == 4;
+    go_page(GR_USER);
+    for (i = 0; i < 16u; i++) {
+        key_down(white(i)); frame(); key_up(white(i)); frame();
+        ok &= ui.uslot == i && song.grid == 5u && !gates();
+    }
+    turn(EN_K1, 1);
+    ok &= ui.uslot == 31u;
+    for (i = 0; i < 16u; i++) {
+        key_down(white(i)); frame(); key_up(white(i)); frame();
+        ok &= ui.uslot == i + 16u;
+    }
+    up_store(31, "SLOT31");
+    key_down(1); frame(); key_up(1); frame();
+    ok &= name_on() && nm.kind == NK_USER_RENAME && nm.slot == 31u;
+    press(B_OCTDN);
+    key_down(3); frame(); key_up(3); frame();
+    ok &= ui.confirm == CF_ERASE_USER;
+    press(B_OCTDN);
+    press(B_OCTDN); ok &= ui.confirm == CF_LOAD_USER;
+    press(B_OCTUP); ok &= TSEL->user == 32u;
+    go_page(GR_SLOTS); song.g[G_SLOT] = 2;
+    project_save_as(1, "KEEP");
+    key_down(3); frame(); key_up(3); frame();
+    ok &= ui.confirm == CF_ERASE_PROJ;
+    press(B_OCTDN); ok &= project_used(1);
+    key_down(3); frame(); key_up(3); frame();
+    press(B_OCTUP); ok &= !project_used(1);
+    wf_check("PROJECT and USER: white-key slots, USER two banks on K1; F#3 rename, G#3 delete; no knob actions", ok);
+}
+
 int main(void)
 {
     wf_octaves();
@@ -159,6 +198,7 @@ int main(void)
     wf_step_fields();
     wf_clear_routes();
     wf_navigation();
+    wf_storage();
     printf(wf_bad ? "WORKFLOW TESTS FAILED\n" : "WORKFLOW TESTS PASSED\n");
     return wf_bad != 0;
 }

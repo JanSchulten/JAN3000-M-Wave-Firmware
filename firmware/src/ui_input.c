@@ -123,6 +123,10 @@ static uint32_t oct_leds(void)
                ui.menu_sel >= MI_VALUES ? OCT_BREATH :  /* CALIBRATION / INFO / ABOUT: OCT+ opens */
                (menu_step(ui.menu_sel, -1) != menu_get(ui.menu_sel) ? OCT_BREATH_DN : 0u) |   /* a value: each */
                (menu_step(ui.menu_sel, 1) != menu_get(ui.menu_sel) ? OCT_BREATH : 0u);         /* way it can go */
+    if (slots_keys_on()) {
+        uint32_t used = cur_page()->graph == GR_USER ? up_used(ui.uslot) : project_used(((uint32_t)song.g[G_SLOT] - 1u) & 3u);
+        return (used ? OCT_BREATH_DN : 0u) | (!transport_busy() ? OCT_BREATH : 0u);
+    }
     if (ui.confirm || act_cols())
         return 1u | (ui.confirm || act_ready() ? OCT_BREATH : 0u);
     if (mom.n && mom_down())                            /* MOMENTARY: OCT+ keeps the changes */
@@ -376,43 +380,40 @@ static void key_knob(uint32_t slot, int32_t steps)
 /* .. GLO > KEY's keys (song.grid 4: silent; key.c), each a root by its name: stopped, the cursor bar's (the cursor on,
  * round at LEN); running, the tracks move at once (key_live); with REC, into the run too: the bar playing, or the next
  * in its last quarter, the cursor there and KEY ON */
-/* M-Vave-OP1, SAVE > PROJECT: a white key F3 G3 A3 B3 picks project A..D, F#5 asks for a NEW one (stopped) */
+/* PROJECT and USER: white keys pick a slot, F#3 renames, G#3 deletes after confirmation.
+ * USER has two banks of sixteen; PROJECT alone keeps F#5 NEW. */
 static void slots_keys(uint32_t notes)
 {
-    static const uint8_t WK[4] = {0, 2, 4, 6};
-    uint32_t k;
-    for (k = 0; k < 4u; k++)
-        if ((notes >> WK[k]) & 1u) {
-            song.g[G_SLOT] = (int16_t)(k + 1u);
+    uint32_t k, user = cur_page()->graph == GR_USER, slot;
+    for (k = 0; k < 27u; k++)
+        if (((notes >> k) & 1u) && !key_black(k) && key_place(k) < (user ? 16u : 4u)) {
+            if (user) ui.uslot = (uint8_t)((ui.uslot & 16u) + key_place(k));
+            else song.g[G_SLOT] = (int16_t)(key_place(k) + 1u);
             ui.force = 1;
         }
-    if ((notes >> SLOT_KEY_NEW) & 1u) {
-        if (transport_busy())
-            ui_message("STOP FIRST");
-        else
-            confirm_open(CF_NEW_PROJ, 0);
+    slot = user ? ui.uslot : ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
+    if (notes & (1u << 1)) name_rename();
+    else if (notes & (1u << 3)) {
+        if (transport_busy()) ui_message("STOP TO SAVE");
+        else if (!(user ? up_used(slot) : project_used(slot))) ui_message("EMPTY SLOT");
+        else confirm_open(user ? CF_ERASE_USER : CF_ERASE_PROJ, slot);
+    } else if (!user && ((notes >> SLOT_KEY_NEW) & 1u)) {
+        if (transport_busy()) ui_message("STOP FIRST");
+        else confirm_open(CF_NEW_PROJ, 0);
     }
 }
-/* .. OCT+ saves into the picked project (the NAME screen; a used one: OVERWRITE? first), OCT- loads it (LOAD? first) */
+/* OCT+ saves (NAME, or OVERWRITE first); OCT- loads (LOAD first). An empty slot never starts a new project. */
 static void slots_oct(uint32_t oct)
 {
-    uint32_t k = ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
+    uint32_t user = cur_page()->graph == GR_USER, k = user ? ui.uslot : ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
+    uint32_t used = user ? up_used(k) : project_used(k);
     ui.act = 0;
     if (oct & 2u) {
-        if (transport_busy())
-            ui_message("STOP TO SAVE");
-        else if (project_used(k))
-            confirm_open(CF_OVR_PROJ, k);
-        else
-            name_open(NK_PROJ_SAVE, k);
-    } else if (!project_used(k)) {                    /* M-Vave-OP1: an empty one, a new project there (asked) */
-        if (transport_busy())
-            ui_message("STOP FIRST");
-        else
-            confirm_open(CF_NEW_PROJ, k + 1u);
-    } else {
-        confirm_open(CF_LOAD_PROJ, k);
-    }
+        if (transport_busy()) ui_message("STOP TO SAVE");
+        else if (used) confirm_open(user ? CF_OVR_USER : CF_OVR_PROJ, k);
+        else name_open(user ? NK_USER_SAVE : NK_PROJ_SAVE, k);
+    } else if (!used) ui_message("EMPTY SLOT");
+    else confirm_open(user ? CF_LOAD_USER : CF_LOAD_PROJ, k);
 }
 
 static void key_keys(uint32_t notes)
@@ -468,8 +469,13 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
         memset((void *)drum_lit, 0, sizeof drum_lit);
     c = name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds(br) : grid_on() ? grid_leds() :
                  (fm1_in.notes & ~kb_layer) | play_leds() | step_leds() | (song_keys_on() ? song_leds() : 0u);
-    if (slots_keys_on())                                /* M-Vave-OP1, PROJECT: the projects' keys and NEW */
-        c = 1u << 0 | 1u << 2 | 1u << 4 | 1u << 6 | 1u << SLOT_KEY_NEW;
+    if (slots_keys_on()) {
+        uint32_t k, user = cur_page()->graph == GR_USER, slot = user ? ui.uslot : ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
+        c = user ? 0u : 1u << SLOT_KEY_NEW;
+        for (k = 0; k < 27u; k++)
+            if (!key_black(k) && key_place(k) < (user ? 16u : 4u)) c |= 1u << k;
+        if (user ? up_used(slot) : project_used(slot)) c |= (1u << 1) | (1u << 3);
+    }
     return c;
 }
 
@@ -1274,16 +1280,16 @@ static void edit_param(uint32_t slot, int32_t steps)
         }
         return;
     }
-    if (pg->graph == GR_SLOTS && slot)                    /* M-Vave-OP1, PROJECT: KNOB 1 the project, the rest say */
-        return;                                           /* where NEW, LOAD, SAVE are (F#5, OCT-, OCT+) */
+    if (pg->graph == GR_SLOTS)                    /* PROJECT: keys select; no knob action */
+        return;
     if ((act_cols() >> slot) & 1u) {                      /* an action's knob picks it (right) or drops it (left); */
         if (pg->graph != GR_PATS)                         /* OCT+ does it (act_do) */
             ui.act = steps > 0 ? (uint8_t)(slot + 1u) : ui.act == slot + 1u ? 0u : ui.act;
         return;
     }
-    if (pg->graph == GR_USER) {                           /* KNOB 1 the slot */
+    if (pg->graph == GR_USER) {                           /* KNOB 1 selects one of two banks; keys select its slots. */
         if (slot == 0u)
-            ui.uslot = (uint8_t)clamp((int32_t)ui.uslot + steps, 0, UP_SLOTS - 1);
+            ui.uslot = (uint8_t)((ui.uslot & 15u) + (steps > 0 ? 16u : 0u));
         return;
     }
     if (pg->graph == GR_PATS) {                          /* KNOB 1 the pattern */
@@ -1345,21 +1351,6 @@ static void act_do(void)
             confirm_open(CF_LOAD_PAT, song.sel);
         else                                              /* empty, or a pattern loaded and untouched */
             pat_load_ui(TSEL, pat_pick());
-        return;
-    }
-    if (cur_page()->graph == GR_USER) {                   /* 1 LOAD, 2 ERASE, 3 SAVE (the NAME screen first) */
-        if (c > 1u)
-            ui.act = 0;
-        if (c == 2u && up_used(ui.uslot) && !transport_busy())
-            confirm_open(CF_ERASE_USER, ui.uslot);        /* ERASE: the dialog first */
-        else if (c != 3u)
-            up_ui(c - 1u, ui.uslot);
-        else if (transport_busy())
-            ui_message("STOP TO SAVE");
-        else if (up_used(ui.uslot))
-            confirm_open(CF_OVR_USER, ui.uslot);
-        else
-            name_open(NK_USER_SAVE, ui.uslot);
         return;
     }
     if (cur_page()->graph == GR_SLOTS && c == 1u) {       /* M-Vave-OP1: NEW, after the dialog */
@@ -1533,7 +1524,9 @@ static void presets_turn(int32_t s)
     }
     if (ui.home || g == GR_BROWSE) {
         preset_step(s);
-    } else if (g == GR_ROLL || g == GR_USER || g == GR_SLOTS || g == GR_PATS || g == GR_SONG || g == GR_EVENTS) {
+    } else if (g == GR_USER || g == GR_SLOTS) {
+        return;                                         /* slots are picked by their keys only */
+    } else if (g == GR_ROLL || g == GR_PATS || g == GR_SONG || g == GR_EVENTS) {
         edit_param(0, s);                                 /* KNOB 1's (STEP: STOP TO EDIT while a song plays) */
         ui.hot_col = 0;
         ui.hot_t = 40;
@@ -1614,10 +1607,6 @@ static int page_tap(uint32_t b)
         if (chain_busy()) ui_message("STOP TO EDIT");
         else if (!fxt_used(ui.fxt_sel)) ui_message("NOTHING TO CLEAR");
         else confirm_open(CF_FXT_LANE, ui.fxt_sel);
-        return 1;
-    }
-    if (b == B_EDIT && !ui.home && (cur_page()->graph == GR_USER || cur_page()->graph == GR_SLOTS)) {
-        name_rename();                                  /* SAVE > USER / PROJECT: EDIT renames the slot */
         return 1;
     }
     for (f = FAM_HOME + 1u; f < FAM_COUNT; f++)        /* (GLO SEQ SAVE ..: HOME is ui_input's, home_tap) */
@@ -1847,6 +1836,10 @@ static void ui_input(void)
                 name_open(NK_PROJ_SAVE, ui.confirm_trk & 3u);
             } else if (kind == CF_OVR_USER) {
                 name_open(NK_USER_SAVE, ui.confirm_trk);
+            } else if (kind == CF_LOAD_USER) {
+                up_ui(0u, ui.confirm_trk);
+            } else if (kind == CF_ERASE_PROJ) {
+                project_erase(ui.confirm_trk);
             } else if (kind == CF_ERASE_USER) {
                 up_ui(1u, ui.confirm_trk);
             } else if (kind == CF_LOAD_PAT) {

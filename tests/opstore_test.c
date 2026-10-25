@@ -483,9 +483,35 @@ static int test_usr3(void)
     return check("USR2, USR3: empty sample slots whatever their flash holds (they hold M-Vave-OP1's stores)", ok);
 }
 
+static int test_project_erase(void)
+{
+    uint32_t cut, writes;
+    int bad = 0, ok = 1;
+    reset(); project_save_as(0, "KEEP"); project_save_as(1, "DELETE");
+    progs = 0; project_erase(1); writes = progs;
+    power_on();
+    ok &= project_used(0) && !project_used(1);
+    bad += check("project delete survives a cold boot, leaving other slots and live music alone", ok);
+    ok = 1;
+    for (cut = 0; cut < writes; cut++) {
+        reset(); project_save_as(1, "KEEP");
+        fail_after = (int)cut;
+        ok &= project_erase(1) != 0 && project_used(1);
+        fail_after = -1; power_on();
+        ok &= project_used(1);
+    }
+    bad += check("project delete interrupted at each program retains the previous committed project", ok);
+    reset(); project_save(1); song.playing = 1;
+    ok = project_erase(1) != 0 && project_used(1);
+    song.playing = 0;
+    bad += check("project delete refuses a running transport", ok);
+    return bad;
+}
+
 int main(void)
 {
     int bad = 0;
+    bad += test_project_erase();
     bad += test_extras();
     bad += test_autosave();
     bad += test_scenes();

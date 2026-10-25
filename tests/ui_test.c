@@ -926,6 +926,9 @@ static int test_midi(void)
     return bad;
 }
 
+static void key_down(uint32_t k);
+static void key_up(uint32_t k);
+static void slot_key(uint32_t k) { key_down(k); frame(); key_up(k); frame(); }
 static int test_save(void)
 {
     int bad = 0, ok;
@@ -937,7 +940,7 @@ static int test_save(void)
                  !ui.home && cur_page()->graph == GR_SLOTS && !project_used(0));
     press(B_SAVE);                                /* (SELECT: the next page) */
     bad += check("SAVE, SELECT: USER with SAVE selected, without writing a slot",
-                 !ui.home && cur_page()->graph == GR_USER && ui.act == 4u && !up_used(0));
+                 !ui.home && cur_page()->graph == GR_USER && ui.act == 0u && !up_used(0));
     press(B_OCTUP);
     bad += check("SAVE then OCT+ opens NAME (the automatic name), writes nothing yet",
                  name_on() && nm.kind == NK_USER_SAVE && str_eq(nm.s, nm.ph) && nm.cur == nm.len && !up_used(0));
@@ -959,7 +962,7 @@ static int test_save(void)
     press(B_SAVE);
     ok = cur_page()->graph == GR_SLOTS;
     press(B_SAVE);
-    bad += check("SAVE from HOME returns directly to PROJECT, the next USER", ok && cur_page()->graph == GR_USER && ui.act == 4u);
+    bad += check("SAVE from HOME returns directly to PROJECT, the next USER", ok && cur_page()->graph == GR_USER && ui.act == 0u);
     press(B_OCTUP);
     bad += check("direct SAVE still asks before overwriting an occupied slot",
                  ui.confirm == CF_OVR_USER && up_value(up_rec(0), P_E0) == 5);
@@ -1038,8 +1041,7 @@ static int test_save(void)
     }
     song.playing = 1;
     ui.msg_t = 0;
-    turn(EN_K3, 1);                               /* ERASE */
-    press(B_OCTUP);
+    slot_key(3);                                  /* ERASE */
     bad += check("USER ERASE while playing: STOP TO SAVE", msg_is("STOP TO SAVE") && up_used(4));
     stop_transport();
     return bad;
@@ -1066,8 +1068,6 @@ static uint32_t oct_leds_seen(int all)            /* over 1 s: the OCT LED bits 
 }
 
 /* the action pages: the knobs pick, OCT+ does it, OCT- cancels / goes HOME; the LEDs; chords */
-static void key_down(uint32_t k);
-static void key_up(uint32_t k);
 static int test_actions(void)
 {
     int bad = 0;
@@ -1573,7 +1573,7 @@ static int test_categories(void)
     list_set(0);
     go_page(GR_USER);
     ui.uslot = 4;
-    press(B_EDIT);
+    slot_key(1);
     ok = name_on() && nm.kind == NK_USER_RENAME && nm.cat == CAT_LEAD;
     turn(EN_K3, 3);                                        /* LEAD -> KEYS */
     press(B_OCTUP);
@@ -2657,9 +2657,9 @@ static int test_presets_knob(void)
                 cur_ok &= ui.cursor == 1u && same_snd && same_steps && ui.page == i;
                 n_cur++;
             } else if (g == GR_USER) {
-                sel_ok &= ui.uslot == uslot + 1u && same_snd && same_steps;
+                sel_ok &= ui.uslot == uslot && same_snd && same_steps;
             } else if (g == GR_SLOTS) {
-                sel_ok &= song.g[G_SLOT] == slot + 1 && same_snd && same_steps;
+                sel_ok &= song.g[G_SLOT] == slot && same_snd && same_steps;
             } else if (g == GR_PATS) {
                 sel_ok &= pat_pick() == ppick + 1u && same_snd && same_steps;
             } else if (g == GR_SONG) {
@@ -3529,22 +3529,22 @@ static int test_name(void)
     bad += check("  SAVE held, FX held: nothing in NAME (no undo, no map, no page)", name_on() && ok && cur_page()->graph == GR_USER &&
                  !ui.msg_t);
     press(B_OCTDN);
-    /* rename: EDIT on USER */
+    /* rename: F#3 on USER */
     ui.uslot = 5;
-    press(B_EDIT);
-    bad += check("  EDIT on an empty slot: EMPTY SLOT", !name_on() && msg_is("EMPTY SLOT") && cur_page()->graph == GR_USER);
+    slot_key(1);
+    bad += check("  F#3 on an empty slot: EMPTY SLOT", !name_on() && msg_is("EMPTY SLOT") && cur_page()->graph == GR_USER);
     ui.uslot = 2;
     up_load(2);                                   /* (the sound now comes from U03) */
     trk[0].p[P_E0] = 33;                          /* an edit: a rename must not store it */
-    press(B_EDIT);
-    bad += check("  EDIT on a used slot: NAME (rename) with its name", name_on() && nm.kind == NK_USER_RENAME && str_eq(nm.s, "CB 2"));
+    slot_key(1);
+    bad += check("  F#3 on a used slot: NAME (rename) with its name", name_on() && nm.kind == NK_USER_RENAME && str_eq(nm.s, "CB 2"));
     nm_tap(nm_black_key(NB_DEL, 0));
     nm_tap(white(10)); nm_tap(white(10));          /* VW: W */
     press(B_OCTUP);
     up_name(2, b);
     bad += check("  OCT+: renamed (CB W), the sound stored there unchanged", !name_on() && str_eq(b, "CB W") &&
                  up_value(up_rec(2), P_E0) != 33 && msg_is("RENAMED (RAM)"));
-    press(B_EDIT);
+    slot_key(1);
     for (i = 0; i < 12u; i++) nm_tap(nm_black_key(NB_DEL, 0));
     press(B_OCTUP);
     {
@@ -3577,20 +3577,20 @@ static int test_name(void)
     project_load(1);
     bad += check("  loading it brings its name back (the next save's prefill)", str_eq(proj_name, "PNPNPNPN"));
     trk[0].p[P_LEVEL] = 7;
-    press(B_EDIT);
+    slot_key(1);
     for (i = 0; i < 4u; i++) nm_tap(nm_black_key(NB_DEL, 1));
     press(B_OCTUP);
     {
         char pn[16];
         project_name(1, pn);
-        bad += check("  EDIT renames a project (PNPN); its music unchanged", str_eq(pn, "PNPN") && stored_param(1, 0, P_LEVEL) != 7 &&
+        bad += check("  F#3 renames a project (PNPN); its music unchanged", str_eq(pn, "PNPN") && stored_param(1, 0, P_LEVEL) != 7 &&
                      msg_is("RENAMED (RAM)"));
     }
     song.g[G_SLOT] = 4;
-    press(B_EDIT);
-    bad += check("  EDIT on an empty project slot: EMPTY SLOT", !name_on() && msg_is("EMPTY SLOT"));
+    slot_key(1);
+    bad += check("  F#3 on an empty project slot: EMPTY SLOT", !name_on() && msg_is("EMPTY SLOT"));
     song.g[G_SLOT] = 2;
-    press(B_EDIT);
+    slot_key(1);
     hold(B_HOME);
     bad += check("  HOME held in NAME: the menu, NAME closed", ui.menu && !name_on());
     hold(B_HOME);
@@ -4072,8 +4072,7 @@ static int test_bughunt_ui(void)
     ui_power_on();
     go_page(GR_USER); ui.uslot = 1;
     up_ui(2, 1);
-    turn(EN_K1 + 2, 1);                                 /* KNOB 3: ERASE picked */
-    press(B_OCTUP);
+    slot_key(3);                                      /* G#3: delete selected slot */
     ok = ui.confirm == CF_ERASE_USER && ui.confirm_trk == 1u && up_used(1);
     {
         char a[24], b[24];
@@ -4082,10 +4081,10 @@ static int test_bughunt_ui(void)
     }
     press(B_OCTDN);
     ok &= !ui.confirm && up_used(1);
-    turn(EN_K1 + 2, 1); press(B_OCTUP); press(B_OCTUP);
+    slot_key(3); press(B_OCTUP);
     bad += check("USER ERASE: the ERASE U02? dialog; OCT- keeps the preset, OCT+ erases it",
                  ok && !ui.confirm && !up_used(1));
-    turn(EN_K1 + 2, 1); press(B_OCTUP);
+    slot_key(3);
     bad += check("  an empty slot: no dialog, EMPTY SLOT", !ui.confirm && msg_is("EMPTY SLOT"));
     {   /* 4: AUTOMATION (CHANCE's since 1.2) is not STEP: no grid, no key entry, no EDIT clear (its knobs only) */
         uint32_t before;
@@ -4183,12 +4182,12 @@ static int test_bughunt_ui(void)
     up_ui(2, 0);
     go_page(GR_USER); ui.uslot = 0; frame();
     ui.msg_t = 0;
-    press(B_EDIT);
+    slot_key(1);
     ok = name_on() && !msg_is("HOLD [EDIT] QUICK");
     ui_power_on();
     layer_seen = 0;
     press(B_EDIT);
-    bad += check("EDIT tap = RENAME on USER: no layer hint over NAME (elsewhere the hint as before)",
+    bad += check("F#3 = RENAME on USER: no layer hint over NAME (elsewhere the hint as before)",
                  ok && msg_is("HOLD [EDIT] QUICK"));
     return bad;
 }
@@ -4687,7 +4686,7 @@ static int test_bughunt_ui2(void)
         ok = str_eq(proj_name, "OLD");
         project_rename(2, "ELSE");
         ok &= str_eq(proj_name, "OLD");                               /* another slot: the music's name stays */
-        press(B_EDIT);                                                /* rename B on the slot list */
+        slot_key(1);                                                  /* rename B on the slot list */
         while (nm.len) { nm_do(NB_DEL); }
         nm_white(13); frames(900);
         str_cpy(nm.s, "NEW", sizeof nm.s); nm.len = nm.cur = 3; nm.key = 0;

@@ -1885,7 +1885,8 @@ static void engine_sound_row(int32_t y, int32_t x1)   /* (the name and its star 
 /* user preset slots around the selected one: "U07  NAME" / EMPTY */
 static void graph_user(void)
 {
-    int32_t row, first = clamp((int32_t)ui.uslot - 3, 0, UP_SLOTS - 7);
+    static const char *const KEY[16] = {"F3", "G3", "A3", "B3", "C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5"};
+    int32_t row, bank = ui.uslot & 16u, first = clamp((int32_t)ui.uslot - 3, bank, bank + 16 - 7);
     for (row = 0; row < 7; row++) {
         uint32_t k = (uint32_t)(first + row);
         char tag[4], nm[13];
@@ -1895,7 +1896,8 @@ static void graph_user(void)
             up_name(k, nm);
         else
             str_cpy(nm, "--", sizeof nm);
-        list_row(LIST_Y(row), k == ui.uslot, tag, T_MID, nm, used ? T_TEXT : T_DIM, 232);
+        list_row(LIST_Y(row), k == ui.uslot, tag, T_MID, nm, used ? T_TEXT : T_DIM, 196);
+        cv_text_on(204, LIST_Y(row) + LIST_TY, &AF_S, KEY[k & 15u], k == ui.uslot ? T_INK : T_DIM, k == ui.uslot ? T_THEME : T_SURF);
     }
 }
 /* SAVE > PHRASES: the pattern list around the one picked ("03  MELODY", "U07  MY BASS") */
