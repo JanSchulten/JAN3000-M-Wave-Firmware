@@ -42,8 +42,39 @@
   .dim { color: var(--dim); }
   #status { min-height: 1.4em; }
   section { margin: 12px 0; }
-  .groups { columns: 250px; column-gap: 20px; }
-  .group { break-inside: avoid; margin: 0 0 12px; }
+  /* M-Vave-OP1: the parameter groups as cards in a grid, each section its own colour (--c: the knobs' arc, the
+     headings, the curves); the colours as tokens for light and dark */
+  :root { --card: #f4f4f1; --env: #c2410c; --lfo: #0e7490; --mod: #7c3aed; --edit: #047857; --voice: #be185d; --fx: #1d4ed8;
+          --scl: #4d7c0f; --arp: #b45309; --seq: #0f766e; --glob: #57534e; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --card: #141414; --env: #fb923c; --lfo: #22d3ee; --mod: #a78bfa; --edit: #34d399;
+      --voice: #f472b6; --fx: #60a5fa; --scl: #a3e635; --arp: #fbbf24; --seq: #2dd4bf; --glob: #a8a29e; }
+  }
+  :root[data-theme="dark"] { --card: #141414; --env: #fb923c; --lfo: #22d3ee; --mod: #a78bfa; --edit: #34d399;
+    --voice: #f472b6; --fx: #60a5fa; --scl: #a3e635; --arp: #fbbf24; --seq: #2dd4bf; --glob: #a8a29e; }
+  .groups { columns: 300px; column-gap: 12px; }
+  .group { margin: 0 0 12px; }
+  .groups > .group { break-inside: avoid; margin: 0 0 12px; background: var(--card); border-top: 3px solid var(--c, var(--fg)); border-radius: 6px; padding: 8px 10px 10px;
+                     min-width: 0; }
+  .groups > .group > h2 { border-bottom: 0; color: var(--c, var(--fg)); letter-spacing: .06em; text-transform: uppercase; }
+  .groups > .group > h3 { color: var(--c, var(--dim)); opacity: .85; margin-top: 8px; letter-spacing: .04em; }
+  .sec-env { --c: var(--env); } .sec-lfo { --c: var(--lfo); } .sec-mod { --c: var(--mod); } .sec-edit { --c: var(--edit); }
+  .sec-voice { --c: var(--voice); } .sec-fx { --c: var(--fx); } .sec-scl { --c: var(--scl); } .sec-arp { --c: var(--arp); }
+  .sec-seq { --c: var(--seq); } .sec-glob { --c: var(--glob); }
+  .cells { display: flex; flex-wrap: wrap; gap: 6px 4px; margin-top: 2px; }
+  .cell { display: grid; justify-items: center; align-content: start; width: 66px; gap: 1px; font-size: 11px; }
+  .cell > .l { color: var(--dim); letter-spacing: .03em; white-space: nowrap; }
+  .cell > .v { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .cell.sel { width: 136px; justify-items: stretch; }
+  .cell.sel > .l { justify-self: start; }
+  .cell.sel > .v { display: none; }                 /* (the select shows its value) */
+  .cell.pushed > .v { font-weight: 600; }
+  .knob { position: relative; width: 46px; height: 46px; cursor: ns-resize; touch-action: none; border-radius: 50%; }
+  .knob svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .knob .tr { stroke: var(--line); } .knob .va { stroke: var(--c, var(--fg)); } .knob .pt { stroke: var(--fg); }
+  .knob:focus-within { outline: 2px solid var(--c, var(--fg)); outline-offset: 1px; }
+  .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+  canvas.viz { display: block; width: 100%; height: 86px; margin: 4px 0 6px; border-radius: 4px; background: var(--bg); }
   .row { display: grid; grid-template-columns: 46px 1fr 70px; gap: 6px; align-items: center; min-height: 22px; }
   .row .v { text-align: right; white-space: nowrap; }
   .row select { width: 100%; }
@@ -3577,10 +3608,13 @@ function buildGroups() {
   const { info } = dev;
   if (knownLayout(info)) {
     for (const g of LAYOUT(info.pe0)) {
-      const div = el("div", { class: "group" }, el("h2", { ic: HEAD_IC[g.t], text: g.engine ? `EDIT ${info.engines[dev.dump.engine] || ""}` : g.t }));
+      const div = el("div", { class: "group sec-" + (SEC_OF[g.t] || "glob") },
+        el("h2", { ic: HEAD_IC[g.t], text: g.engine ? `EDIT ${info.engines[dev.dump.engine] || ""}` : g.t }));
+      const viz = g.t === "ENV" ? "env" : g.t === "LFO" ? "lfo" : g.engine && filterIds() ? "filter" : null;
+      if (viz) div.append(vizCanvas(viz));
       if (g.mod != null) {                          /* MOD: slot number, SRC, DST, AMT in one row */
         for (let k = 0; k < 4; k++) {
-          const r = [0, 1, 2].map((j) => paramRow(0, g.mod + 3 * k + j));
+          const r = [0, 1, 2].map((j) => paramRow(0, g.mod + 3 * k + j, { slider: true }));
           if (r.some((x) => !x)) continue;
           const row = el("div", { class: "row modrow" }, el("span", { text: String(k + 1) }), r[0].children[1], r[1].children[1],
             r[2].children[1], r[2].children[2]);
@@ -3594,25 +3628,152 @@ function buildGroups() {
         const rows = ids.map((id) => paramRow(s, id)).filter(Boolean);
         if (!rows.length) continue;
         const tt = g.engine && (dev.titles[dev.dump.engine] || [])[g.pages.findIndex((x) => x[0] === title)];
-        if (g.pages.length > 1) div.append(el("h3", { ic: PAGE_IC[tt || title], text: tt || title }));
-        div.append(...rows);
+        if (g.pages.length > 1 && (tt || title) !== g.t) div.append(el("h3", { ic: PAGE_IC[tt || title], text: tt || title }));
+        div.append(el("div", { class: "cells" }, ...rows));
       }
       groups[g.tab || "groups"].push(div);
     }
   } else {
     /* unknown firmware layout: everything in id order */
-    const a = el("div", { class: "group" }, el("h2", { ic: HEAD_IC.INSTRUMENT, text: "INSTRUMENT" }), el("p", { class: "dim", text: t("layout") }));
-    const b = el("div", { class: "group" }, el("h2", { ic: HEAD_IC.EDIT, text: "EDIT" }));
-    const c = el("div", { class: "group" }, el("h2", { ic: HEAD_IC.GLOBAL, text: "GLOBAL" }));
-    for (let i = 0; i < info.pcount; i++) { const r = paramRow(0, i); if (r) (i >= info.pe0 ? b : a).append(r); }
-    for (let i = 0; i < info.gcount; i++) { const r = paramRow(1, i); if (r) c.append(r); }
+    const a = el("div", { class: "group sec-voice" }, el("h2", { ic: HEAD_IC.INSTRUMENT, text: "INSTRUMENT" }), el("p", { class: "dim", text: t("layout") }));
+    const b = el("div", { class: "group sec-edit" }, el("h2", { ic: HEAD_IC.EDIT, text: "EDIT" }));
+    const c = el("div", { class: "group sec-glob" }, el("h2", { ic: HEAD_IC.GLOBAL, text: "GLOBAL" }));
+    const ca = el("div", { class: "cells" }), cb = el("div", { class: "cells" }), cc = el("div", { class: "cells" });
+    a.append(ca); b.append(cb); c.append(cc);
+    for (let i = 0; i < info.pcount; i++) { const r = paramRow(0, i); if (r) (i >= info.pe0 ? cb : ca).append(r); }
+    for (let i = 0; i < info.gcount; i++) { const r = paramRow(1, i); if (r) cc.append(r); }
     groups.groups.push(a, b);
     groups.setgroups.push(c);
   }
   for (const [id, divs] of Object.entries(groups)) $(id).replaceChildren(...divs);
 }
 
-function paramRow(s, id) {
+/* M-Vave-OP1: the sections' colours, and the curves over ENV (its ATK DEC SUS REL), LFO (WAVE RATE PHS FADE, moving at
+   its rate) and the engine's filter (its CUT and RES: a two-pole response; ANALOG's TYPE LP / BP / HP), drawn from the
+   values as they are (dev.dump.p: a knob turned redraws them at once) */
+const SEC_OF = { ENV: "env", LFO: "lfo", MOD: "mod", EDIT: "edit", "OP ENV": "edit", VOICE: "voice", FX: "fx", SCL: "scl",
+  ARP: "arp", "SEQ PATTERN": "seq", GLOBAL: "glob" };
+let vizDirty = true, vizRaf = 0;
+const vizList = [];
+function vizCanvas(kind) {
+  const cv = el("canvas", { class: "viz", "aria-hidden": "true" });
+  vizList.push({ cv, kind });
+  if (!vizRaf) vizRaf = requestAnimationFrame(vizFrame);
+  return cv;
+}
+/* the engine's CUT and RES (EDIT 1 / 2 values by label) -> [cut id, res id] or null */
+function filterIds() {
+  if (!dev || !dev.info) return null;
+  const pe0 = dev.info.pe0, ids = (lbl) => [0, 1, 2, 3, 4, 5, 6, 7].map((i) => pe0 + i).find((i) => dev.pdesc[i] && dev.pdesc[i].label === lbl);
+  const c = ids("CUT"), r = ids("RES");
+  return c != null && dev.pdesc[c].fmt === F.CUTOFF ? [c, r] : null;
+}
+const pv = (id) => (dev && dev.dump && dev.dump.p[id] != null ? dev.dump.p[id] : 0);
+const msOf = (v) => Math.pow(10000, (v & 127) / 127);     /* F.TIME: 1 ms .. 10 s */
+function vizSetup(cv) {
+  const r = window.devicePixelRatio || 1, w = Math.max(10, cv.clientWidth), h = Math.max(10, cv.clientHeight);
+  if (cv.width !== Math.round(w * r) || cv.height !== Math.round(h * r)) { cv.width = Math.round(w * r); cv.height = Math.round(h * r); }
+  const g = cv.getContext("2d");
+  g.setTransform(r, 0, 0, r, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const cs = getComputedStyle(cv);
+  return { g, w, h, c: cs.getPropertyValue("--c").trim() || "#888", fg: cs.getPropertyValue("--fg").trim(), dim: cs.getPropertyValue("--dim").trim(),
+    line: cs.getPropertyValue("--line").trim() };
+}
+function vizFill(g, c, path) { g.save(); g.globalAlpha = 0.18; g.fillStyle = c; g.fill(path); g.restore(); }
+function vizText(g, col, txt, x, y, align = "left") { g.fillStyle = col; g.font = "10px -apple-system, BlinkMacSystemFont, sans-serif"; g.textAlign = align; g.fillText(txt, x, y); }
+function drawEnv(cv) {
+  const { g, w, h, c, dim } = vizSetup(cv);
+  const A = msOf(pv(1)), D = msOf(pv(2)), S = pv(3) / 127, Rl = msOf(pv(4));
+  const sq = (ms) => Math.sqrt(ms), tot = sq(A) + sq(D) + sq(Rl) + sq(400), sx = (w - 8) / tot;   /* time on a square-root scale */
+  const top = 8, bot = h - 14, y = (lv) => bot - (bot - top) * lv;
+  const xa = 4 + sq(A) * sx, xd = xa + sq(D) * sx, xs = xd + sq(400) * sx, xr = xs + sq(Rl) * sx;
+  const p = new Path2D();
+  p.moveTo(4, y(0));
+  for (let i = 1; i <= 24; i++) { const f = i / 24; p.lineTo(4 + (xa - 4) * f, y(1 - Math.pow(1 - f, 2.2))); }
+  for (let i = 1; i <= 24; i++) { const f = i / 24; p.lineTo(xa + (xd - xa) * f, y(S + (1 - S) * Math.exp(-4 * f))); }
+  p.lineTo(xs, y(S));
+  for (let i = 1; i <= 24; i++) { const f = i / 24; p.lineTo(xs + (xr - xs) * f, y(S * Math.exp(-4 * f) * (1 - f))); }
+  const fillp = new Path2D(p); fillp.lineTo(xr, y(0)); fillp.closePath();
+  vizFill(g, c, fillp);
+  g.strokeStyle = c; g.lineWidth = 2; g.lineJoin = "round"; g.stroke(p);
+  const lbl = (ms) => (ms < 10 ? ms.toFixed(1) + " ms" : ms < 1000 ? Math.round(ms) + " ms" : (ms / 1000).toFixed(2) + " s");
+  vizText(g, dim, "A " + lbl(A), 4, h - 2);
+  vizText(g, dim, "D " + lbl(D), Math.max(xa, 60), h - 2);
+  vizText(g, dim, "S " + Math.round(S * 100) + " %", Math.max(xd + 4, 120), y(S) - 4);
+  vizText(g, dim, "R " + lbl(Rl), w - 4, h - 2, "right");
+}
+function lfoAt(wave, ph, seed) {                    /* ph in cycles -> -1 .. 1 */
+  const f = ph - Math.floor(ph);
+  switch (wave) {
+    case 0: return Math.sin(2 * Math.PI * f);
+    case 1: return f < 0.25 ? 4 * f : f < 0.75 ? 2 - 4 * f : 4 * f - 4;
+    case 2: return 1 - 2 * f;
+    case 3: return f < 0.5 ? 1 : -1;
+    default: { const n = Math.floor(ph) + seed; const x = Math.sin(n * 12.9898) * 43758.5453; return 2 * (x - Math.floor(x)) - 1; }
+  }
+}
+function drawLfo(cv, now) {
+  const { g, w, h, c, dim, line } = vizSetup(cv);
+  const rate = 0.05 * Math.pow(800, (pv(9) & 127) / 127), wave = pv(10), ph0 = pv(11) / 128, fade = msOf(pv(12));
+  const cycles = 2, mid = (h - 12) / 2 + 2, amp = (h - 22) / 2;
+  g.strokeStyle = line; g.lineWidth = 1; g.beginPath(); g.moveTo(0, mid); g.lineTo(w, mid); g.stroke();
+  const dur = cycles / rate * 1000, fadeF = pv(12) ? Math.min(1, fade / dur) : 0;
+  const p = new Path2D();
+  for (let i = 0; i <= w; i += 1) {
+    const f = i / w, a = fadeF ? Math.min(1, f / fadeF) : 1;
+    const yv = mid - amp * a * lfoAt(wave, ph0 + f * cycles, 7);
+    if (i === 0) p.moveTo(i, yv); else p.lineTo(i, yv);
+  }
+  g.strokeStyle = c; g.lineWidth = 2; g.lineJoin = "round"; g.stroke(p);
+  const pos = ((now / 1000) * rate / cycles) % 1, x = pos * w;            /* the dot moves at the LFO's rate */
+  const a = fadeF ? Math.min(1, pos / fadeF) : 1, yd = mid - amp * a * lfoAt(wave, ph0 + pos * cycles, 7);
+  g.fillStyle = c; g.beginPath(); g.arc(x, yd, 4, 0, 2 * Math.PI); g.fill();
+  const names = (dev.pdesc[10] && dev.pdesc[10].names) || [];
+  vizText(g, dim, `${names[wave - (dev.pdesc[10] ? dev.pdesc[10].min : 0)] || ""} · ${rate < 10 ? rate.toFixed(2) : rate.toFixed(1)} Hz`, 4, h - 2);
+  if (pv(12)) vizText(g, dim, "FADE " + (fade < 1000 ? Math.round(fade) + " ms" : (fade / 1000).toFixed(2) + " s"), w - 4, h - 2, "right");
+}
+function drawFilter(cv) {
+  const ids = filterIds();
+  if (!ids) return;
+  const { g, w, h, c, dim, line } = vizSetup(cv);
+  const fc = 30 * Math.pow(16000 / 30, (pv(ids[0]) & 127) / 127), res = ids[1] != null ? pv(ids[1]) / 127 : 0.2;
+  const Q = 0.55 + 9 * res * res;
+  const tdesc = dev.pdesc[101], type = engName() === "ANALOG" && tdesc && tdesc.names ? tdesc.names[pv(101) - tdesc.min] || "LP" : "LP";
+  const f0 = 20, f1 = 20000, top = 6, bot = h - 14, dbTop = 18, dbBot = -36;
+  const X = (f) => (Math.log(f / f0) / Math.log(f1 / f0)) * w, Y = (db) => top + (bot - top) * (dbTop - Math.max(dbBot, Math.min(dbTop, db))) / (dbTop - dbBot);
+  g.strokeStyle = line; g.lineWidth = 1;
+  for (const f of [100, 1000, 10000]) { g.beginPath(); g.moveTo(X(f), top); g.lineTo(X(f), bot); g.stroke(); }
+  g.beginPath(); g.moveTo(0, Y(0)); g.lineTo(w, Y(0)); g.stroke();
+  const p = new Path2D();
+  for (let i = 0; i <= w; i++) {
+    const f = f0 * Math.pow(f1 / f0, i / w), x = f / fc, re = 1 - x * x, im = x / Q, den = Math.hypot(re, im);
+    const mag = type === "HP" ? (x * x) / den : type === "BP" ? (x / Q) / den : 1 / den;
+    const yv = Y(20 * Math.log10(Math.max(1e-6, mag)));
+    if (i === 0) p.moveTo(i, yv); else p.lineTo(i, yv);
+  }
+  const fillp = new Path2D(p); fillp.lineTo(w, bot); fillp.lineTo(0, bot); fillp.closePath();
+  vizFill(g, c, fillp);
+  g.strokeStyle = c; g.lineWidth = 2; g.stroke(p);
+  vizText(g, dim, `${type} · ${fc < 1000 ? Math.round(fc) + " Hz" : (fc / 1000).toFixed(1) + " kHz"}`, 4, h - 2);
+  vizText(g, dim, "100", X(100) + 2, top + 8); vizText(g, dim, "1k", X(1000) + 2, top + 8); vizText(g, dim, "10k", X(10000) + 2, top + 8);
+}
+function vizFrame(now) {
+  vizRaf = 0;
+  for (let i = vizList.length - 1; i >= 0; i--) if (!vizList[i].cv.isConnected) vizList.splice(i, 1);
+  if (!vizList.length) return;
+  const show = !document.hidden && dev && dev.dump;
+  for (const v of vizList) {
+    if (!show || !v.cv.offsetParent) continue;
+    if (v.kind === "lfo") drawLfo(v.cv, now);
+    else if (vizDirty || v.cv.width === 300) (v.kind === "env" ? drawEnv : drawFilter)(v.cv);
+  }
+  vizDirty = false;
+  vizRaf = requestAnimationFrame(vizFrame);
+}
+addEventListener("resize", () => { vizDirty = true; });
+
+function paramRow(s, id, opt = {}) {
   const d = s ? dev.gdesc[id] : dev.pdesc[id];
   if (!visible(d) || (s === 1 && G_SKIP.has(d.label))) return null;
   const k = key(s, id);
@@ -3657,10 +3818,79 @@ function paramRow(s, id) {
   }
   input.title = d.label;
   const out = el("span", { class: "v" });
-  const row = el("div", { class: "row" }, el("span", { text: d.label }), input, out);
-  ctl.set(k, { input, out, desc: d, scope: s, id, row });
+  if (opt.slider) {                                 /* (the MOD rows: a slider in its row) */
+    const row = el("div", { class: "row" }, el("span", { text: d.label }), input, out);
+    ctl.set(k, { input, out, desc: d, scope: s, id, row });
+    showValue(k, s ? dev.dump.g[id] : dev.dump.p[id], true);
+    return row;
+  }
+  const sel = input.tagName === "SELECT";
+  const knob = sel ? null : makeKnob(input, d, s, id, k);
+  const row = el("div", { class: "cell" + (sel ? " sel" : "") }, el("span", { class: "l", text: d.label }), sel ? input : knob.el, out);
+  ctl.set(k, { input, out, desc: d, scope: s, id, row, knob: knob && knob.draw });
   showValue(k, s ? dev.dump.g[id] : dev.dump.p[id], true);
   return row;
+}
+
+/* M-Vave-OP1: a knob over the slider's input (kept, out of sight: the keys, the editor's logic): drag up / down (Shift:
+   finer), the wheel over it, double-click resets; the arc from the start (or from the middle for a bipolar value) */
+function makeKnob(input, d, s, id, k) {
+  input.classList.add("sr");
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 46 46");
+  const mk = (cls, w) => { const p = document.createElementNS(NS, "path"); p.setAttribute("class", cls); p.setAttribute("fill", "none");
+    p.setAttribute("stroke-width", w); p.setAttribute("stroke-linecap", "round"); svg.append(p); return p; };
+  const tr = mk("tr", 4), va = mk("va", 4), pt = mk("pt", 2);
+  const A0 = -135, A1 = 135, R = 18, C = 23;
+  const xy = (a, r = R) => [C + r * Math.sin(a * Math.PI / 180), C - r * Math.cos(a * Math.PI / 180)];
+  const arc = (a, b) => {
+    if (Math.abs(b - a) < 0.5) return "";
+    const [x0, y0] = xy(Math.min(a, b)), [x1, y1] = xy(Math.max(a, b));
+    return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 ${Math.abs(b - a) > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  };
+  tr.setAttribute("d", arc(A0, A1));
+  const span = Math.max(1, d.max - d.min), mid = d.min < 0 && d.max > 0 ? A0 + (A1 - A0) * (-d.min / span) : A0;
+  const draw = (v) => {
+    const a = A0 + (A1 - A0) * ((Math.max(d.min, Math.min(d.max, v)) - d.min) / span);
+    va.setAttribute("d", arc(mid, a));
+    const [x0, y0] = xy(a, 7), [x1, y1] = xy(a, 14);
+    pt.setAttribute("d", `M${x0.toFixed(2)} ${y0.toFixed(2)}L${x1.toFixed(2)} ${y1.toFixed(2)}`);
+  };
+  const wrap = el("div", { class: "knob", title: d.label }, svg, input);
+  const setV = (v, final) => {
+    v = Math.max(d.min, Math.min(d.max, Math.round(v)));
+    if (v === +input.value && !final) return;
+    input.value = String(v);
+    draw(v);
+    userSet(s, id, v, final);
+  };
+  let drag = null;
+  wrap.addEventListener("pointerdown", (e) => {
+    if (e.button) return;
+    e.preventDefault();
+    input.focus({ preventScroll: true });
+    wrap.setPointerCapture(e.pointerId);
+    drag = { y: e.clientY, v: +input.value };
+    dragging = k;
+  });
+  wrap.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const per = span / (e.shiftKey ? 600 : 160);             /* 160 px for the whole range (Shift: 600) */
+    setV(drag.v + (drag.y - e.clientY) * per, false);
+  });
+  const end = () => { if (drag) { drag = null; dragging = null; userSet(s, id, +input.value, true); } };
+  wrap.addEventListener("pointerup", end);
+  wrap.addEventListener("pointercancel", end);
+  wrap.addEventListener("dblclick", () => setV(d.def, true));
+  let acc = 0;
+  wrap.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    acc += (e.deltaMode === 1 ? 33 : 1) * -e.deltaY;
+    const n = Math.trunc(acc / 40);
+    if (n) { acc -= n * 40; setV(+input.value + n * (e.shiftKey ? 10 : Math.max(1, Math.round(span / 127))), true); }
+  }, { passive: false });
+  input.addEventListener("input", () => draw(+input.value));
+  return { el: wrap, draw };
 }
 
 function showValue(k, v, force) {
@@ -3669,6 +3899,8 @@ function showValue(k, v, force) {
   const [txt0, unit] = fmtValue(c.desc, v), txt = modDst(c.desc, txt0);
   c.out.textContent = unit ? `${txt} ${unit}` : txt;
   if (force || !touched(k)) c.input.value = String(v);
+  if (c.knob) c.knob(+c.input.value);
+  vizDirty = true;
 }
 /* the user is working on this control: polling and pushes must not move it */
 function touched(k) {
