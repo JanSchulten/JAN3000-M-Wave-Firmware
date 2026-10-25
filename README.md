@@ -423,7 +423,9 @@ sources as the device's): the editor talks to it as to a device, so the Sound ta
 their presets, the 6-OP FM tab, the library and the user presets all work, with the firmware's own sound. Saves stay
 in that browser. The computer keyboard plays the selected track as Ableton's does (A W S E D F T G Y H U J K O L P ; '
 from the octave's C, Z / X octave, C / V velocity), on the device too; a MIDI keyboard on the computer plays the
-page's FM-1. The editor speaks English, German and Japanese. `python3 web/make_editor_artifact.py` builds it as a
+page's FM-1. Connected to the FM-1, the editor keeps a copy of its user presets in the browser (again after every
+change); No device starts with them, so they play with the firmware's own sound and can be edited without the FM-1,
+and a button in Projects > Presets on the device brings them back to it. The editor speaks English, German and Japanese. `python3 web/make_editor_artifact.py` builds it as a
 claude.ai Artifact page (there without Web MIDI: No device only; files are saved through the page's downloads
 capability).
 

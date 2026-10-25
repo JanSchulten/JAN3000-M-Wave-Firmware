@@ -328,6 +328,7 @@
         <button id="dfall" data-t="dfAll" data-ic="symbol_download"></button>
         <input id="dffile" type="file" accept=".json,application/json" multiple hidden><span class="dim" id="dfcount"></span></p>
       <div class="list" id="dflist"></div>
+      <p class="bar" style="margin-top:6px"><button id="mircopy" data-ic="control_arrow_loop"></button><span class="dim" id="mirinfo"></span></p>
     </div>
     <div id="backup-panel" style="margin-top:16px">
       <h2 data-t="backupTitle"></h2>
@@ -2616,7 +2617,13 @@ const TEXT = {
     deviceRejected: "本体がこの設定を受け付けませんでした。",
     devicePending: "反映しました。再生を停止すると保存されます。",
 
-    other: "English", cancel: "キャンセル", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
+    other: "English", mirFromDev: "本体のプリセットを取り込む", mirFromEmu: "「本体なし」のプリセットを本体へ",
+    mirDevInfo: "このブラウザに本体のプリセット {n} 個 ({when})", mirEmuInfo: "「本体なし」のプリセット {n} 個 ({when})",
+    mirDevNone: "本体のプリセットのコピーはまだありません: 一度接続してください", mirEmuNone: "「本体なし」にはまだプリセットがありません",
+    mirMine: "こちらのコピー: {when}", mirDone: "プリセットをコピーしました: ",
+    mirAskDev: "これらのスロットを本体のプリセット {n} 個で置き換えますか (本体の空きスロットはここでも空に)?",
+    mirAskEmu: "本体のスロットを「本体なし」のプリセット {n} 個で置き換えますか (空きスロットは本体で消去)?",
+    cancel: "キャンセル", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
     kbdHelp: "キーボード: {keys} で演奏 ({range}) · {oct} オクターブ · {vel} ベロシティ {v}",
     connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
     sound: "音色", engine: "エンジン", presets: "プリセット", initSound: "音色を初期化",
@@ -2727,6 +2734,12 @@ const TEXT = {
     devicePending: "Applied. Settings will save when playback stops.",
 
     other: "日本語", connect: "Connect", disconnect: "Disconnect", mock: "Mock device (no hardware)",
+    mirFromDev: "Take the FM-1's presets", mirFromEmu: "Bring the No-device presets to the FM-1",
+    mirDevInfo: "This browser keeps the FM-1's {n} presets ({when})", mirEmuInfo: "No device has {n} presets ({when})",
+    mirDevNone: "No copy of the FM-1's presets yet: connect it once", mirEmuNone: "No device has no presets of its own yet",
+    mirMine: "this side's copy: {when}", mirDone: "Presets copied: ",
+    mirAskDev: "Replace these slots with the FM-1's {n} presets (its empty slots empty here too)?",
+    mirAskEmu: "Replace the FM-1's slots with the {n} presets of No device (their empty slots erased on the FM-1)?",
     cancel: "Cancel", emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
     kbdHelp: "Keyboard: {keys} play ({range}) · {oct} octave · {vel} velocity {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Init sound",
@@ -2769,7 +2782,7 @@ const TEXT = {
     bank: "User presets on the device", bankLoad: "Load", bankStore: "Store current sound", bankGet: "To library",
     exportBank: "Export bank", dndHelp: "You can also drag between the library and the slots.",
     confirmOverwrite: "Overwrite slot {n} ({name})?",
-    dfTitle: "Presets on the device", dfHelp: "The user preset slots as files: download one, replace one with a file (its button, or drop the file on its row), or upload several (a sound named like a slot replaces it, the others go into empty slots). They show in PRESETS beside the factory presets. Send me a file to make it a factory preset.",
+    dfTitle: "Presets on the device", dfHelp: "The user preset slots as files: download one, replace one with a file (its button, or drop the file on its row), or upload several (a sound named like a slot replaces it, the others go into empty slots). They show in PRESETS beside the factory presets. Send me a file to make it a factory preset. This browser also keeps a copy of the FM-1's presets: No device starts with them, to play and edit them without the FM-1, and brings them back.",
     dfUpload: "Upload files", dfAll: "Download all", dfGet: "Download", dfPut: "Replace", dfGetTip: "This preset as a file",
     dfPutTip: "Replace this slot with a preset file", dfNone: "no sound for this firmware in it", dfReplaces: "replaces",
     dfFull: "No empty slot left for", dfConfirm: "Write these presets to the device?", dfDone: "Presets written: ", confirmEraseSlot: "Erase slot {n} ({name})?",
@@ -2837,6 +2850,12 @@ const TEXT = {
     devicePending: "Übernommen. Die Einstellungen werden gespeichert, wenn die Wiedergabe stoppt.",
 
     connect: "Verbinden", disconnect: "Trennen", mock: "Simuliertes Gerät (keine Hardware)",
+    mirFromDev: "Presets vom FM-1 übernehmen", mirFromEmu: "Presets von „Ohne Gerät“ aufs FM-1",
+    mirDevInfo: "Dieser Browser hat die {n} Presets des FM-1 ({when})", mirEmuInfo: "„Ohne Gerät“ hat {n} Presets ({when})",
+    mirDevNone: "Noch keine Kopie der Presets des FM-1: einmal verbinden", mirEmuNone: "„Ohne Gerät“ hat noch keine eigenen Presets",
+    mirMine: "Kopie dieser Seite: {when}", mirDone: "Presets kopiert: ",
+    mirAskDev: "Diese Plätze durch die {n} Presets des FM-1 ersetzen (seine leeren Plätze werden hier auch leer)?",
+    mirAskEmu: "Die Plätze des FM-1 durch die {n} Presets von „Ohne Gerät“ ersetzen (deren leere Plätze werden am FM-1 gelöscht)?",
     cancel: "Abbrechen", emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
     kbdHelp: "Tastatur: {keys} spielen ({range}) · {oct} Oktave · {vel} Anschlag {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Sound zurücksetzen",
@@ -2879,7 +2898,7 @@ const TEXT = {
     bank: "User-Presets am Gerät", bankLoad: "Laden", bankStore: "Aktuellen Sound ablegen", bankGet: "In die Bibliothek",
     exportBank: "Bank exportieren", dndHelp: "Du kannst auch zwischen Bibliothek und Plätzen ziehen.",
     confirmOverwrite: "Platz {n} ({name}) überschreiben?",
-    dfTitle: "Presets am Gerät", dfHelp: "Die User-Preset-Plätze als Dateien: eins herunterladen, eins durch eine Datei ersetzen (Button, oder die Datei auf die Zeile ziehen), oder mehrere hochladen (ein Sound mit dem Namen eines Platzes ersetzt ihn, die anderen kommen auf leere Plätze). Sie erscheinen in PRESETS neben den Werks-Presets. Schick mir eine Datei, um ein Werks-Preset daraus zu machen.",
+    dfTitle: "Presets am Gerät", dfHelp: "Die User-Preset-Plätze als Dateien: eins herunterladen, eins durch eine Datei ersetzen (Button, oder die Datei auf die Zeile ziehen), oder mehrere hochladen (ein Sound mit dem Namen eines Platzes ersetzt ihn, die anderen kommen auf leere Plätze). Sie erscheinen in PRESETS neben den Werks-Presets. Schick mir eine Datei, um ein Werks-Preset daraus zu machen. Dieser Browser behält außerdem eine Kopie der Presets des FM-1: „Ohne Gerät“ startet mit ihnen, zum Spielen und Bearbeiten ohne FM-1, und bringt sie zurück.",
     dfUpload: "Dateien hochladen", dfAll: "Alle herunterladen", dfGet: "Herunterladen", dfPut: "Ersetzen", dfGetTip: "Dieses Preset als Datei",
     dfPutTip: "Diesen Platz durch eine Preset-Datei ersetzen", dfNone: "kein Sound für diese Firmware darin", dfReplaces: "ersetzt",
     dfFull: "Kein leerer Platz mehr für", dfConfirm: "Diese Presets auf das Gerät schreiben?", dfDone: "Presets geschrieben: ", confirmEraseSlot: "Platz {n} ({name}) löschen?",
@@ -3346,6 +3365,7 @@ async function connect() {
     setLabel($("connect"), t("disconnect"));
     await load(connectedDevice);
     renderKbd();
+    if (!emu || !(await mirrorFill())) mirrorSoon(connectedDevice, 300);
   } catch (e) {
     console.error(e);
     if (connectedDevice && connectedDevice === dev) { /* an old connection must not close a replacement */
@@ -5181,6 +5201,7 @@ const checkRc = (rc) => { if (rc) throw new Error(t("flashFail").replace("{rc}",
 async function refreshSlot(slot, d = dev) {
   const r = parse[CMD.UP_LIST](await sessionRequest(d, req.upList(slot, 1)));
   if (d.bank && r.slots[0]) d.bank.slots[slot] = r.slots[0];
+  mirrorSoon(d);
 }
 
 function libAudition(id) {
@@ -5423,6 +5444,7 @@ function renderDevFiles() {
     tb.append(tr);
   }
   $("dflist").replaceChildren(tb);
+  renderMirror();
 }
 /* the sounds of a file (any library file) for this device; throws when it holds none it can play */
 async function devFileSounds(f) {
@@ -5477,6 +5499,78 @@ function devFilePlan(slots, sounds) {
   return { plan, left };
 }
 $("dfall").addEventListener("click", bankExport);
+
+/* M-Vave-OP1: the user presets kept in this browser, both ways. Connected to the FM-1, the editor keeps a copy of its
+   slots (MIRROR_DEV, again after every change); NO DEVICE starts with them when its own slots are empty, and its
+   button copies them over again (the page's FM-1 plays them: the firmware's own sound). NO DEVICE keeps its slots the
+   same way (MIRROR_EMU), and on the FM-1 the button brings them back. A copy holds every used slot (its sound, steps,
+   FM6 patch) and the parameter keys, so another firmware maps them by name as library files are */
+const MIRROR_DEV = "mvave-op1-presets-device", MIRROR_EMU = "mvave-op1-presets-nodevice";
+function mirrorGet(key) {
+  try { const m = JSON.parse(localStorage.getItem(key) || "null"); return m && Array.isArray(m.slots) ? m : null; } catch { return null; }
+}
+let mirrorTm = 0, mirroring = false;
+function mirrorSoon(d = dev, ms = 1500) {
+  clearTimeout(mirrorTm);
+  mirrorTm = setTimeout(() => mirrorSave(d), ms);
+}
+async function mirrorSave(d) {
+  if (!d || d !== dev || !d.bank || mirroring) return;
+  if (libBusy || busy) { mirrorSoon(d); return; }
+  mirroring = true;
+  try {
+    const rqf = (r, o) => sessionRequest(d, r, { ...o, quiet: true }), slots = [];
+    for (const x of d.bank.slots) {
+      if (!x.used) continue;
+      const u = await bank.get(rqf, d.info, x.slot);
+      if (u.used) slots.push({ slot: x.slot, name: u.name, engine: u.engine, engineName: d.info.engines[u.engine], p: u.p,
+        pattern: u.pattern, grid: u.grid, fm6: u.fm6 });
+    }
+    const m = { firmware: d.info.version, keys: d.keys, pe0: d.info.pe0, saved: new Date().toISOString(), slots };
+    try { localStorage.setItem(emu ? MIRROR_EMU : MIRROR_DEV, JSON.stringify(m)); } catch (e) { console.warn("mirror", e); }
+  } catch (e) { if (e.message !== "closed") console.warn("mirror", e); } finally { mirroring = false; renderMirror(); }
+}
+/* the other side's copy -> this device's slots, slot for slot (its empty slots erased here too) */
+function mirrorCopy(m) {
+  return libOp(async (d, rqf) => {
+    for (const x of d.bank.slots) {
+      const src = m.slots.find((y) => y.slot === x.slot);
+      if (src) {
+        const p = { ...src, engine: d.info.engines.indexOf(src.engineName), p: remapParams(src.p, m.keys, d.keys, d.info.pe0) };
+        if (p.engine < 0 || !engineOk(p)) continue;
+        sayK("putDone", `${slotName(x.slot)} ${upName(p.name)}`);
+        checkRc(await bank.put(rqf, x.slot, { ...p, name: upName(p.name), p: fullParams(p) }, d.info));
+      } else if (x.used) checkRc(await bank.erase(rqf, x.slot));
+      else continue;
+      await refreshSlot(x.slot, d);
+    }
+    sayK("mirDone", String(m.slots.length));
+  });
+}
+/* NO DEVICE started with empty slots and the FM-1's copy is there: take it (-> 1 when it did) */
+async function mirrorFill() {
+  const m = mirrorGet(MIRROR_DEV);
+  if (!emu || !dev || !dev.bank || !m || !m.slots.length || dev.bank.slots.some((x) => x.used)) return 0;
+  await mirrorCopy(m);
+  return 1;
+}
+function renderMirror() {
+  const b = $("mircopy"), info = $("mirinfo");
+  if (!b) return;
+  const m = mirrorGet(emu ? MIRROR_DEV : MIRROR_EMU), mine = mirrorGet(emu ? MIRROR_EMU : MIRROR_DEV);
+  const when = (x) => new Date(x.saved).toLocaleString(lang);
+  setLabel(b, t(emu ? "mirFromDev" : "mirFromEmu"));
+  b.disabled = !dev || !dev.bank || !m || libBusy;
+  info.textContent = [m ? t(emu ? "mirDevInfo" : "mirEmuInfo").replace("{n}", m.slots.length).replace("{when}", when(m)) : t(emu ? "mirDevNone" : "mirEmuNone"),
+    mine ? t("mirMine").replace("{when}", when(mine)) : ""].filter(Boolean).join(" · ");
+}
+$("mircopy").addEventListener("click", async () => {
+  const m = mirrorGet(emu ? MIRROR_DEV : MIRROR_EMU);
+  if (!dev || !dev.bank || !m) return;
+  if (!(await askOk(t(emu ? "mirAskDev" : "mirAskEmu").replace("{n}", m.slots.length) + "\n\n" +
+    m.slots.map((x) => `${slotName(x.slot)}  ${x.name}  (${x.engineName})`).join("\n")))) return;
+  mirrorCopy(m);
+});
 $("dfupload").addEventListener("click", () => { $("dffile").value = ""; $("dffile").click(); });
 $("dffile").addEventListener("change", async () => {
   if (!dev || !dev.bank || libBusy) return;

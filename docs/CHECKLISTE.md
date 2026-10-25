@@ -123,6 +123,10 @@ Außerdem gibt es weiterhin **SCL > CHORD** (CHRD, VOIC: eine Taste ein Akkord d
 - [ ] Bibliothek: „Aktuellen Sound speichern“, mit Tags versehen, „Presets exportieren“ (die Datei an mich).
 - [ ] Ein MIDI-Keyboard am Mac spielt den Sound mit (Chrome fragt nach MIDI-Zugriff).
 - [ ] Am echten Gerät (Verbinden statt Ohne Gerät): die Tastatur spielt auch dort.
+- [ ] FM-1 einmal **Verbinden**: unter Projekte > Presets am Gerät steht „Kopie dieser Seite: <Datum>“ (die User-Presets
+      liegen jetzt im Browser). Trennen, **Ohne Gerät**: dieselben Presets sind da und klingen wie am FM-1 (Sound-Tab
+      oder Bibliothek > User-Presets > Laden). Bearbeiten, mit SAVE am virtuellen Gerät bzw. im Editor ablegen.
+- [ ] Wieder **Verbinden**: Button „Presets von „Ohne Gerät“ aufs FM-1“ bringt sie zurück (fragt vorher, Liste).
 
 ## 8. Erledigt in diesem Durchgang
 
