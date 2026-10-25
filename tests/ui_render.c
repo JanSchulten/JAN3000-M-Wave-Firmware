@@ -1770,7 +1770,7 @@ static void sweep_columns(void)
 #define FS_GAP 2u                                 /* px between frames, before the zoom */
 static void roll_turns(int32_t s)                 /* one UI frame with SELECT and KNOB 4 turned by s */
 {
-    host_enc[panel.enc[EN_SELECT]] += s * panel.dir[EN_SELECT];
+    host_enc[panel.enc[EN_K1]] += s * panel.dir[EN_K1];
     host_enc[panel.enc[EN_K4]] += s * panel.dir[EN_K4];
     host_ticks += 16000u; fm1_ms += 16u;
     ui_input();

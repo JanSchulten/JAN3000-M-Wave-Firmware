@@ -318,7 +318,7 @@ static void draw_head(void)
     int slot = head_slot(sl);
     uint32_t sig = (uint32_t)song.playing * 3u + rec * 5u + (uint32_t)(song.octave + 8) * 11u + song.sel * 13131u +
                    (ui.msg_t ? str_hash(7u, ui.msg) : ui.layer * 7919u + (uint32_t)layer_locked() * 3u) + (uint32_t)song.g[G_BPM] * 101u + (ui.bpm_t != 0) * 31u +
-                   (uint32_t)seq_counting() * 7u + (ui_prefs & PREF_BPM_LOCK) * 4099u +
+                   (uint32_t)seq_counting() * 7u +
                    (uint32_t)batt_shown() * 7777u + (chain.running ? (chain.row + 1u) * 104729u : 0u) +
                    (slot ? str_hash(11u, sl) : 0u);
     int msg = ui.msg_t || ui.layer;
@@ -378,11 +378,6 @@ static void draw_head(void)
         if (!ui.roll[ROLL_BPM].from[0])
             GFX_HOOK_ALIGN(0, 0, 0, H_HEAD, AL_V, "header text on its middle");
         roll_text(ROLL_BPM, g.bx, HEAD_MY, b, ui.bpm_t ? T_ACCENT : T_THEME);
-        if (ui_prefs & PREF_BPM_LOCK) {                /* BPM LOCK ON (#58): the lock right of the BPM */
-            icon_ink(16, ICON_X_LOCK, ib);
-            cv_icon_mid(lx + HEAD_GAP - ib[0], H_HEAD / 2, 16, ICON_X_LOCK, T_MID, T_BG);
-            lx += HEAD_GAP + ib[2] - ib[0];
-        }
         if (msg) {                                     /* right of the BPM, over the right slot */
             int32_t x = lx + 9 > 142 ? lx + 9 : 142;
             head_msg(x, 236 - x);

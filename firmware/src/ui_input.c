@@ -1676,9 +1676,9 @@ static void ui_input(void)
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
     uint32_t home, rec, save;
     uint32_t oct;
-    uint32_t lay, combo = 0, lytap, lkeys, glo, kq = 0;
+    uint32_t lay, combo = 0, lytap, lkeys, kq = 0;
     int32_t s, ks[4] = {0, 0, 0, 0};
-    static uint32_t lock_ms;                            /* BPM LOCK: the last locked SELECT turn (fm1_ms | 1; 0 none) */
+    int32_t nav = 0;
     midi_pc_poll();                                     /* MIDI Program Change (before fm6_poll: a bank voice) */
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
     if (kit_track(TSEL) && ui.lane >= kit_track(TSEL))  /* (M-Vave-OP1: a VDRUM track's six lanes; lane 7 or 8 picked */
@@ -1733,7 +1733,6 @@ static void ui_input(void)
     oct = layer_oct(pressed, oct);                      /* (a SET layer's OCT-: put back) */
     layer_masks();                                      /* seq.c: keys pressed with a layer's button are its own */
     lay = layer_held();
-    glo = lay && ui.ly == LAYER_GLO;                    /* GLO held: SELECT is the tempo, BPM LOCK or not (#58) */
     if (!layer_allowed()) {
         perf_kill = 1;                                  /* (effects off until their keys are let go) */
         perf_latched = 0;                               /* (FX LATCH: the latched ones and the macros off) */
@@ -1777,8 +1776,8 @@ static void ui_input(void)
             fx_bank(s);
             combo = 1;
         }                                               /* (else nobody's: OCT- puts back the layer's track only) */
-        if (glo && panel_enc(EN_SELECT) != 0)           /* GLO + SELECT: nothing (M-Vave-OP1: the tempo is HOME's), a */
-            combo = 1;                                  /* combo all the same (no tap of GLO) */
+        if ((nav = panel_enc(EN_SELECT)) != 0)
+            combo = 1;                                  /* SELECT still pages; the held button opens no page. */
     } else if ((kq = (uint32_t)layer_knobs_quiet()) != 0) {   /* a layer letting go: KNOB 1..4 are nobody's (#39) */
         for (k = 0; k < 4u; k++)
             if (panel_enc(EN_K1 + k) != 0)
@@ -1995,19 +1994,8 @@ static void ui_input(void)
         presets_turn(s);
     if (!lay && (s = panel_enc(EN_ALGO)) != 0)     /* ALGORITHM: the selected track, on every page */
         track_select((uint32_t)clamp((int32_t)song.sel + (s > 0 ? 1 : -1), 0, NTRK - 1));
-    if ((s = panel_enc(EN_SELECT)) != 0 && !lay && !ui.home && cur_page()->fam != FAM_TRK) {
-        page_step(s);                                   /* M-Vave-OP1: SELECT turns the family's pages (wrapping) */
-    } else if (s && !lay) {                             /* .. and on HOME (its MIXER, CLOCK) the tempo */
-        if (!(ui_prefs & PREF_BPM_LOCK)) {
-            song.g[G_BPM] = (int16_t)clamp(song.g[G_BPM] + accel(EN_SELECT, s, 200), GP[G_BPM].min, GP[G_BPM].max);
-            ui.bpm_t = 40;                              /* the header's BPM lights up; no message over the header */
-        } else {                                        /* MENU > BPM LOCK ON (#58): only on HOME > CLOCK (GLO's F4
-                                                         * TAP); a turn burst says so once */
-            if (!lock_ms || fm1_ms - lock_ms > 1000u)
-                ui_message("BPM LOCKED");
-            lock_ms = fm1_ms | 1u;
-        }
-    }
+    if ((s = lay ? nav : panel_enc(EN_SELECT)) != 0)
+        page_step(s);
     for (k = 0; k < 4u && !kq; k++) {
         const page_t *pg = cur_page();
         int16_t *hv;

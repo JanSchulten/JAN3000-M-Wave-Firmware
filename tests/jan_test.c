@@ -196,21 +196,16 @@ static void test_select(void)
     ck("SELECT on a page: the family's next / previous page, wrapping; the tempo stays", ok);
     press(B_FX); frames(400);
     ok = ui.home;
-    turn(EN_SELECT, 2); frame();
-    ok &= song.g[G_BPM] == b0 + 2;
-    ck("  the page's button again: HOME; SELECT on HOME: the tempo", ok);
-    press(B_HOME); frames(400);
-    ok = !ui.home && str_eq(cur_page()->title, "MIXER");
     turn(EN_SELECT, 1); frame();
-    ok &= song.g[G_BPM] == b0 + 3 && str_eq(cur_page()->title, "MIXER");
-    press(B_HOME); frames(400);
-    ok &= str_eq(cur_page()->title, "CLOCK");
-    btn_down(B_GLO); frame();
-    turn(EN_SELECT, 3);
-    btn_up(B_GLO); frames(400);
-    ok &= song.g[G_BPM] == b0 + 3;
+    ok &= !ui.home && str_eq(cur_page()->title, "MIXER") && song.g[G_BPM] == b0;
+    turn(EN_SELECT, 1); frame();
+    ok &= !ui.home && str_eq(cur_page()->title, "CLOCK") && song.g[G_BPM] == b0;
+    turn(EN_K1, 1); ok &= song.g[G_BPM] == b0 + 1;
+    press(B_HOME); ok &= ui.home;
+    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "CLOCK");
+    press(B_HOME); ok &= ui.home;
     press_raw = 0;
-    ck("  HOME's taps go round its pages (MIXER, CLOCK); SELECT there the tempo; GLO + SELECT: nothing", ok);
+    ck("HOME always HOME; SELECT cycles HOME MIXER CLOCK; only CLOCK KNOB 1 changes BPM", ok);
 }
 
 static void rec_hold_oct(uint32_t b)                  /* REC held (its layer), OCT- or OCT+, let go */

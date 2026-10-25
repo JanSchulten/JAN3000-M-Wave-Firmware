@@ -467,3 +467,8 @@ Pattern CLEAR lives on REC + F3 and clears notes and automation together. SEQ + 
 PLAY / CLEAR row clears automation only; FX TRACKS + EDIT asks before clearing the selected FX lane. On SONG,
 F#3 deletes the selected section and G#3 clears the song, both with confirmation. SAVE no longer has TOOLS;
 initialize a sound with EDIT held + F#5.
+
+SELECT browses the current family everywhere, including HOME → MIXER → CLOCK → HOME (and backwards).
+HOME always returns HOME. Pressing any other page button opens its family; pressing it again returns HOME,
+including two quick taps. Hold the button for its live layer. Tempo is CLOCK's BPM knob or GLO held + F4 TAP;
+SELECT never changes tempo, and the old BPM LOCK bit remains reserved in stored settings.

@@ -56,7 +56,7 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 #define PREF_ANIM_OFF 2u                       /* MENU > ANIM OFF (#46): values snap (no rolling digits, no glide) */
 #define PREF_ACCEL 4u                          /* MENU > KNOB ACCEL ON (#52): fast turns of wide values x2..x8 */
 #define PREF_USB_FIXED 8u                      /* MENU > USB LEVEL FIXED: USB audio at the full level, MASTER after */
-#define PREF_BPM_LOCK 16u                      /* MENU > BPM LOCK ON (#58): SELECT sets the tempo only with GLO held */
+#define PREF_BPM_LOCK 16u                      /* reserved: old BPM LOCK setting; no panel control or behavior */
 #define PREF_LARGE 32u                         /* MENU > LARGE ON (#15, Discussion #80): big knob labels and values
                                                 * (ui_draw.c large_kind); clear in every older setting = OFF */
 #define PREF_SERIAL_OFF 64u                    /* MENU > USB SERIAL OFF (#67): no serial console, the device enumerates as
@@ -723,34 +723,36 @@ static void note_name(char *b, uint32_t n)
     fmt_int(b + str_len(b), (int32_t)(n / 12u) - 1);
 }
 
-/* a page button tapped (1.2, Discussion #153: SEQ STEP <-> AUTOMATION, GLO SONG (its only page: GLOBAL became HOME's
- * CLOCK, SYSTEM went to the MENU), SAVE USER -> PRESETS -> PHRASES -> PROJECT -> TOOLS (1.5, #173: PRESETS second; up
- * to 1.4.1 the last); HOME: home_tap). From another
- * family the family's page shown last (SAVE: USER); one that is not the family's any more (a page that moved, as GLOBAL
- * and SYSTEM in 1.2), or not shown for this track, gives the family's first */
+/* SELECT pages within a family, including the virtual HOME page before MIXER and CLOCK. */
 static void go_home(void);
-/* the family's next (dir > 0) or previous visible page, wrapping (SELECT on a page; HOME's taps over its own) */
 static void page_step(int32_t dir)
 {
-    uint32_t n, i = ui.page, fam = cur_page()->fam;
-    for (n = 0; n < NPAGES; n++) {
-        i = (i + (dir > 0 ? 1u : NPAGES - 1u)) % NPAGES;
-        if (PAGES[i].fam == fam && page_visible(i)) break;
+    uint32_t n, i = ui.page, fam = ui.home ? FAM_TRK : cur_page()->fam;
+    if (ui.home) {
+        i = page_first(FAM_TRK);
+        if (dir < 0)
+            for (n = i; n < NPAGES; n++)
+                if (PAGES[n].fam == FAM_TRK && page_visible(n)) i = n;
+        ui.home = 0;
+    } else {
+        for (n = 0; n < NPAGES; n++) {
+            i = (i + (dir > 0 ? 1u : NPAGES - 1u)) % NPAGES;
+            if (PAGES[i].fam == fam && page_visible(i)) break;
+        }
+        if (fam == FAM_TRK && (dir > 0 ? i <= ui.page : i >= ui.page)) {
+            go_home();
+            return;
+        }
     }
     ui.page = (uint8_t)i;
     ui.fam_last[fam] = ui.page;
     page_entered();
 }
-/* a page button: its family (the page last used there, else its first); M-Vave-OP1: the same button again goes HOME
- * (SELECT turns the family's pages: ui_input.c), HOME's own family (its taps: home_tap) the next of its pages */
+/* A family's button opens its last page; pressing it again returns HOME. */
 static void open_family(uint32_t fam)
 {
     if (!ui.home && cur_page()->fam == fam) {
-        if (fam != FAM_TRK) {
-            go_home();
-            return;
-        }
-        page_step(1);
+        go_home();
         return;
     } else if (fam == FAM_SAVE) {
         uint32_t i;
@@ -778,21 +780,8 @@ static void go_home(void)
     help_start();
 }
 
-/* HOME tapped (1.2): HOME -> MIXER (up to 1.1.5 GLO's first page) -> CLOCK (up to 1.1.5 GLO > GLOBAL) -> HOME; from any
- * other page HOME. HOME's pages are FAM_TRK's, in PAGES order, always from the first (none remembered). Held: the menu
- * (ui_input) */
-static void home_tap(void)
-{
-    uint32_t i = ui.page + 1u;
-    if (ui.home) {
-        ui.fam_last[FAM_TRK] = 0;                     /* (open_family: the family's first, the MIXER) */
-        open_family(FAM_TRK);
-    } else if (cur_page()->fam == FAM_TRK && i < NPAGES && PAGES[i].fam == FAM_TRK) {
-        open_family(FAM_TRK);                         /* (on HOME's page again: the next one) */
-    } else {
-        go_home();
-    }
-}
+/* HOME always returns HOME; held HOME still opens the menu. */
+static void home_tap(void) { go_home(); }
 
 /* ------------------------------------------------------- track setup --- */
 static int seq_is_empty(const track_t *t)

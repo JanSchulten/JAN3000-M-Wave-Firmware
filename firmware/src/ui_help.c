@@ -65,15 +65,15 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"STEP", "[KEYS]WRITE[K1]STEP[SELECT]RATCH"},   /* (1.5.1: SEQ to DETAIL) */
     {"DETAIL", "[PRESETS]STEP[K1]CHANCE[K2]RATCH"},
     {"AUTOMATION", "[K1]ROW[OCT+]DO[EDIT]DELETE"},
-    {"MIXER", "[K4]MUTE[ALGO]TRACK[HOME]CLOCK"},
-    {"CLOCK", "[SELECT]TEMPO[GLO]HOLD: TAP"},
+    {"MIXER", "[K4]MUTE[ALGO]TRACK[SELECT]CLOCK"},
+    {"CLOCK", "[K1]BPM[GLO]HOLD: TAP"},
 };
 #define H_HOME "[PRESETS]SOUND[HOME]HOLD: MENU"
 #define H_LEVELS "[K1-4]T1-T4 LEVEL[HOME]MIXER"
 #define H_GRID "[KEYS]STEPS[K2]LANE[SELECT]RATCH"
 /* a layer's (LAYER_*): what its footer row (LAYERS[].foot) does not say */
 static const char *const HELP_LAYER[LAYER_N] = {
-    "", "[KEYS]BLACK: MUTES[FX]2 TAPS: LOCK", "[KEYS]SOLO MUTE TAP[K1-4]LEVELS", "[KEYS]ROOT[K1-4]ROOT SCL CHORD",
+    "", "[KEYS]BLACK: MUTES[FX]HOLD", "[KEYS]SOLO MUTE TAP[K1-4]LEVELS", "[KEYS]ROOT[K1-4]ROOT SCL CHORD",
     "[K1]ENGINE[K2]SOUND[K3]FAV", "[KEYS]BLACK: TOOLS[EDIT]PUT BACK", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",   /* (M-Vave-OP1:
                                                      * SEQ's white keys are the scenes, the footer says so) */
 };

@@ -121,6 +121,36 @@ static void wf_clear_routes(void)
     wf_check("SONG owns section delete (F#3) and song clear (G#3), both with confirmation", ok);
 }
 
+static void wf_navigation(void)
+{
+    uint32_t f, sign;
+    int ok = 1;
+    int16_t bpm;
+    ui_power_on(); frames(400); press_raw = 1;
+    bpm = song.g[G_BPM];
+    turn(EN_SELECT, 1); ok &= !ui.home && cur_page()->graph == GR_TRK;
+    turn(EN_SELECT, 1); ok &= !ui.home && str_eq(cur_page()->title, "CLOCK");
+    turn(EN_SELECT, 1); ok &= ui.home;
+    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "CLOCK") && !ui.home;
+    press(B_HOME); ok &= ui.home;
+    for (f = FAM_ENV; f < FAM_TRK; f++) {
+        go_home(); frames(400);
+        press(FAM_BTN[f]); frames(400);
+        ok &= !ui.home && cur_page()->fam == f;
+        press(FAM_BTN[f]); ok &= ui.home;
+        frames(400); press(FAM_BTN[f]); press(FAM_BTN[f]);
+        ok &= ui.home && !ui.lock;
+    }
+    for (sign = 0; sign < 2; sign++) {
+        if (sign) ui_prefs |= PREF_BPM_LOCK;
+        for (f = 0; f < 12; f++) turn(EN_SELECT, 1);
+        ok &= song.g[G_BPM] == bpm;
+    }
+    ok &= !menu_visible(MI_BPMLOCK);
+    press_raw = 0;
+    wf_check("SELECT pages every family including HOME/MIXER/CLOCK, never BPM; every page button toggles HOME", ok);
+}
+
 int main(void)
 {
     wf_octaves();
@@ -128,6 +158,7 @@ int main(void)
     wf_rec_menu();
     wf_step_fields();
     wf_clear_routes();
+    wf_navigation();
     printf(wf_bad ? "WORKFLOW TESTS FAILED\n" : "WORKFLOW TESTS PASSED\n");
     return wf_bad != 0;
 }

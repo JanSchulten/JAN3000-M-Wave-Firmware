@@ -63,7 +63,7 @@ typedef char mtab_fits_ui[sizeof ui.menu_row >= MTAB_COUNT ? 1 : -1];   /* (ui.c
 /* Retired control paths keep their ids and storage, but are absent from the panel menu. */
 static int menu_visible(uint32_t row)
 {
-    return row != MI_CLICK && row != MI_CLKLVL && row != MI_COUNTIN;
+    return row != MI_CLICK && row != MI_CLKLVL && row != MI_COUNTIN && row != MI_BPMLOCK;
 }
 static uint32_t mtab_nth(uint32_t tab, uint32_t n)
 {
