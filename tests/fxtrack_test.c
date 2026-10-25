@@ -352,24 +352,24 @@ static void test_ui(const char *dir)
         frame();
         screen_save(dir, "fxtracks-stopped");
     }
-    /* M-Vave-OP1: REC held + F#3 clears both FX TRACKS (after OCT+); the notes stay */
+    /* FX TRACKS owns the selected lane's clear, with confirmation. */
     fxt_lane[1].step[5] = C(PF_REV);
     {
         uint8_t n0 = TSEL->step[0].n;
-        btn_down(B_REC); frames(500);
-        key_down(black(0)); frame(); key_up(black(0)); frame();
-        btn_up(B_REC); frame();
-        ok = ui.confirm == CF_FXT_ALL && fxt_used(0) && fxt_used(1);
-        if (dir)
-            screen_save(dir, "fxtracks-clear-confirm");
-        press(B_OCTUP);
-        ok &= !fxt_used(0) && !fxt_used(1) && msg_is("FX TRACKS CLEARED") && TSEL->step[0].n == n0;
-        bad += check("REC held + F#3: CLEAR BOTH FX TRACKS? OCT+ clears them, the notes stay", ok);
-        btn_down(B_REC); frames(500);
-        key_down(black(0)); frame(); key_up(black(0)); frame();
-        btn_up(B_REC); frame();
-        ok = !ui.confirm && msg_is("NOTHING TO CLEAR");
-        bad += check("  then nothing there: NOTHING TO CLEAR, no dialog", ok);
+        go_page(GR_FXT); ui.fxt_sel = 0;
+        press(B_EDIT);
+        ok = ui.confirm == CF_FXT_LANE && fxt_used(0) && fxt_used(1);
+        if (dir) screen_save(dir, "fxtracks-clear-confirm");
+        press(B_OCTDN);
+        ok &= fxt_used(0) && fxt_used(1);
+        press(B_EDIT); press(B_OCTUP);
+        ok &= !fxt_used(0) && fxt_used(1) && TSEL->step[0].n == n0;
+        ui.fxt_sel = 1;
+        press(B_EDIT); press(B_OCTUP);
+        ok &= !fxt_used(0) && !fxt_used(1) && TSEL->step[0].n == n0;
+        bad += check("FX TRACKS: EDIT clears only the chosen lane; OCT- cancels; notes stay", ok);
+        press(B_EDIT);
+        bad += check("empty FX lane: NOTHING TO CLEAR, no dialog", !ui.confirm && msg_is("NOTHING TO CLEAR"));
     }
 }
 

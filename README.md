@@ -462,3 +462,8 @@ and their effect on recording and playback are unchanged. MENU > AUDIO no longer
 SEQ > DETAIL is the only editor for a step's CHANCE, RATCH, NUDGE and VEL. AUTOMATION lists parameter locks and
 recorded knob moves, with PLAY / CLEAR and QUANTIZE as its controls. PRESETS always moves the STEP cursor,
 even while a step is held; it never edits NUDGE. Stored step values and their playback are unchanged.
+
+Pattern CLEAR lives on REC + F3 and clears notes and automation together. SEQ + F#3 is unassigned. AUTOMATION's
+PLAY / CLEAR row clears automation only; FX TRACKS + EDIT asks before clearing the selected FX lane. On SONG,
+F#3 deletes the selected section and G#3 clears the song, both with confirmation. SAVE no longer has TOOLS;
+initialize a sound with EDIT held + F#5.

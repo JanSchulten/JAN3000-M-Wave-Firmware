@@ -954,8 +954,7 @@ static int test_save(void)
     press(B_SAVE);
     bad += check("1.2: SAVE again: PHRASES (the patterns, after the sounds)", cur_page()->graph == GR_PATS);
     press(B_SAVE);
-    bad += check("SAVE again (SELECT) still cycles to TOOLS, then PROJECT", cur_page()->graph == GR_TOOLS &&
-                 (press(B_SAVE), cur_page()->graph == GR_SLOTS));
+    bad += check("SAVE / SELECT wraps from PHRASES to PROJECT", cur_page()->graph == GR_SLOTS);
     go_home();
     press(B_SAVE);
     ok = cur_page()->graph == GR_SLOTS;
@@ -1067,6 +1066,8 @@ static uint32_t oct_leds_seen(int all)            /* over 1 s: the OCT LED bits 
 }
 
 /* the action pages: the knobs pick, OCT+ does it, OCT- cancels / goes HOME; the LEDs; chords */
+static void key_down(uint32_t k);
+static void key_up(uint32_t k);
 static int test_actions(void)
 {
     int bad = 0;
@@ -1108,38 +1109,11 @@ static int test_actions(void)
     bad += check("a press that began elsewhere does not load", steps_are(t, 0) && song.octave == 2);
     press(B_OCTDN);
     bad += check("PATTERNS: OCT- goes HOME (the octave stays)", ui.home && song.octave == 2);
-    /* TOOLS: CLRSQ and INIT are picked, not done, by their knobs */
-    my_steps(t);
-    go_title("TOOLS");
-    bad += check("TOOLS: nothing picked, OCT+ dark", act_cols() == 15u && act_col() == 0u && oct_leds_seen(0) == 1u);
-    turn(EN_K1, 3);
-    bad += check("KNOB 1 picks CLEAR, the steps stay; OCT+ breathes", ui.act == 1u && !seq_is_empty(t) &&
-                 oct_leds_seen(0) == (1u | OCT_BREATH));
-    {
-        char a[16], b[16];
-        foot_hint(a, b);
-        bad += check("..the footer: OCT+ CLEAR / OCT- CANCEL", str_eq(a, "OCT+ CLEAR") && str_eq(b, "OCT- CANCEL"));
-    }
-    turn(EN_K1, -1);
-    bad += check("KNOB 1 left drops it", ui.act == 0u);
-    turn(EN_K1, 1);
-    press(B_OCTDN);
-    bad += check("OCT- cancels the pick (still on TOOLS)", ui.act == 0u && !ui.home && !seq_is_empty(t));
-    turn(EN_K1, 1);
+    /* INIT has one home: EDIT held + F#5, with confirmation. */
+    btn_down(B_EDIT); frames(500); key_down(25); frame(); key_up(25); frame(); btn_up(B_EDIT); frame();
+    bad += check("EDIT + F#5 asks before initializing the sound", ui.confirm == CF_INIT_SOUND);
     press(B_OCTUP);
-    bad += check("TOOLS CLEAR first asks confirmation", ui.confirm == CF_CLEAR_SEQ && !seq_is_empty(t));
-    press(B_OCTUP);
-    bad += check("OCT+ clears the pattern, the pick dropped", seq_is_empty(t) && msg_is("PATTERN CLEARED") && ui.act == 0u);
-    turn(EN_K1, 1);
-    bad += check("nothing to clear: OCT+ dark", oct_leds_seen(0) == 1u);
-    turn(EN_K2, 1);
-    t->p[P_E0] = (int16_t)(t->p[P_E0] + 1);
-    press(B_OCTUP);
-    bad += check("TOOLS INIT first asks confirmation", ui.confirm == CF_INIT_SOUND);
-    press(B_OCTUP);
-    bad += check("KNOB 2 INIT, OCT+: SOUND INIT", msg_is("SOUND INIT") && ui.act == 0u);
-    press(B_OCTDN);
-    bad += check("OCT- with nothing picked: HOME", ui.home);
+    bad += check("INIT confirmed: SOUND INIT", msg_is("SOUND INIT"));
     /* the dialogs and the menu */
     fam_next(FAM_SEQ);
     my_steps(t);
@@ -2550,11 +2524,11 @@ static int test_chain(void)
                  chain_config.row[0].repeat == 16);
     for (k = chain_config.count; k < CHAIN_ROWS; k++) { turn(EN_K1, 1); turn(EN_K3, 1); }
     bad += check("SONG append row stays bounded at 16", chain_config.count == CHAIN_ROWS && chain_valid(&chain_config));
-    go_title("TOOLS"); turn(EN_K4, 1); press(B_OCTUP);
+    go_page(GR_SONG); tap_key(3);
     bad += check("CLEAR SONG requires explicit confirmation", ui.confirm == CF_CLEAR_SONG && chain_config.count == CHAIN_ROWS);
     press(B_OCTDN);
     bad += check("cancel preserves the full song", chain_config.count == CHAIN_ROWS);
-    turn(EN_K4, 1); press(B_OCTUP); press(B_OCTUP);
+    tap_key(3); press(B_OCTUP);
     bad += check("confirmed CLEAR SONG keeps musical steps", !chain_config.count && !ui.song_row);
     return bad;
 }
@@ -2742,7 +2716,7 @@ static int steps_but(const track_t *t, const step_t *ref, uint32_t at, const ste
 static uint32_t auto_cur(void) { uint16_t rw[EV_ROWS]; return ev_cur(rw, 0); }
 static int test_page_cycles(void)
 {
-    static const char *const SAVE_CYC[6] = {"PROJECT", "USER", "PRESETS", "PHRASES", "TOOLS", "PROJECT"};   /* (1.5, #173;
+    static const char *const SAVE_CYC[5] = {"PROJECT", "USER", "PRESETS", "PHRASES", "PROJECT"};   /* (1.5, #173;
                                                                                 * M-Vave-OP1: PROJECT first) */
     int bad = 0, ok = 1;
     uint32_t i, n0;
@@ -2751,11 +2725,11 @@ static int test_page_cycles(void)
     uint16_t rw[EV_ROWS];
     /* the cycles: each button's taps, in order */
     ui_power_on();
-    for (i = 0; i < 6u; i++) {
+    for (i = 0; i < NELEM(SAVE_CYC); i++) {
         press(B_SAVE); frames(320);
         ok &= !ui.home && cur_page()->fam == FAM_SAVE && str_eq(cur_page()->title, SAVE_CYC[i]);
     }
-    bad += check("1.5 (#173): SAVE, then SELECT: PROJECT > USER > PRESETS > PHRASES > TOOLS > PROJECT", ok);
+    bad += check("1.5 (#173): SAVE, then SELECT: PROJECT > USER > PRESETS > PHRASES > PROJECT", ok);
     ok = 1;
     for (i = 0; i < NPAGES; i++) {                       /* every page in a family its button reaches, and its LED */
         uint32_t f = PAGES[i].fam;
@@ -4159,27 +4133,16 @@ static int test_bughunt_ui(void)
         bad += check("ALGORITHM ignored with a layer's button held (OCT- puts back all); then T2",
                      ok && song.sel == 1u);
     }
-    /* 6: TOOLS: each column its own ready check; nothing to do says so (not STOP TO EDIT) */
-    ui_power_on();
-    go_title("TOOLS"); frame();
-    chain_defaults(&chain_config);                      /* no song rows */
-    turn(EN_K1 + 2, 1);                                 /* DELETE ROW */
-    press(B_OCTUP);
-    ok = !ui.confirm && msg_is("NOTHING TO DELETE") && text_w(&AF_S, ui.msg) <= 236 - 106;   /* (fits the header) */
-    turn(EN_K1 + 3, 1);                                 /* CLEAR SONG */
-    press(B_OCTUP);
+    /* SONG owns section and song deletion, including their empty checks. */
+    ui_power_on(); go_page(GR_SONG); frame();
+    chain_defaults(&chain_config);
+    tap_key(1);
+    ok = !ui.confirm && msg_is("NOTHING TO DELETE");
+    tap_key(3);
     ok &= !ui.confirm && msg_is("NOTHING TO CLEAR");
-    track_defaults_steps(TSEL);
     chain_config.count = 1; chain_config.row[0] = chain_row_of(0, 1);
-    turn(EN_K1, 1);                                     /* CLEAR PAT on an empty track, the song with a row */
-    ok &= !act_ready();
-    press(B_OCTUP);
-    ok &= !ui.confirm && msg_is("NOTHING TO CLEAR");
-    turn(EN_K1 + 3, 1);
-    ok &= act_ready();
-    press(B_OCTUP);
-    bad += check("TOOLS: DELETE ROW / CLEAR SONG / CLEAR PAT with nothing there: NOTHING TO ..; a song: its dialog",
-                 ok && ui.confirm == CF_CLEAR_SONG);
+    tap_key(3);
+    bad += check("SONG: empty section/song say NOTHING TO ..; a song opens its clear dialog", ok && ui.confirm == CF_CLEAR_SONG);
     /* 7: REC works in the layers, as PLAY: it arms the track (M-Vave-OP1: PLAY does not start); the layer stays */
     ok = 1;
     {
@@ -6346,7 +6309,7 @@ static int test_layer_knob_race(void)
                         continue;
                     if (mode == 2u && LB[l] == B_EDIT && pg < NPAGES &&   /* (EDIT's tap acts there: no lock) */
                         (PAGES[pg].graph == GR_USER || PAGES[pg].graph == GR_SLOTS || PAGES[pg].graph == GR_ROLL ||
-                         PAGES[pg].graph == GR_EVENTS))
+                         PAGES[pg].graph == GR_EVENTS || PAGES[pg].graph == GR_FXT))
                         continue;
                     rc_run(LB[l], mode, k, pg, 0, &a0, &b0);
                     rc_run(LB[l], mode, k, pg, 1, &a1, &b1);
@@ -6589,24 +6552,13 @@ static int test_seq_tools(void)
     TSEL->p[P_SLEN] = 8;
     ok &= !memcmp(TSEL->step, ref, sizeof ref);
     bad += check("  C#4 / A#3 SHIFT > <: one step round inside LEN (the lock with it); back again: as it was", ok);
-    tl_key(TL_CLEAR);                                   /* F#3: CLEAR */
-    for (ok = msg_is("SEQUENCE CLEARED"), i = 0; i < 8u; i++)
-        ok &= TSEL->step[i].time == ST_REST && !TSEL->step[i].n;
-    ok &= TSEL->step[20].note[0] == 72 && !motion_lock_count(TSEL);
-    bad += check("  F#3 CLEAR: steps 1..LEN empty (no dialog), past LEN kept, the locks of the steps cleared go", ok);
-    seq_edit();
-    ok = !memcmp(TSEL->step, ref, sizeof ref) && tl_lock_at(3) && TSEL->p[P_SLEN] == 8 && msg_is("SEQUENCE PUT BACK") &&
-         ui.layer == LAYER_SEQ && song.octave == 0;
+    tap_key(1);                                       /* F#3 is deliberately unassigned. */
+    bad += check("  SEQ + F#3 leaves the pattern and its locks unchanged", !memcmp(TSEL->step, ref, sizeof ref) && tl_lock_at(3));
     turn(EN_K1, -2);
-    ok &= TSEL->p[P_SLEN] == 6;                         /* KNOB 1: LEN (the PATTERN page's four) */
     seq_edit();
-    ok &= TSEL->p[P_SLEN] == 8;
+    ok = TSEL->p[P_SLEN] == 8 && !memcmp(TSEL->step, ref, sizeof ref);
     btn_up(B_SEQ); frame();
-    hold(B_SAVE);                                       /* (EDIT's put back is one undo too: the tools again) */
-    ok &= TSEL->step[0].time == ST_REST;
-    hold(B_SAVE);
-    ok &= !memcmp(TSEL->step, ref, sizeof ref);
-    bad += check("  SEQ + EDIT: the track as the layer opened (steps, locks, LEN); KNOB 1..4 LEN DIV SWING GATE", ok);
+    bad += check("  SEQ + EDIT still restores the open layer until undo is unified", ok);
 
     /* RANDOM / COOK on a melodic track (fixed seeds): the rhythm stays, the notes in the scale, near the middle */
     ok = okc = 1;
@@ -6706,7 +6658,7 @@ static int test_seq_tools(void)
     ok &= tl_count(TSEL, DV_TOM) >= 1u && tl_lanes_of(TSEL, DV_KICK) == 0x1111u;
     bad += check("  C#5 / A#4 / F#5: the lane reversed (its accents with it), cleared, at random; the others stay", ok);
     a = leds_at(0); b2 = leds_at(250);                  /* (the tools breathe; scene 1 lit, the others dark) */
-    ok = ((a ^ b2) >> black(0)) & 1u && ((a ^ b2) >> black(6)) & 1u && ((a ^ b2) >> black(10)) & 1u &&
+    ok = !(((a | b2) >> black(0)) & 1u) && ((a ^ b2) >> black(6)) & 1u && ((a ^ b2) >> black(10)) & 1u &&
          ((a & b2) >> white(0)) & 1u && !(((a | b2) >> white(1)) & 1u) && !(((a | b2) >> white(15)) & 1u);
     btn_up(B_SEQ); frame();
     ui_power_on();
@@ -6722,7 +6674,7 @@ static int test_seq_tools(void)
     turn(EN_PRESET, 1); frame();                        /* (PRESETS in the layer: a DRUM track's lane, nothing here) */
     ok &= !memcmp(TSEL->step, ref, sizeof ref) && ui.lane == 0u && !gates() && TSEL->preset == pg;
     btn_up(B_SEQ); frame();
-    bad += check("  LEDs: the tools breathe (DRUM: all eleven); a melodic track: no BEAT, no lane tools; PRESETS no sound", ok);
+    bad += check("  LEDs: the tools breathe (DRUM: ten, F#3 dark); a melodic track: no BEAT, no lane tools; PRESETS no sound", ok);
 
     /* the lock (a double tap), a song playing */
     ui_power_on();
@@ -6954,15 +6906,15 @@ static void rec_up(void) { btn_up(B_REC); frame(); }
 static uint32_t menu_rec(uint32_t r) { return menu_get(r == 0u ? MI_CLICK : r == 1u ? MI_COUNTIN : MI_CLKLVL); }
 static int test_rec_layer(void)
 {
-    static const uint8_t G[8] = {GR_ROLL, GR_EVENTS, GR_USER, GR_PATS, GR_SONG, GR_TOOLS, GR_ADSR, GR_TRK};
+    static const uint8_t G[7] = {GR_ROLL, GR_EVENTS, GR_USER, GR_PATS, GR_SONG, GR_ADSR, GR_TRK};
     int bad = 0, ok = 1;
     uint32_t k, i, n;
     step_t before[NSTEP];
-    for (k = 0; k < 9u; k++) {                          /* every page (and HOME): held, the layer; let go, nothing */
+    for (k = 0; k <= NELEM(G); k++) {                    /* every page (and HOME): held, the layer; let go, nothing */
         ui_power_on();
         song.sel = 1;
         my_steps(&trk[1]);
-        if (k < 8u)
+        if (k < NELEM(G))
             go_page(G[k]);
         frame();
         memcpy(before, trk[1].step, sizeof before);
@@ -6971,7 +6923,7 @@ static int test_rec_layer(void)
         ok &= ui.layer == LAYER_REC && ui.ly == LAYER_REC && !ui.confirm && song.rec == 0u && !transport_req &&
               !str_eq(ui.msg, "HOLD: CLEAR");
         rec_up();
-        ok &= !ui.layer && !ui.confirm && song.rec == 0u && !transport_req && ui.page == n && (k < 8u ? !ui.home : ui.home) &&
+        ok &= !ui.layer && !ui.confirm && song.rec == 0u && !transport_req && ui.page == n && (k < NELEM(G) ? !ui.home : ui.home) &&
               !memcmp(trk[1].step, before, sizeof before);
     }
     bad += check("REC layer: REC held on STEP AUTOMATION USER PHRASES SONG TOOLS ENV MIXER HOME opens it", ok);

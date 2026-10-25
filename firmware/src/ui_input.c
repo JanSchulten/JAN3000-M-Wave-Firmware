@@ -689,6 +689,14 @@ static void song_chain_key(uint32_t s)
 static void song_keys(uint32_t notes)
 {
     uint32_t k;
+    if (notes & ((1u << 1) | (1u << 3))) {
+        uint32_t section = (notes >> 1) & 1u;
+        if (chain_busy()) ui_message("STOP TO EDIT");
+        else if (section ? ui.song_row >= chain_config.count : !chain_config.count)
+            ui_message(section ? "NOTHING TO DELETE" : "NOTHING TO CLEAR");
+        else confirm_open(section ? CF_DEL_ROW : CF_CLEAR_SONG, ui.song_row);
+        return;
+    }
     for (k = 0; k < 27u; k++) {
         int32_t s = (notes >> k) & 1u ? song_key(k) : -1;
         if (s < 0)
@@ -1317,16 +1325,6 @@ static void act_do(void)
         ev_oct();
         return;
     }
-    if (cur_page()->graph == GR_TOOLS) {
-        if (chain_busy()) { ui_message("STOP TO EDIT"); return; }
-        if (!act_ready()) {                               /* nothing there to clear or delete */
-            ui_message(c == 2u ? "NOTHING TO DELETE" : "NOTHING TO CLEAR");
-            return;
-        }
-        confirm_open(c == 0u ? CF_CLEAR_SEQ : c == 1u ? CF_INIT_SOUND :
-                     c == 2u ? CF_DEL_ROW : CF_CLEAR_SONG, c == 2u ? ui.song_row : song.sel);
-        return;
-    }
     if (cur_page()->graph == GR_SONG) {
         if (song.playing || chain_busy() || seq_counting()) transport_req = 2;
         else chain_play_ui();
@@ -1610,6 +1608,12 @@ static int page_tap(uint32_t b)
     }
     if (b == B_EDIT && !ui.home && cur_page()->graph == GR_EVENTS) {   /* AUTOMATION: EDIT deletes the row's record */
         ev_delete();
+        return 1;
+    }
+    if (b == B_EDIT && !ui.home && cur_page()->graph == GR_FXT) {
+        if (chain_busy()) ui_message("STOP TO EDIT");
+        else if (!fxt_used(ui.fxt_sel)) ui_message("NOTHING TO CLEAR");
+        else confirm_open(CF_FXT_LANE, ui.fxt_sel);
         return 1;
     }
     if (b == B_EDIT && !ui.home && (cur_page()->graph == GR_USER || cur_page()->graph == GR_SLOTS)) {

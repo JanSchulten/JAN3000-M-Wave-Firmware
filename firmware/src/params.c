@@ -476,7 +476,6 @@ static const page_t PAGES[] = {
     {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_IMIX, P_IC, 0xFF, 0xFF}},  /* (hidden: MIX and C) */
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},   /* (hidden: all the DELAY's) */
     {"CLOUD", FAM_FX, SC_GLOBAL, GR_CLOUD, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (hidden: all the CLOUD's) */
-    {"FX TRACKS 2", FAM_FX, SC_GLOBAL, GR_FXT2, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (hidden: CLEAR a lane, both) */
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_TRANS}},
     {"CHORD", FAM_SCL, SC_TRACK, GR_CHORD, {P_CHRD, P_VOIC, 0xFF, 0xFF}},   /* SCL again: the chord keys (chord.c) */
     /* M-Vave-OP1: SCL's third page the chord sets after the Roland J-6's (cset.c): KNOB 1 ON / OFF (the track's, before
@@ -518,7 +517,6 @@ static const page_t PAGES[] = {
     {"PRESETS", FAM_SAVE, SC_GLOBAL, GR_BROWSE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* browser: PRESETS knob / KNOB 1 */
     {"PHRASES", FAM_SAVE, SC_GLOBAL, GR_PATS, {0xFF, 0xFF, 0xFF, 0xFF}},    /* pattern loader: PAT LOAD (ui.c pat_load);
                                                                              * the tap after PRESETS (up to 1.1.5 SEQ's) */
-    {"TOOLS", FAM_SAVE, SC_GLOBAL, GR_TOOLS, {G_CLRSEQ, G_INITSND, 0xFF, 0xFF}},
     {"ARP", FAM_ARP, SC_TRACK, GR_ARP, {P_AMODE, P_ARATE, P_AOCT, P_AGATE}},
     {"ARP 2", FAM_ARP, SC_TRACK, GR_ARP, {P_ASWING, P_APROB, P_AHOLD, P_AORDER}},   /* (M-Vave-OP1: one screen with ARP) */
     {"STEP", FAM_SEQ, SC_STEP, GR_ROLL, {0, 1, 2, 3}},

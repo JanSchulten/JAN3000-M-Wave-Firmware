@@ -429,7 +429,7 @@ static void tools_key(uint32_t p)
 
 /* M-Vave-OP1: the SEQ layer's black keys (F#3 .. F#5): the tools in Felucca's order, the whole sequence's, then the
  * DRUM lane's (the lane: the grid's, or PRESETS turned in the layer) */
-static const uint8_t SEQ_TOOL[] = {TL_CLEAR, TL_REV, TL_LEFT, TL_RIGHT, TL_RANDOM, TL_COOK, TL_BEAT, TL_LCLR, TL_LREV,
+static const uint8_t SEQ_TOOL[] = {TL_GAP, TL_REV, TL_LEFT, TL_RIGHT, TL_RANDOM, TL_COOK, TL_BEAT, TL_LCLR, TL_LREV,
                                    TL_LFILL, TL_LRND};
 #define SEQ_NTOOL ((uint32_t)sizeof SEQ_TOOL)
 /* the SEQ / REC layer's track as it is now: what SEQ + EDIT (REC: OCT-) puts back (a scene switch takes it anew) */
@@ -577,21 +577,6 @@ static void rec_set(uint32_t r, uint32_t v)
         return;
     rp_put(RL_F[r], v);
     lys.rp_dirty = 1;
-}
-/* M-Vave-OP1, REC held: F#3 clears both FX TRACKS, G#3 the selected track's automation (its recorded knob moves and
- * locks; its notes stay), each after OCT+ (the dialogs of FX TRACKS 2 and AUTOMATION) */
-static int rec_fxt_any(void) { return fxt_used(0) || fxt_used(1); }
-static void rec_clear_more(uint32_t p)
-{
-    if (chain_busy()) {
-        ui_message("STOP TO EDIT");
-        return;
-    }
-    if (p == 0u ? !rec_fxt_any() : !motion_count(TSEL)) {
-        ui_message("NOTHING TO CLEAR");
-        return;
-    }
-    confirm_open(p == 0u ? CF_FXT_ALL : CF_CLEAR_MOTION, p == 0u ? 0u : song.sel);
 }
 static void rec_key(uint32_t p)
 {
@@ -806,8 +791,6 @@ static void layer_key(uint32_t l, uint32_t k)
     } else if (l == LAYER_REC) {
         if (!key_black(k) && p < 4u)
             rec_key(p);
-        else if (key_black(k) && p < 2u)
-            rec_clear_more(p);                          /* (M-Vave-OP1: F#3 the FX TRACKS, G#3 the automation) */
         else if (key_black(k) && p == LY_INIT_B)
             rec_undo(0);                                /* (.. F#5 BACK: one step back, as OCT-'s undo) */
     } else if (l == LAYER_SEQ) {
@@ -1017,8 +1000,6 @@ static uint32_t layer_leds(uint32_t *br)
             on = p == 1u ? rp_get(RP_CLICK) != 0u : p == 2u ? rp_get(RP_COUNTIN) != 0u :   /* CLEAR: something to */
                  p == 3u && rp_get(RP_CLICK) != 0u;    /* clear, not while a song plays */
             can = p ? 1u : !chain_busy() && rec_clearable();
-        } else if (l == LAYER_REC && b && p < 2u) {     /* M-Vave-OP1: F#3 / G#3 breathe with something to clear */
-            can = !chain_busy() && (p == 0u ? rec_fxt_any() : motion_count(TSEL) != 0u);
         } else if (l == LAYER_REC && b && p == LY_INIT_B) {   /* .. F#5 BACK with a step to go back */
             can = rec_back_can();
         }
@@ -1270,12 +1251,13 @@ static void layer_seq(void)
 static void layer_rec(void)
 {
     static const char *const KN[7] = {"F", "G", "A", "B", "F#3", "G#3", "F#5"};
-    uint32_t r, v;
+    static const uint8_t ROW[] = {0, 1, 2, 3, 6};
+    uint32_t n, r, v;
     char b[20];
-    for (r = 0; r < 7u; r++) {
-        int32_t y = 2 + (LR_H + 3) * (int32_t)r, x = 6, vx = 6 + LR_KW + 4, w = 234 - vx;
-        uint32_t clr = r == 0u || r >= 4u, any = r == 0u ? rec_clearable() : r == 4u ? rec_fxt_any() :
-                                               r == 5u ? motion_count(TSEL) != 0u : r == 6u ? undo.trk && !undo.undone : 1u;
+    for (n = 0; n < NELEM(ROW); n++) {
+        r = ROW[n];
+        int32_t y = 2 + (LR_H + 3) * (int32_t)n, x = 6, vx = 6 + LR_KW + 4, w = 234 - vx;
+        uint32_t clr = r == 0u || r >= 4u, any = r == 0u ? rec_clearable() : r == 6u ? undo.trk && !undo.undone : 1u;
         uint32_t dim = clr && (chain_busy() || !any);
         uint16_t ink, fill = lc_box(x, y, LR_KW, LR_H, lc_fill(dim ? LS_DIM : LS_OFF, &ink));
         GFX_HOOK_ALIGN(0, y, 0, y + LR_H, AL_V, "rec layer key cell on its middle");

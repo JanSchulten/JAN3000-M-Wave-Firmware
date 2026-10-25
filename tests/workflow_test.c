@@ -88,12 +88,46 @@ static void wf_step_fields(void)
     wf_check("AUTOMATION lists parameter records only, with no step fields or ADD VEL", ok && n == 4u);
 }
 
+static void wf_clear_routes(void)
+{
+    uint32_t i;
+    int ok = 1;
+    ui_power_on(); frames(400);
+    for (i = 0; i < NPAGES; i++) ok &= PAGES[i].graph != GR_TOOLS;
+    go_page(GR_ROLL);
+    TSEL->step[0].time = ST_NOTE; TSEL->step[0].n = 1; TSEL->step[0].note[0] = 60;
+    motion_set_lock(TSEL, 0, P_ATK, 70);
+    btn_down(B_SEQ); frames(500);
+    key_down(1); frame(); key_up(1); frame();
+    ok &= TSEL->step[0].n == 1 && motion_count(TSEL) == 1;
+    btn_up(B_SEQ); frame(); frames(400);
+    btn_down(B_REC); frames(500);
+    key_down(1); frame(); key_up(1); frame(); key_down(3); frame(); key_up(3); frame();
+    ok &= !ui.confirm && TSEL->step[0].n == 1 && motion_count(TSEL) == 1;
+    key_down(0); frame(); key_up(0); frame();
+    ok &= TSEL->step[0].n == 0 && !motion_count(TSEL);
+    btn_up(B_REC); frame();
+    wf_check("whole-pattern CLEAR is REC + F3 only, clears notes and automation; no SAVE TOOLS", ok);
+    go_page(GR_FXT);
+    fxt_lane[0].step[0] = 1; fxt_lane[1].step[0] = 1; ui.fxt_sel = 0;
+    press(B_EDIT);
+    ok = ui.confirm == CF_FXT_LANE;
+    press(B_OCTUP);
+    wf_check("FX TRACKS: EDIT confirms clearing only the selected lane", ok && !fxt_used(0) && fxt_used(1));
+    go_page(GR_SONG);
+    chain_config.count = 1; chain_config.row[0] = chain_row_of(0, 1); ui.song_row = 0;
+    tap_key(1); ok = ui.confirm == CF_DEL_ROW; press(B_OCTDN);
+    tap_key(3); ok &= ui.confirm == CF_CLEAR_SONG; press(B_OCTDN);
+    wf_check("SONG owns section delete (F#3) and song clear (G#3), both with confirmation", ok);
+}
+
 int main(void)
 {
     wf_octaves();
     wf_mixer();
     wf_rec_menu();
     wf_step_fields();
+    wf_clear_routes();
     printf(wf_bad ? "WORKFLOW TESTS FAILED\n" : "WORKFLOW TESTS PASSED\n");
     return wf_bad != 0;
 }

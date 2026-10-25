@@ -1729,7 +1729,6 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     if (ui.home)
         return 0;
     if (pg->graph == GR_EVENTS) return 16u;     /* AUTOMATION: no knob is an action; OCT+ by the row (ev_oct) */
-    if (pg->graph == GR_TOOLS) return 15u;
     if (pg->graph == GR_SONG)
         return 1u;                               /* PLAY / STOP (also the PLAY button) */
     if (pg->graph == GR_FXT2)
@@ -1760,10 +1759,6 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
     static const char *const UP_GO[3] = {"LOAD", "ERASE", "SAVE"};
     uint32_t id = cur_page()->id[c & 3u];
     if (cur_page()->graph == GR_EVENTS) return ev_act_name();
-    if (cur_page()->graph == GR_TOOLS) {
-        static const char *const actions[] = {"CLEAR", "INIT", "DELETE", "CLEAR"};
-        return actions[c & 3u];
-    }
     if (cur_page()->graph == GR_SONG)
         return song.playing || chain_busy() ? "STOP" : "PLAY";
     if (cur_page()->graph == GR_FXT2)
@@ -1785,9 +1780,6 @@ static int act_ready(void)
     if (!c--)
         return 0;
     if (cur_page()->graph == GR_EVENTS) return ev_act_ready();
-    if (cur_page()->graph == GR_TOOLS)                  /* one case per column: CLEAR PAT, INIT, DELETE ROW, CLEAR SONG */
-        return !chain_busy() && (c == 0u ? !seq_is_empty(TSEL) || motion_count(TSEL) : c == 1u ? 1 :
-                                 c == 2u ? ui.song_row < chain_config.count : chain_config.count != 0u);
     if (cur_page()->graph == GR_SONG)
         return song.playing || chain_busy() || chain_config.count;
     if (cur_page()->graph == GR_FXT2)                   /* steps there to clear */
