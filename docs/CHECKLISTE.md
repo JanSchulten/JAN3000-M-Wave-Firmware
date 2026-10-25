@@ -109,6 +109,11 @@ Außerdem gibt es weiterhin **SCL > CHORD** (CHRD, VOIC: eine Taste ein Akkord d
       schickst du mir, ich mache daraus Werks-Presets (`tools/import_presets.py`; gleicher Name ersetzt, neuer Name kommt
       dazu). Ein Werks-Preset hält: E0..E7, ATK DEC SUS REL, ENV>FLT, MONO; LFO, Matrix u. a. gehen dabei verloren.
 
+- [ ] Web-Editor > **Projects > Presets on the device**: die User-Preset-Plätze U01 .. U32 wie Dateien. **Download**
+      lädt eins als Datei, **Replace** (oder die Datei auf die Zeile ziehen) ersetzt einen Platz, **Upload files**
+      schreibt mehrere (gleicher Name ersetzt, sonst ein leerer Platz), **Download all** alle in eine Datei. Danach am
+      Gerät in PRESETS nachsehen: die neuen stehen neben den Werks-Presets.
+
 ## 8. Erledigt in diesem Durchgang
 
 - [x] WSHAPE sparsamer (AUX 0: Plaits' zweiter Ausgang wird nicht gerechnet, OUT bitgleich)

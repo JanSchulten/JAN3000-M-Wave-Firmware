@@ -416,6 +416,18 @@ GRAIN's CLOUD PAD and GLITCH grain PIANO now. Both come as slot files, `dist/sam
 sustain loops as when they were built in). The web editor's Samples tab writes one into USR1 (**Slot file**); SAMPLE's
 SET USR1 (or GRAIN's SRC USR1) plays it. A sound saved with SET FLUTE or SAX plays PIANO.
 
+## Presets as files
+
+- **Projects > Presets on the device** (web editor): the user preset slots (U01 .. U32) as files beside the projects:
+  download one, replace one with a file (its button, or drop the file on its row), upload several (a sound named
+  like a slot replaces it, the others go into empty slots), download all. They show in PRESETS beside the factory
+  presets.
+- **Library > Export presets**: the sounds shown as a preset file. `python3 tools/import_presets.py FILE.json` makes
+  them factory presets (a name of the engine's replaces that preset, any other is added; a tag BASS LEAD PAD PLUCK
+  KEYS DRUM FX OTHER is its category). A factory preset keeps E0..E7, ATK DEC SUS REL, ENV > FILTER, MONO, the
+  sends and a pattern hint; the script lists what else a sound had (the LFO, the matrix, ..), which a preset load
+  sets to its defaults.
+
 ## Flash: two sample slots less
 
 The FX TRACKS, the KEY and the other extras and the scenes need flash that Felucca's project format does not have.

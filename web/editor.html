@@ -316,6 +316,14 @@
     <h2 data-t="projects" data-ic="symbol_folder"></h2>
     <p class="dim" data-t="projHelp"></p>
     <div class="slots" id="slots"></div>
+    <div class="group" id="devfiles" style="margin-top:16px" hidden>
+      <h2 data-t="dfTitle" data-ic="symbol_folder"></h2>
+      <p class="dim" data-t="dfHelp"></p>
+      <p class="bar"><button id="dfupload" data-t="dfUpload" data-ic="symbol_upload"></button>
+        <button id="dfall" data-t="dfAll" data-ic="symbol_download"></button>
+        <input id="dffile" type="file" accept=".json,application/json" multiple hidden><span class="dim" id="dfcount"></span></p>
+      <div class="list" id="dflist"></div>
+    </div>
     <div id="backup-panel" style="margin-top:16px">
       <h2 data-t="backupTitle"></h2>
       <p class="bar"><button id="backup-export" data-t="backupExport"></button>
@@ -2643,7 +2651,11 @@ const TEXT = {
     noMatch: "該当なし", noLibDB: "（ブラウザに保存できません。再読み込みで消えます）",
     bank: "本体のユーザープリセット", bankLoad: "読込", bankStore: "今の音色を保存", bankGet: "ライブラリへ",
     exportBank: "バンクを書き出し", dndHelp: "ライブラリとスロットの間はドラッグでもコピーできます。",
-    confirmOverwrite: "スロット {n}（{name}）を上書きしますか？", confirmEraseSlot: "スロット {n}（{name}）を消去しますか？",
+    confirmOverwrite: "スロット {n}（{name}）を上書きしますか？",
+    dfTitle: "本体のプリセット", dfHelp: "ユーザープリセットのスロットをファイルとして: 1 つを書き出す、ファイルで置き換える (ボタン、または行にドロップ)、複数を書き込む (同じ名前のスロットは置き換え、その他は空きスロットへ)。PRESETS に工場プリセットと並んで表示されます。",
+    dfUpload: "ファイルを書き込む", dfAll: "すべて書き出し", dfGet: "書き出し", dfPut: "置き換え", dfGetTip: "このプリセットをファイルに",
+    dfPutTip: "このスロットをプリセットファイルで置き換え", dfNone: "このファームウェアの音色がありません", dfReplaces: "置き換え",
+    dfFull: "空きスロットがありません", dfConfirm: "これらのプリセットを本体に書き込みますか？", dfDone: "プリセットを書き込みました: ", confirmEraseSlot: "スロット {n}（{name}）を消去しますか？",
     confirmDelete: "「{name}」をライブラリから削除しますか？",
     promptName: "名前（本体では英数字 12 文字まで）", promptTags: "タグ（カンマ区切り）",
     promptNameAuto: "名前（英数字 12 文字まで。空なら本体が自動で付けます）",
@@ -2747,7 +2759,11 @@ const TEXT = {
     noMatch: "No match", noLibDB: "(this browser cannot store it: it is gone after a reload)",
     bank: "User presets on the device", bankLoad: "Load", bankStore: "Store current sound", bankGet: "To library",
     exportBank: "Export bank", dndHelp: "You can also drag between the library and the slots.",
-    confirmOverwrite: "Overwrite slot {n} ({name})?", confirmEraseSlot: "Erase slot {n} ({name})?",
+    confirmOverwrite: "Overwrite slot {n} ({name})?",
+    dfTitle: "Presets on the device", dfHelp: "The user preset slots as files: download one, replace one with a file (its button, or drop the file on its row), or upload several (a sound named like a slot replaces it, the others go into empty slots). They show in PRESETS beside the factory presets. Send me a file to make it a factory preset.",
+    dfUpload: "Upload files", dfAll: "Download all", dfGet: "Download", dfPut: "Replace", dfGetTip: "This preset as a file",
+    dfPutTip: "Replace this slot with a preset file", dfNone: "no sound for this firmware in it", dfReplaces: "replaces",
+    dfFull: "No empty slot left for", dfConfirm: "Write these presets to the device?", dfDone: "Presets written: ", confirmEraseSlot: "Erase slot {n} ({name})?",
     confirmDelete: "Delete \"{name}\" from the library?",
     promptName: "Name (the device keeps 12 ASCII characters)", promptTags: "Tags (comma separated)",
     promptNameAuto: "Name (12 ASCII characters; empty: the device names it)",
@@ -3345,6 +3361,7 @@ function report(err) { if (err && err.message !== "closed") { console.warn(err);
 /* projects: the protocol cannot ask whether a slot is used without loading or saving it */
 function renderSlots() {
   renderSong();
+  renderDevFiles();
   renderBackup();
   const box = $("slots");
   box.replaceChildren();
@@ -4734,6 +4751,7 @@ function renderLib() {
 ["libq", "libeng", "libtag", "libsort"].forEach((id) => $(id).addEventListener(id === "libq" ? "input" : "change", renderLib));
 
 function renderBank() {
+  renderDevFiles();
   const pane = $("bankpane");
   $("bankhint").hidden = !!(dev && dev.bank);
   $("bankhint").textContent = t(!dev || !dev.dump ? "bankConnect" : "bankNone");
@@ -4976,7 +4994,7 @@ $("bkrefresh").addEventListener("click", () => libOp(async (d, rqf) => {
   dev.bank = await bank.list(rqf);
   sayK("ready");
 }));
-$("bkexport").addEventListener("click", () => libOp(async (d, rqf) => {
+const bankExport = () => libOp(async (d, rqf) => {
   const out = [];
   for (const x of dev.bank.slots) {
     if (!x.used) continue;
@@ -4987,7 +5005,116 @@ $("bkexport").addEventListener("click", () => libOp(async (d, rqf) => {
   }
   download(`felucca-bank-${today()}.json`, libraryFile("bank", out, libCtx()));
   sayK("ready");
-}));
+});
+$("bkexport").addEventListener("click", bankExport);
+
+/* M-Vave-OP1: PROJECTS > PRESETS ON THE DEVICE: the user preset slots (the bank) as files, beside the projects. A slot
+   downloads as a file (a library file of one sound: the editor's Library, tools/import_presets.py and this list read
+   it); a file onto a slot (its button or a drop) replaces that slot; UPLOAD takes several files: a sound named like a
+   slot's replaces it, any other goes into the next empty slot. The factory presets are the firmware's (a new
+   firmware changes them: tools/import_presets.py); a user preset shows in PRESETS beside them */
+function renderDevFiles() {
+  const box = $("devfiles");
+  box.hidden = !dev || !dev.bank;
+  if (box.hidden) return;
+  const b = dev.bank, used = b.slots.filter((x) => x.used).length, idle = !libBusy;
+  $("dfcount").textContent = `${used} / ${b.total} ${t("used")}`;
+  $("dfupload").disabled = !idle;
+  $("dfall").disabled = !used || !idle;
+  const tb = el("table", {}, el("colgroup", {}, el("col", { class: "n" }), el("col"), el("col", { class: "e" }), el("col")),
+    el("tr", {}, el("th", { text: "#" }), el("th", { text: t("name") }), el("th", { text: t("engine") }), el("th")));
+  for (const x of b.slots) {
+    const pick = el("input", { type: "file", accept: ".json,application/json", hidden: true });
+    pick.addEventListener("change", () => { const f = pick.files[0]; pick.value = ""; if (f) devFilePut(x.slot, f); });
+    const tr = el("tr", { class: x.used ? null : "empty" },
+      el("td", { text: slotName(x.slot) }), el("td", { text: x.used ? x.name : t("empty") }),
+      el("td", { text: x.used ? engineLabel(dev.info.engines, x.engine) : "" }),
+      el("td", {},
+        el("button", { ic: "symbol_download", disabled: !x.used || !idle, title: t("dfGetTip"), onclick: () => devFileGet(x.slot) }, t("dfGet")),
+        el("button", { ic: "symbol_upload", disabled: !idle, title: t("dfPutTip"), onclick: () => pick.click() }, t("dfPut")), pick,
+        el("button", { ic: "symbol_trash", disabled: !x.used || !idle, onclick: () => devFileErase(x.slot) }, t("erase"))));
+    tr.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); tr.classList.add("over"); } });
+    tr.addEventListener("dragleave", () => tr.classList.remove("over"));
+    tr.addEventListener("drop", (e) => {
+      e.preventDefault();
+      tr.classList.remove("over");
+      if (e.dataTransfer.files.length) devFilePut(x.slot, e.dataTransfer.files[0]);
+    });
+    tb.append(tr);
+  }
+  $("dflist").replaceChildren(tb);
+}
+/* the sounds of a file (any library file) for this device; throws when it holds none it can play */
+async function devFileSounds(f) {
+  const r = readLibraryFile(JSON.parse(await f.text()), libCtx());
+  const ok = r.patches.filter((p) => engineOk(p));
+  if (!ok.length) throw new Error(`${f.name}: ${t("dfNone")}`);
+  return ok;
+}
+function devFileGet(slot) {
+  libOp(async (d, rqf) => {
+    const u = await bank.get(rqf, dev.info, slot);
+    if (!u.used) throw new Error(t("empty"));
+    const pt = { name: u.name, engine: u.engine, engineName: dev.info.engines[u.engine], p: u.p, pattern: u.pattern, grid: u.grid,
+      fm6: u.fm6, slot, tags: [] };
+    download(`preset-${slotName(slot)}-${fileSlug(u.name)}.json`, libraryFile("patch", [pt], libCtx()));
+    sayK("ready");
+  });
+}
+async function devFilePut(slot, f) {
+  if (!dev || !dev.bank || libBusy) return;
+  let p;
+  try { [p] = await devFileSounds(f); } catch (err) { report(err); return; }
+  const s = dev.bank.slots[slot];
+  if (s.used && !confirm(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  libOp(async (d, rqf) => {
+    checkRc(await bank.put(rqf, slot, { ...p, name: upName(p.name), p: fullParams(p) }, dev.info));
+    await refreshSlot(slot, d);
+    sayK("putDone", `${slotName(slot)} ${upName(p.name)}`);
+  });
+}
+function devFileErase(slot) {
+  const s = dev && dev.bank && dev.bank.slots[slot];
+  if (!s || !s.used || libBusy || !confirm(t("confirmEraseSlot").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  libOp(async (d, rqf) => {
+    checkRc(await bank.erase(rqf, slot));
+    await refreshSlot(slot, d);
+    sayK("ready");
+  });
+}
+/* files -> slots: a sound named like a used slot replaces it, any other takes the next empty slot (none left: not
+   written) -> [[slot, sound]], the sounds left over */
+function devFilePlan(slots, sounds) {
+  const taken = new Set(), plan = [], left = [];
+  for (const p of sounds) {
+    const nm = upName(p.name);
+    let x = slots.find((s) => s.used && s.name === nm && !taken.has(s.slot));
+    if (!x) x = slots.find((s) => !s.used && !taken.has(s.slot));
+    if (!x) { left.push(p); continue; }
+    taken.add(x.slot);
+    plan.push([x.slot, p]);
+  }
+  return { plan, left };
+}
+$("dfall").addEventListener("click", bankExport);
+$("dfupload").addEventListener("click", () => { $("dffile").value = ""; $("dffile").click(); });
+$("dffile").addEventListener("change", async () => {
+  if (!dev || !dev.bank || libBusy) return;
+  const sounds = [];
+  try { for (const f of [...$("dffile").files]) sounds.push(...await devFileSounds(f)); } catch (err) { report(err); return; }
+  const { plan, left } = devFilePlan(dev.bank.slots, sounds);
+  const lines = plan.map(([k, p]) => `${slotName(k)}  ${upName(p.name)}${dev.bank.slots[k].used ? "  (" + t("dfReplaces") + ")" : ""}`);
+  if (left.length) lines.push(`${t("dfFull")}: ${left.map((p) => upName(p.name)).join(", ")}`);
+  if (!plan.length || !confirm(t("dfConfirm") + "\n\n" + lines.join("\n"))) return;
+  libOp(async (d, rqf) => {
+    for (const [k, p] of plan) {
+      sayK("putDone", `${slotName(k)} ${upName(p.name)}`);
+      checkRc(await bank.put(rqf, k, { ...p, name: upName(p.name), p: fullParams(p) }, dev.info));
+      await refreshSlot(k, d);
+    }
+    sayK("dfDone", String(plan.length));
+  });
+});
 
 /* ------------------------------------------------------------------ FM6 --- */
 /* The 6-OP FM tab (firmware with FM6: INFO's fm6 tag): the whole patch of an FM6 track, which the device
