@@ -35,7 +35,7 @@ const FW_ROOT = process.env.FELUCCA_ROOT || join(HERE, "..");
 const html = readFileSync(join(HERE, "editor.html"), "utf8");
 const proto = html.slice(html.indexOf("/*PROTO-BEGIN*/"), html.indexOf("/*PROTO-END*/"));
 const E = vm.runInNewContext(proto + `
-;({ frame, unframe, parse, req, Link, parseWav, resample, normalize, takeSample, autoTrim, zoomView, rootFromName, buildSlot, makeMockDevice, CMD, SMP,
+;({ frame, unframe, parse, req, Link, parseWav, resample, normalize, takeSample, autoTrim, zoomView, rootFromName, buildSlot, parseSlotFile, makeMockDevice, CMD, SMP,
    UP, bank, capturePatch, auditionPatch, startWatch, libraryFile, readLibraryFile, paramKeys, patternFromSteps, stepsFromPattern, upName,
    mixer, parseNotes, parseHits, hitsText, gridFromSteps, LANE_NOTE, LANE_OF, readDevicePreferences, devicePresetRows, engineOrder, ENGINE_ORDER, aliasOf, fmtValue, FM6, enumShown, F,
    FM4, fromDigital, fromPerc, DRUM_KIT_E,
@@ -314,10 +314,10 @@ async function editorSamplePresets() {
   const names = E.parse[C.NAMES](await rq(E.req.names(4)));
   await rq(E.req.preset(4, 0));
   const set = E.parse[C.DESC](await rq(E.req.desc(0, info.pe0)));
-  ok(eq(names.names, ["PIANO", "PIANO", "FLUTE", "SAX"]) && eq(set.names.slice(0, 4), ["PIANO", "PIANO", "FLUTE", "SAX"])
+  ok(eq(names.names, ["PIANO", "PIANO", "PIANO", "PIANO"]) && eq(set.names.slice(0, 4), ["PIANO", "PIANO", "PIANO", "PIANO"])
     && set.names[4] === "PIANO" && eq(set.names.slice(5), ["USR1", "USR2", "USR3"]),
-    "SAMPLE: TRANH and PERC removed, SET 1 and 4 kept as PIANO aliases, indices unchanged");
-  ok(E.aliasOf(names.names, 1) === 0 && E.aliasOf(names.names, 2) === 2 && E.aliasOf(set.names, 5) === 5 &&
+    "SAMPLE: TRANH, FLUTE, SAX and PERC removed, SET 1 .. 4 kept as PIANO aliases, indices unchanged");
+  ok(E.aliasOf(names.names, 1) === 0 && E.aliasOf(names.names, 2) === 0 && E.aliasOf(names.names, 3) === 0 && E.aliasOf(set.names, 5) === 5 &&
      E.aliasOf(set.names, 4) === 0, "SAMPLE: an entry named like an earlier one is an alias of it");
   const alias = E.parse[C.PRESET](await rq(E.req.preset(4, 1)));
   const setAlias = E.parse[C.SET](await rq(E.req.set(0, info.pe0, 1)));
@@ -719,6 +719,10 @@ async function editorLibrarian() {
   ok(lost.patches.length === 0 && lost.skipped === 1, "library file: a patch for an unknown engine is skipped");
   const bankFile = E.libraryFile("bank", [{ ...g, engineName: "ANALOG", slot: 10 }], ctx);
   ok(bankFile.kind === "bank" && bankFile.patches[0].slot === 10 && E.readLibraryFile(bankFile, ctx).patches[0].slot === 10, "library file: bank export keeps slot numbers");
+  const presetFile = JSON.parse(JSON.stringify(E.libraryFile("presets", pts, ctx)));   /* M-Vave-OP1: "Export presets" */
+  ok(presetFile.kind === "presets" && presetFile.paramLabels.length === 111 && presetFile.patches[1].engineName === "ANLG2" &&
+    eq(presetFile.patches[1].tags, ["bass", "device"]) && E.readLibraryFile(presetFile, ctx).patches.length === 2,
+    "library file: a preset file (tools/import_presets.py's input): labels, engine names, tags; it reads back as a library");
   {   /* files from the 69-parameter firmware (P_E0 61): the engine's 8 land on E0..E7 (103..110), FM op ENV, the
          chord keys and the lane levels stay unset */
     const p69 = [...cap.p.slice(0, 61), ...cap.p.slice(103, 111)];
@@ -1574,6 +1578,21 @@ function samplesMatch() {
     const pyHdr = readFileSync(join(dir, "slot.hdr")), pyData = readFileSync(join(dir, "slot.bin"));
     ok(eq(js.hdr, pyHdr) && eq(js.data, pyData), `samples: editor == sampleio.py (${files.length} WAV formats, ${js.data.length} B)`);
   } else console.log("samples: editor == sampleio.py (no FELUCCA_TOOLS)                skip");
+  {   /* M-Vave-OP1: a slot file (FLUTE / SAX, once built in: dist/samples) loads as it is; a damaged one is refused */
+    const sf = join(TOOLS, "..", "dist", "samples", "FLUTE.slot");
+    if (existsSync(sf)) {
+      const raw = readFileSync(sf), r = E.parseSlotFile(raw);
+      const bad = Uint8Array.from(raw); bad[E.SMP.DATA_OFF + 100] ^= 1;
+      const trunc = raw.subarray(0, raw.length - 10);
+      let e1 = "", e2 = "", e3 = "";
+      try { E.parseSlotFile(bad); } catch (e) { e1 = e.message; }
+      try { E.parseSlotFile(trunc); } catch (e) { e2 = e.message; }
+      try { E.parseSlotFile(new Uint8Array(600)); } catch (e) { e3 = e.message; }
+      ok(r.name === "FLUTE" && r.zones === 3 && eq(r.hdr, raw.subarray(0, E.SMP.HDR_LEN)) && eq(r.data, raw.subarray(E.SMP.DATA_OFF)) &&
+        r.hdr[32 + 27] === 1 && /CRC/.test(e1) && /damaged/.test(e2) && /not a slot/.test(e3),
+        "samples: slot file FLUTE: header and data as stored, looped zones; a changed byte, a short file, no magic refused");
+    } else console.log("samples: slot file (no dist/samples/FLUTE.slot)                skip");
+  }
   /* recording / trimming: takeSample (a cut of the raw input, faded at the cuts, normalised), autoTrim */
   const R = E.SMP.RATE, raw = new Float64Array(R);       /* 1 s: silence, a tone from 0.25 to 0.6 s, silence */
   for (let i = Math.round(R * 0.25); i < Math.round(R * 0.6); i++) raw[i] = Math.sin(i * 0.2) * 0.3;

@@ -654,11 +654,14 @@ static int pc_test(void)
     }
     bad += check("  every engine: 0.. its presets in PRESETS' order (no alias twice); past the last ignored", ok);
     set_engine_of(t, ENGI_SAMPLE);
-    pc(0, 1); frame();
-    ok = str_eq(ENGINES[ENGI_SAMPLE]->presets[t->preset].name, "FLUTE");
+    pc(0, 0); frame();
+    ok = t->preset == 0u && preset_shown(ENGI_SAMPLE) == 1u;
+    pc(0, 1); frame();                                   /* (FLUTE once: an alias of PIANO now, never offered) */
+    ok &= t->preset == 0u;
     pc(0, 4); frame();
-    ok &= t->eng_req == ENGI_SAMPLE && str_eq(ENGINES[ENGI_SAMPLE]->presets[t->preset].name, "FLUTE");
-    bad += check("  SAMPLE: PC 1 is FLUTE (not PIANO's alias); PC 4 (once PERC) does not turn the track into DRUM", ok);
+    ok &= t->eng_req == ENGI_SAMPLE && t->preset == 0u;
+    bad += check("  SAMPLE: PC 0 is PIANO, its only shown preset (PC 1 never its alias); PC 4 (once PERC) does not turn "
+                 "the track into DRUM", ok);
 
     /* DRUM: the kits as KIT steps through them */
     {

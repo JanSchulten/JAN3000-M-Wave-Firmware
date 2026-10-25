@@ -25,7 +25,7 @@ static const char *const PRESET_CAT[22] = {
     "",                          /* 1 DIGITAL (retired) */
     "",                          /* 2 PHASE (retired) */
     "LBLLL",                     /* 3 LOFI: PULSE LD, WAVE BASS, ARP 8BIT, WAVE LEAD, STEP LEAD */
-    "KKLL",                      /* 4 SAMPLE: PIANO, (PIANO: the retired TRANH's alias), FLUTE, SAX */
+    "KKKK",                      /* 4 SAMPLE: PIANO, (PIANO: the retired TRANH's, FLUTE's, SAX's aliases) */
     "",                          /* 5 VOICE (retired) */
     "",                          /* 6 TRIO (retired) */
     "KKKKK",                     /* 7 WHEEL: the organs */

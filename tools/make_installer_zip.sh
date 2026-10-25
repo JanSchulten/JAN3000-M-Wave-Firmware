@@ -47,6 +47,11 @@ py -3 serve.py || python serve.py
 pause
 EOS
 chmod +x "$SITE/START-Mac.command"
+# FLUTE and SAX, once built in: slot files for the editor's Samples tab (Slot file -> USR1)
+if ls dist/samples/*.slot >/dev/null 2>&1; then
+    mkdir -p "$SITE/samples"
+    cp dist/samples/*.slot "$SITE/samples/"
+fi
 mkdir -p "$(dirname "$OUT")"
 rm -f "$OUT"
 (cd "$TMP" && zip -qr - M-Vave-OP1-Installer) > "$OUT"

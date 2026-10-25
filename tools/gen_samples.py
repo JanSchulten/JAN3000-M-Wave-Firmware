@@ -10,7 +10,9 @@ The ADPCM state at the loop start is stored so loops restart exactly.
 
 Libraries:
   cc0        assets/samples-cc0/ (tools/fetch_cc0.py, Versilian Studios, CC0):
-             PIANO, FLUTE, SAX (set 1, once TRANH, and set 4, once PERC, are aliases of PIANO).
+             PIANO (set 1, once TRANH, sets 2 and 3, once FLUTE and SAX, and set 4, once PERC, are aliases of
+             PIANO). M-Vave-OP1: FLUTE and SAX (62 KB of flash) left the firmware; --user-slot builds them, with
+             their sustain loops, as user slot files (the web editor's Samples tab loads one into USR1).
              PIANO is the 5-zone piano of 1.0 .. 1.1.5 (1.2 .. 1.4.1 built a reduced 2-zone
              one at 11,025 Hz; 1.5 went back to the full one, the same bytes as 1.1.5)
 SAMPLE's factory presets end before set 4 (SMP_PERC_SLOT); every sample set and SET / USR
@@ -31,6 +33,9 @@ SRC, a value sent live) plays the alias, PIANO.
                   PREFIX.hdr / .bin (the editor's SMP_END header / SMP_WRITE data), PREFIX.slot (as in flash).
                   Kept for reference and tests only (1.2's PIANO HD file, which old users may hold in USR1..3:
                   it plays as the built-in PIANO does); nothing in the build or the app depends on it.
+  gen_samples.py --user-slot FLUTE FLUTE dist/samples/FLUTE     (and SAX: M-Vave-OP1)
+                  FLUTE / SAX, once built in, as user slots with their sustain loops: they play from USR1 as
+                  they did built in (the same ADPCM, roots, key ranges and loops: checked as PIANO's are).
 
 The header is cached (build/gen_samples.cache) under a hash of every
 input file, this script, sampleio.py and the Python version, so unchanged
@@ -60,7 +65,9 @@ TR = 22050                                   # stored sample rate
 # from the web editor). TRANH was removed (66 KB of flash); its index 1 stays, an alias of PIANO
 # ("alias": the set named). PERC (the GM kit) was removed (66 KB); its index 4 stays, an alias of
 # PIANO too (PERC_SLOT; its sounds load as the DRUM engine)
-CC0_SETS = [("PIANO", "oneshot"), ("PIANO", "alias"), ("FLUTE", "sus"), ("SAX", "sus"), ("PIANO", "alias")]
+CC0_SETS = [("PIANO", "oneshot"), ("PIANO", "alias"), ("PIANO", "alias"), ("PIANO", "alias"), ("PIANO", "alias")]
+# M-Vave-OP1: FLUTE and SAX (sets 2, 3) left the firmware (62 KB): aliases of PIANO now; as user slot files instead
+USER_SETS = {"PIANO": "oneshot", "FLUTE": "sus", "SAX": "sus"}
 PERC_SLOT = 4                                # core.h SMP_SET_PERC: SAMPLE's factory presets end before it
 MEASURED_TUNING = ()                         # sets whose recordings are not at A440 (was TRANH, ~+35 ct)
 
@@ -305,11 +312,11 @@ def user_slot_file(setname, slotname, prefix):
     tools/fm1_sample_upload.py build writes them) and PREFIX.slot (the slot as stored in flash: header at 0, data at
     512). Each zone's ADPCM bytes, length, rate, root and key range are checked against that set as Builder.cc0_set
     builds it: from USR1..3 it plays the same (one-shot zones there; the slot has no loop)"""
-    kind = next((k for n, k in CC0_SETS if n == setname and k != "alias"), None)
-    if kind != "oneshot":
-        raise SystemExit(f"{setname}: not a one-shot CC0 set")
+    kind = USER_SETS.get(setname)
+    if kind not in ("oneshot", "sus"):
+        raise SystemExit(f"{setname}: not a CC0 set for a user slot ({', '.join(USER_SETS)})")
     ent = cc0_entries(setname, kind)
-    hdr, data = sio.user_slot(slotname, [(s, int(round(root)), None, None) for _, s, _, root in ent])
+    hdr, data = sio.user_slot(slotname, [(s, int(round(root)), None, None, loop) for _, s, loop, root in ent])
     b = Builder()
     b.cc0_set(setname, kind)
     zl = sorted(b.zones, key=lambda z: z["root16"])
@@ -317,7 +324,8 @@ def user_slot_file(setname, slotname, prefix):
         off, n, ls, le, rate, root16, pred, idx, lo, hi, looped = struct.unpack_from("<5I2h4B", hdr, 32 + 28 * k)
         want = bytes(b.blob[z["off"]:z["off"] + (z["n"] + 1) // 2])
         if (data[off:off + (n + 1) // 2] != want or n != z["n"] or root16 != z["root16"] or (lo, hi) != (z["lo"], z["hi"])
-                or rate != int(round(z["sr"] / 44100 * 65536)) or looped or z["looped"]):
+                or rate != int(round(z["sr"] / 44100 * 65536)) or bool(looped) != z["looped"]
+                or (z["looped"] and ((ls, le) != (z["ls"], z["le"]) or (pred, idx) != (z["pred"], z["idx"])))):
             raise SystemExit(f"{setname} zone {k}: the slot differs from the set")
     Path(prefix).parent.mkdir(parents=True, exist_ok=True)
     Path(prefix + ".hdr").write_bytes(hdr)

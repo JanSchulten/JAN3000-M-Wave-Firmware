@@ -83,8 +83,7 @@ des Sounds bleiben):
 - [ ] **Presets nach Gehör:** Die 40 neuen Presets habe ich nach den Parametern gebaut, nicht nach Gehör. Was nicht
       gut klingt, sag mir, oder speichere es als User-Preset und nenn mir die Werte.
 - [ ] **J-6 Chord Mode (SCL > CSET):** ist wieder drin (siehe unten); auf dem Gerät durchprobieren.
-- [ ] **Flash:** nur noch 5,9 KB frei (nach SCL > CSET). Für neue Funktionen wird es eng; die Sample-Sets (104 KB) wären der große
-      Brocken, falls einmal Platz gebraucht wird.
+- [x] **Flash:** FLUTE und SAX sind raus (63 KB frei, siehe Abschnitt 9).
 
 ## 7. Akkorde: SCL > CSET (J-6)
 
@@ -100,6 +99,15 @@ des Roland J-6, jede Taste ein Akkord des gewählten Sets. Ein Projekt mit ORCHI
 Außerdem gibt es weiterhin **SCL > CHORD** (CHRD, VOIC: eine Taste ein Akkord der Tonart oder ein fester Typ) und
 **GLO > KEY** (eine Akkordfolge über die Patterns, wie beim OP-Z). Mit dem Merge kamen auch die **Legato-Aufnahme**
 (gebundene Töne bleiben beim Live-Aufnehmen gebunden) und der **VDRUM-Kick ohne Rauschen** im Ausklingen zurück.
+
+## 9. FLUTE und SAX als Dateien, Presets als Datei
+
+- [ ] SAMPLE zeigt ab Werk nur noch PIANO; GRAIN CLOUD PAD und GLITCH nehmen jetzt PIANO als Quelle.
+- [ ] Web-Editor > Samples > USR1 > **Slot file**: `samples/FLUTE.slot` (im Installer-ZIP) laden, SAMPLE SET USR1: klingt
+      wie früher FLUTE (gehaltene Töne halten durch die Schleife). Dasselbe mit `SAX.slot`. USR1 hält eins von beiden.
+- [ ] Web-Editor > Library: Sounds speichern, mit Tags (BASS, LEAD, PAD, ...) versehen, **Export presets**: die Datei
+      schickst du mir, ich mache daraus Werks-Presets (`tools/import_presets.py`; gleicher Name ersetzt, neuer Name kommt
+      dazu). Ein Werks-Preset hält: E0..E7, ATK DEC SUS REL, ENV>FLT, MONO; LFO, Matrix u. a. gehen dabei verloren.
 
 ## 8. Erledigt in diesem Durchgang
 

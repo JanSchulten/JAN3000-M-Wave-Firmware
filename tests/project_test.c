@@ -658,7 +658,7 @@ int main(void)
         a.t[2].preset = 4;
         a.t[2].step[0] = (step_t){{36, 42, 0, 0}, 2, ST_NOTE, SF_ACCENT, 100, 0, 0};
         a.t[2].step[4] = (step_t){{38, 49, 0, 0}, 2, ST_NOTE, 0, 90, 0, 0};
-        a.t[0].p[P_E0] = 2;                             /* track 1: FLUTE stays */
+        a.t[0].p[P_E0] = 2;                             /* track 1: SET 2 (once FLUTE, a PIANO alias) stays */
         a.motion.count = 3;
         a.motion.event[0] = (motion_event_t){2u << 6 | 3u, P_E4, 20};          /* track 3: CUT: goes */
         a.motion.event[1] = (motion_event_t){2u << 6 | 5u, P_REV, 60};         /* track 3: a send: stays */

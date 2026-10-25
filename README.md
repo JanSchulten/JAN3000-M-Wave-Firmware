@@ -408,6 +408,14 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 JavaScript fallback. Build it with `sh web/lab/build.sh` (after `./build.sh`, with the emsdk), then
 `cd build/lab && python3 -m http.server 8000` and open `http://localhost:8000/local.html`.
 
+## FLUTE and SAX: sample files, no longer built in
+
+SAMPLE's FLUTE and SAX left the firmware (62 KB of flash, room for what comes next): SAMPLE's factory sound is PIANO,
+GRAIN's CLOUD PAD and GLITCH grain PIANO now. Both come as slot files, `dist/samples/FLUTE.slot` and `SAX.slot`
+(`python3 tools/gen_samples.py --user-slot FLUTE FLUTE dist/samples/FLUTE` builds them: the same zones, roots and
+sustain loops as when they were built in). The web editor's Samples tab writes one into USR1 (**Slot file**); SAMPLE's
+SET USR1 (or GRAIN's SRC USR1) plays it. A sound saved with SET FLUTE or SAX plays PIANO.
+
 ## Flash: two sample slots less
 
 The FX TRACKS, the KEY and the other extras and the scenes need flash that Felucca's project format does not have.

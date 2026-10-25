@@ -279,6 +279,7 @@
           <button id="libsave" data-t="saveToLib" data-ic="port_disk"></button>
           <button id="libimport" data-t="import" data-ic="symbol_upload"></button>
           <button id="libexport" data-t="exportLib" data-ic="symbol_download"></button>
+          <button id="libpresets" data-t="exportPresets" data-ic="symbol_download"></button>
           <input type="file" id="libfile" accept=".json,application/json" multiple hidden>
           <span class="dim" id="libcount"></span>
         </p>
@@ -1019,6 +1020,24 @@ function buildSlot(name, zonesIn) {
   return { hdr, data, zones };
 }
 
+/* a slot file (tools/gen_samples.py --user-slot PREFIX.slot: header at 0, data at 512, as stored in flash; the
+   samples once built in, FLUTE and SAX, ship so) -> {hdr, data, name, zones}, uploaded as it is; throws if it is
+   not one */
+function parseSlotFile(buf) {
+  const b = new Uint8Array(buf), v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  if (b.length < SMP.DATA_OFF || v.getUint32(0, true) !== 0x504D5346 || v.getUint16(4, true) !== 1) throw new Error("not a slot file");
+  const nz = b[6], len = v.getUint32(16, true);
+  if (!nz || nz > SMP.MAX_ZONES || len > SMP.MAX_DATA || b.length < SMP.DATA_OFF + len) throw new Error("slot file damaged");
+  const data = b.slice(SMP.DATA_OFF, SMP.DATA_OFF + len);
+  if (crc32(data) !== v.getUint32(20, true)) throw new Error("slot file damaged (CRC)");
+  for (let j = 0; j < nz; j++) {
+    const o = 32 + j * 28, off = v.getUint32(o, true), n = v.getUint32(o + 4, true);
+    if (off + ((n + 1) >> 1) > len) throw new Error("slot file damaged (zone " + (j + 1) + ")");
+  }
+  const name = String.fromCharCode(...b.subarray(8, 16)).replace(/\0.*$/, "");
+  return { hdr: b.slice(0, SMP.HDR_LEN), data, name, zones: nz };
+}
+
 /* -------------------------------------------------------------- librarian --- */
 /* A patch (library entry, user preset):
      {name, engine (index), engineName, p: [P_COUNT values by parameter id, null = unknown],
@@ -1029,7 +1048,7 @@ function buildSlot(name, zonesIn) {
    Library / bank / single-patch file (JSON):
      {
        "format": "felucca-library", "version": 1,
-       "kind": "library" | "bank" | "patch",
+       "kind": "library" | "bank" | "patch" | "presets",   ("presets": tools/import_presets.py's input, M-Vave-OP1)
        "firmware": "FELUCCA 0.5 ...",          device version string when exported ("" if unknown)
        "pCount": 57, "pE0": 49,                 P_COUNT and the first engine parameter id
        "paramLabels": ["LVL", "ATK", ...],      one key per parameter id: the DESC label, "#2", "#3" appended to
@@ -1718,10 +1737,11 @@ function makeMockDevice(opt = {}) {
       presets: [P("PULSE LD", [0, 0, 32, 0, 0, 20, 0, 127], [0, 60, 90, 30], 1, 4), P("WAVE BASS", [1, 1, 0, 0, 0, 0, 0, 90], [0, 50, 70, 20], 1, 2),
         P("ARP 8BIT", [2, 0, 96, 0, 0, 0, 2, 110], [0, 60, 80, 40], 0, 13), P("WAVE LEAD", [0, 4, 92, 0, 0, 18, 0, 110], [0, 70, 90, 30], 1, 3),
         P("STEP LEAD", [4, 0, 40, 34, 0, 16, 0, 127], [0, 64, 127, 55], 1, 4)] },
-    { name: "SAMPLE", titles: ["SET", "TONE"], edit: [E("SET", ["PIANO", "PIANO", "FLUTE", "SAX", "PIANO", "USR1", "USR2", "USR3"], 0), D("TUNE", F.SEMI, -24, 24, 0), D("BITS", F.INT, 0, 127, 0),
+    { name: "SAMPLE", titles: ["SET", "TONE"], edit: [E("SET", ["PIANO", "PIANO", "PIANO", "PIANO", "PIANO", "USR1", "USR2", "USR3"], 0), D("TUNE", F.SEMI, -24, 24, 0), D("BITS", F.INT, 0, 127, 0),
         E("LOOP", NONOFF, 1), D("CUT", F.INT, 0, 127, 127), NONE, D("DRV", F.PCT, 0, 127, 0), NONE],
       presets: [P("PIANO", [0, 0, 0, 1, 127, 0, 0, 0], [0, 127, 127, 70]), P("PIANO", [0, 0, 0, 1, 127, 0, 0, 0], [0, 127, 127, 70]),
-        P("FLUTE", [2, 0, 0, 1, 127, 0, 0, 0], [12, 80, 120, 60]), P("SAX", [3, 0, 0, 1, 127, 0, 0, 0], [12, 80, 120, 60])] },
+        P("PIANO", [0, 0, 0, 1, 127, 0, 0, 0], [0, 127, 127, 70]), P("PIANO", [0, 0, 0, 1, 127, 0, 0, 0], [0, 127, 127, 70])] },   /* (2, 3: FLUTE, SAX
+        left the firmware: PIANO aliases; dist/samples/FLUTE.slot, SAX.slot load them into USR1..3) */
     GONE(),   /* 5: reserved (VOICE, retired) */
     GONE(),   /* 6: reserved (TRIO, retired) */
     { name: "WHEEL", titles: ["BARS", "TONE"], edit: [E("REG", ["FLUTE", "MELLO", "HOLLW", "SMOOT", "3BAR", "BLUES", "GOSPL", "ROCK",
@@ -1730,10 +1750,10 @@ function makeMockDevice(opt = {}) {
       presets: [P("FULL ORGAN", [15, 0, 0, 0, 0, 30, 20, 1], [0, 64, 127, 45], 0, 5), P("JAZZ PERC", [4, 0, 0, 0, 2, 50, 8, 1], [0, 64, 127, 40], 0, 3),
         P("GOSPEL", [6, 0, 0, 0, 1, 60, 40, 2], [0, 64, 127, 45], 0, 6), P("SOFT FLUTE", [1, 0, -2, 0, 0, 10, 0, 1], [0, 64, 127, 55], 0, 5),
         P("ROCK DRIVE", [7, 0, 0, 0, 0, 70, 100, 2], [0, 64, 127, 40], 0, 4)] },
-    { name: "GRAIN", titles: ["GRAN", "SPRY"], edit: [E("SRC", ["PIANO", "PIANO", "FLUTE", "SAX", "PIANO", "USR1", "USR2", "USR3"], 0),
+    { name: "GRAIN", titles: ["GRAN", "SPRY"], edit: [E("SRC", ["PIANO", "PIANO", "PIANO", "PIANO", "PIANO", "USR1", "USR2", "USR3"], 0),
         D("POS", F.PCT, 0, 127, 32), D("SIZE", F.PCT, 0, 127, 80), D("DENS", F.PCT, 0, 127, 80),
         D("PTCH", F.SEMI, -24, 24, 0), D("SPRD", F.PCT, 0, 127, 30), D("RAND", F.PCT, 0, 127, 10), D("TONE", F.PCT, 0, 127, 127)],
-      presets: [P("CLOUD PAD", [2, 50, 92, 88, 0, 40, 14, 100], [70, 90, 120, 90], 0, 5), P("GLITCH", [3, 64, 24, 112, 0, 100, 90, 127], [0, 70, 100, 30], 0, 4),
+      presets: [P("CLOUD PAD", [0, 50, 92, 88, 0, 40, 14, 100], [70, 90, 120, 90], 0, 5), P("GLITCH", [0, 64, 24, 112, 0, 100, 90, 127], [0, 70, 100, 30], 0, 4),
         P("FROZEN", [0, 40, 108, 72, 0, 0, 10, 92], [50, 100, 127, 100], 0, 5), P("SHIMMER", [0, 30, 70, 100, 12, 30, 24, 110], [30, 90, 110, 90], 0, 7)] },
     { name: "PHYS", titles: ["BODY", "EXCT"], edit: [E("MODEL", ["MODAL", "STRNG", "MEMB", "SYMP"], 0), D("STRC", F.PCT, 0, 127, 64),
         D("BRIT", F.PCT, 0, 127, 80), D("DAMP", F.PCT, 0, 127, 80), D("POS", F.PCT, 0, 127, 20), D("ACC", F.PCT, 0, 127, 90),
@@ -2603,7 +2623,7 @@ const TEXT = {
     confirmSave: "スロット {n} に上書き保存しますか？", confirmLoad: "スロット {n} を読み込みますか？ 4 トラックすべての音色とシーケンスが置き換わります（元に戻せません）。",
     confirmClear: "シーケンスを全部消しますか？", confirmInit: "音色を初期化しますか？ シーケンスはそのままです（本体の SAVE 長押しで元に戻せます）。",
     samples: "サンプル", smpHelp: "ファイルを選択、または入力から録音。波形の両端でトリム、ホイールで拡大。1枠に16音、合計約7秒。",
-    zones: "ゾーン", smpName: "名前", chooseFiles: "ファイルを選ぶ", upload: "書き込む", erase: "消去", clearList: "リストを消す",
+    zones: "ゾーン", smpName: "名前", chooseFiles: "ファイルを選ぶ", slotFile: "スロットファイル", slotFileTip: "完成したスロットファイル (.slot、例: FLUTE、SAX) をそのまま書き込む", upload: "書き込む", erase: "消去", clearList: "リストを消す",
     file: "ファイル", root: "ルート", keys: "鍵盤", length: "長さ", remove: "外す",
     record: "録音", stopRec: "停止", recInput: "入力", recDenied: "録音できません", recFull: "スロットがいっぱいです", recSilent: "無音でした。入力を確かめてください",
     preview: "試聴", autoTrim: "自動トリム", trim: "切り取り",
@@ -2617,7 +2637,8 @@ const TEXT = {
     sortModified: "更新順", sortCreated: "作成順", sortName: "名前順", sortEngine: "エンジン順",
     name: "名前", tagsCol: "タグ", date: "更新",
     audition: "試聴", toSlot: "本体スロットへ", rename: "名前変更", tags: "タグ", duplicate: "複製", delete: "削除",
-    exportPatch: "書き出し", saveToLib: "今の音色をライブラリへ", import: "読み込み", exportLib: "ライブラリを書き出し",
+    exportPatch: "書き出し", saveToLib: "今の音色をライブラリへ", import: "読み込み", exportLib: "ライブラリを書き出し", exportPresets: "プリセットファイルを書き出し",
+    exportPresetsTip: "表示中の音色をプリセットファイルに (tools/import_presets.py が工場プリセットにする)",
     factoryToLib: "ライブラリへコピー", libEmpty: "ライブラリは空です。「今の音色をライブラリへ」やファクトリープリセットのコピー、本体スロットからの取り込み、ファイルの読み込みで追加できます。",
     noMatch: "該当なし", noLibDB: "（ブラウザに保存できません。再読み込みで消えます）",
     bank: "本体のユーザープリセット", bankLoad: "読込", bankStore: "今の音色を保存", bankGet: "ライブラリへ",
@@ -2706,7 +2727,7 @@ const TEXT = {
     confirmSave: "Overwrite slot {n}?", confirmLoad: "Load slot {n}? The sounds and sequences of all four tracks are replaced (no undo).",
     confirmClear: "Clear the whole sequence?", confirmInit: "Reset the sound to the engine defaults? The sequence stays (hold SAVE on the device to undo).",
     samples: "Samples", smpHelp: "Choose files or record an input. Drag waveform ends to trim; wheel to zoom. Up to 16 sounds and about 7 s per slot.",
-    zones: "zones", smpName: "Name", chooseFiles: "Choose files", upload: "Upload", erase: "Erase", clearList: "Clear list",
+    zones: "zones", smpName: "Name", chooseFiles: "Choose files", slotFile: "Slot file", slotFileTip: "Write a finished slot file (.slot, e.g. dist/samples/FLUTE.slot, SAX.slot) as it is", upload: "Upload", erase: "Erase", clearList: "Clear list",
     file: "File", root: "Root", keys: "Keys", length: "Length", remove: "Remove",
     record: "Record", stopRec: "Stop", recInput: "Input", recDenied: "Cannot record", recFull: "The slot is full", recSilent: "Silence: check the input",
     preview: "Play", autoTrim: "Auto trim", trim: "Trim",
@@ -2720,7 +2741,8 @@ const TEXT = {
     sortModified: "Recently changed", sortCreated: "Recently added", sortName: "Name", sortEngine: "Engine",
     name: "Name", tagsCol: "Tags", date: "Changed",
     audition: "Audition", toSlot: "To device slot", rename: "Rename", tags: "Tags", duplicate: "Duplicate", delete: "Delete",
-    exportPatch: "Export", saveToLib: "Save current sound", import: "Import", exportLib: "Export library",
+    exportPatch: "Export", saveToLib: "Save current sound", import: "Import", exportLib: "Export library", exportPresets: "Export presets",
+    exportPresetsTip: "The sounds shown, as a preset file (tools/import_presets.py turns them into factory presets)",
     factoryToLib: "Copy to library", libEmpty: "The library is empty. Add sounds with \"Save current sound\", by copying a factory preset or a device slot, or by importing a file.",
     noMatch: "No match", noLibDB: "(this browser cannot store it: it is gone after a reload)",
     bank: "User presets on the device", bankLoad: "Load", bankStore: "Store current sound", bankGet: "To library",
@@ -3947,6 +3969,16 @@ function renderSamples() {
     const bar = el("progress", { max: dev.smp.slotKiB, value: u.kib, title: `${u.kib} / ${dev.smp.slotKiB} KiB` });
     const file = el("input", { type: "file", accept: ".wav,audio/wav,audio/x-wav,audio/*", multiple: true, hidden: true });
     file.addEventListener("change", () => { addFiles(k, [...file.files]); file.value = ""; });
+    const slotf = el("input", { type: "file", accept: ".slot", hidden: true });
+    slotf.addEventListener("change", async () => {
+      const f = slotf.files[0];
+      slotf.value = "";
+      if (!f) return;
+      let built;
+      try { built = parseSlotFile(await f.arrayBuffer()); }
+      catch (e) { sayK("smpFail", `${f.name}: ${e.message}`); return; }
+      smpSend(k, built);
+    });
     const name = el("input", { type: "text", class: "name", maxlength: 8, value: d.name, spellcheck: "false", placeholder: "NAME" });
     name.addEventListener("input", () => {
       const v = name.value.toUpperCase().replace(/[^\x20-\x7E]/g, "").slice(0, 8);
@@ -3962,7 +3994,8 @@ function renderSamples() {
         el("button", { ic: "symbol_trash", disabled: smpBusy || !u.zones, onclick: () => smpErase(k) }, t("erase"))),
       el("div", { class: "head" }, el("span", { text: t("smpName") }), name,
         el("button", { ic: "symbol_folder_open", disabled: smpBusy || recActive(), onclick: () => file.click() }, t("chooseFiles")), file,
-        el("button", { ic: "symbol_upload", disabled: smpBusy || recActive() || !d.files.length || tooBig || !d.name, onclick: () => smpUpload(k, prog) }, t("upload")),
+        el("button", { ic: "symbol_upload", disabled: smpBusy || recActive() || !d.files.length || tooBig || !d.name, onclick: () => smpUpload(k) }, t("upload")),
+        el("button", { ic: "symbol_folder_open", title: t("slotFileTip"), disabled: smpBusy || recActive(), onclick: () => slotf.click() }, t("slotFile")), slotf,
         d.files.length ? el("button", { text: t("clearList"), disabled: smpBusy || recActive(), onclick: () => { d.files = []; renderSamples(); } }) : "",
         size, prog),
       recRow(k));
@@ -4007,18 +4040,23 @@ function renderSamples() {
 
 async function smpInfo(d = dev) { d.smp = parse[CMD.SMP_INFO](await sessionRequest(d, req.smpInfo())); }
 
-async function smpUpload(k, prog) {
+async function smpUpload(k) {
   const d = smpDraft[k];
   let built;
   try { built = buildSlot(d.name, d.files.map((f) => ({ s: f.s, root: f.root }))); }
   catch (e) { sayK("smpFail", e.message); return; }
-  if (!confirm(t("confirmUpload").replace("{n}", k + 1))) return;
+  return smpSend(k, built);
+}
+
+/* writes built ({hdr, data}: buildSlot's, or a slot file's) into USRk+1 */
+async function smpSend(k, built) {
+  if (!dev || !confirm(t("confirmUpload").replace("{n}", k + 1))) return;
   const { hdr, data } = built;
   const session = dev;
   const releaseBusy = beginBusy();
   smpBusy = true;
   renderSamples();
-  prog = $("smpslots").querySelector(`[data-k="${k}"] progress[max="1"]`);
+  const prog = $("smpslots").querySelector(`[data-k="${k}"] progress[max="1"]`);
   prog.hidden = false;
   try {
     const t0 = performance.now();
@@ -4690,6 +4728,8 @@ function renderLib() {
   $("libput").disabled = !sel || !dev || !dev.bank || bankSel == null || libBusy;
   $("libsave").disabled = !dev || libBusy;
   $("libexport").disabled = !lib.length;
+  $("libpresets").disabled = !v.length;
+  $("libpresets").title = t("exportPresetsTip");
 }
 ["libq", "libeng", "libtag", "libsort"].forEach((id) => $(id).addEventListener(id === "libq" ? "input" : "change", renderLib));
 
@@ -4857,6 +4897,10 @@ $("libexp1").addEventListener("click", () => {
   if (p) download(`felucca-patch-${fileSlug(p.name)}.json`, libraryFile("patch", [p], libCtx()));
 });
 $("libexport").addEventListener("click", () => download(`felucca-library-${today()}.json`, libraryFile("library", lib, libCtx())));
+/* M-Vave-OP1: the sounds shown (the engine, tag and search filters) as a preset file: a library file of kind "presets"
+   that tools/import_presets.py turns into factory presets (a name of the engine's replaces that preset, any other is
+   added; a tag BASS LEAD PAD PLUCK KEYS DRUM FX OTHER is its category). It reads back as any library file */
+$("libpresets").addEventListener("click", () => download(`m-vave-op1-presets-${today()}.json`, libraryFile("presets", libView(), libCtx())));
 $("libimport").addEventListener("click", () => { $("libfile").value = ""; $("libfile").click(); });
 $("libfile").addEventListener("change", async () => {
   let n = 0, skipped = 0;
