@@ -118,32 +118,51 @@ FM1_FPU static inline float pwt_clamp(float x, float amount)
     return x + 0.5f;
 }
 
-/* the trilinear blend of the 8 waves around x y z at the table position p */
-FM1_FPU static inline float pwt_mix(void *src, float x, float y, float z, int32_t pi, float pf)
+/* the 8 waves around the integer parts xi yi zi (wave_map_, bank D mirrored back from zi 4 up) into w */
+FM1_FPU static inline void pwt_waves(void *src, int32_t xi, int32_t yi, int32_t zi, const int16_t **w)
 {
-    const int32_t xi = (int32_t)x, yi = (int32_t)y, zi = (int32_t)z;
-    const float xf = x - (float)xi, yf = y - (float)yi, zf = z - (float)zi;
     int32_t z0 = zi, z1 = zi + 1;
-    float a, b, xy0, xy1, xyz0, xyz1;
     if (z0 >= 4)
         z0 = 7 - z0;
     if (z1 >= 4)
         z1 = 7 - z1;
-    a = pwt_hermite(PWT_WAVE(src, pwt_index(xi, yi, z0)), pi, pf);
-    b = pwt_hermite(PWT_WAVE(src, pwt_index(xi + 1, yi, z0)), pi, pf);
+    w[0] = PWT_WAVE(src, pwt_index(xi, yi, z0));
+    w[1] = PWT_WAVE(src, pwt_index(xi + 1, yi, z0));
+    w[2] = PWT_WAVE(src, pwt_index(xi, yi + 1, z0));
+    w[3] = PWT_WAVE(src, pwt_index(xi + 1, yi + 1, z0));
+    w[4] = PWT_WAVE(src, pwt_index(xi, yi, z1));
+    w[5] = PWT_WAVE(src, pwt_index(xi + 1, yi, z1));
+    w[6] = PWT_WAVE(src, pwt_index(xi, yi + 1, z1));
+    w[7] = PWT_WAVE(src, pwt_index(xi + 1, yi + 1, z1));
+}
+
+/* the trilinear blend of the 8 waves w at the fractions xf yf zf, at the table position p (Plaits' order) */
+FM1_FPU static inline float pwt_blend(const int16_t *const *w, float xf, float yf, float zf, int32_t pi, float pf)
+{
+    float a, b, xy0, xy1, xyz0, xyz1;
+    a = pwt_hermite(w[0], pi, pf);
+    b = pwt_hermite(w[1], pi, pf);
     xy0 = a + (b - a) * xf;
-    a = pwt_hermite(PWT_WAVE(src, pwt_index(xi, yi + 1, z0)), pi, pf);
-    b = pwt_hermite(PWT_WAVE(src, pwt_index(xi + 1, yi + 1, z0)), pi, pf);
+    a = pwt_hermite(w[2], pi, pf);
+    b = pwt_hermite(w[3], pi, pf);
     xy1 = a + (b - a) * xf;
     xyz0 = xy0 + (xy1 - xy0) * yf;
-    a = pwt_hermite(PWT_WAVE(src, pwt_index(xi, yi, z1)), pi, pf);
-    b = pwt_hermite(PWT_WAVE(src, pwt_index(xi + 1, yi, z1)), pi, pf);
+    a = pwt_hermite(w[4], pi, pf);
+    b = pwt_hermite(w[5], pi, pf);
     xy0 = a + (b - a) * xf;
-    a = pwt_hermite(PWT_WAVE(src, pwt_index(xi, yi + 1, z1)), pi, pf);
-    b = pwt_hermite(PWT_WAVE(src, pwt_index(xi + 1, yi + 1, z1)), pi, pf);
+    a = pwt_hermite(w[6], pi, pf);
+    b = pwt_hermite(w[7], pi, pf);
     xy1 = a + (b - a) * xf;
     xyz1 = xy0 + (xy1 - xy0) * yf;
     return xyz0 + (xyz1 - xyz0) * zf;
+}
+
+FM1_FPU static inline float pwt_mix(void *src, float x, float y, float z, int32_t pi, float pf)   /* at x y z */
+{
+    const int32_t xi = (int32_t)x, yi = (int32_t)y, zi = (int32_t)z;
+    const int16_t *w[8];
+    pwt_waves(src, xi, yi, zi, w);
+    return pwt_blend(w, x - (float)xi, y - (float)yi, z - (float)zi, pi, pf);
 }
 
 /* the block's targets of x y z (Plaits' quantization above the middle of HARMONICS), from the smoothed parameters */
@@ -198,7 +217,9 @@ FM1_FPU static void pwt_render(pwt_t *s, void *src, const pwt_par_t *q, float *o
 {
     float tx, ty, tz, quant, lpc, ix, iy, iz, if0, vx, vy, vz, vf0;
     const float fn = (float)n;
-    uint32_t i;
+    const int16_t *w[8];
+    int32_t wx = -1, wy = -1, wz = -1;                     /* the waves' integer parts: fetched once a block and when */
+    uint32_t i;                                             /* x y z cross one (not 8 lookups a sample) */
     s->xp += q->cxy * (q->timbre * 6.9999f - s->xp);       /* (ONE_POLE) */
     s->yp += q->cxy * (q->morph * 6.9999f - s->yp);
     s->zp += q->cz * (q->harmonics * 6.9999f - s->zp);
@@ -232,7 +253,16 @@ FM1_FPU static void pwt_render(pwt_t *s, void *src, const pwt_par_t *q, float *o
             s->phase -= 1.0f;
         p = s->phase * 128.0f;
         pi = (int32_t)p;
-        mix = pwt_mix(src, s->xl, s->yl, s->zl, pi, p - (float)pi);
+        {
+            const int32_t xi = (int32_t)s->xl, yi = (int32_t)s->yl, zi = (int32_t)s->zl;
+            if (xi != wx || yi != wy || zi != wz) {
+                pwt_waves(src, xi, yi, zi, w);
+                wx = xi;
+                wy = yi;
+                wz = zi;
+            }
+            mix = pwt_blend(w, s->xl - (float)xi, s->yl - (float)yi, s->zl - (float)zi, pi, p - (float)pi);
+        }
         s->dlp += cutoff * ((mix - s->dprev) - s->dlp);   /* the differentiator */
         s->dprev = mix;
         mix = s->dlp * gain;

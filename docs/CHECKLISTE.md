@@ -52,6 +52,13 @@ MENU > SYSTEM > INFO > CPU, **8 Töne gehalten** auf einer Spur, sonst nichts. B
       zweiten Spur probieren. Knackt es? Fallen Töne hörbar weg?
 - [ ] Wenn eine Engine deutlich über 85 % liegt: mir die Zahl schicken, dann bekommt sie eine Stimmengrenze (wie FM6 6).
 
+### Stimmen nach CPU (neu)
+
+- [ ] 4 Parts mit je 5 Noten (wie gemessen): Es klingen jetzt mehr als 8 Noten (erwartet 9–10 mit den Plaits-Engines),
+      die CPU geht bis etwa 75–80 %, es knackt nicht.
+- [ ] Dasselbe mit ANALOG oder LOFI auf den Parts: deutlich mehr Stimmen.
+- [ ] Ein großer Akkord auf allen Parts gleichzeitig: kein Aussetzer.
+
 ## 5. Alte Sounds
 
 Projekte und User-Presets mit den entfernten Engines laden als erstes Preset des Nachfolgers (die Steps und der Rest

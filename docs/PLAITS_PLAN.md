@@ -330,3 +330,21 @@ PRTCL klingen dadurch etwas anders laut als im ZIP davor (die Golden-Renders der
 | Engines | ANALOG LOFI SAMPLE WHEEL GRAIN PHYS DRUM NOISE FM6 ANLG2 VDRUM + PHASE VOICE TRIO SLICE DBOX | dieselben elf + WSHAPE HRMNC PRTCL WTABLE SWARM |
 
 Am Gerät zu messen: siehe `docs/CHECKLISTE.md`.
+
+## 15. Stimmen nach CPU statt fester 8 (nach der Messung am Gerät)
+
+Gemessen (2026-10-25): 4 Parts (WSHAPE, HRMNC, PRTCL, WTABLE) mit je 5 Noten: Noten fallen weg, die Last bleibt bei
+65–70 %. Grund: Felucca erlaubt **8 Stimmen für alle Parts zusammen** (`NVOICE`); die 9. Note nimmt einer anderen die
+Stimme. 8 Plaits-Stimmen kosten ~6,5 % je, dazu ~14 % Grundlast.
+
+- `voice.c` `voice_space`: 8 Stimmen gibt es immer; darüber startet eine weitere (bis zu 8 je Part, 32 gesamt), solange
+  der letzte Halbpuffer (2,9 ms) unter **75 %** Last lag, **eine pro Halbpuffer**, damit die nächste Messung sie sieht,
+  bevor die nächste kommt. Sonst wird wie bisher eine Stimme genommen. `audio.c` misst die Last jedes Halbpuffers (die
+  Schutzschaltung bei 85 % bleibt).
+- Mit diesen Engines heißt das: etwa **9–10 Stimmen** statt 8 (die CPU ist die Grenze: 20 Plaits-Stimmen bräuchten
+  ~140 %); mit günstigeren Engines mehr. Ein Akkord auf 4 Parts im selben Moment bekommt eine Stimme mehr, die nächste
+  Note 2,9 ms später die nächste.
+- WTABLE billiger: die 8 Wellen pro Sample werden nur noch geholt, wenn eine Position eine ganze Zahl überschreitet
+  (und einmal pro Block), statt 8 Cache-Nachschläge pro Sample; bitgleich (Referenztest, Golden unverändert). Statisch
+  ~10–20 % weniger für das Modell.
+- Test `tests/budget_test.c`. Image 576 648 B (4 916 B frei).
