@@ -330,6 +330,7 @@
             <button id="bkload" data-t="bankLoad" data-ic="symbol_folder_open"></button>
             <button id="bkstore" data-t="bankStore" data-ic="port_disk"></button>
             <button id="bkget" data-t="bankGet" data-ic="symbol_download"></button>
+            <button id="bkren" data-t="rename"></button>
             <button id="bkerase" data-t="erase" data-ic="symbol_trash"></button>
           </p>
           <p class="bar">
@@ -590,6 +591,7 @@ const parse = {
       o.grid = o.pattern.map(([h, c]) => { const x = r.b(), hit = h | (x & 1) << 7; return [hit, (c | (x & 2) << 6) & hit]; });
       o.pattern = null;
     }
+    if (r.i < a.length) o.cat = r.b();               /* 1.2: the category (category.c CAT_*): kept through a rename */
     return o;
   },
   [CMD.UP_PUT](a) { return parse[CMD.SMP_BEGIN](a); },
@@ -681,7 +683,9 @@ const req = {
     ...(pt.grid
       ? [...Array.from({ length: UP.PAT }, (_, i) => hitsEnc(...(pt.grid[i] || [0, 0])).slice(0, 2)).flat(), 1,
          ...Array.from({ length: UP.PAT }, (_, i) => hitsEnc(...(pt.grid[i] || [0, 0]))[2])]
-      : Array.from({ length: UP.PAT }, (_, i) => { const x = (pt.pattern || [])[i] || [0, 0]; return [x[0] & 0x7F, x[1] & 7]; }).flat())]],
+      : Array.from({ length: UP.PAT }, (_, i) => { const x = (pt.pattern || [])[i] || [0, 0]; return [x[0] & 0x7F, x[1] & 7]; }).flat()),
+    ...(Number.isInteger(pt.cat) ? [...(pt.grid ? [] : [0, ...Array(UP.PAT).fill(0)]), pt.cat & 0x7F] : [])]],   /* (1.2: the category,
+                                                         after the kind byte and the 16 grid bytes, sent only as read) */
   upStore: (s, name) => [CMD.UP_STORE, [s & 0x7F, ...strEnc(name ? upName(name) : "")]],   /* "": the device names it ("ANALOG 07") */
   upLoad: (s) => [CMD.UP_LOAD, [s & 0x7F]],
   upErase: (s) => [CMD.UP_ERASE, [s & 0x7F]],
@@ -2654,7 +2658,7 @@ const TEXT = {
     mirMine: "こちらのコピー: {when}", mirDone: "プリセットをコピーしました: ",
     mirAskDev: "これらのスロットを本体のプリセット {n} 個で置き換えますか (本体の空きスロットはここでも空に)?",
     mirAskEmu: "本体のスロットを「本体なし」のプリセット {n} 個で置き換えますか (空きスロットは本体で消去)?",
-    cancel: "キャンセル", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
+    renamedSlot: "名前を変更しました: ", cancel: "キャンセル", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
     kbdHelp: "キーボード: {keys} で演奏 ({range}) · {oct} オクターブ · {vel} ベロシティ {v}",
     connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
     sound: "音色", engine: "エンジン", presets: "プリセット", initSound: "音色を初期化",
@@ -2771,7 +2775,7 @@ const TEXT = {
     mirMine: "this side's copy: {when}", mirDone: "Presets copied: ",
     mirAskDev: "Replace these slots with the FM-1's {n} presets (its empty slots empty here too)?",
     mirAskEmu: "Replace the FM-1's slots with the {n} presets of No device (their empty slots erased on the FM-1)?",
-    cancel: "Cancel", emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
+    renamedSlot: "Renamed: ", cancel: "Cancel", emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
     kbdHelp: "Keyboard: {keys} play ({range}) · {oct} octave · {vel} velocity {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Init sound",
     track: "Track",
@@ -2887,7 +2891,7 @@ const TEXT = {
     mirMine: "Kopie dieser Seite: {when}", mirDone: "Presets kopiert: ",
     mirAskDev: "Diese Plätze durch die {n} Presets des FM-1 ersetzen (seine leeren Plätze werden hier auch leer)?",
     mirAskEmu: "Die Plätze des FM-1 durch die {n} Presets von „Ohne Gerät“ ersetzen (deren leere Plätze werden am FM-1 gelöscht)?",
-    cancel: "Abbrechen", emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
+    renamedSlot: "Umbenannt: ", cancel: "Abbrechen", emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
     kbdHelp: "Tastatur: {keys} spielen ({range}) · {oct} Oktave · {vel} Anschlag {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Sound zurücksetzen",
     track: "Spur",
@@ -5407,6 +5411,7 @@ function renderBank() {
   $("bkstore").disabled = !s || !idle;
   $("bkget").disabled = !s || !s.used || !idle;
   $("bkerase").disabled = !s || !s.used || !idle;
+  $("bkren").disabled = !s || !s.used || !idle;
   $("bkrefresh").disabled = !idle;
   $("bkexport").disabled = !used || !idle;
 }
@@ -5665,6 +5670,7 @@ function renderDevFiles() {
       el("td", {},
         el("button", { ic: "symbol_download", disabled: !x.used || !idle, title: t("dfGetTip"), onclick: () => devFileGet(x.slot) }, t("dfGet")),
         el("button", { ic: "symbol_upload", disabled: !idle, title: t("dfPutTip"), onclick: () => pick.click() }, t("dfPut")), pick,
+        el("button", { disabled: !x.used || !idle, onclick: () => slotRename(x.slot) }, t("rename")),
         el("button", { ic: "symbol_trash", disabled: !x.used || !idle, onclick: () => devFileErase(x.slot) }, t("erase"))));
     tr.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); tr.classList.add("over"); } });
     tr.addEventListener("dragleave", () => tr.classList.remove("over"));
@@ -5707,6 +5713,23 @@ async function devFilePut(slot, f) {
     sayK("putDone", `${slotName(slot)} ${upName(p.name)}`);
   });
 }
+/* M-Vave-OP1: a user preset slot renamed: its record read and written back under the new name (sound, steps and FM6
+   patch as they were) */
+async function slotRename(slot) {
+  const s = dev && dev.bank && dev.bank.slots[slot];
+  if (!s || !s.used || libBusy) return;
+  const v = await askText(t("promptName"), s.name);
+  if (v == null || !upName(v) || upName(v) === s.name) return;
+  libOp(async (d, rqf) => {
+    const u = await bank.get(rqf, d.info, slot);
+    if (!u.used) throw new Error(t("empty"));
+    checkRc(await bank.put(rqf, slot, { ...u, name: upName(v), p: fullParams(u) }, d.info));
+    await refreshSlot(slot, d);
+    sayK("renamedSlot", `${slotName(slot)} ${upName(v)}`);
+  });
+}
+$("bkren").addEventListener("click", () => slotRename(bankSel));
+
 async function devFileErase(slot) {
   const s = dev && dev.bank && dev.bank.slots[slot];
   if (!s || !s.used || libBusy || !await askOk(t("confirmEraseSlot").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
@@ -5756,7 +5779,7 @@ async function mirrorSave(d) {
       if (!x.used) continue;
       const u = await bank.get(rqf, d.info, x.slot);
       if (u.used) slots.push({ slot: x.slot, name: u.name, engine: u.engine, engineName: d.info.engines[u.engine], p: u.p,
-        pattern: u.pattern, grid: u.grid, fm6: u.fm6 });
+        pattern: u.pattern, grid: u.grid, fm6: u.fm6, cat: u.cat });
     }
     const m = { firmware: d.info.version, keys: d.keys, pe0: d.info.pe0, saved: new Date().toISOString(), slots };
     try { localStorage.setItem(emu ? MIRROR_EMU : MIRROR_DEV, JSON.stringify(m)); } catch (e) { console.warn("mirror", e); }
