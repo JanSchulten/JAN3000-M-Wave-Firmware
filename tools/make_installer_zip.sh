@@ -11,7 +11,10 @@ VER=$(git describe --always --dirty 2>/dev/null || echo dev)
 TMP=$(mktemp -d)
 SITE="$TMP/M-Vave-OP1-Installer"
 # the editor's NO DEVICE: the firmware for the browser (web/emu/build.sh, Emscripten; ~/emsdk when it is there)
-[ -f "$HOME/emsdk/emsdk_env.sh" ] && ! command -v emcc >/dev/null 2>&1 && . "$HOME/emsdk/emsdk_env.sh" >/dev/null 2>&1
+# (sourced from its own folder: under sh it cannot find that itself)
+if [ -f "$HOME/emsdk/emsdk_env.sh" ] && ! command -v emcc >/dev/null 2>&1; then
+    here=$(pwd); cd "$HOME/emsdk" && . ./emsdk_env.sh >/dev/null 2>&1; cd "$here"
+fi
 if command -v emcc >/dev/null 2>&1; then sh web/emu/build.sh; else echo "installer zip: no emcc: the editor without NO DEVICE"; fi
 python3 web/make_site.py build/felucca.fwsc "op1-$VER" "$SITE"
 # serve.py: a free port of its own each start (an older installer's server still running on another port, or the
