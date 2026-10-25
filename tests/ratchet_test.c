@@ -181,8 +181,8 @@ static int projects(void)
     project_capture(&before);
     proj_pack(&packed, &before);
     ok = 1;
-    for (k = 0, pos = 68u; k < NTRK; k++, pos += P_COUNT + 2u + NSTEP * 9u)
-        for (i = 0; i < NSTEP; i++)
+    for (k = 0, pos = 68u; k < NTRK; k++, pos += P_COUNT + 2u + NSTEP_FMT * 9u)
+        for (i = 0; i < NSTEP_FMT; i++)
             ok &= packed.raw[pos + P_COUNT + 2u + i * 9u + 5u] < 128u && packed.raw[pos + P_COUNT + 2u + i * 9u + 8u] < 128u;
     bad += check("  a project without ratchets: every velocity and chance byte below 128, as firmware before wrote", ok);
     {   /* a FUN7 image (its tracks without patches) as firmware before RATCH wrote it: x1 */

@@ -290,11 +290,11 @@ static void test_ui(const char *dir)
     bad += check("KNOB 3: the step's EFFECT: OFF, TIE, the effects, the mutes (named as turned)", ok);
     turn(EN_K4, -8);
     ok = fxt_lane[0].len == 8u && ui.fxt_cur == 7u;
-    turn(EN_K4, 100);
+    turn(EN_K4, 200);
     ok &= fxt_lane[0].len == NSTEP;
-    turn(EN_K4, -48);
+    turn(EN_K4, -112);
     ok &= fxt_lane[0].len == 16u;
-    bad += check("KNOB 4: LEN 1..64 (the step follows it down)", ok);
+    bad += check("KNOB 4: LEN 1..128 (the step follows it down)", ok);
     turn(EN_K1, 1);
     press(B_REC);
     ok = fxt.arm == 2u && song.rec == 0u && transport_req == 0u && msg_is("FX2 ARMED: HOLD [FX]");

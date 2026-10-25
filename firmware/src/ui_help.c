@@ -77,6 +77,7 @@ static const char *const HELP_LAYER[LAYER_N] = {
     "[K1]ENGINE[K2]SOUND[K3]FAV", "[KEYS]BLACK: TOOLS[EDIT]PUT BACK", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",   /* (M-Vave-OP1:
                                                      * SEQ's white keys are the scenes, the footer says so) */
 };
+static const char *const HELP_SSONG = "[KEYS]ADD SCENE[EDIT]DELETE";   /* (M-Vave-OP1: SEQ held > SONG) */
 
 /* the hint of the page shown, 0 = none */
 static const char *help_page(void)

@@ -511,11 +511,11 @@ static int formats(void)
             for (i = 0; i < P_COUNT; i++, pi++)
                 if (i < from || i >= P_E0)
                     so.raw[po++] = st.raw[pi];
-            memcpy(so.raw + po, st.raw + pi, 2u + NSTEP * 9u);
-            pi += 2u + NSTEP * 9u;
-            po += 2u + NSTEP * 9u;
+            memcpy(so.raw + po, st.raw + pi, 2u + NSTEP_FMT * 9u);
+            pi += 2u + NSTEP_FMT * 9u;
+            po += 2u + NSTEP_FMT * 9u;
         }
-        memcpy(so.raw + po, st.raw + pi, sizeof(chain_config_t) + sizeof(motion_store_t));
+        memcpy(so.raw + po, st.raw + pi, sizeof(chain_config_t) + sizeof(motion_disk_t));
         m0 = po + sizeof(chain_config_t);
         for (i = 0; i < so.raw[m0]; i++) {
             uint8_t *id = &so.raw[m0 + 4u + 3u * i + 1u];
@@ -536,7 +536,7 @@ static int formats(void)
     }
     {   /* the song's sections (1.2): a slot per track, "-" silent, 5 bytes a row, 84 in all, right after the steps */
         project_t c = a, d;
-        uint32_t at = 68u + NTRK * (P_COUNT + 2u + NSTEP * 9u);
+        uint32_t at = 68u + NTRK * (P_COUNT + 2u + NSTEP_FMT * 9u);
         c.chain.count = CHAIN_ROWS;
         for (i = 0; i < CHAIN_ROWS; i++)
             c.chain.row[i] = (chain_row_t){{(uint8_t)(i % 5u), (uint8_t)((i + 1u) % 5u), (uint8_t)((i + 2u) % 5u),
@@ -560,7 +560,7 @@ static int formats(void)
     /* FUN9 (1.1), FUN8 (1.0.x), FUN7: as before; the four parameters at their defaults, every nudge 0 */
     memset(&a.motion, 0, sizeof a.motion);
     for (i = 0; i < 64u; i++)
-        a.motion.event[i] = (motion_event_t){(uint8_t)((i % 4u) << 6 | i / 4u), (uint8_t)(i % 5u ? P_REV : P_E0 + 3), (int8_t)(i % 5u ? i : 2)};
+        a.motion.event[i] = (motion_event_t){MO_PLACE(i % 4u, i / 4u), (uint8_t)(i % 5u ? P_REV : P_E0 + 3), (int8_t)(i % 5u ? i : 2)};
     a.motion.count = 64; a.motion.on = 15;
     a.motion.event[7].param = P_PAN; a.motion.event[7].value = -40;
     a.motion.event[9].param |= MOTION_LOCK;
@@ -579,7 +579,7 @@ static int formats(void)
     bad += check("FUN9 (1.1, 64 records of 4 bytes): exactly the project (LFO 2 / QUANTIZE defaults, nudges 0)", ok);
     {
         uint8_t c9[3648];
-        uint32_t sum, at = 68u + NTRK * (99u + 2u + NSTEP * 9u);
+        uint32_t sum, at = 68u + NTRK * (99u + 2u + NSTEP_FMT * 9u);
         ok = b.chain.count == 3u && !memcmp(&b.chain.row[1], &(chain_row_t){{3, 3, 3, 3}, 16}, sizeof(chain_row_t)) &&
              v9[at] == 3 && v9[at + 4u] == 0 && v9[at + 5u] == 4 && v9[at + 6u] == 3 && v9[at + 7u] == 16;
         memcpy(c9, v9, sizeof c9);
@@ -591,7 +591,7 @@ static int formats(void)
     }
     {
         uint8_t c9[3648];
-        uint32_t sum, mo = 68u + NTRK * (99u + 2u + NSTEP * 9u) + sizeof(chain_v9_t);
+        uint32_t sum, mo = 68u + NTRK * (99u + 2u + NSTEP_FMT * 9u) + sizeof(chain_v9_t);
         memcpy(c9, v9, sizeof c9);
         c9[mo] = 65;                                  /* 65 records: never in a FUN9 */
         sum = proj_hash(c9, 3644u); memcpy(c9 + 3644u, &sum, 4);

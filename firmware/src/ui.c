@@ -6,6 +6,9 @@
  * every element remembers what it last drew and is redrawn only on change. */
 static int project_save(uint32_t slot);
 static void panel_setup(void);
+#if FELUCCA_DISK
+static void usb_disk_run(void);                         /* M-Vave-OP1: MENU > USB DISK (usbdisk.c) */
+#endif
 static void project_load(uint32_t slot);
 static void project_new(uint32_t slot);         /* (M-Vave-OP1: SAVE > PROJECT > NEW; slot 0..3, else none) */
 static int project_used(uint32_t slot);
@@ -75,7 +78,8 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 /* 1.2: three more two-valued MENU settings, bits of another byte no engine uses, saved with the settings; 0 in older
  * settings = today's behaviour (append-only, as ui_prefs): bit 0 DISPLAY > SCOPE MIX (Discussion #165, fx.c scope_mix),
  * bit 1 CONTROL > STEP PREVIEW ON (Discussion #169, ui_input.c step_preview), bit 2 CONTROL > CHORD ENTRY ADD (#155,
- * ui_input.c seq_entry). 1.5: bit 3 SYSTEM > HELP ON (Discussion #156, ui_help.c). Bits 4-7 free */
+ * ui_input.c seq_entry). 1.5: bit 3 SYSTEM > HELP ON (Discussion #156, ui_help.c). M-Vave-OP1: bits 4, 5 SYNC OUT (below),
+ * bit 6 CONTROL > SCENE CHANGE NEXT BAR (scene.c scene_due). Bit 7 free */
 #define ui_prefs2 (favorites.factory[15][24])
 #define PREF_X 0xFF0000u                       /* (menu_items.c MENU_FLAGS: a bit of ui_prefs2, << 16) */
 #define PREF_SCOPE_MIX (0x01u << 16)
@@ -84,6 +88,8 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 #define PREF_HELP (0x08u << 16)
 #define PREF_SYNC_OUT (0x10u << 16)            /* M-Vave-OP1: bit 4, MENU > AUDIO > SYNC OUT PO (click.c po_sync) */
 #define PREF_SYNC_INV (0x20u << 16)            /* .. bit 5, with it: PO INV (the pulses upside down) */
+#define PREF_SCENE_BAR (0x40u << 16)           /* M-Vave-OP1: bit 6, a scene picked while playing switches at the next
+                                                * bar (0: AT END, at the end of the scene playing) */
 /* 1.3 (Discussions #112, #134): MENU > DISPLAY > HOME, what the HOME page shows under its four cards: 0 SCOPE (the
  * oscilloscope, as before), 1 TRACKS (the four tracks as rows: ui_graph.c draw_home_tracks), 2 LEVELS (1.5, #134: the
  * rows of TRACKS, and KNOB 1..4 the LEVEL of T1..T4 in place of the engine's four: home_param). A byte of its own no
@@ -110,6 +116,7 @@ static void rp_apply(void)                             /* the settings into clic
     cin_bars = (uint8_t)rp_get(RP_COUNTIN);
     po_sync = !(ui_prefs2 & (PREF_SYNC_OUT >> 16)) ? 0u : (ui_prefs2 & (PREF_SYNC_INV >> 16)) ? 2u : 1u;   /* (M-Vave-OP1:
                                                      * SYNC OUT OFF / PO / PO INV, click.c) */
+    scn_bar = (ui_prefs2 & (PREF_SCENE_BAR >> 16)) != 0u;   /* (M-Vave-OP1: SCENE CHANGE NEXT BAR, scene.c scene_due) */
 }
 static void rp_put(uint32_t f, uint32_t v)
 {
@@ -158,7 +165,7 @@ static struct {
     uint8_t plk_src;             /* parameter locks (ui_input.c lock_*): the sound page whose KNOB 1..4 a step held
                                   * locks, PAGES index + 1; 0 = HOME's four */
     uint8_t plk_lane, plk_trk;   /* .. the grid: the lane and the track of the hits plk_rm takes away */
-    uint64_t plk_rm, plk_acc;    /* .. the grid's step keys pressed on a hit (bit = step): it goes when the key is let
+    stepset_t plk_rm, plk_acc;   /* .. the grid's step keys pressed on a hit (bit = step): it goes when the key is let
                                   * go, unless the key was held for a lock (its accent: plk_acc) */
     uint8_t hot_col, hot_t;      /* column whose knob was just turned (drawn white) */
     uint8_t menu;                /* 0 off, 1 list, 2 about + credits, 3 info (1.2) (HOME held) */
@@ -178,6 +185,8 @@ static struct {
     uint8_t uslot;               /* SAVE > USER: the selected user preset slot */
     uint8_t ppick;               /* SAVE > PHRASES: the pattern picked (pat_count list index) */
     uint8_t song_row;            /* SONG: the section selected, count selects + ADD */
+    uint8_t ssg_row;             /* M-Vave-OP1, SEQ held > SONG: the cell selected, ssong.count selects + ADD */
+    uint8_t seq_lv;              /* .. SEQ held: 0 SCENES, 1 SONG (SELECT turns them; kept between holds) */
     uint8_t song_trk;            /* SONG: the lane (track) selected, 0..NTRK-1 */
     uint8_t fxt_sel, fxt_cur;    /* FX TRACKS (M-Vave-OP1, fxtrack.c): the lane selected (FX1, FX2), its step KNOB 3 sets */
     uint8_t song_rec, song_new;  /* SONG (M-Vave-OP1): REC types a chain with A..D (on); the next key starts a new one */
@@ -220,9 +229,10 @@ static struct {
 
 enum { CF_NONE, CF_CLEAR_SEQ, CF_CLEAR_TRK, CF_OVR_PROJ, CF_OVR_USER, CF_LOAD_PAT,
        CF_DEL_ROW, CF_CLEAR_SONG, CF_INIT_SOUND, CF_CLEAR_MOTION, CF_ERASE_USER,
-       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ, CF_LOAD_PROJ };   /* ui.confirm: TOOLS' clears;
+       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ, CF_LOAD_PROJ, CF_CLEAR_SSONG };   /* ui.confirm: TOOLS' clears;
                                    * SAVE over a used slot; a pattern over the user's steps;
-                                   * USER ERASE; FX TRACKS 2's CLEAR (a lane, both); PROJECT's NEW */
+                                   * USER ERASE; FX TRACKS 2's CLEAR (a lane, both); PROJECT's NEW;
+                                   * M-Vave-OP1: SEQ held > SONG's F#3 CLEAR (the scene song) */
 
 /* MENU > DISPLAY > SCREEN OFF (1.1.5): after a while with no input on the panel the screen goes dark (the backlight
  * stays on: lcd.c lcd_power)
@@ -863,14 +873,14 @@ static uint32_t track_sig(const track_t *t)      /* the sound (an FM6 track's pa
     h = fnv(h, fm6_patch[k], sizeof fm6_patch[k]); /* (a patch the editor sent between two loads) */
     h = fnv(h, vd_own[k], VK_SIZE);                /* (VDRUM's own kit: its part pages) */
     for (uint32_t j = 0; j < motion.count; j++)
-        if ((motion.event[j].place >> 6) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
+        if (MO_TRK(&motion.event[j]) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
     return h ^ ((motion.on >> k) & 1u);
 }
 static uint32_t motion_sig(const track_t *t)     /* the track's motion only (the sound moves while it plays) */
 {
     uint32_t h = 2166136261u, k = trk_index(t);
     for (uint32_t j = 0; j < motion.count; j++)
-        if ((motion.event[j].place >> 6) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
+        if (MO_TRK(&motion.event[j]) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
     return h ^ ((motion.on >> k) & 1u);
 }
 /* the track's pattern as a song plays it from a slot: the steps, LEN DIV SWING GATE, QUANTIZE, the automation (the

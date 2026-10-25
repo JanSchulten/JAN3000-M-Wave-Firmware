@@ -12,6 +12,9 @@
  *            bytes are no scenes: not taken; a project written by the editor since or another slot's: none; a rename
  *            keeps them; the autosave's (set 5) with it; only USR2's sectors written, each set its own.
  *   USR2/3   read as empty sample slots whatever their flash holds.
+ *   128      M-Vave-OP1's steps 65..128 (the extras' tail, XTRA_V7): saved with the project, read back from the flash
+ *            after a power-on (LEN, LEGATO, automation and locks, the lanes); a rename keeps them; extras of before (no
+ *            tail): none, LEN 64; the autosave's; a song's slot from the flash; the scene song with them (XTRA_V8).
  * Built and run by tests/run_tests.sh. */
 static unsigned char nor[0x100000];
 #define SMP_USER_XIP(k) (nor + 0xA0000u + (k) * 0x14000u)
@@ -483,6 +486,99 @@ static int test_usr3(void)
     return check("USR2, USR3: empty sample slots whatever their flash holds (they hold M-Vave-OP1's stores)", ok);
 }
 
+/* T1: LEN 128, notes on steps 71 (LEGATO) and 128, PAN automated on step 91, REV locked on step 128; FX1 of LEN 120 with
+ * an LPF on step 101 */
+static void long_demo(void)
+{
+    uint32_t k;
+    for (k = 0; k < NTRK; k++)
+        track_defaults_steps(&trk[k]);
+    memset(fxt_lane, 0, sizeof fxt_lane);
+    trk[0].p[P_SLEN] = 128;
+    trk[0].step[70] = (step_t){{62}, 1, ST_NOTE, 0, 0};
+    trk[0].step[70].probability |= STEP_LEG;
+    trk[0].step[127] = (step_t){{67}, 1, ST_NOTE, SF_ACCENT, 0};
+    motion_set_event(&trk[0], 90, P_PAN, 20);
+    motion_set_lock(&trk[0], 127, P_REV, 90);
+    fxt_lane[0].len = 120;
+    fxt_lane[0].step[100] = fxt_code(PF_LPF);
+}
+static int long_is(void)
+{
+    uint32_t i, pan = 0, rev = 0;
+    for (i = 0; i < motion.count; i++) {
+        pan |= motion.event[i].place == MO_PLACE(0, 90) && motion.event[i].param == P_PAN && motion.event[i].value == 20;
+        rev |= motion.event[i].place == MO_PLACE(0, 127) && motion.event[i].param == (P_REV | MOTION_LOCK);
+    }
+    return trk[0].p[P_SLEN] == 128 && trk[0].step[70].note[0] == 62u && step_leg(&trk[0].step[70]) &&
+           trk[0].step[127].note[0] == 67u && (trk[0].step[127].flags & SF_ACCENT) && pan && rev && motion.count == 2u &&
+           fxt_lane[0].len == 120u && fxt_lane[0].step[100] == fxt_code(PF_LPF);
+}
+static void long_wipe(void)
+{
+    uint32_t k;
+    for (k = 0; k < NTRK; k++) {
+        track_defaults_steps(&trk[k]);
+        trk[k].p[P_SLEN] = 16;
+    }
+    memset(fxt_lane, 0, sizeof fxt_lane);
+}
+static int test_steps128(void)
+{
+    int bad = 0, ok;
+    st_hdr_t h;
+    reset();
+    long_demo();
+    ssong.count = 2; ssong.scene[0] = 0; ssong.repeat[0] = 2; ssong.scene[1] = 0; ssong.repeat[1] = 1;   /* (and a scene */
+    ssong.flags = SSG_LOOP;                                                                          /* song) */
+    ok = project_save(1) == 0 && st_current(OBJ_XPROJ0 + 1, &h) >= 0 && h.len == XTRA_V8;
+    bad += check("128: SAVE to B: its extras with their tail (steps 65..128, the scene song), one object", ok);
+    power_on();
+    long_wipe();
+    ssong_clear();
+    project_load(1);
+    bad += check("  .. power-on, LOAD B: steps 65..128 from the flash, LEN 128, LEGATO, automation, a lock, FX1 LEN 120;"
+                 " the scene song", long_is() && ssong.count == 2u && ssong.repeat[0] == 2u && (ssong.flags & SSG_LOOP));
+    project_rename(1, "LONG");
+    power_on();
+    long_wipe();
+    project_load(1);
+    bad += check("  .. a RENAME: the tail stays the project's", long_is() && str_eq(proj_name, "LONG"));
+    xtra_slot[1].size = XTRA_V6;                   /* (B's extras as a firmware of 64 steps wrote them: no tail) */
+    st_save(OBJ_XPROJ0 + 1, &xtra_slot[1], sizeof xtra_slot[1]);
+    power_on();
+    long_wipe();
+    project_load(1);
+    ok = trk[0].p[P_SLEN] == 64 && trk[0].step[127].time == ST_REST && !trk[0].step[127].n && motion.count == 0u &&
+         fxt_lane[0].len == 64u && !fxt_lane[0].step[100];
+    bad += check("  extras of before (no tail): steps 65..128 empty, LEN 64, no records past 64, FX1 LEN 64", ok);
+    /* the autosave's */
+    reset();
+    autosave_boot(1);
+    long_demo();
+    as_run(11000u);
+    long_wipe();
+    motion_clear(&trk[0]);
+    ok = autosave_boot(1) == 1 && long_is();
+    bad += check("  the autosave: its tail written with it, restored at power-on", ok);
+    /* a song's slot, read from the flash */
+    reset();
+    long_demo();
+    project_save(0);
+    power_on();
+    long_wipe();
+    motion_clear(&trk[0]);
+    chain_config.count = 1;
+    chain_config.row[0] = chain_row_of(0, 1);
+    ok = chain_prepare() == 0 && chain.source[0].timing[0][0] == 128 && chain.source[0].step[0][127].note[0] == 67u &&
+         step_leg(&chain.source[0].step[0][70]) && chain.source[0].motion.count == 2u && chain.source[0].fx[0].len == 120u;
+    bad += check("  a SONG on slot A after a power-on: its steps 65..128, LEN, LEGATO, records and FX1 from the flash", ok);
+    chain_stop();
+    transport_req = 0;
+    chain_config.count = 0;
+    return bad;
+}
+
 int main(void)
 {
     int bad = 0;
@@ -490,6 +586,7 @@ int main(void)
     bad += test_autosave();
     bad += test_scenes();
     bad += test_usr3();
+    bad += test_steps128();
     if (bad) {
         printf("opstore: %d FAILED\n", bad);
         return 1;

@@ -25,6 +25,9 @@
 #ifndef FELUCCA_UAC_TONE
 #define FELUCCA_UAC_TONE 0       /* bench: the USB input sends test triangles instead of the music */
 #endif
+#ifndef FELUCCA_DISK
+#define FELUCCA_DISK 1           /* M-Vave-OP1: MENU > USB DISK, the projects on a read-only USB drive (usbdisk.c) */
+#endif
 #ifndef FELUCCA_UART
 #define FELUCCA_UART 1           /* TRS MIDI IN on UART1 / PH8 */
 #endif
@@ -33,6 +36,9 @@
 #endif
 #ifndef FELUCCA_VERSION
 #define FELUCCA_VERSION "v1.5.1" /* shown in the menu, the console and the editor; build.py --release X.Y */
+#endif
+#if FELUCCA_DISK && !FELUCCA_OTA
+#error "FELUCCA_DISK needs FELUCCA_OTA (the transport stop, the flash)"
 #endif
 #if FELUCCA_OTA && !FELUCCA_FLASH
 #error "FELUCCA_OTA needs FELUCCA_FLASH"
@@ -97,6 +103,9 @@
 #include "ota.c"
 #include "ota_hw.c"
 #include "editor.c"              /* web editor SysEx (needs the OTA SysEx plumbing) */
+#endif
+#if FELUCCA_DISK
+#include "usbdisk.c"             /* M-Vave-OP1: MENU > USB DISK (usb.c msc.c vdisk.c) */
 #endif
 #if FELUCCA_CDC
 #include "console.c"

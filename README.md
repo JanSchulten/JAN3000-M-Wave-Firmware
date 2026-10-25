@@ -6,8 +6,8 @@ This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo 
 (Hügelton Instruments). It keeps Felucca's hardware layer, USB, update loader, web installer,
 storage, engines and tests, and builds an OP-1 / OP-Z-style workflow on top: a KEY track that moves the patterns
 through a chord progression, and from the OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
-switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and the Roland J-6's 100 chord
-sets as SCL > CSET. What is planned next is in the [roadmap](docs/ROADMAP.md).
+switched while they play, pattern chains, a switchable FX1 with a granular CLOUD, the Roland J-6's 100 chord
+sets as SCL > CSET and patterns of up to 128 steps. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development, running on a real FM-1 since the first flash (JAN3000 v0.8: the name on its splash).
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
@@ -49,13 +49,13 @@ scale's own chords. The keys you play live stay as they are, so you can play alo
 ## FX TRACKS
 
 Two lanes of effects next to the four instrument tracks, after the OP-Z's FX tracks. Two more synth tracks do not
-fit the FM-1's RAM; an effect lane costs 66 bytes. The lanes play the FX layer's effects on the master (REPEAT
+fit the FM-1's RAM; an effect lane costs 130 bytes. The lanes play the FX layer's effects on the master (REPEAT
 1/8 1/16 1/32, REVERSE, LPF, HPF, TAPE STOP, FREEZE, OCT UP, OCT DN, FLANGER, PHASER, REV THROW, ECHO THROW, CLOUD
 FREEZE, the OP-Z punch-ins below, and the mutes of tracks 1 to 4).
 
 - **FX** opens FX; tap again for **FX TRACKS**, again for **FX TRACKS 2**.
 - **KNOB 1** picks the lane (FX1, FX2), **KNOB 2** the step, **KNOB 3** the step's effect (OFF, TIE to hold the effect
-  before it on, the effects, the mutes), **KNOB 4** the lane's length (1 to 64 steps of a 1/16). Two lengths drift
+  before it on, the effects, the mutes), **KNOB 4** the lane's length (1 to 128 steps of a 1/16). Two lengths drift
   against each other, as the OP-Z's tracks do.
 - **Punch-ins, recorded:** REC on FX TRACKS arms the selected lane (stopped: PLAY starts). Hold **FX** and press the
   white keys (effects) or the first four black keys (mutes): what you play goes onto the lane, quantised to the
@@ -133,11 +133,13 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   NOTHING TO COPY (the scene is empty), NO FREE SCENE or SCENE MEMORY FULL. The footer: [OCT-/+] PREV NEXT,
   [OCT+] HOLD: COPY.
 - Stopped, a scene comes at once. **Playing, it comes at the end of the pattern**: the end of the loop of the longest
-  track that plays something, on the grid, as a SONG section ends. The scene playing picked again takes the pick
-  back (SCENE n STAYS). STOP with one waiting: it comes at once.
+  track that plays something, on the grid, as a SONG section ends. **MENU > CONTROL > SCENE CHANGE**: AT END (that,
+  the default) or **NEXT BAR**: the scene comes at the next bar line (4/4, the metronome's), whatever the tracks'
+  lengths, and starts from its step 1 there. The scene playing picked again takes the pick back (SCENE n STAYS). STOP
+  with one waiting: it comes at once.
 - An empty scene starts with the LEN DIV SWING GATE of the scene it is reached from. The cells: the scene playing
-  filled (its key lit), one waiting ringed (its key breathing), one that holds something raised, an empty one
-  dimmed.
+  filled (its key blinking), one waiting ringed (its key breathing), one that holds something raised (its key lit),
+  an empty one dimmed (its key dark).
 - The **tools are on the black keys** now, F#3 .. F#5 in Felucca's order: CLEAR, REVERSE, SHIFT < >, RANDOM, COOK, on
   a DRUM track BEAT and the lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane). **SEQ + EDIT** puts the
   track back as the layer opened (it was OCT-). KNOB 1..4 are LEN DIV SWING GATE as before.
@@ -145,6 +147,17 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   pick the next scene; let go of the key and the effect stops.
 - The 15 scenes not playing wait packed in 7.7 KB (a scene of four 16-step parts takes about 250 to 900 bytes, the
   densest possible 3.9 KB). A pick that would not fit says **SCENE MEMORY FULL** and nothing changes.
+- **The scene song: SEQ held + SELECT** turns the layer to its second level, **[SEQ] SONG** (SELECT back: SCENES; the
+  next hold opens where it was left). The song is a chain of cells, 4 a row and on into the next: each cell a scene and
+  its passes (x1..x16; a pass is the scene's loop, its longest track), the one playing filled, the one selected ringed,
+  a cell on an empty scene dimmed. The **white keys add their scene** to the chain's end (the last cell's scene again:
+  one pass more), **KNOB 1** the cell, **KNOB 2** its scene, **KNOB 3** its REPS, **KNOB 4** END (LOOP: the first cell
+  again, STOP); **OCT- / OCT+** the cell before / after, **EDIT** deletes the cell, **F#3** CLEAR (after OCT+). **PLAY**
+  plays the song from the cell selected (PLAY again: STOP). It always changes at a scene's end (MENU > SCENE CHANGE is
+  for picks by hand); a cell on the scene playing just plays it on. While it plays, every page edits and records into
+  the scene playing, the cells too (a REPS turned on the one playing counts at once). A pick by hand (SEQ + a key on
+  SCENES, OCT+ / OCT-, the copy) or STOP ends the song where it is. Kept with the project (its extras: firmware before
+  this reads the project without its song). The SEQ pages stay the step pages: STEP, DETAIL, AUTOMATION.
 - Kept with the project (SAVE > PROJECT, the one playing too) and with the autosave. A project of Felucca's or of an
   older M-Vave-OP1 loads as scene 1. While a song plays (GLO > SONG) scenes are not picked (STOP THE SONG FIRST); a
   song plays each slot as it was saved.
@@ -350,6 +363,16 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   rest; a fast turn stops at the end first, a chord keeps its shape); from OFF a turn brings in the note played last.
   SAVE held undoes it. EDIT no longer clears the step on STEP (nor on the drum grid): a tap opens EDIT as on every
   page, with a step held it still clears that step's locks.
+- **128 steps a track.** LEN goes to 128 (64 before): eight pages of 16 on STEP (the grid's page keys, PRESETS and
+  KNOB 1 walk them; the footer says PAGE 8/8), HOME's track rows show up to eight page marks. Everything a step has
+  works on steps 65 to 128 too: chords, ties, ratchets, chance, nudges, LEGATO, automation and parameter locks
+  (AUTOMATION's rows say STEP 100 .. 128), live recording, the tools; the FX TRACKS go to 128 steps as well (their
+  overview two steps a cell past 64). A project keeps steps 1 to 64 where Felucca's format has them and the rest, with
+  a LEN past 64, in its extras: firmware of 64 steps loads such a project as its first 64 steps (LEN 64), the rest
+  stays in the slot until it is saved over there. A scene that holds something past step 64 is packed in a wider form
+  that such firmware does not read (its other scenes: as before); one dense on all 128 steps of all four tracks does
+  not fit the scene memory (SCENE MEMORY FULL). The editor's INFO says 64 (as before) and 128 in a new block, so the
+  web editor lists the steps 65 to 128 and older editors keep working on the first 64.
 - **REC arms, PLAY starts.** A REC tap only arms the recording (the pattern's, GLO > KEY's, an FX TRACK's): REC ARMED:
   PRESS PLAY. PLAY then starts it, with the count-in first when MENU / REC layer COUNT-IN is set (Felucca's REC
   started the transport at once).
@@ -421,6 +444,43 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   sync, right audio through); **press PLAY on the PO first** (it waits for the clock), then PLAY on the FM-1. If the
   PO does not follow on PO, try PO INV. USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is
   the way out for a clock.
+
+## USB DISK: the projects as files
+
+**MENU > SYSTEM > USB DISK** (OCT+) turns the FM-1 into a USB drive for as long as its screen is up: plugged into a
+phone (the Files app) or a computer it shows up as **FM-1**, read-only, with
+
+- `README.TXT`: what is on it, the slots and their projects' names, the firmware,
+- `CURRENT.FM1`: the music as it is now (saved into the autosave first, as a power-on with RESTORE LAST would bring
+  it back),
+- `PROJ_A.FM1` .. `PROJ_D.FM1`: the project slots that hold a project.
+
+Copy them wherever you like. Any button or key ends it, and USB is MIDI + audio again (the host sees the FM-1 unplugged
+and plugged in again). A `.FM1` file holds the project exactly as the FM-1 keeps it in its flash: the project, its
+extras (FX TRACKS, KEY, steps 65..128, the scene song ..), its scenes, the settings, the user sample USR1 and FM6's voice
+bank, each with its flash offset and CRC (format FM1X, described in `firmware/src/usbdisk.c`). Nothing is converted, so
+a reader can put the bytes back where they were: the browser emulator runs the same firmware, which is the way to an
+offline bounce without the FM-1. Copying files onto the FM-1 is not there yet (the drive is write-protected).
+
+The drive is made up as it is read (a FAT16 of 8 MiB, nothing of it stored). The transport stops and the screen stays
+on USB DISK while it is up; MIDI, USB audio, the editor and the console are off for that time. Built with
+`FELUCCA_DISK` (on in the firmware). Tested on the host (`tests/vdisk_test.c` reads the whole drive the way a host
+does and checks it with a FAT reader of its own, `tests/vdisk_check.py`); a phone or a computer has not seen it yet.
+
+## Bounce: the projects as WAV, without the FM-1
+
+`web/bounce` is a page that takes a `.FM1` file (USB DISK, above) and renders it with the FM-1's own firmware as
+WebAssembly, offline: no FM-1 needed, about 30 to 100 times faster than real time. Out come `NAME_MIX.wav` (16-bit,
+the master exactly as USB audio sends it: USB LEVEL FIXED, SPEAKER EQ FLAT, no click) and, if wanted, the stems
+`NAME_T1.wav` .. `NAME_T4.wav` and `NAME_FX.wav` (32-bit float, before the master's limiter: each track's share of the
+mix, and the FX buses' returns with the FX layer's punch-ins; together they make the master up to its limiter), one by
+one or as a ZIP, or shared into the Files app on a phone. What it plays: the scene (so many bars), the scene song to
+its end, or the SONG chain. Each bounce boots a fresh FM-1: the same file gives the same samples every time (chance and
+RANDOM fall the same way each time, not as a particular run on the device did).
+
+The site (front page, bounce, emulator) is static: `sh tools/make_vercel_site.sh` (after `./build.sh`, with the
+emsdk) builds it into `site/`, which is committed; `vercel.json` serves `site/` as it is (no build on Vercel, which has
+no Emscripten). On Vercel: import the repository, keep the defaults (vercel.json sets them), deploy.
 
 ## Try it in the browser
 

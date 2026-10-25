@@ -369,12 +369,12 @@ static void ed_motion_reply(uint32_t k, uint32_t rc, uint32_t kinds, uint32_t fu
     }
     for (i = j = 0; i < motion.count && j < n; i++) {
         const motion_event_t *e = &motion.event[i];
-        if ((e->place >> 6) != k) continue;
-        ed_b(e->place & 63u); ed_b(MOTION_ID(e)); ed_v(e->value);
+        if (MO_TRK(e) != k) continue;
+        ed_b(MO_STEP(e)); ed_b(MOTION_ID(e)); ed_v(e->value);
         j++;
     }
     for (i = j = 0; kinds && i < motion.count && j < n; i++)
-        if ((motion.event[i].place >> 6) == k) {
+        if (MO_TRK(&motion.event[i]) == k) {
             ed_b((motion.event[i].param & MOTION_LOCK) != 0u);
             j++;
         }
@@ -449,7 +449,8 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
             else if (a[1] == 3u) rc = motion_set_event(t, a[2], a[3], (int16_t)ed_rv(a + 4));
             else if (a[1] == 4u && a[2] < NSTEP && motion_param(a[3])) motion_delete_event(t, a[2], a[3]);
             else if (a[1] == 5u) rc = motion_set_lock(t, a[2], a[3], (int16_t)ed_rv(a + 4));
-            else if (a[1] == 6u && (a[2] < NSTEP || a[2] == 127u)) (void)motion_clear_locks(t, a[2]);
+            else if (a[1] == 6u && a[2] < NSTEP)        /* (127: every step's, as before 128 steps; step 128's alone: op 4) */
+                (void)motion_clear_locks(t, a[2] == 127u ? NSTEP : a[2]);
             else rc = 1;
             ui.force = 1;
         }
@@ -461,7 +462,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         ed_b(NENGINES);
         ed_b(P_COUNT);
         ed_b(G_COUNT);
-        ed_b(NSTEP);
+        ed_b(NSTEP_FMT);                                  /* (M-Vave-OP1: 64, a 7-bit byte; the steps in 58 01 below) */
         ed_b(P_E0);
         for (i = 0; i < NENGINES; i++)
             ed_str(ENGINES[i]->name, 8);
@@ -482,6 +483,8 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         ed_b(0x57); ed_b(1); ed_b(NTRK);   /* 1.2: song sections with a slot per track (SONG ops 4..7) */
         ed_b(0x56); ed_b(1); ed_b(FM6_NBANK);   /* 1.4.1: FM6's voice bank (cmds 74..77; SLOT 9..40 = B1..B32) */
         ed_b(0x43); ed_b(1); ed_b(ML_N);   /* 1.5: MIDI LEARN's map (cmds 78, 79; editor_learn.c) */
+        ed_b(0x58); ed_b(1); ed_b(NSTEP & 127u); ed_b(NSTEP >> 7);   /* M-Vave-OP1: the steps a track (128: two 7-bit
+                                                * bytes, LSB first), STEP_GET / STEP_SET / TRACK_STEP 0..NSTEP-1 */
         break;
     case ED_GET:
     case ED_SET:

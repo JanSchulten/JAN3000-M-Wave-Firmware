@@ -33,7 +33,8 @@ Everything is `static`. Names are short and prefixed by subsystem (`key_`, `seq_
 ## Tracks, parameters, the song
 
 - `core.h`: `NTRK` = 4 tracks, each a synth part with its own engine, preset, `p[P_COUNT]` parameters, 8 voices
-  (shared budget `NVOICE`), a 64-step pattern (`step_t`), arp and LFO state.
+  (shared budget `NVOICE`), a 128-step pattern (`step_t`; M-Vave-OP1, Felucca's 64: see "128 steps" below), arp and
+  LFO state.
 - `P_*` (per track) and `G_*` (global) are stored in projects and user presets and spoken by the editor protocol:
   append-only, see SKILL.md.
 - `song` holds globals, transport (`playing`), the selected track (`song.sel`, `TSEL`), recording arm bits.
@@ -148,3 +149,19 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
   `perf_remap` makes held keys take the new map's effect. The bytes: `favorites.factory[15][0..9]` (`fx_keys_b`,
   ui_layer.c), the same 16 x 5 bits as MAP A's [14..23]. FX + ALGORITHM switches (ui_input.c, ALGORITHM was unused
   in a layer).
+
+## 128 steps (M-Vave-OP1)
+
+- `NSTEP` 128 (LEN 1..128); `NSTEP_FMT` 64 is what every stored format holds. FUN10 keeps steps 1..64, a LEN of at most
+  64 and the motion records of steps 1..64 (`motion_disk_t`: place track << 6 | step); the rest is the extras' tail
+  (opstore.c `xtra_hi_t`, `XTRA_V7`, after `proj_xtra_t` in the same flash object): steps 65..128 packed as the project
+  packs its own (project.c `proj_step_pack`), each track's true LEN, the lanes' steps 65..128 and LEN, LEGATO, the
+  records of steps 65..128. Firmware of 64 steps reads such a project as its first 64 steps.
+- The tail is not cached with `xtra_slot` (2.8 KB a slot): `xtra_hi_of` reads it from the flash into `st_buf`, so use
+  it before the next storage call (`xtra_proj_id` reads the flash too: take the id first). Applied after a project's
+  load (`xtra_apply`), in `chain_prepare` (each slot) and `project_info` (SONG's lengths and pictures).
+- In RAM a motion record's place is 16 bits, track << 7 | step: use `MO_TRK`, `MO_STEP`, `MO_PLACE`, never shifts.
+- Main-loop step sets (held steps, locks) are `stepset_t` (`ss_add`, `ss_has`, `ss_any`), not `uint64_t`.
+- Scenes: a scene with anything past step 64 packs with `SCN_F_WIDE` (16-byte masks, two-byte places); every other
+  scene packs byte for byte as before.
+- The editor's INFO keeps its step byte at 64 (a 7-bit byte); block `58 01 lo hi` says 128.

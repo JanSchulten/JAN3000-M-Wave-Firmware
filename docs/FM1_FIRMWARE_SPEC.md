@@ -38,8 +38,8 @@ Measured numbers are from October 2026 builds of M-Vave-OP1 and will drift as co
 | --- | --- | --- | --- |
 | RAMTEXT | 0x01C00000 | 24 KB | code that must run while the flash is busy (flash driver) |
 | debug | 0x01C06000 | 8 KB | kept free for RAM-run debugging |
-| RAM | 0x01C08000 | 72 KB | `.data` + `.bss`: everything the ISRs touch, small variables |
-| POOL | 0x01C1A000 | 360 KB | `.pool`: big zero-initialised buffers (FX lines, canvases, engine memory) |
+| RAM | 0x01C08000 | 56 KB | `.data` + `.bss`: everything the ISRs touch, small variables (72 KB before the 128 steps) |
+| POOL | 0x01C16000 | 376 KB | `.pool`: big zero-initialised buffers (FX lines, canvases, engine memory, the song's sources) |
 | stacks | 0x01C74000..0x01C7C000 | 32 KB | user + system stacks, 256-byte guard bands |
 | NOINIT | 0x01C7C000 | ~15 KB | survives resets and boot-mode entry (panel calibration, boot guard) |
 | reserved | 0x01C7FD50.. | | boot_info, boot-state mailbox, vector table |
@@ -71,7 +71,7 @@ looping**. Record notes, not sound.
 | 0x9F000 | FM6 patches of user presets, copy A |
 | 0xA0000..0xB3FFF | user sample slot USR1 (80 KB ADPCM, ~7 s at 22.05 kHz) |
 | 0xB4000..0xC7FFF | (M-Vave-OP1, former USR2) scenes: sets A..D + autosave, two 8 KB copies each |
-| 0xC8000..0xCFFFF | (M-Vave-OP1) project extras A/B (`proj_xtra_t`) |
+| 0xC8000..0xCFFFF | (M-Vave-OP1) project extras A/B (`proj_xtra_t`, then steps 65..128: `xtra_hi_t`) |
 | 0xD0000..0xD1FFF | the autosave's extras A/B |
 | 0xD2000..0xDBFFF | free (the dropped TAPE's copies were here) |
 | 0xDC000..0xDFFFF | user preset banks |
@@ -106,7 +106,8 @@ commit record written last.
   - Outputs: headphone/line jack and speaker.
 - **No audio input:** no mic or line-in is usable.
 - **USB:** class-compliant MIDI, USB audio *to the host* (the master output, 44.1 or 48 kHz), and an optional CDC
-  serial console.
+  serial console. M-Vave-OP1: MENU > USB DISK presents another device while it is up, a read-only USB drive
+  (mass storage, bulk-only, SCSI) with the projects as files (`usbdisk.c`, `msc.c`, `vdisk.c`).
 - **MIDI:** the TRS jack is **MIDI IN only** (UART1, PH8); there is no DIN/TRS MIDI out.
 - **Clock and sync:**
   - Out: USB MIDI clock, or a Pocket Operator–style sync pulse on the left audio channel (M-Vave-OP1 "SYNC OUT PO").
@@ -212,7 +213,8 @@ with a subsystem prefix (`seq_`, `ui_`, `cv_`, `fx_`).
 
 ### Tracks, parameters, the song
 - `NTRK` = 4 tracks. Each is a synth part with its own engine, preset, `p[P_COUNT]` parameters, voices from a shared
-  `NVOICE` pool, a 64-step pattern (`step_t`), and arp and LFO state. `track_t` must stay a multiple of 16 bytes
+  `NVOICE` pool, a 128-step pattern (`step_t`; Felucca's 64: steps 65..128 are kept in the project's extras), and arp
+  and LFO state. `track_t` must stay a multiple of 16 bytes
   (a `_Static_assert` guards it).
 - `P_*` (per track) and `G_*` (global) are stored in projects and presets and spoken by the editor protocol:
   - New `P_*` go just before `P_E0`.

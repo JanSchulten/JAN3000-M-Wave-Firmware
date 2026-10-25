@@ -161,6 +161,8 @@ static int check(const char *what, int ok)
     printf("ui: %-74s %s\n", what, ok ? "ok" : "FAIL");
     return ok ? 0 : 1;
 }
+/* a step set (core.h stepset_t) as a mask of steps 1..64; one holding a step past 64 matches no mask (all ones) */
+static uint64_t ss64(stepset_t m) { return m.w[1] ? ~(uint64_t)0 : m.w[0]; }
 
 /* main.c felucca_init */
 static void ui_power_on(void)
@@ -634,7 +636,7 @@ static int test_sound_loads(void)
         memcpy(legacy.t[ti].p, decoded.t[ti].p, 61u * sizeof(int16_t));
         memcpy(legacy.t[ti].p + 61, decoded.t[ti].p + P_E0, 8u * sizeof(int16_t));
         legacy.t[ti].engine = decoded.t[ti].engine; legacy.t[ti].preset = decoded.t[ti].preset;
-        for (uint32_t st = 0; st < NSTEP; st++) memcpy(&legacy.t[ti].step[st], &decoded.t[ti].step[st], sizeof(step10_t));
+        for (uint32_t st = 0; st < NSTEP_FMT; st++) memcpy(&legacy.t[ti].step[st], &decoded.t[ti].step[st], sizeof(step10_t));
     }
     legacy.t[3].engine = 0;
     legacy.g[G_DRLVL] = 71; legacy.g[G_DRREV] = 43;
@@ -739,7 +741,7 @@ static int test_rec(void)
                      msg_is(k == 1u ? "KEYS WRITE STEPS" : "REC ARMED: PRESS PLAY"));
         song.playing = 1;
         transport_req = 0;
-        frames(400);                                   /* (not a double tap: that locks the REC layer) */
+        frames(400);
         press(B_REC);
         bad += check("REC again disarms (the transport runs on)", song.rec == 0u && transport_req == 0u);
         frames(400);
@@ -1732,12 +1734,13 @@ static int test_menu_tabs(void)
             }
     }
     ui_prefs = 0;
-    bad += check("MENU tabs: DISPLAY CONTROL AUDIO MIDI SYSTEM (8 7 7 2 6 rows), 1..8 each in a run, fit the page; tab gaps "
+    bad += check("MENU tabs: DISPLAY CONTROL AUDIO MIDI SYSTEM (8 8 7 2 7 rows), 1..8 each in a run, fit the page; tab gaps "
                  "constant (S, LARGE)",
                  ok && MTAB_COUNT == 5u && str_eq(MTAB_NAME[0], "DISPLAY") && str_eq(MTAB_NAME[MTAB_MIDI], "MIDI") &&
-                 mtab_rows(MTAB_DISPLAY) == 8u && MI_TAB[MI_HOME] == MTAB_DISPLAY && mtab_rows(MTAB_CONTROL) == 7u && mtab_rows(MTAB_AUDIO) == 7u &&
-                 mtab_rows(MTAB_MIDI) == 2u && MI_TAB[MI_LCLEAR] == MTAB_MIDI && mtab_rows(MTAB_SYSTEM) == 6u && MI_TAB[MI_TUNE] == MTAB_AUDIO &&   /* (1.5: LEARN CLEAR, HELP) */
-                 MI_TAB[MI_MIDIIN] == MTAB_MIDI && MI_TAB[MI_INFO] == MTAB_SYSTEM && MI_INFO >= MI_VALUES);
+                 mtab_rows(MTAB_DISPLAY) == 8u && MI_TAB[MI_HOME] == MTAB_DISPLAY && mtab_rows(MTAB_CONTROL) == 8u && MI_TAB[MI_SCENE] == MTAB_CONTROL && mtab_rows(MTAB_AUDIO) == 7u &&
+                 mtab_rows(MTAB_MIDI) == 2u && MI_TAB[MI_LCLEAR] == MTAB_MIDI && mtab_rows(MTAB_SYSTEM) == 7u && MI_TAB[MI_TUNE] == MTAB_AUDIO &&   /* (1.5: LEARN CLEAR, HELP) */
+                 MI_TAB[MI_MIDIIN] == MTAB_MIDI && MI_TAB[MI_INFO] == MTAB_SYSTEM && MI_INFO >= MI_VALUES &&
+                 MI_TAB[MI_DISK] == MTAB_SYSTEM && MI_DISK >= MI_VALUES);
 
     ui_power_on();
     hold(B_HOME);
@@ -1861,6 +1864,10 @@ static int test_menu_tabs(void)
     turn(EN_PRESET, 3); turn(EN_K1, 1); turn(EN_ALGO, 1);
     ok &= ui.menu == 3 && !ui.menu_scroll && ui.menu_sel == MI_INFO;
     press(B_OCTDN); ok &= ui.menu == 1 && ui.menu_sel == MI_INFO;
+    turn(EN_PRESET, -1); ok &= ui.menu_sel == MI_DISK;   /* (M-Vave-OP1: USB DISK; not in this build: says so) */
+    frame();
+    ok &= oct_leds() == OCT_BREATH;
+    press(B_OCTUP); ok &= ui.menu == 1 && ui.menu_sel == MI_DISK && msg_is("NOT IN THIS BUILD");
     turn(EN_PRESET, -1); ok &= ui.menu_sel == MI_PANEL;
     press(B_OCTDN); ok &= ui.menu == 1 && ui.menu_sel == MI_PANEL;
     {   /* CALIBRATION: OCT+ starts the setup (nothing pressed here: it times out and keeps the table) */
@@ -1880,7 +1887,8 @@ static int test_menu_tabs(void)
         ok &= !memcmp(&p0, &panel, sizeof panel) && msg_is("SETUP CANCELLED") && ui.menu == 1 && fm1_ms - t < 1000u;
     }
     bad += check("MENU SYSTEM: OCT+ opens ABOUT, INFO (OCT- back to the tab) and CALIBRATION; OCT- does nothing on them", ok);
-    turn(EN_PRESET, 1); turn(EN_PRESET, 1); press(B_OCTUP);   /* (INFO,) ABOUT, HOME: closed, from the document */
+    turn(EN_PRESET, 1); turn(EN_PRESET, 1); turn(EN_PRESET, 1);   /* (USB DISK, INFO,) ABOUT, HOME: closed, from */
+    press(B_OCTUP);                                                 /* the document */
     ok = ui.menu == 2;
     press(B_HOME);
     ok &= !ui.menu && ui.home;
@@ -4847,7 +4855,7 @@ static int test_bughunt_ui2(void)
 /* L is a sparse face (tools/gen_aa_font.py L_CHARS): every string drawn in it has all its glyphs */
 static int test_large_face(void)
 {
-    static const char *const FIXED[] = {"FELUCCA", "0123456789"};   /* main.c, ui_menu.c; ui_draw.c draw_uboot */
+    static const char *const FIXED[] = {JAN_NAME, "0123456789"};   /* main.c, ui_menu.c (ABOUT); ui_draw.c draw_uboot */
     uint32_t i, missing = 0;
     const char *s;
     for (i = 0; i < NB + NE + 2u; i++)                              /* ui_input.c setup_show: the control names */
@@ -6801,9 +6809,9 @@ static int test_seq_tools(void)
     tl_key(TL_LRND);                                    /* F#5: RANDOM the lane: at least one hit */
     ok &= tl_count(TSEL, DV_TOM) >= 1u && tl_lanes_of(TSEL, DV_KICK) == 0x1111u;
     bad += check("  C#5 / A#4 / F#5: the lane reversed (its accents with it), cleared, at random; the others stay", ok);
-    a = leds_at(0); b2 = leds_at(250);                  /* (the tools breathe; scene 1 lit, the others dark) */
-    ok = ((a ^ b2) >> black(0)) & 1u && ((a ^ b2) >> black(6)) & 1u && ((a ^ b2) >> black(10)) & 1u &&
-         ((a & b2) >> white(0)) & 1u && !(((a | b2) >> white(1)) & 1u) && !(((a | b2) >> white(15)) & 1u);
+    a = leds_at(0); b2 = leds_at(250);                  /* (the tools breathe; scene 1, playing, blinks: M-Vave-OP1, */
+    ok = ((a ^ b2) >> black(0)) & 1u && ((a ^ b2) >> black(6)) & 1u && ((a ^ b2) >> black(10)) & 1u &&   /* the */
+         ((a ^ b2) >> white(0)) & 1u && !(((a | b2) >> white(1)) & 1u) && !(((a | b2) >> white(15)) & 1u);   /* others dark) */
     btn_up(B_SEQ); frame();
     ui_power_on();
     tl_melody();
@@ -6872,10 +6880,10 @@ static int test_layer_lock(void)
     bad += check("#83 FX GLO SCL EDIT double tapped: the map stays open with no button held, over the page as it was", ok);
     bad += check("  a tap of the button closes it, no page opens", okk);
     {   /* #183: in every lock PLAY starts and stops (GLO's lock no RESTART: that needs GLO held) */
-        static const uint8_t PB[6] = {B_FX, B_GLO, B_SCL, B_EDIT, B_SEQ, B_REC};
-        static const uint8_t PL[6] = {LAYER_FX, LAYER_GLO, LAYER_SCL, LAYER_EDIT, LAYER_SEQ, LAYER_REC};
+        static const uint8_t PB[5] = {B_FX, B_GLO, B_SCL, B_EDIT, B_SEQ};   /* (M-Vave-OP1: REC has no lock) */
+        static const uint8_t PL[5] = {LAYER_FX, LAYER_GLO, LAYER_SCL, LAYER_EDIT, LAYER_SEQ};
         ok = 1;
-        for (i = 0; i < 6u; i++) {
+        for (i = 0; i < 5u; i++) {
             uint32_t k;
             ui_power_on();
             go_title("ENV"); frame();
@@ -6902,7 +6910,7 @@ static int test_layer_lock(void)
                 printf("    #183: %s locked, PLAY does not start / stop\n", LAYERS[PL[i]].head);
             ok &= okk;
         }
-        bad += check("#183 FX GLO SCL EDIT SEQ REC locked: PLAY starts and stops (no RESTART without GLO held)", ok);
+        bad += check("#183 FX GLO SCL EDIT SEQ locked: PLAY starts and stops (no RESTART without GLO held)", ok);
     }
     /* the keys and KNOB 1..4 act as held */
     ui_power_on();
@@ -7044,7 +7052,7 @@ static int test_layer_lock(void)
  * SEQUENCE?", Discussion #91: gone, and its "HOLD: CLEAR" hint and the footer's REC + trash with it); a tap still
  * arms / disarms. F3 CLEAR (no dialog, SAVE held undoes it), G3 CLICK, A3 COUNT-IN, B3 CLICK LEVEL (each the next
  * value, the same store as MENU > AUDIO, saved when the layer closes), KNOB 1..3 the same; OCT- puts back; the LEDs;
- * the double-tap lock (the arming as before the taps); REC in another layer still arms */
+ * no double-tap lock (M-Vave-OP1: quick taps arm and disarm); REC in another layer still arms */
 static void rec_down(void) { btn_down(B_REC); }
 static void rec_up(void) { btn_up(B_REC); frame(); }
 static uint32_t menu_rec(uint32_t r) { return menu_get(r == 0u ? MI_CLICK : r == 1u ? MI_COUNTIN : MI_CLKLVL); }
@@ -7233,7 +7241,7 @@ static int test_rec_layer(void)
     rec_up();
     bad += check("  LEDs: CLEAR breathes (dark when empty), CLICK / COUNT-IN lit when on, LEVEL with the click", ok);
 
-    /* the double-tap lock: the arming as before the taps, the keys and knobs as held, a tap of REC closes it */
+    /* M-Vave-OP1: no double-tap lock for REC: its taps arm and disarm, quick or slow (a lock made the third tap do nothing) */
     ui_power_on();
     ui_rec_prefs = 0; rp_apply();
     go_title("ENV"); frame();
@@ -7243,24 +7251,19 @@ static int test_rec_layer(void)
                                                          * layer's HOLD [REC] QUICK hint, which waits for a silent tap) */
     frames(64);
     press(B_REC);
-    frames(500);
-    ok &= ui.lock == LAYER_REC && ui.layer == LAYER_REC && layer_locked() && song.rec == 0u && transport_req == 0u &&
-          ui.page == n && !fm1_in.buttons && ((layer_seen >> LAYER_REC) & 1u);
-    key_down(white(1)); frame(); key_up(white(1)); frame();
-    turn(EN_K2, 1);
-    ok &= click_mode == 1u && cin_bars == 1u && !gates() && ui.lock == LAYER_REC;
-    press(B_PLAY);                                      /* PLAY works in it */
-    ok &= transport_req == 1u && ui.lock == LAYER_REC;
-    transport_req = 0;
-    press(B_REC);                                       /* a tap: closed, nothing armed */
-    frames(16);
-    ok &= !ui.lock && !ui.layer && song.rec == 0u && ui.page == n && !lys.rp_dirty;
-    bad += check("#83 REC double tapped: locked, the arming as before; keys, knobs, PLAY; a REC tap closes it", ok);
+    frames(64);
+    ok &= !ui.lock && !ui.layer && song.rec == 0u && transport_req == 0u && ui.page == n;
+    press(B_REC);
+    frames(64);
+    ok &= !ui.lock && song.rec == 1u;
+    press(B_REC);
+    frames(64);
+    ok &= !ui.lock && song.rec == 0u;
+    bad += check("REC tapped quickly (64 ms apart): armed, disarmed, armed, disarmed; no lock (#83's is not REC's)", ok);
     ui_power_on();
     song.playing = 1;
     press(B_REC); frames(64); press(B_REC); frames(100);
-    ok = ui.lock == LAYER_REC && song.rec == 0u && song.playing && transport_req == 0u;
-    press(B_REC); frames(16);
+    ok = !ui.lock && song.rec == 0u && song.playing && transport_req == 0u;
     song.playing = 0;
     press(B_GLO); press(B_GLO); frames(100);            /* another layer locked: REC still arms, the lock stays */
     press(B_REC);
@@ -8148,7 +8151,7 @@ static int test_step_note_off(void)
     turn(EN_K2, -30);                                   /* (fast: to the lowest note, not past it) */
     ok = t->step[4].n == 1u && t->step[4].note[0] == 1u && t->step[4].time == ST_NOTE && !msg_is("STEP OFF");
     turn(EN_K2, -1);
-    ok &= t->step[4].time == ST_REST && !t->step[4].n && msg_is("STEP OFF") && !((motion_lock_steps(trk_index(t)) >> 4) & 1u);
+    ok &= t->step[4].time == ST_REST && !t->step[4].n && msg_is("STEP OFF") && !((ss64(motion_lock_steps(trk_index(t))) >> 4) & 1u);
     turn(EN_K2, -1);                                    /* (turned on the same way: OFF stays, no flip back on) */
     turn(EN_K2, -3);
     ok &= t->step[4].time == ST_REST && !t->step[4].n;

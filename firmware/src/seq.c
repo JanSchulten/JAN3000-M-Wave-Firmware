@@ -1238,6 +1238,16 @@ static int32_t click_beat_now(void)
     return clk_pos == CLK_START ? 0 : (int32_t)(clk_step >> 2);
 }
 
+/* M-Vave-OP1, SCENE CHANGE NEXT BAR (scene.c scene_due, before click_tick in the block): the click's bar (16 1/16s)
+ * ends in the next n samples: the samples past its end + 1 (the next bar starts that far into this block), else 0 */
+static uint32_t clk_bar_end(uint32_t n)
+{
+    uint32_t p = div_samples(2);
+    if (clk_pos == CLK_START || clk_step != 15u || clk_pos + n < p)
+        return 0;
+    return clk_pos + n - p + 1u;
+}
+
 /* everything that happens between two rendered blocks */
 static void events_block(uint32_t n)
 {
@@ -1344,7 +1354,9 @@ static void events_block(uint32_t n)
     }
     if (aud_req)
         seq_audition();                               /* (STEP PREVIEW: a step sounds, stopped) */
-    if (scn.req)
+    if (ssp.on)
+        ssong_tick(seq_n);                            /* (M-Vave-OP1: the scene song's passes and rows, scene.c) */
+    else if (scn.req)
         scene_due(seq_n);                             /* (M-Vave-OP1: a scene waits for the pattern's end, scene.c) */
     chain_tick(seq_n);
     key_tick(seq_n);                                /* (M-Vave-OP1, key.c: the bar before the steps on its first 1/16) */

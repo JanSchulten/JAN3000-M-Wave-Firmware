@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Copyright (C) 2026 M-Vave-OP1 contributors
+     The site's front page (tools/make_vercel_site.sh puts it at site/index.html): where the bounce page and the
+     browser emulator are. In German, as the pages it leads to. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JAN3000</title>
+<meta name="description" content="JAN3000, Firmware für das M-VAVE FM-1 (based on Felucca): Projekte offline bouncen, die Firmware im Browser.">
+<meta name="theme-color" content="#101312">
+<style>
+:root { --bg: #f4f5f2; --card: #ffffff; --text: #161a18; --mid: #5d6661; --line: #dde1dc; --accent: #12a150; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #101312; --card: #191d1b; --text: #e9ece9; --mid: #9aa39e; --line: #2a302d;
+                                    --accent: #3ddc84; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #101312; --card: #191d1b; --text: #e9ece9; --mid: #9aa39e; --line: #2a302d;
+                           --accent: #3ddc84; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 640px; margin: 0 auto; padding: max(24px, env(safe-area-inset-top)) 16px 40px; }
+h1 { font-size: 34px; line-height: 1.1; margin: 8px 0 4px; letter-spacing: -0.02em; }
+.sub { color: var(--mid); margin: 0 0 24px; }
+a.card { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+         margin: 0 0 12px; color: inherit; text-decoration: none; }
+a.card b { display: block; font-size: 19px; }
+a.card b::after { content: " →"; color: var(--accent); }
+a.card span { color: var(--mid); font-size: 15px; }
+footer { color: var(--mid); font-size: 13px; margin-top: 24px; }
+footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>JAN3000</h1>
+  <p class="sub">Firmware für das M-VAVE FM-1, based on Felucca v1.5.1 · v0.8</p>
+  <a class="card" href="bounce/"><b>Bounce</b><span>Eine .FM1-Datei vom FM-1 (MENU › SYSTEM › USB DISK) offline als WAV
+    rendern: Mix und Einzelspuren, auch auf dem iPhone.</span></a>
+  <a class="card" href="emu/"><b>Emulator</b><span>Die ganze Firmware im Browser spielen, mit Tasten, Reglern und Bildschirm
+    (Chrome, Edge oder Safari am Computer).</span></a>
+  <footer>Based on <a href="https://github.com/hugelton/Felucca">Felucca</a> by Leo Kuroshita (Hügelton Instruments),
+    GPL-3.0-only. Quelltext: <a href="https://github.com/JanSchulten/M-Vave-OP1">github.com/JanSchulten/M-Vave-OP1</a>.</footer>
+</main>
+</body>
+</html>

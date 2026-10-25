@@ -130,8 +130,11 @@ static int motion_locks(void)
         host_wire[15] == P_REV);
     a[1] = 7; n = request(ED_MOTION, a, 2);
     bad += check("MOTION op 7: the query with the kinds", n == 5u + 5u + 2u * 4u + 2u + 1u && host_wire[19] == 1);
-    a[1] = 5; a[2] = 64; n = request(ED_MOTION, a, 6);
-    bad += check("MOTION op 5 refuses step 64 (rc 1)", host_wire[6] == 1);
+    a[1] = 5; a[2] = 100; n = request(ED_MOTION, a, 6);
+    bad += check("MOTION op 5 on step 101 (M-Vave-OP1's 128 steps): rc 0, a third record", host_wire[6] == 0 &&
+        host_wire[8] == 3);
+    a[1] = 4; request(ED_MOTION, a, 4);
+    bad += check("  op 4 takes it out again", host_wire[6] == 0 && host_wire[8] == 2);
     a[1] = 6; a[2] = 2; request(ED_MOTION, a, 3);
     bad += check("MOTION op 6 on step 2: its automation event stays", host_wire[6] == 0 && host_wire[8] == 2);
     a[2] = 127; request(ED_MOTION, a, 3);
@@ -172,23 +175,24 @@ static int preferences(void)
     uint32_t n = request(ED_INFO, a, 0);
     bad += check("INFO explicitly tags display capabilities after SONG without changing command 33",
         ED_SONG == 33 && ED_UI_STATE == 34 && ED_FAV_SET == 38 &&
-        host_wire[n - 47] == CHAIN_ROWS && host_wire[n - 46] == 0x55 &&
-        host_wire[n - 45] == 1 && host_wire[n - 44] == 9 &&
-        host_wire[n - 43] == 0x4d && host_wire[n - 42] == 1 &&
-        host_wire[n - 41] == 64u && host_wire[n - 40] == 1 &&   /* (64 kept: 41 01 says 128) */
-        host_wire[n - 39] == 0x42 && host_wire[n - 38] == 1 && host_wire[n - 37] == 3 &&
-        host_wire[n - 36] == 0x46 && host_wire[n - 35] == 1 && host_wire[n - 34] == FM6_NFACTORY &&
-        host_wire[n - 33] == 0 &&                        /* (no bank since 1.0.3) */
-        host_wire[n - 32] == 0x53 && host_wire[n - 31] == 1 && host_wire[n - 30] == 3 &&
-        host_wire[n - 29] == 0x50 && host_wire[n - 28] == 1 && host_wire[n - 27] == 3 &&   /* FM6 v2: no bank, preset patches */
-        host_wire[n - 26] == 0x4E && host_wire[n - 25] == 1 && host_wire[n - 24] == 26 &&   /* MENU settings: 26 items (M-Vave-OP1: SYNC OUT) */
-        host_wire[n - 23] == 0x52 && host_wire[n - 22] == 1 && host_wire[n - 21] == 4 &&   /* RATCH */
-        host_wire[n - 20] == 0x4C && host_wire[n - 19] == 1 && host_wire[n - 18] == 1 &&   /* 1.1 parameter locks */
-        host_wire[n - 17] == 0x41 && host_wire[n - 16] == 1 && host_wire[n - 15] == 0 && host_wire[n - 14] == 1 &&   /* 1.2: 128 */
-        host_wire[n - 13] == 0x54 && host_wire[n - 12] == 1 && host_wire[n - 11] == NUDGE_DIV &&   /* 1.2: NUDGE */
-        host_wire[n - 10] == 0x57 && host_wire[n - 9] == 1 && host_wire[n - 8] == NTRK &&   /* 1.2: SONG lanes */
-        host_wire[n - 7] == 0x56 && host_wire[n - 6] == 1 && host_wire[n - 5] == 32 &&   /* 1.4.1: FM6 voice bank */
-        host_wire[n - 4] == 0x43 && host_wire[n - 3] == 1 && host_wire[n - 2] == ML_N);   /* 1.5: MIDI LEARN */
+        host_wire[n - 51] == CHAIN_ROWS && host_wire[n - 50] == 0x55 &&
+        host_wire[n - 49] == 1 && host_wire[n - 48] == 9 &&
+        host_wire[n - 47] == 0x4d && host_wire[n - 46] == 1 &&
+        host_wire[n - 45] == 64u && host_wire[n - 44] == 1 &&   /* (64 kept: 41 01 says 128) */
+        host_wire[n - 43] == 0x42 && host_wire[n - 42] == 1 && host_wire[n - 41] == 3 &&
+        host_wire[n - 40] == 0x46 && host_wire[n - 39] == 1 && host_wire[n - 38] == FM6_NFACTORY &&
+        host_wire[n - 37] == 0 &&                        /* (no bank since 1.0.3) */
+        host_wire[n - 36] == 0x53 && host_wire[n - 35] == 1 && host_wire[n - 34] == 3 &&
+        host_wire[n - 33] == 0x50 && host_wire[n - 32] == 1 && host_wire[n - 31] == 3 &&   /* FM6 v2: no bank, preset patches */
+        host_wire[n - 30] == 0x4E && host_wire[n - 29] == 1 && host_wire[n - 28] == 27 &&   /* MENU settings: 27 items (M-Vave-OP1: SYNC OUT, SCENE CHANGE) */
+        host_wire[n - 27] == 0x52 && host_wire[n - 26] == 1 && host_wire[n - 25] == 4 &&   /* RATCH */
+        host_wire[n - 24] == 0x4C && host_wire[n - 23] == 1 && host_wire[n - 22] == 1 &&   /* 1.1 parameter locks */
+        host_wire[n - 21] == 0x41 && host_wire[n - 20] == 1 && host_wire[n - 19] == 0 && host_wire[n - 18] == 1 &&   /* 1.2: 128 */
+        host_wire[n - 17] == 0x54 && host_wire[n - 16] == 1 && host_wire[n - 15] == NUDGE_DIV &&   /* 1.2: NUDGE */
+        host_wire[n - 14] == 0x57 && host_wire[n - 13] == 1 && host_wire[n - 12] == NTRK &&   /* 1.2: SONG lanes */
+        host_wire[n - 11] == 0x56 && host_wire[n - 10] == 1 && host_wire[n - 9] == 32 &&   /* 1.4.1: FM6 voice bank */
+        host_wire[n - 8] == 0x43 && host_wire[n - 7] == 1 && host_wire[n - 6] == ML_N &&   /* 1.5: MIDI LEARN */
+        host_wire[n - 5] == 0x58 && host_wire[n - 4] == 1 && host_wire[n - 3] == 0 && host_wire[n - 2] == 1);   /* 128 steps */
     request(ED_UI_SET, a, 2);
     bad += check("UI_SET updates the actual palette and reports RAM-only saving",
         host_wire[5] == 3 && settings.palette == 7 && T_BG == UI_PALETTES[7].bg);
@@ -935,12 +939,12 @@ static int menu_protocol(void)
         bad += check("MENU_DESC: the tab comes after every byte of the 1.0.4 reply (older editors ignore it)", ok);
     }
     ok = 1;
-    for (i = 0; i < 26u; i++) {
+    for (i = 0; i < 27u; i++) {
         menu_desc(i, &it);
         ok &= strcmp(it.name, "CALIBRATION") && strcmp(it.name, "ABOUT") && strcmp(it.name, "INFO");
     }
-    n = menu_desc(26, &it);
-    ok &= n == 2u && it.index == 26 && it.id == 127;
+    n = menu_desc(27, &it);
+    ok &= n == 2u && it.index == 27 && it.id == 127;
     n = menu_desc(127, &it);
     bad += check("MENU_DESC: no CALIBRATION / INFO / ABOUT; an index past the list answers index, 127 (no item)",
                  ok && n == 2u && it.index == 127 && it.id == 127);
@@ -1007,7 +1011,7 @@ static int menu_protocol(void)
         static uint8_t fav0[sizeof favorites], set0[sizeof settings];
         uint8_t hold0 = settings_hold, leds0 = settings_leds;
         memcpy(fav0, &favorites, sizeof favorites); memcpy(set0, &settings, sizeof settings);
-        ok = menu_set(26, 1) == 1 && host_wire[6] == 26 && ed_rv(host_wire + 7) == 1;
+        ok = menu_set(27, 1) == 1 && host_wire[6] == 27 && ed_rv(host_wire + 7) == 1;
         ok &= menu_set(126, -3) == 1 && host_wire[6] == 126 && ed_rv(host_wire + 7) == -3;
         ok &= menu_set(127, 0) == 1 && host_wire[6] == 127;
         ok &= !memcmp(fav0, &favorites, sizeof favorites) && !memcmp(set0, &settings, sizeof settings) &&

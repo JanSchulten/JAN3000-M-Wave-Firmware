@@ -10,7 +10,8 @@
  *                     FX1's TYPE and the CLOUD's settings (fx1.c), SCL > CSET's ON, SET and VOICE per track (cset.c),
  *                     the CHORUS's TYPE and FDBK (fx.c), GLO > KEY's run (key.c: the scene in the project's; every other
  *                     scene's KEY is in the scene, scene.c), the LEGATO steps (core.h STEP_LEG: the other scenes' are in
- *                     their steps)
+ *                     their steps), the steps 65..128 (core.h NSTEP_FMT: the project holds 64) with their LEN, lanes and
+ *                     automation
  *   0xD0000..0xD1FFF  the autosave's extras, A/B (OBJ_XAUTO)
  *   0xD2000..0xDBFFF  free (the TAPE's until it was dropped for GLO > KEY)
  * Extras (proj_xtra_t): written after their project, with the id of the project as written (xtra_id: the CRC its commit
@@ -23,7 +24,7 @@ typedef struct {
     uint32_t magic;
     uint16_t size, ver;                          /* sizeof (a later firmware's may be longer: what is known is read), 1 */
     uint32_t proj;                               /* the project it belongs to (xtra_id of its store as written) */
-    fxt_lane_t fx[FXT_N];                        /* the FX TRACKS */
+    fxt_lane64_t fx[FXT_N];                      /* the FX TRACKS (their steps 1..64; LEN at most 64: XTRA_V7) */
     uint8_t fx1[8];                              /* (E1) FX1 (fx1.c fx1s): TYPE SIZE DENS SPREAD PITCH RAND FDBK MIX */
     int8_t rsv_orc[NTRK];                        /* (SCL > ORCHID's VOICE, before SCL > CSET: written 0, not read) */
     uint8_t rsv_orc_en;                          /* (.. ORCHID ON: written 0, an older firmware's ORCHID off) */
@@ -33,22 +34,48 @@ typedef struct {
     uint8_t key_root[16];                        /* .. each bar's root (KEY_NONE: none) */
     uint8_t key_own;                             /* (M-Vave-OP1, 0x80 | key.c key_own; written 0 before: not known) */
     uint8_t rsv2;
-    uint8_t leg[NTRK][NSTEP / 8u];               /* (XTRA_V5) the LEGATO steps (core.h STEP_LEG): step i, bit i % 8 of
+    uint8_t leg[NTRK][NSTEP_FMT / 8u];           /* (XTRA_V5) the LEGATO steps (core.h STEP_LEG): step i, bit i % 8 of
                                                   * byte i / 8 (Felucca's step format has no bit left for it) */
     uint8_t cset_en, rsv3;                       /* (XTRA_V6) SCL > CSET ON, bit k track k (cset.c) */
     uint8_t cset_set[NTRK];                      /* .. each track's set (0 .. 99) */
     uint8_t cset_voice[NTRK];                    /* .. the VOICE before ON (0xFF: none) */
     uint8_t rsv4[2];                             /* (to the word: 0) */
 } proj_xtra_t;
-#define XTRA_V1 (12u + FXT_N * (uint32_t)sizeof(fxt_lane_t))   /* the first extras: the FX TRACKS only */
+/* (XTRA_V7) M-Vave-OP1's 128 steps: the object goes on after proj_xtra_t with these (size XTRA_V7). Not kept in RAM with
+ * the slots' extras (xtra_slot: 2.8 KiB a slot): read from the flash when a project or a song needs them (xtra_hi_of) */
+typedef struct {
+    uint8_t len[NTRK];                           /* each track's LEN, 1..128 (the project holds at most 64: a longer one
+                                                  * 64 there, project.c proj_pack) */
+    uint8_t fx_len[FXT_N];                       /* the FX TRACKS' LEN (fxt_lane_t: 0 = 16; proj_xtra_t's at most 64) */
+    uint8_t np, rsv;                             /* P_COUNT of the firmware that wrote it (mo's ids from its P_E0 on: as
+                                                  * a project's, project.c proj_motion_ids) */
+    uint8_t fx[FXT_N][NSTEP - NSTEP_FMT];        /* .. their steps 65..128 */
+    uint8_t leg[NTRK][(NSTEP - NSTEP_FMT) / 8u]; /* the LEGATO steps 65..128 (as proj_xtra_t's leg) */
+    uint8_t step[NTRK][NSTEP - NSTEP_FMT][PROJ_STEP_BYTES];   /* the steps 65..128, as the project packs its own
+                                                  * (project.c proj_step_pack) */
+    motion_disk_t mo;                            /* the automation and the locks of steps 65..128 (place: track << 6 |
+                                                  * step - 64; PLAY ON is the project's) */
+    ssong_t song;                                /* (XTRA_V8) SEQ > SCENE SONG (scene.c) */
+} xtra_hi_t;
+#define XTRA_V1 (12u + FXT_N * (uint32_t)sizeof(fxt_lane64_t))   /* the first extras: the FX TRACKS only */
 #define XTRA_V2 (XTRA_V1 + 8u)                   /* .. and FX1's (E1) */
 #define XTRA_V3 (XTRA_V2 + 8u)                   /* .. ORCHID's, the CHORUS's */
 #define XTRA_V4 (XTRA_V3 + 20u)                  /* .. the KEY's */
-#define XTRA_V5 (XTRA_V4 + NTRK * NSTEP / 8u)    /* .. the LEGATO steps */
+#define XTRA_V5 (XTRA_V4 + NTRK * NSTEP_FMT / 8u)   /* .. the LEGATO steps */
 #define XTRA_V6 (XTRA_V5 + 4u + 2u * NTRK)       /* .. SCL > CSET's */
-_Static_assert(sizeof(proj_xtra_t) == XTRA_V6 && KEY_BARS == 16u && NSTEP % 8u == 0u,
-               "project extras layout (stored, append-only)");
+#define XTRA_V7 (XTRA_V6 + NTRK + 4u + (NSTEP - NSTEP_FMT) * (FXT_N + NTRK * PROJ_STEP_BYTES) + \
+                 NTRK * (NSTEP - NSTEP_FMT) / 8u + (uint32_t)sizeof(motion_disk_t))   /* .. steps 65..128 (xtra_hi_t) */
+#define XTRA_V8 (XTRA_V7 + (uint32_t)sizeof(ssong_t))   /* .. the scene song */
+_Static_assert(XTRA_V6 == 224u && sizeof(proj_xtra_t) == XTRA_V6 && sizeof(xtra_hi_t) == XTRA_V8 - XTRA_V6 &&
+               XTRA_V8 <= PROJ_STORE_SIZE && KEY_BARS == 16u &&
+               NSTEP % 8u == 0u && NSTEP == 2u * NSTEP_FMT, "project extras layout (stored, append-only)");
 static proj_xtra_t xtra_slot[4] __attribute__((section(".pool")));   /* each project slot's (magic 0: none) */
+static uint8_t xtra_buf[XTRA_V8] __attribute__((aligned(4), section(".pool")));   /* an object as written (main loop) */
+#if !FELUCCA_FLASH
+static xtra_hi_t xtra_hi_ram[4] __attribute__((section(".pool")));   /* (host builds without the flash: each slot's
+                                                  * steps 65..128, as the flash would hold them) */
+#endif
+static const step_t XTRA_REST = {{0, 0, 0, 0}, 0, ST_REST, 0, 0, 0, 0, 0};   /* an empty step (ui.c step_clear's) */
 
 /* a project store's id: the CRC its commit record holds (storage.c st_save) */
 static uint32_t xtra_id(const void *p, uint32_t n)
@@ -69,15 +96,22 @@ static uint32_t xtra_proj_id(uint32_t s)
 #endif
     return xtra_id(&proj_slot[s & 3u], sizeof(project_store_t));
 }
-static void xtra_capture(proj_xtra_t *x, uint32_t proj)
+static void xtra_capture(proj_xtra_t *x, xtra_hi_t *h, uint32_t proj)
 {
-    uint32_t k, i;
+    uint32_t k, i, l;
     memset(x, 0, sizeof *x);
+    memset(h, 0, sizeof *h);
     x->magic = XTRA_MAGIC;
-    x->size = sizeof *x;
+    x->size = XTRA_V8;
     x->ver = 1;
     x->proj = proj;
-    memcpy(x->fx, fxt_lane, sizeof x->fx);
+    for (l = 0; l < FXT_N; l++) {                   /* (steps 1..64 and a LEN of at most 64 where firmware of 64 steps */
+        memcpy(x->fx[l].step, fxt_lane[l].step, NSTEP_FMT);   /* reads them, the rest after) */
+        memcpy(h->fx[l], fxt_lane[l].step + NSTEP_FMT, NSTEP - NSTEP_FMT);
+        x->fx[l].len = (uint8_t)(fxt_lane[l].len > NSTEP_FMT ? NSTEP_FMT : fxt_lane[l].len);
+        h->fx_len[l] = fxt_lane[l].len;
+    }
+    h->np = P_COUNT;
     x->fx1[0] = fx1s.type;
     x->fx1[1] = fx1s.size;
     x->fx1[2] = fx1s.dens;
@@ -95,27 +129,72 @@ static void xtra_capture(proj_xtra_t *x, uint32_t proj)
     x->key_len = keyt.len;
     memcpy(x->key_root, (const void *)keyt.root, sizeof x->key_root);
     x->key_own = (uint8_t)(0x80u | (key_own & 1u));
-    for (k = 0; k < NTRK; k++)
-        for (i = 0; i < NSTEP; i++)
-            if (trk[k].step[i].probability & STEP_LEG)
-                x->leg[k][i / 8u] |= (uint8_t)(1u << (i % 8u));
+    for (k = 0; k < NTRK; k++) {
+        h->len[k] = (uint8_t)clamp(trk[k].p[P_SLEN], 1, NSTEP);
+        for (i = 0; i < NSTEP; i++) {
+            const step_t *st = &trk[k].step[i];
+            if (st->probability & STEP_LEG) {
+                if (i < NSTEP_FMT)
+                    x->leg[k][i / 8u] |= (uint8_t)(1u << (i % 8u));
+                else
+                    h->leg[k][(i - NSTEP_FMT) / 8u] |= (uint8_t)(1u << (i % 8u));
+            }
+            if (i >= NSTEP_FMT && !proj_step_pack(h->step[k][i - NSTEP_FMT], st))
+                proj_step_pack(h->step[k][i - NSTEP_FMT], &XTRA_REST);   /* (one proj_pack would refuse: never kept) */
+        }
+    }
+    motion_to_disk(&h->mo, &motion, 1);
+    h->song = ssong;
 }
 static int xtra_ok(const proj_xtra_t *x, uint32_t proj)
 {
     return x->magic == XTRA_MAGIC && x->size >= XTRA_V1 && proj && x->proj == proj;
 }
-/* the lanes x holds into dst; x of another project, or none: empty lanes */
-static void xtra_lanes(fxt_lane_t *dst, const proj_xtra_t *x, uint32_t proj)
+#if FELUCCA_FLASH
+/* object obj's newest copy into x (as much as it knows; st_buf keeps all of it until the next storage call): its
+ * length, 0 there is none */
+static uint32_t xtra_read(uint32_t obj, proj_xtra_t *x)
+{
+    st_hdr_t h;
+    memset(x, 0, sizeof *x);
+    if (!flash_ok || st_current(obj, &h) < 0 || h.len < XTRA_V1)
+        return 0;
+    memcpy(x, st_buf, h.len < sizeof *x ? h.len : sizeof *x);   /* (an older one: what it has, its size says so) */
+    return x->magic == XTRA_MAGIC ? h.len : 0u;
+}
+#endif
+/* the steps 65..128 slot s's extras hold, if they are project proj's: in st_buf (read from the flash: the pointer holds
+ * until the next storage call); 0 none (extras of before, another project's, none) */
+static const xtra_hi_t *xtra_hi_of(uint32_t s, uint32_t proj)
+{
+    if (!xtra_ok(&xtra_slot[s & 3u], proj) || xtra_slot[s & 3u].size < XTRA_V7)
+        return 0;
+#if FELUCCA_FLASH
+    {
+        proj_xtra_t x;
+        return xtra_read(OBJ_XPROJ0 + (s & 3u), &x) >= XTRA_V7 && xtra_ok(&x, proj) ? (const xtra_hi_t *)(st_buf + XTRA_V6)
+                                                                                    : 0;
+    }
+#else
+    return &xtra_hi_ram[s & 3u];
+#endif
+}
+/* the lanes x holds (and hi their steps 65..128, 0 none) into dst; x of another project, or none: empty lanes */
+static void xtra_lanes(fxt_lane_t *dst, const proj_xtra_t *x, uint32_t proj, const xtra_hi_t *hi)
 {
     uint32_t l;
-    if (!xtra_ok(x, proj)) {
-        memset(dst, 0, FXT_N * sizeof *dst);
+    memset(dst, 0, FXT_N * sizeof *dst);
+    if (!xtra_ok(x, proj))
         return;
+    for (l = 0; l < FXT_N; l++) {
+        memcpy(dst[l].step, x->fx[l].step, NSTEP_FMT);
+        dst[l].len = x->fx[l].len <= NSTEP_FMT ? x->fx[l].len : 0u;
+        if (!hi)
+            continue;
+        memcpy(dst[l].step + NSTEP_FMT, hi->fx[l], NSTEP - NSTEP_FMT);
+        if (dst[l].len == NSTEP_FMT && hi->fx_len[l] > NSTEP_FMT && hi->fx_len[l] <= NSTEP)
+            dst[l].len = hi->fx_len[l];             /* (a longer one is 64 in x) */
     }
-    memcpy(dst, x->fx, FXT_N * sizeof *dst);
-    for (l = 0; l < FXT_N; l++)
-        if (dst[l].len > NSTEP)
-            dst[l].len = 0;
 }
 /* FX1's settings x holds (fx1s); x of another project, an older one without them, or none: Felucca's DELAY, the CLOUD's
  * defaults */
@@ -155,33 +234,70 @@ static void xtra_misc(const proj_xtra_t *x, uint32_t proj)
     key_own = ok4 && (x->key_own & 0x80u) ? x->key_own & 1u   /* (M-Vave-OP1: the scene in the project's own KEY, */
                                            : !key_is_default();   /* as saved; extras of before: one in use is) */
 }
-/* the LEGATO steps x holds for track k onto its steps s (as loaded: none); x of another project, an older one, or none:
- * none (each note starts its envelope, as that firmware played it) */
-static void xtra_leg(step_t *s, uint32_t k, const proj_xtra_t *x, uint32_t proj)
+/* hi's steps 65..128 of track k onto s (hi 0: none, they stay as loaded: empty) and its LEN onto *len when the
+ * project's is 64 (what a longer one holds there); its LEGATO bits come after (xtra_leg) */
+static void xtra_hi_steps(step_t *s, int16_t *len, uint32_t k, const xtra_hi_t *hi)
 {
-    uint32_t i, ok = xtra_ok(x, proj) && x->size >= XTRA_V5;
-    for (i = 0; i < NSTEP; i++)
-        s[i].probability = (uint8_t)((s[i].probability & ~STEP_LEG) |
-                                     (ok && ((x->leg[k % NTRK][i / 8u] >> (i % 8u)) & 1u) ? STEP_LEG : 0u));
+    uint32_t i;
+    if (!hi)
+        return;
+    k %= NTRK;
+    for (i = NSTEP_FMT; i < NSTEP; i++)
+        if (!proj_step_unpack(&s[i], hi->step[k][i - NSTEP_FMT], 1))
+            s[i] = XTRA_REST;
+    if (*len == (int16_t)NSTEP_FMT && hi->len[k] > NSTEP_FMT && hi->len[k] <= NSTEP)
+        *len = hi->len[k];
 }
-static void xtra_legs(const proj_xtra_t *x, uint32_t proj)   /* .. for the four tracks */
+/* .. the automation and locks of steps 65..128 after m's, their ids as today's (hi->np: as a project's); none added if
+ * they would not fit or are not valid (extras that do not belong together) */
+static void xtra_hi_motion(motion_store_t *m, const xtra_hi_t *hi)
 {
-    uint32_t k;
-    for (k = 0; k < NTRK; k++)
-        xtra_leg(trk[k].step, k, x, proj);
+    static motion_store_t t __attribute__((section(".pool")));   /* (main loop only) */
+    if (!hi || !hi->mo.count)
+        return;
+    memset(&t, 0, sizeof t);
+    if (!motion_from_disk(&t, &hi->mo, 1) || !proj_motion_ids(&t, hi->np ? hi->np : P_COUNT) ||
+        t.count > MOTION_MAX - m->count)
+        return;
+    memcpy(m->event + m->count, t.event, t.count * sizeof t.event[0]);
+    m->count = (uint8_t)(m->count + t.count);
+    if (!motion_valid(m)) {
+        memset(m->event + m->count - t.count, 0, t.count * sizeof t.event[0]);
+        m->count = (uint8_t)(m->count - t.count);
+    }
 }
-#if FELUCCA_FLASH
-/* object obj's newest copy into x (as much as it knows); 0: there is none */
-static int xtra_read(uint32_t obj, proj_xtra_t *x)
+/* the LEGATO steps x (and hi: 65..128) hold for track k onto its steps s (as loaded: none); x of another project, an
+ * older one, or none: none (each note starts its envelope, as that firmware played it) */
+static void xtra_leg(step_t *s, uint32_t k, const proj_xtra_t *x, uint32_t proj, const xtra_hi_t *hi)
 {
-    st_hdr_t h;
-    memset(x, 0, sizeof *x);
-    if (!flash_ok || st_current(obj, &h) < 0 || h.len < XTRA_V1)
-        return 0;
-    memcpy(x, st_buf, h.len < sizeof *x ? h.len : sizeof *x);   /* (an older one: what it has, its size says so) */
-    return x->magic == XTRA_MAGIC;
+    uint32_t i, ok = xtra_ok(x, proj) && x->size >= XTRA_V5, on;
+    for (i = 0; i < NSTEP; i++) {
+        on = i < NSTEP_FMT ? ok && ((x->leg[k % NTRK][i / 8u] >> (i % 8u)) & 1u)
+                           : ok && hi && ((hi->leg[k % NTRK][(i - NSTEP_FMT) / 8u] >> (i % 8u)) & 1u);
+        s[i].probability = (uint8_t)((s[i].probability & ~STEP_LEG) | (on ? STEP_LEG : 0u));
+    }
 }
-#endif
+/* a project loaded (its tracks, motion and lanes as the project held them): what x and hi add, for the four tracks */
+static void xtra_apply(const proj_xtra_t *x, uint32_t proj, const xtra_hi_t *hi)
+{
+    uint32_t k, f;
+    if (!xtra_ok(x, proj))
+        hi = 0;
+    xtra_lanes(fxt_lane, x, proj, hi);
+    xtra_fx1(x, proj);
+    xtra_misc(x, proj);
+    for (k = 0; k < NTRK; k++) {
+        xtra_hi_steps(trk[k].step, &trk[k].p[P_SLEN], k, hi);
+        xtra_leg(trk[k].step, k, x, proj, hi);
+    }
+    f = motion_guard();
+    xtra_hi_motion(&motion, hi);
+    motion_unguard(f);
+    ssong_clear();                                 /* (XTRA_V8: the scene song; extras of before, or a song no page
+                                                    * could make: none) */
+    if (hi && x->size >= XTRA_V8 && ssong_ok(&hi->song))
+        ssong = hi->song;
+}
 /* persist_boot: every slot's extras from flash */
 static void xtra_boot(void)
 {
@@ -195,21 +311,22 @@ static void xtra_boot(void)
 static int xtra_saved(uint32_t s, uint32_t id)
 {
     proj_xtra_t *x = &xtra_slot[s & 3u];
-    xtra_capture(x, id);
+    xtra_hi_t *h = (xtra_hi_t *)(xtra_buf + XTRA_V6);
+    xtra_capture((proj_xtra_t *)xtra_buf, h, id);
+    memcpy(x, xtra_buf, sizeof *x);
 #if FELUCCA_FLASH
-    if (flash_ok && st_save(OBJ_XPROJ0 + (s & 3u), x, sizeof *x))
+    if (flash_ok && st_save(OBJ_XPROJ0 + (s & 3u), xtra_buf, XTRA_V8))
         return 1;
+#else
+    xtra_hi_ram[s & 3u] = *h;
 #endif
     return 0;
 }
-/* project_load: slot s's lanes (none, or another project's: empty) */
+/* project_load: slot s's extras (none, or another project's: empty lanes, nothing else) */
 static void xtra_loaded(uint32_t s)
 {
     uint32_t id = xtra_proj_id(s);
-    xtra_lanes(fxt_lane, &xtra_slot[s & 3u], id);
-    xtra_fx1(&xtra_slot[s & 3u], id);
-    xtra_misc(&xtra_slot[s & 3u], id);
-    xtra_legs(&xtra_slot[s & 3u], id);
+    xtra_apply(&xtra_slot[s & 3u], id, xtra_hi_of(s, id));   /* (the steps 65..128 in st_buf: used at once) */
 }
 /* project_rename: slot s was written again as id; its extras (if they were its project's: was) follow it */
 static void xtra_renamed(uint32_t s, uint32_t was, uint32_t id)
@@ -219,17 +336,22 @@ static void xtra_renamed(uint32_t s, uint32_t was, uint32_t id)
         return;
     x->proj = id;
 #if FELUCCA_FLASH
-    if (flash_ok)
-        st_save(OBJ_XPROJ0 + (s & 3u), x, sizeof *x);
+    if (flash_ok) {                                 /* (all it holds, its steps 65..128 too: read back, the id new) */
+        proj_xtra_t r;
+        uint32_t n = xtra_read(OBJ_XPROJ0 + (s & 3u), &r);
+        n = n < sizeof *x ? (uint32_t)sizeof *x : n > sizeof xtra_buf ? (uint32_t)sizeof xtra_buf : n;
+        memcpy(xtra_buf, st_buf, n);
+        memcpy(xtra_buf, x, sizeof *x);
+        st_save(OBJ_XPROJ0 + (s & 3u), xtra_buf, n);
+    }
 #endif
 }
 /* the autosave (project.c): written after it as id (0 written); read back with it (n bytes in proj_wire) */
 static int xtra_autosaved(uint32_t id)
 {
 #if FELUCCA_FLASH
-    proj_xtra_t x;
-    xtra_capture(&x, id);
-    return st_save(OBJ_XAUTO, &x, sizeof x);
+    xtra_capture((proj_xtra_t *)xtra_buf, (xtra_hi_t *)(xtra_buf + XTRA_V6), id);
+    return st_save(OBJ_XAUTO, xtra_buf, XTRA_V8);
 #else
     (void)id;
     return 0;
@@ -239,11 +361,8 @@ static void xtra_autoloaded(uint32_t id)
 {
 #if FELUCCA_FLASH
     proj_xtra_t x;
-    xtra_read(OBJ_XAUTO, &x);
-    xtra_lanes(fxt_lane, &x, id);
-    xtra_fx1(&x, id);
-    xtra_misc(&x, id);
-    xtra_legs(&x, id);
+    uint32_t n = xtra_read(OBJ_XAUTO, &x);
+    xtra_apply(&x, id, n >= XTRA_V7 && x.size >= XTRA_V7 ? (const xtra_hi_t *)(st_buf + XTRA_V6) : 0);
 #else
     (void)id;
 #endif

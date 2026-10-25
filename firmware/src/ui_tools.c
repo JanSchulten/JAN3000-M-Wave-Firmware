@@ -14,7 +14,8 @@
  * OCT-, which steps the scenes now).
  * A step that held something and is empty after loses its locks (as EDIT's step clear); REVERSE and SHIFT move the
  * steps' automation and locks with them. RANDOM and COOK draw from libc.c rng(): no seed is kept, each press
- * differs. M-Vave-OP1: on an ACID track RANDOM rolls a whole acid line (tl_random_acid) and COOK also slides. A sequence of ties reversed keeps its note first: N T T -> N T T at the mirrored place */
+ * differs. A sequence of ties reversed keeps its note first: N T T -> N T T at the mirrored place. M-Vave-OP1: on an
+ * ACID track RANDOM rolls a whole acid line (tl_random_acid) and COOK also slides. */
 enum { TL_CLEAR, TL_REV, TL_LEFT, TL_RIGHT, TL_RANDOM, TL_COOK, TL_BEAT, TL_GAP, TL_LCLR, TL_LREV, TL_LFILL, TL_LRND,
        TL_N };
 
@@ -50,20 +51,20 @@ static void tl_undo_take(track_t *t)
 }
 
 /* steps 1..len of t that are not empty (a REST); after the action the ones emptied lose their locks */
-static uint64_t tl_used(const track_t *t, uint32_t len)
+static stepset_t tl_used(const track_t *t, uint32_t len)
 {
-    uint64_t m = 0;
+    stepset_t m = {{0}};
     uint32_t i;
     for (i = 0; i < len; i++)
         if (t->step[i].time != ST_REST)
-            m |= (uint64_t)1 << i;
+            ss_add(&m, i);
     return m;
 }
-static void tl_unlock(track_t *t, uint64_t was, uint32_t len)
+static void tl_unlock(track_t *t, stepset_t was, uint32_t len)
 {
     uint32_t i;
     for (i = 0; i < len; i++)
-        if (((was >> i) & 1u) && t->step[i].time == ST_REST)
+        if (ss_has(&was, i) && t->step[i].time == ST_REST)
             (void)motion_clear_locks(t, i);
 }
 
@@ -79,8 +80,8 @@ static void tl_order(track_t *t, uint32_t len, const uint8_t *src)
     f = motion_guard();
     for (j = 0; j < motion.count; j++) {
         motion_event_t *e = &motion.event[j];
-        if ((e->place >> 6) == k && (e->place & 63u) < len)
-            e->place = (uint8_t)(k << 6 | to[e->place & 63u]);
+        if (MO_TRK(e) == k && MO_STEP(e) < len)
+            e->place = (uint16_t)MO_PLACE(k, to[MO_STEP(e)]);
     }
     motion_unguard(f);
 }
@@ -91,7 +92,7 @@ static void tl_order(track_t *t, uint32_t len, const uint8_t *src)
 static void tl_reverse(track_t *t, uint32_t len)
 {
     uint8_t src[NSTEP], h, to[NSTEP];
-    uint64_t leg = 0;
+    stepset_t leg = {{0}};
     uint32_t j, e, x;
     for (j = 0; j < len; j++)
         src[j] = (uint8_t)(len - 1u - j);
@@ -116,10 +117,10 @@ static void tl_reverse(track_t *t, uint32_t len)
         for (e = (j + len - 1u) % len, x = 0; x < len && undo.step[e].time == ST_TIE; x++)
             e = (e + len - 1u) % len;
         if (undo.step[e].time == ST_NOTE && undo.step[e].n)
-            leg |= (uint64_t)1 << to[e];
+            ss_add(&leg, to[e]);
     }
     for (j = 0; j < len; j++)
-        t->step[j].probability = (uint8_t)((t->step[j].probability & ~STEP_LEG) | ((leg >> j) & 1u ? STEP_LEG : 0u));
+        t->step[j].probability = (uint8_t)((t->step[j].probability & ~STEP_LEG) | (ss_has(&leg, j) ? STEP_LEG : 0u));
 }
 
 /* SHIFT: rotated by one step inside LEN, d = 1 later (>), len - 1 earlier (<) */
@@ -396,7 +397,7 @@ static const char *tl_do(track_t *t, uint32_t p, uint32_t l)
 {
     static char b[24];
     uint32_t len = tl_len(t), i, n = 0;
-    uint64_t was = tl_used(t, len);
+    stepset_t was = tl_used(t, len);
     uint32_t drum = kit_track(t);                       /* (a kit's lanes, 0: notes) */
     const char *msg = 0;
     l = drum ? (l < drum ? l : drum - 1u) : l % NLANE;   /* (a lane past the kit's: its last, as ui_input.c's clamp) */

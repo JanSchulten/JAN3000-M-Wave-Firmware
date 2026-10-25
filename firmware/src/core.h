@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* FELUCCA core types: tracks, voices, engines, parameters.
- * Four tracks, each a synth part: its own engine, preset, parameters, voices and 64-step
+ * Four tracks, each a synth part: its own engine, preset, parameters, voices and 128-step (M-Vave-OP1; Felucca: 64)
  * pattern. The parts share one budget of NVOICE sounding voices (voice.c). Drums are the DRUM
  * engine (General MIDI map) on any part; the SAMPLE engine's PERC set is retired (drum_from_perc).
  * Sections: sizes, parameters, voices and engines, tracks and the song, system. */
@@ -11,7 +11,10 @@
 #define NVOICE 8                 /* voices per part, and the budget shared by all parts */
 #define NPART 4                  /* synth parts: tracks 1..4 */
 #define NTRK NPART               /* tracks (the formats and the protocol count these): every track is a part */
-#define NSTEP 64
+#define NSTEP 128                /* M-Vave-OP1: steps a track (64 before; LEN 1..128) */
+#define NSTEP_FMT 64u            /* the steps every stored format of before holds (projects, user presets' sources,
+                                  * the extras' first lanes, the editor's INFO): steps 65..128 are kept in the project's
+                                  * extras (opstore.c XTRA_V7), a scene's in its wide form (scene.c SCN_F_WIDE) */
 #define HALF_FRAMES 128          /* I2S half buffer: 2.9 ms at 44.1 kHz (a key waits 0..1 half, then plays 1 half later) */
 #ifndef FELUCCA_FM4
 #define FELUCCA_FM4 0            /* the DIGITAL engine (eng_digital.c, four-operator FM): kept in the tree, not built
@@ -308,15 +311,23 @@ static void step_set_nudge(step_t *s, int32_t v)
     s->flags = (uint8_t)((s->flags & ~SF_NUDGE) | (u & 7u) << 5 | (u >> 1 & 4u));
 }
 #define MOTION_MAX 128u          /* 1.2 (FUN10): 64 before */
-/* Four tracks x64 steps fit one byte. Values retain their signed parameter range (-64..127: an int8_t, 1.2).
- * param: the P_* id (< 128: P_COUNT is at most 127, project.c), bit 7 (MOTION_LOCK, 1.1) a parameter lock: the value
- * sounds on that step only and goes back after it (motion.c motion_step); without it an automation event, the
- * value holds until another one changes it. One record per (track, step, id), of either kind */
+/* place: the track and the step, track << 7 | step (MO_PLACE; M-Vave-OP1's 128 steps: four tracks x 64 steps were one
+ * byte, track << 6 | step, as the formats keep it: motion_disk_t). Values retain their signed parameter range
+ * (-64..127: an int8_t, 1.2). param: the P_* id (< 128: P_COUNT is at most 127, project.c), bit 7 (MOTION_LOCK, 1.1) a
+ * parameter lock: the value sounds on that step only and goes back after it (motion.c motion_step); without it an
+ * automation event, the value holds until another one changes it. One record per (track, step, id), of either kind */
 #define MOTION_LOCK 0x80u
 #define MOTION_ID(e) ((uint32_t)(e)->param & 0x7Fu)
-typedef struct { uint8_t place, param; int8_t value; } motion_event_t;
+#define MO_PLACE(k, s) ((uint32_t)(k) << 7 | (uint32_t)(s))
+#define MO_TRK(e) ((uint32_t)(e)->place >> 7)
+#define MO_STEP(e) ((uint32_t)(e)->place & 127u)
+typedef struct { uint16_t place; uint8_t param; int8_t value; } motion_event_t;
 typedef struct { uint8_t count, on, rsv[2]; motion_event_t event[MOTION_MAX]; } motion_store_t;
-_Static_assert(sizeof(motion_store_t) == 388u, "motion disk layout (FUN10)");
+/* the records as FUN10 stores them (project.c, opstore.c XTRA_V7): place track << 6 | step, of steps 1..64 (the
+ * extras hold the others' with step - 64) */
+typedef struct { uint8_t place, param; int8_t value; } motion_disk_event_t;
+typedef struct { uint8_t count, on, rsv[2]; motion_disk_event_t event[MOTION_MAX]; } motion_disk_t;
+_Static_assert(sizeof(motion_disk_t) == 388u && NSTEP <= 128u, "motion disk layout (FUN10); a step in place's 7 bits");
 #define CHAIN_ROWS 16u
 /* A song section (1.2, FUN10): the PROJECT slot each track plays (0..3, A..D; CHAIN_SILENT "-": that track plays
  * nothing there) and its repeats (1..16). Up to 1.1 a row was {slot, repeat}, all four tracks on that slot
@@ -338,7 +349,38 @@ _Static_assert(sizeof(chain_config_t) == 84u && sizeof(chain_v9_t) == 36u, "song
  * FXT_MUTE, an effect + 1, 0 nothing) and the lane's length in steps (0: 16, the default; all zero is an empty lane) */
 #define FXT_N 2u                 /* FX TRACKS: FX1, FX2 */
 typedef struct { uint8_t step[NSTEP]; uint8_t len, rsv; } fxt_lane_t;
-_Static_assert(sizeof(fxt_lane_t) == NSTEP + 2u, "FX track layout (stored)");
+typedef struct { uint8_t step[NSTEP_FMT]; uint8_t len, rsv; } fxt_lane64_t;   /* a lane as the first extras store it: steps
+                                  * 1..64, len at most 64 (opstore.c; the rest in XTRA_V7) */
+_Static_assert(sizeof(fxt_lane64_t) == 66u, "FX track layout (stored)");
+/* a set of steps, a bit each (the steps held, the steps that hold a lock: main loop only) */
+typedef struct { uint64_t w[NSTEP / 64u]; } stepset_t;
+static inline void ss_add(stepset_t *m, uint32_t s) { if (s < NSTEP) m->w[s / 64u] |= (uint64_t)1 << (s % 64u); }
+static inline int ss_has(const stepset_t *m, uint32_t s) { return s < NSTEP && ((m->w[s / 64u] >> (s % 64u)) & 1u); }
+static inline int ss_any(const stepset_t *m)
+{
+    uint64_t a = 0;
+    for (uint32_t i = 0; i < NSTEP / 64u; i++)
+        a |= m->w[i];
+    return a != 0;
+}
+static inline stepset_t ss_one(uint32_t s)
+{
+    stepset_t m = {{0}};
+    ss_add(&m, s);
+    return m;
+}
+static inline stepset_t ss_minus(stepset_t a, const stepset_t *b)   /* a without b's */
+{
+    for (uint32_t i = 0; i < NSTEP / 64u; i++)
+        a.w[i] &= ~b->w[i];
+    return a;
+}
+static inline stepset_t ss_and(stepset_t a, const stepset_t *b)
+{
+    for (uint32_t i = 0; i < NSTEP / 64u; i++)
+        a.w[i] &= b->w[i];
+    return a;
+}
 
 typedef struct track {
     int16_t p[P_COUNT];

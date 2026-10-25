@@ -415,7 +415,7 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         break;
     case F_STEPS:
         fmt_int(val, v);
-        *unit = "STEP";
+        *unit = v < 100 ? "STEP" : "";               /* (M-Vave-OP1: LEN 100..128 fills a card on its own) */
         break;
     default:
         if (d->names) {                               /* F_INT with a 0-terminated name list: the range */

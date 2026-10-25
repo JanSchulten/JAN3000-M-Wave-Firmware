@@ -196,7 +196,7 @@ static void pr_bars(const step_t *st, int32_t x, int32_t w, uint16_t c, int acc_
 static void graph_roll(const track_t *t, uint16_t c)
 {
     uint32_t i, len = (uint32_t)t->p[P_SLEN], base = ui.bank * 16u, ncol, mask = scale_mask(t), held = pr_held();
-    uint64_t locks = motion_lock_steps(trk_index(t));
+    stepset_t locks = motion_lock_steps(trk_index(t));
     int32_t r, ybot = PR_Y0 + PR_ROWS * PR_RH, gw;
     char nb[8];
     ncol = base < len ? (len - base < 16u ? len - base : 16u) : 0u;
@@ -232,7 +232,7 @@ static void graph_roll(const track_t *t, uint16_t c)
             cv_frame(x, PR_Y0 - 2, PR_CW + 1, ybot - PR_Y0 + 4, T_TEXT);
         if (song.playing && si == t->seq_idx)
             cv_rect(x + 6, PR_Y0, 1, ybot - PR_Y0, T_ACCENT);
-        if ((locks >> si) & 1u)                       /* a parameter lock: a mark under the step */
+        if (ss_has(&locks, si))                     /* a parameter lock: a mark under the step */
             cv_rect(x + 3, ybot + 3, 7, 2, T_ACCENT);
         if (step_detailed(&seq_steps(t)[si]))         /* 1.5.1: CHANCE / RATCH / NUDGE set: a mark over it (DETAIL) */
             cv_rect(x + 4, 2, 5, 3, c);
@@ -273,10 +273,10 @@ static void graph_grid(const track_t *t, uint16_t c)
         sl[i] = (uint8_t)step_lanes(e, &seq_steps(t)[base + i]);
         sa[i] = (uint8_t)step_accents(e, &seq_steps(t)[base + i]);
     }
-    uint64_t locks = motion_lock_steps(trk_index(t));
+    stepset_t locks = motion_lock_steps(trk_index(t));
     int32_t y0 = 6;
     for (i = 0; i < 16u && base + i < len; i++) {   /* a parameter lock: a mark over the step; CHANCE / RATCH / */
-        if ((locks >> (base + i)) & 1u)               /* NUDGE set (1.5.1, DETAIL): a dot under it */
+        if (ss_has(&locks, base + i))             /* NUDGE set (1.5.1, DETAIL): a dot under it */
             cv_rect(41 + (int32_t)i * 12, 1, 8, 2, T_ACCENT);
         if (step_detailed(&seq_steps(t)[base + i]))
             cv_rect(43 + (int32_t)i * 12, 3, 4, 2, c);
@@ -1714,8 +1714,9 @@ static uint32_t graph_signature(void)
         h ^= steps_hash(t) + ph * 31u + ui.cursor * 7919u + ui.lane * 104723u + ui.bank * 613u +
              drum_mute[trk_index(t) % NPART] * 2654435761u;
         {                                            /* the parameter locks' marks (the roll, the grid) */
-            uint64_t lk = motion_lock_steps(trk_index(t));
-            h = (h ^ (uint32_t)lk ^ (uint32_t)(lk >> 32) * 2654435761u) * 16777619u;
+            stepset_t lk = motion_lock_steps(trk_index(t));
+            for (uint32_t w = 0; w < NSTEP / 64u; w++)
+                h = (h ^ (uint32_t)lk.w[w] ^ (uint32_t)(lk.w[w] >> 32) * 2654435761u) * 16777619u;
         }
         if (detail_on())                             /* DETAIL: QUANTIZE (NUDGE's DIM), the lane named in the accent */
             h = (h ^ (0xD1u + (uint32_t)t->p[P_SQNT] * 31u + (ui.hot_t ? ui.hot_col + 1u : 0u) * 977u)) * 2654435761u;
@@ -1915,6 +1916,17 @@ static void graph_pats(void)
  * name / QUANTIZE's ON at EV_NX (QUANTIZE ends at x 86), the value right at 226 */
 #define EV_SX 60
 #define EV_NX 92
+/* a row's step (s from 0): "01" .. "99", "100" .. "128" (M-Vave-OP1's 128 steps: three digits fit before EV_NX) */
+static void ev_step_txt(char *b, uint32_t s)
+{
+    if (s + 1u >= 100u)
+        fmt_int(b, (int32_t)s + 1);
+    else {
+        b[0] = (char)('0' + (s + 1u) / 10u);
+        b[1] = (char)('0' + (s + 1u) % 10u);
+        b[2] = 0;
+    }
+}
 /* a row's value (M) and its unit (S, on the value's baseline, as a card's) ending at x 226; the value's left x */
 static int32_t ev_value(int32_t y, const char *v, const char *unit, uint16_t fg, uint16_t bg)
 {
@@ -1987,9 +1999,7 @@ static void graph_events(void)
             uint16_t vc = (kd == EVK_NUDGE && !ev_nudge_plays(t, &t->step[s])) ||   /* (QUANTIZE ON ..) */
                           (kd == EVK_VEL && !ev_vel_plays(&t->step[s])) ? T_DIM : T_TEXT;
             char b[8];
-            b[0] = (char)('0' + (s + 1u) / 10u);
-            b[1] = (char)('0' + (s + 1u) % 10u);
-            b[2] = 0;
+            ev_step_txt(b, s);
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
             cv_text_on(14, y + LIST_TY, &AF_M, "STEP", sel ? T_INK : T_MID, bg);
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
@@ -2016,9 +2026,7 @@ static void graph_events(void)
             const char *unit;
             const param_desc_t *d = track_desc(t, id);
             int32_t x;
-            b[0] = (char)('0' + ((e->place & 63u) + 1u) / 10u);
-            b[1] = (char)('0' + ((e->place & 63u) + 1u) % 10u);
-            b[2] = 0;
+            ev_step_txt(b, MO_STEP(e));
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
             cv_text_on(14, y + LIST_TY, &AF_M, lock ? "LOCK" : "AUTO", sel ? T_INK : lock ? T_ACCENT : T_MID, bg);
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
@@ -2348,6 +2356,8 @@ static void home_track_row(uint32_t c)
         cv_keycap(xr, TR_NY(large) + (ch - KC_H) / 2, KC_MUTE, sel ? T_INK : T_KEY, sel ? T_THEME : T_INK, bg);
         xr -= 6;
     }
+    if (np > 4u && xr > TR_PX - 3)                   /* (M-Vave-OP1: LEN > 64, up to 8 pips: they reach the name's line) */
+        xr = TR_PX - 3;
     x = 24;
     if (FELUCCA_ICONS && !large) {                   /* the engine's icon on the name's capitals */
         uint32_t ei = engine_icon(ENGINES[t->eng_req % NENGINES]->name);
@@ -2900,13 +2910,19 @@ static void graph_fxt(void)
         }
         if (song.playing && fxt.pos != FXT_START && fxt.idx[l] >= w0 && fxt.idx[l] < w0 + 16u)   /* the play head */
             cv_rect(FX_X0 + (int32_t)(fxt.idx[l] - w0) * FX_CP, y + FX_CH + 2, FX_CP - 1, 3, T_ACCENT);
-        for (i = 0; i < len; i++) {                   /* the lane's 64 steps, 3 px each; the 16 shown framed */
-            uint32_t e = fxt_plays(l, i);
-            cv_rect(FX_X0 + (int32_t)i * 3, y + FX_CH + 9, 2, 6, e < PF_N ? fxt_colour(e) : T_RAISE);
+        {   /* the lane's steps, 3 px each (LEN over 64, M-Vave-OP1: two a cell, the first effect of the two); the 16 shown
+             * framed */
+            uint32_t pr = len > NSTEP_FMT ? 2u : 1u, j;
+            for (i = 0; i * pr < len; i++) {
+                uint32_t e = PF_N;
+                for (j = 0; j < pr && e >= PF_N && i * pr + j < len; j++)
+                    e = fxt_plays(l, i * pr + j);
+                cv_rect(FX_X0 + (int32_t)i * 3, y + FX_CH + 9, 2, 6, e < PF_N ? fxt_colour(e) : T_RAISE);
+            }
+            cv_rect(FX_X0 + (int32_t)(w0 / pr) * 3, y + FX_CH + 16, 48 / (int32_t)pr - 1, 1, T_MID);
+            if (song.playing && fxt.pos != FXT_START)
+                cv_rect(FX_X0 + (int32_t)(fxt.idx[l] / pr) * 3, y + FX_CH + 7, 2, 1, T_ACCENT);
         }
-        cv_rect(FX_X0 + (int32_t)w0 * 3, y + FX_CH + 16, 47, 1, T_MID);
-        if (song.playing && fxt.pos != FXT_START)
-            cv_rect(FX_X0 + (int32_t)fxt.idx[l] * 3, y + FX_CH + 7, 2, 1, T_ACCENT);
     }
 }
 static void draw_graph(void)

@@ -2,15 +2,15 @@
  * Copyright (C) 2026 M-Vave-OP1 contributors */
 /* FX TRACKS (M-Vave-OP1): two lanes of punch-in effects, after the OP-Z's FX tracks and its punch-ins recorded with REC.
  * The FM-1 has no RAM for two more synth tracks (a part's engine memory, voices and SLICER buffer: ~23 KiB each), but an
- * effect lane costs 66 bytes: so the four instrument tracks stay, and FX1 and FX2 sequence the FX layer's effects
+ * effect lane costs 130 bytes: so the four instrument tracks stay, and FX1 and FX2 sequence the FX layer's effects
  * (perform.c: REPEAT, REVERSE, the filters, TAPE STOP, FREEZE, OCT UP / DN, FLANGER, PHASER, the THROWs, the mutes of the
  * black keys) on the master, as if a key of the layer held them.
  *
- * A lane: up to 64 steps of a 1/16 (fxt_lane_t, core.h), its own LEN (1..64: two lanes of different lengths drift
- * against each other and the pattern, as the OP-Z's tracks do). A step holds nothing, an effect (FXT_MUTE | k for track
- * k's mute), or FXT_TIE: the effect of the step before goes on. An effect plays from the start of its step to the end of
- * its last TIE; a step of another effect, or none, ends it (with the effect's own ramp, as a key let go). The same effect
- * on two steps in a row plays as one (it is not started again: a REPEAT keeps its loop).
+ * A lane: up to 128 steps of a 1/16 (fxt_lane_t, core.h; 64 before), its own LEN (1..128: two lanes of different
+ * lengths drift against each other and the pattern, as the OP-Z's tracks do). A step holds nothing, an effect
+ * (FXT_MUTE | k for track k's mute), or FXT_TIE: the effect of the step before goes on. An effect plays from the start
+ * of its step to the end of its last TIE; a step of another effect, or none, ends it (with the effect's own ramp, as a
+ * key let go). The same effect on two steps in a row plays as one (it is not started again: a REPEAT keeps its loop).
  * The clock counts 1/16 steps exactly as click_tick and seq_tick count a 1/16 track's (div_samples(2), the remainder
  * kept), from step 1 with the transport: the lanes never drift from the tracks, on the internal clock or an external one.
  *
