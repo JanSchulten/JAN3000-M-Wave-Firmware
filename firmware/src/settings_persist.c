@@ -54,8 +54,9 @@ static int settings_import(persist_t *p, int n)
         p->favorites.factory[15][27] = 0;
     if (p->favorites.factory[15][11] > 8u)         /* PRESETS LIST's category (1.2, ui.c ui_lcat, CAT_*): unknown = none */
         p->favorites.factory[15][11] = 0;
-    /* [15][26] HOME (1.3, ui.c ui_home_view): kept as saved; a value this firmware does not know draws TRACKS
-     * (M-Vave-OP1: 0, Felucca's SCOPE, too; 3 SCOPE) */
+    /* HOME LEVELS (stored 2) retired: TRACKS keeps the view, the engine's knobs stay on HOME. */
+    if (p->favorites.factory[15][26] == 2u)
+        p->favorites.factory[15][26] = 1u;
     p->magic = PERSIST_MAGIC;
     p->palette = palette_to_stored(palette_from_stored(p->palette));
     settings.magic = SETTINGS_MAGIC;

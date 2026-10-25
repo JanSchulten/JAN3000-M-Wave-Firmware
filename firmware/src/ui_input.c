@@ -77,6 +77,7 @@ static int mom_turn(uint32_t k, int32_t s)
         d = home_param(k, &vp);
     } else if (pg->scope == SC_TRK && !lock_held()) {  /* MIXER (#195): the selected track's LEVEL PAN REV MUTE */
         static const uint8_t MIX_ID[4] = {P_LEVEL, P_PAN, P_REV, P_MUTE};   /* (tracks_edit's knobs) */
+        if (k == 2u) return 0;                      /* REV has its home on FX > SEND */
         vp = &TSEL->p[MIX_ID[k & 3u]];
         d = &TP[MIX_ID[k & 3u]];
     } else {
@@ -595,7 +596,7 @@ static int32_t accel(uint32_t role, int32_t s, int32_t range)
     return s * (int32_t)m;
 }
 
-/* MIXER page: KNOB 1 LEVEL, 2 PAN, 3 REV send, 4 MUTE of the selected track (right = ON, left = OFF: the
+/* MIXER page: KNOB 1 LEVEL, 2 PAN, 3 unused, 4 MUTE of the selected track (right = ON, left = OFF: the
  * track itself is ALGORITHM's, on every page). Pattern length stays on SEQ. */
 static void tracks_edit(uint32_t slot, int32_t steps)
 {
@@ -612,9 +613,7 @@ static void tracks_edit(uint32_t slot, int32_t steps)
         d = &TP[P_LEVEL];
         break;
     case 2:
-        vp = &t->p[P_REV];
-        d = &TP[P_REV];
-        break;
+        return;                                     /* REV is edited on FX > SEND only */
     default:
         vp = &t->p[P_PAN];
         d = &TP[P_PAN];

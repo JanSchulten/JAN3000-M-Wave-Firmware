@@ -452,3 +452,6 @@ offer its complete corresponding source under the same licence.
 OCT+ and OCT- move the keyboard octave on STEP, stopped and playing. To add chord notes one at a time, set
 MENU > CONTROL > CHORD ENTRY to ADD, arm STEP with REC, and press the note keys; press a note again to remove it.
 The octave keys confirm or cancel dialogs and actions; held SEQ uses them for scenes.
+
+The MIXER edits LEVEL, PAN and MUTE (KNOB 1, 2 and 4). REV is on FX > SEND only. EDIT > VOICE 2 holds
+ALLOC, DTUNE and SPRD. HOME offers TRACKS and SCOPE; a saved LEVELS view loads as TRACKS.

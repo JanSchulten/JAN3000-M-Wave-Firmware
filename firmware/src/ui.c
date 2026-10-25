@@ -95,7 +95,7 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 enum { HV_OLD, HV_TRACKS, HV_LEVELS, HV_SCOPE, HV_COUNT };
 enum { HVM_TRACKS, HVM_LEVELS, HVM_SCOPE, HVM_COUNT };
 static int home_tracks(void) { return ui_home_view != HV_SCOPE; }
-static int home_levels(void) { return ui_home_view == HV_LEVELS; }
+static int home_levels(void) { return 0; }        /* HV_LEVELS stays reserved; old settings load as TRACKS */
 enum { RP_CLICK, RP_LEVEL, RP_COUNTIN };
 static uint32_t rp_get(uint32_t f)                     /* a field as the MENU steps it: 0..2 */
 {
@@ -1686,10 +1686,10 @@ static uint32_t preset_visible(uint32_t cur, uint32_t total, uint32_t row)
 
 /* HOME: the track KNOB k edits (MENU > HOME LEVELS, 1.5: track k; else the selected one) and what: the engine's four
  * main parameters, or (LEVELS) the track's LEVEL, as the GLO layer's knobs */
-static track_t *home_trk(uint32_t k) { return home_levels() ? &trk[k & 3u] : TSEL; }
+static track_t *home_trk(uint32_t k) { (void)k; return TSEL; }
 static const param_desc_t *home_param(uint32_t k, int16_t **vp)
 {
-    uint32_t id = home_levels() ? (uint32_t)P_LEVEL : ENGINES[TSEL->eng_req % NENGINES]->knob[k & 3u];
+    uint32_t id = ENGINES[TSEL->eng_req % NENGINES]->knob[k & 3u];
     *vp = &home_trk(k)->p[id];
     return track_desc(home_trk(k), id);
 }

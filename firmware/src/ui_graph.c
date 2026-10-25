@@ -2202,7 +2202,7 @@ static void draw_tracks(void)
         uint32_t arm = (song.rec >> c) & 1u, st = arm ? (song.playing ? 1u : 2u) : mute ? 3u : 0u, sig;
         uint32_t hot = sel && ui.hot_t ? ui.hot_col + 1u : 0u;   /* the knob just turned (hot_col + 1): 1 LEVEL, 2 PAN,
                                                                 * 3 REV, 4 MUTE (its badge) */
-        int32_t pk = t->peak, m, pan = clamp(t->p[P_PAN], -64, 63), rv = clamp(t->p[P_REV], 0, 127);
+        int32_t pk = t->peak, m, pan = clamp(t->p[P_PAN], -64, 63);
         uint16_t vc = mute ? T_DIM : T_THEME;
         char b[16];
         t->peak = 0;
@@ -2212,7 +2212,7 @@ static void draw_tracks(void)
             m = ts.meter[c] - 1;                     /* falls ~2 dB a frame */
         ts.meter[c] = (uint8_t)(m < 0 ? 0 : m);
         sig = str_hash(1u + sel + st * 2u + (mute && arm) * 16u + hot * 32u, b) + lvl * 7919u +
-              ts.meter[c] * 131u + (uint32_t)(pan + 128) * 104729u + (uint32_t)rv * 1299709u + mute * 3u + sk * 0x9E37u;
+              ts.meter[c] * 131u + (uint32_t)(pan + 128) * 104729u + mute * 3u + sk * 0x9E37u;
         if (!ui.force && sig == ts.col[c])
             continue;
         ts.col[c] = sig;
@@ -2254,22 +2254,16 @@ static void draw_tracks(void)
             if (ts.meter[c])
                 cv_rrect(45, TS_MY + TS_MH - 1 - ts.meter[c], 4, ts.meter[c] + 1, ts.meter[c] >= 4 ? 2 : 0, T_MID, T_RAISE);
         }
-        {   /* PAN (from the centre) and the REV send: captions, knobs, values */
+        {   /* PAN has the space under LEVEL; REV is on the SEND card only. */
             char v[8];
-            uint16_t pc = hot == 2u ? T_ACCENT : vc, rc = hot == 3u ? T_ACCENT : vc;
-            GFX_HOOK_ALIGN(15 - KNOB_SMALL_R, 0, 15 + KNOB_SMALL_R, 0, AL_H, "mixer caption over its knob");
-            cv_text_in(15 - KNOB_SMALL_R, 72, 2 * KNOB_SMALL_R, &AF_S, "PAN", T_DIM, T_SURF);   /* (by their ink) */
-            GFX_HOOK_ALIGN(42 - KNOB_SMALL_R, 0, 42 + KNOB_SMALL_R, 0, AL_H, "mixer caption over its knob");
-            cv_text_in(42 - KNOB_SMALL_R, 72, 2 * KNOB_SMALL_R, &AF_S, "REV", T_DIM, T_SURF);
-            knob(15 - KNOB_SMALL_R, KS_Y, KNOB_SMALL_R, KNOB_SMALL_COV, KNOB_SMALL_ANG, pan, -64, 63, pc);
-            knob(42 - KNOB_SMALL_R, KS_Y, KNOB_SMALL_R, KNOB_SMALL_COV, KNOB_SMALL_ANG, rv, 0, 127, rc);
-            v[0] = '+';                              /* the cards' numbers, without the % */
+            uint16_t pc = hot == 2u ? T_ACCENT : vc;
+            GFX_HOOK_ALIGN(28 - KNOB_SMALL_R, 0, 28 + KNOB_SMALL_R, 0, AL_H, "mixer caption over its knob");
+            cv_text_in(28 - KNOB_SMALL_R, 72, 2 * KNOB_SMALL_R, &AF_S, "PAN", T_DIM, T_SURF);
+            knob(28 - KNOB_SMALL_R, KS_Y, KNOB_SMALL_R, KNOB_SMALL_COV, KNOB_SMALL_ANG, pan, -64, 63, pc);
+            v[0] = '+';
             fmt_int(pan > 0 ? v + 1 : v, pan * 100 / 64);
-            GFX_HOOK_ALIGN(15 - KNOB_SMALL_R, 0, 15 + KNOB_SMALL_R, 0, AL_H, "mixer value under its knob");
-            cv_text_in(15 - KNOB_SMALL_R, KS_Y + 17, 2 * KNOB_SMALL_R, &AF_S, v, pc, T_SURF);
-            fmt_int(v, (rv * 100 + 63) / 127);
-            GFX_HOOK_ALIGN(42 - KNOB_SMALL_R, 0, 42 + KNOB_SMALL_R, 0, AL_H, "mixer value under its knob");
-            cv_text_in(42 - KNOB_SMALL_R, KS_Y + 17, 2 * KNOB_SMALL_R, &AF_S, v, rc, T_SURF);
+            GFX_HOOK_ALIGN(28 - KNOB_SMALL_R, 0, 28 + KNOB_SMALL_R, 0, AL_H, "mixer value under its knob");
+            cv_text_in(28 - KNOB_SMALL_R, KS_Y + 17, 2 * KNOB_SMALL_R, &AF_S, v, pc, T_SURF);
         }
         cv_blit((uint32_t)CARD_X(c), Y_GRAPH);
     }

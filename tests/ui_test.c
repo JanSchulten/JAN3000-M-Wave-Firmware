@@ -1791,7 +1791,7 @@ static int test_menu_tabs(void)
             seen[menu_get(i) & 127u] = 1;
         }
         for (j = 0; j < 128u; j++)
-            ok &= seen[j] == (j < n);
+            ok &= seen[j] == (j < n && !(i == MI_HOME && j == HVM_LEVELS));
         for (j = 0; j <= n; j++) {                     /* and down again */
             want = menu_step(i, -1);
             press(B_OCTDN);
@@ -2924,7 +2924,7 @@ static int test_product_ux(void)
                  cur_fam() == FAM_TRK && FAM_BTN[cur_fam()] == B_HOME);
     int16_t len = TSEL->p[P_SLEN], send = TSEL->p[P_REV];
     turn(EN_K3, 1);
-    bad += check("MIXER K3 edits reverb, never sequence length", TSEL->p[P_SLEN] == len && TSEL->p[P_REV] == send + 1);
+    bad += check("MIXER K3 edits neither reverb nor sequence length", TSEL->p[P_SLEN] == len && TSEL->p[P_REV] == send);
     press(B_HOME);
     ok = !ui.home && !ui.menu && str_eq(cur_page()->title, "CLOCK") && cur_fam() == FAM_TRK && FAM_BTN[cur_fam()] == B_HOME;
     {   /* (CLOCK: HOME's LED lit, as on MIXER; GLO's not) */
@@ -3694,9 +3694,9 @@ static int engine_cycle(const char *const *want, uint32_t n)   /* EDIT tapped fr
 }
 static int test_edit_cycle(void)
 {
-    static const char *const CYC_A[] = {"EDIT 1", "EDIT 2", "FILTER", "VOICE", "VOICE 2", "VOICE 3", "EDIT 1"};   /* (1.5: FILTER) */
+    static const char *const CYC_A[] = {"EDIT 1", "EDIT 2", "FILTER", "VOICE", "VOICE 2", "EDIT 1"};   /* (1.5: FILTER) */
     static const char *const CYC_D[] = {"EDIT 1", "EDIT 2", "OP1 ENV", "OP2 ENV", "OP3 ENV", "OP4 ENV",
-                                        "OP LEVEL", "VOICE", "VOICE 2", "VOICE 3", "EDIT 1"};
+                                        "OP LEVEL", "VOICE", "VOICE 2", "EDIT 1"};
     int bad = 0, ok;
     uint32_t i;
     ui_power_on();
@@ -3708,25 +3708,25 @@ static int test_edit_cycle(void)
         ok &= !str_eq(PAGES[i].title, "ENGINE");
     bad += check("no ENGINE page (engines are the EDIT layer's)", ok);
     set_engine_of(TSEL, 0);
-    bad += check("EDIT cycle (ANALOG): EDIT 1 EDIT 2 FILTER VOICE VOICE 2 VOICE 3 EDIT 1", engine_cycle(CYC_A, NELEM(CYC_A)));
+    bad += check("EDIT cycle (ANALOG): EDIT 1 EDIT 2 FILTER VOICE VOICE 2 EDIT 1", engine_cycle(CYC_A, NELEM(CYC_A)));
 #if FELUCCA_FM4
     set_engine_of(TSEL, 1);
-    bad += check("EDIT cycle (DIGITAL): EDIT 1 EDIT 2 OP1..OP4 ENV OP LEVEL VOICE VOICE 2 VOICE 3 EDIT 1",
+    bad += check("EDIT cycle (DIGITAL): EDIT 1 EDIT 2 OP1..OP4 ENV OP LEVEL VOICE VOICE 2 EDIT 1",
                  engine_cycle(CYC_D, NELEM(CYC_D)));
 #else
     set_engine_of(TSEL, ENGI_DIGITAL);
     {
-        static const char *const CYC_F[] = {"EDIT 1", "EDIT 2", "OPERATOR", "OP ENV", "OPERATOR 2", "VOICE", "VOICE 2", "VOICE 3", "EDIT 1"};
-        bad += check("EDIT cycle (engine 1 asked for: FM6, DIGITAL retired): EDIT 1 EDIT 2 OPERATOR OP ENV OPERATOR 2 VOICE .. VOICE 3",
+        static const char *const CYC_F[] = {"EDIT 1", "EDIT 2", "OPERATOR", "OP ENV", "OPERATOR 2", "VOICE", "VOICE 2", "EDIT 1"};
+        bad += check("EDIT cycle (engine 1 asked for: FM6, DIGITAL retired): EDIT 1 EDIT 2 OPERATOR OP ENV OPERATOR 2 VOICE ..",
                      TSEL->eng_req == ENGI_FM6 && engine_cycle(CYC_F, NELEM(CYC_F)));
     }
     (void)CYC_D;
 #endif
     {   /* #97: a DRUM track's lane levels on EDIT > LANES (KICK SNARE CLAP HATCL) and LANES 2 (HATOP TOM RIM BELL) */
-        static const char *const CYC_K[] = {"EDIT 1", "EDIT 2", "LANES", "LANES 2", "SOUNDS", "VOICE", "VOICE 2", "VOICE 3",
+        static const char *const CYC_K[] = {"EDIT 1", "EDIT 2", "LANES", "LANES 2", "SOUNDS", "VOICE", "VOICE 2",
                                             "EDIT 1"};
         set_engine_of(TSEL, ENGI_DRUM);
-        bad += check("EDIT cycle (DRUM): EDIT 1 EDIT 2 LANES LANES 2 SOUNDS (M-Vave-OP1) VOICE VOICE 2 VOICE 3 EDIT 1",
+        bad += check("EDIT cycle (DRUM): EDIT 1 EDIT 2 LANES LANES 2 SOUNDS (M-Vave-OP1) VOICE VOICE 2 EDIT 1",
                      engine_cycle(CYC_K, NELEM(CYC_K)));
         go_title("LANES 2"); frame();
         ok = TSEL->p[P_LN5] == 127;
@@ -4757,16 +4757,16 @@ static int test_bughunt_ui2(void)
             turn(EN_K1 + k, 1);                                       /* (K4 right: MUTE on, its badge shown) */
             ui.force = 1; frame();
             a[k][0] = accent_in(X + 4, Y + 37, X + 38, Y + 71);       /* LEVEL */
-            a[k][1] = accent_in(X + 3, Y + 84, X + 28, Y + 115);      /* PAN */
-            a[k][2] = accent_in(X + 30, Y + 84, X + 55, Y + 115);     /* REV */
+            a[k][1] = accent_in(X + 15, Y + 84, X + 42, Y + 115);      /* PAN */
+            a[k][2] = 0;     /* REV */
             a[k][3] = accent_in(X + 22, Y + 4, X + 56, Y + 20);       /* the MUTE badge */
         }
         for (k = 0; k < 4u; k++) {
             uint32_t j;
             for (j = 0; j < 4u; j++)
-                ok &= j == k ? a[k][j] > 0u : a[k][j] == 0u;
+                ok &= j == k && k != 2u ? a[k][j] > 0u : a[k][j] == 0u;
         }
-        bad += check("MIXER: K1..K4 light LEVEL / PAN / REV / the MUTE badge, nothing else", ok);
+        bad += check("MIXER: K1 / K2 / K4 light LEVEL / PAN / MUTE; K3 has no control", ok);
     }
     {   /* 4. renaming the slot the music came from renames the music: the next SAVE prefills the new name */
         char pn[16];
@@ -5799,16 +5799,16 @@ static int test_momentary(void)
         turn(EN_K2, 7);
         turn(EN_K3, 9);
         turn(EN_K4, 1);
-        ok = TSEL->p[P_LEVEL] != lv && TSEL->p[P_PAN] != pn && TSEL->p[P_REV] != rv && TSEL->p[P_MUTE] != mu &&
-             mom.n == 4u && motion.count == k;
+        ok = TSEL->p[P_LEVEL] != lv && TSEL->p[P_PAN] != pn && TSEL->p[P_REV] == rv && TSEL->p[P_MUTE] != mu &&
+             mom.n == 3u && motion.count == k;
         btn_up(B_LFO); frame();
         song.playing = 0; song.rec = 0;
         ok &= TSEL->p[P_LEVEL] == lv && TSEL->p[P_PAN] == pn && TSEL->p[P_REV] == rv && TSEL->p[P_MUTE] == mu &&
               !mom.n && cur_page()->graph == GR_TRK && msg_is("BACK");
         turn(EN_K3, 4);                            /* (without LFO: a turn stays) */
-        ok &= TSEL->p[P_REV] != rv && !mom.n;
+        ok &= TSEL->p[P_REV] == rv && !mom.n;
         TSEL->p[P_REV] = rv;
-        bad += check("  #195 MIXER: LEVEL PAN REV MUTE momentary (not recorded), back on release; without LFO they stay", ok);
+        bad += check("  #195 MIXER: LEVEL PAN MUTE momentary, REV stays on SEND", ok);
     }
     /* a layer: its knobs */
     go_home();
@@ -8907,7 +8907,7 @@ static void fop_pick(uint32_t opn)                   /* KNOB 1: OP opn (1..6) */
 static int slot_own(void) { return TSEL->p[P_E7] == FM6_OWN && fm6_slot[song.sel] == FM6_OWN; }
 static int test_fm6_ops(void)
 {
-    static const char *const CYC_F[] = {"EDIT 1", "EDIT 2", "OPERATOR", "OP ENV", "OPERATOR 2", "VOICE", "VOICE 2", "VOICE 3", "EDIT 1"};
+    static const char *const CYC_F[] = {"EDIT 1", "EDIT 2", "OPERATOR", "OP ENV", "OPERATOR 2", "VOICE", "VOICE 2", "EDIT 1"};
     static const struct { const char *page; uint32_t k, off; } F[] = {
         {"OPERATOR", EN_K2, FP_FC}, {"OPERATOR", EN_K3, FP_FF}, {"OPERATOR", EN_K4, FP_OL},
         {"OPERATOR 2", EN_K2, FP_MODE}, {"OPERATOR 2", EN_K3, FP_DET}, {"OPERATOR 2", EN_K4, FP_KVS},
@@ -9167,7 +9167,7 @@ static int test_help(void)
     press(B_HOME);
     ok &= ui.home && ui.help_t > 0u && str_eq(help_page(), H_HOME);
     menu_put(MI_HOME, HVM_LEVELS);
-    ok &= str_eq(help_page(), H_LEVELS);
+    ok &= str_eq(help_page(), H_HOME);
     menu_put(MI_HOME, HVM_SCOPE);
     menu_put(MI_HELP, 0);
     press(B_ENV);
@@ -9188,7 +9188,7 @@ static int test_home_tracks(void)
     memcpy(before, favorites.factory[15], 32);
     ok = ui_home_view == 0u && home_tracks() && menu_get(MI_HOME) == HVM_TRACKS && menu_n(MI_HOME) == 3u &&
          str_eq(MI_NAME[MI_HOME], "HOME") && str_eq(menu_vname(MI_HOME, 0), "TRACKS") &&   /* (M-Vave-OP1: TRACKS the */
-         str_eq(menu_vname(MI_HOME, 1), "LEVELS") && str_eq(menu_vname(MI_HOME, 2), "SCOPE") &&   /* default, SCOPE last) */
+         str_eq(menu_vname(MI_HOME, 1), "TRACKS") && str_eq(menu_vname(MI_HOME, 2), "SCOPE") &&   /* default, SCOPE last) */
          MI_TAB[MI_HOME] == MTAB_DISPLAY && MI_HOME < MI_VALUES;
     menu_put(MI_HOME, HVM_SCOPE);
     ok &= ui_home_view == HV_SCOPE && !home_tracks() && menu_get(MI_HOME) == HVM_SCOPE;
@@ -9211,61 +9211,33 @@ static int test_home_tracks(void)
     hold(B_HOME);                                       /* the menu: DISPLAY, down to HOME, K1 right */
     for (i = 0; i < 7u; i++) turn(EN_PRESET, 1);
     ok = ui.menu == 1 && ui.menu_sel == MI_HOME;
-    turn(EN_K1, 1); ok &= home_levels();               /* (M-Vave-OP1: TRACKS LEVELS SCOPE) */
+    turn(EN_K1, 1); ok &= !home_tracks();               /* (M-Vave-OP1: TRACKS LEVELS SCOPE) */
     turn(EN_K3, 1); ok &= !home_tracks();              /* (SCOPE, the last) */
     turn(EN_K3, 1); ok &= !home_tracks();              /* (stops there) */
-    press(B_OCTDN); ok &= home_levels();
     press(B_OCTDN); ok &= home_tracks() && !home_levels();
-    press(B_OCTUP); ok &= home_levels();
+    press(B_OCTDN); ok &= home_tracks() && !home_levels();
+    press(B_OCTUP); ok &= !home_tracks();
     press(B_HOME); frame();
     ok &= !ui.menu && ui.home;
     bad += check("1.3 MENU: HOME's row (any knob, OCT+ / OCT-: TRACKS LEVELS SCOPE), the menu closed: HOME", ok);
 
-    /* 1.5 (#134): HOME LEVELS: the rows of TRACKS, KNOB 1..4 the LEVEL of T1..T4 (the selected track's engine untouched),
-     * MOMENTARY on any of them. And ANIM no longer sets
-     * HOME (up to 1.4.1 its MENU row fell through into HOME's) */
+    /* Old LEVELS settings map to TRACKS and never turn HOME into a second level editor. */
     ui_power_on();
     menu_put(MI_HOME, HVM_LEVELS);
-    song.sel = 0;
     go_home(); frame();
     {
-        int16_t lv[NTRK], e0[NTRK][P_COUNT];
-        uint32_t k;
-        const param_desc_t *d;
-        int16_t *vp;
-        for (k = 0; k < NTRK; k++) { lv[k] = trk[k].p[P_LEVEL]; memcpy(e0[k], trk[k].p, sizeof e0[k]); }
-        turn(EN_K2, -5);
-        turn(EN_K4, 3);
-        ok = home_tracks() && home_levels() && trk[1].p[P_LEVEL] < lv[1] && trk[3].p[P_LEVEL] > lv[3] &&
-             trk[0].p[P_LEVEL] == lv[0] && trk[2].p[P_LEVEL] == lv[2];
-        for (k = 0; k < P_COUNT; k++)                   /* (nothing else of any track) */
-            ok &= (k == P_LEVEL || (trk[0].p[k] == e0[0][k] && trk[1].p[k] == e0[1][k] && trk[2].p[k] == e0[2][k] &&
-                                    trk[3].p[k] == e0[3][k]));
-        d = home_param(2, &vp);
-        ok &= vp == &trk[2].p[P_LEVEL] && d == &TP[P_LEVEL] && home_trk(2) == &trk[2];
-        bad += check("1.5 HOME LEVELS: KNOB 2 / 4 the LEVEL of T2 / T4, nothing else of any track", ok);
-        k = (uint32_t)trk[2].p[P_LEVEL];
-        btn_down(B_LFO); frame();
-        turn(EN_K3, -6);
-        ok = trk[2].p[P_LEVEL] < (int16_t)k && mom.n == 1u;
-        btn_up(B_LFO); frame();
-        bad += check("1.5 HOME LEVELS: MOMENTARY (LFO held) on T3's LEVEL, back when LFO is let go",
-                     ok && trk[2].p[P_LEVEL] == (int16_t)k && !mom.n);
-        menu_put(MI_HOME, HVM_TRACKS);
-        lv[1] = trk[1].p[P_LEVEL];
-        turn(EN_K2, 4);
-        bad += check("1.5 HOME TRACKS (not LEVELS): KNOB 2 the selected track's engine again, no level",
-                     trk[1].p[P_LEVEL] == lv[1] && !home_levels());
-        menu_put(MI_HOME, HVM_LEVELS);
+        int16_t lv[NTRK];
+        for (i = 0; i < NTRK; i++) lv[i] = trk[i].p[P_LEVEL];
+        turn(EN_K2, -5); turn(EN_K4, 3);
+        ok = home_tracks() && !home_levels();
+        for (i = 0; i < NTRK; i++) ok &= trk[i].p[P_LEVEL] == lv[i];
+        bad += check("retired HOME LEVELS maps to TRACKS: HOME's knobs never edit track levels", ok);
         menu_put(MI_ANIM, 1u);
-        ok = home_levels() && menu_get(MI_ANIM) == 1u;
-        menu_put(MI_ANIM, 0u);
-        ok &= home_levels() && menu_get(MI_ANIM) == 0u;
-        menu_put(MI_HOME, HVM_SCOPE);
-        menu_put(MI_ANIM, 2u);
+        ok = home_tracks() && !home_levels() && menu_get(MI_ANIM) == 1u;
+        menu_put(MI_HOME, HVM_SCOPE); menu_put(MI_ANIM, 2u);
         ok &= !home_tracks() && menu_get(MI_ANIM) == 2u;
         menu_put(MI_ANIM, 0u);
-        bad += check("1.5 MENU ANIM leaves HOME as it is (it fell through into HOME up to 1.4.1)", ok);
+        bad += check("MENU ANIM leaves HOME's view unchanged", ok);
     }
 
     /* the rows: T1 (not selected) a line, T2 selected, T3 muted, T4 the DRUM beat */
