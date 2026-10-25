@@ -34,6 +34,8 @@
   select.lang { text-decoration: none; border: 0; cursor: pointer; }
   dialog.ask { background: var(--bg); color: var(--fg); border: 1px solid var(--fg); padding: 16px 20px; max-width: min(90vw, 560px); }
   dialog.ask::backdrop { background: rgba(0, 0, 0, .35); }
+  td.acts { white-space: nowrap; text-align: right; }
+  td.acts button { padding: 0 6px; margin-left: 2px; }
   select, input[type=text], input[type=number], input[type=search] {
     font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 1px 3px; border-radius: 0; }
   input[type=range] { width: 100%; margin: 0; accent-color: var(--fg); }
@@ -2658,7 +2660,8 @@ const TEXT = {
     mirMine: "こちらのコピー: {when}", mirDone: "プリセットをコピーしました: ",
     mirAskDev: "これらのスロットを本体のプリセット {n} 個で置き換えますか (本体の空きスロットはここでも空に)?",
     mirAskEmu: "本体のスロットを「本体なし」のプリセット {n} 個で置き換えますか (空きスロットは本体で消去)?",
-    renamedSlot: "名前を変更しました: ", cancel: "キャンセル", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
+    renamedSlot: "名前を変更しました: ", pickSound: "このファイルには {n} 個の音色があります。どれにしますか?", loadedFile: "ファイルから読み込みました (音色のみ; ステップはそのまま): ",
+    rowPlay: "試聴", rowSave: "ファイルに保存", cancel: "キャンセル", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
     kbdHelp: "キーボード: {keys} で演奏 ({range}) · {oct} オクターブ · {vel} ベロシティ {v}",
     connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
     sound: "音色", engine: "エンジン", presets: "プリセット", initSound: "音色を初期化",
@@ -2775,7 +2778,8 @@ const TEXT = {
     mirMine: "this side's copy: {when}", mirDone: "Presets copied: ",
     mirAskDev: "Replace these slots with the FM-1's {n} presets (its empty slots empty here too)?",
     mirAskEmu: "Replace the FM-1's slots with the {n} presets of No device (their empty slots erased on the FM-1)?",
-    renamedSlot: "Renamed: ", cancel: "Cancel", emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
+    renamedSlot: "Renamed: ", pickSound: "This file holds {n} sounds. Which one?", loadedFile: "Loaded from the file (the sound; the steps stay): ",
+    rowPlay: "Audition", rowSave: "Save as a file", cancel: "Cancel", emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
     kbdHelp: "Keyboard: {keys} play ({range}) · {oct} octave · {vel} velocity {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Init sound",
     track: "Track",
@@ -2891,7 +2895,8 @@ const TEXT = {
     mirMine: "Kopie dieser Seite: {when}", mirDone: "Presets kopiert: ",
     mirAskDev: "Diese Plätze durch die {n} Presets des FM-1 ersetzen (seine leeren Plätze werden hier auch leer)?",
     mirAskEmu: "Die Plätze des FM-1 durch die {n} Presets von „Ohne Gerät“ ersetzen (deren leere Plätze werden am FM-1 gelöscht)?",
-    renamedSlot: "Umbenannt: ", cancel: "Abbrechen", emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
+    renamedSlot: "Umbenannt: ", pickSound: "Diese Datei enthält {n} Sounds. Welchen?", loadedFile: "Aus der Datei geladen (der Sound; die Steps bleiben): ",
+    rowPlay: "Anhören", rowSave: "Als Datei speichern", cancel: "Abbrechen", emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
     kbdHelp: "Tastatur: {keys} spielen ({range}) · {oct} Oktave · {vel} Anschlag {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Sound zurücksetzen",
     track: "Spur",
@@ -3149,6 +3154,21 @@ function askDialog(msg, value) {
     dlg.showModal();
     (inp || ok).focus();
     if (inp) inp.select();
+  });
+}
+/* a choice among labels -> its index, or null */
+function askPick(msg, labels) {
+  return new Promise((resolve) => {
+    const sel = el("select", { size: Math.min(10, labels.length), style: "width:100%" },
+      ...labels.map((l, i) => el("option", { value: i, selected: i === 0 }, l)));
+    const ok = el("button", { type: "submit", value: "ok", text: "OK" });
+    const no = el("button", { type: "submit", value: "no", text: t("cancel") });
+    const dlg = el("dialog", { class: "ask" }, el("form", { method: "dialog" }, el("p", { text: msg }), sel, el("p", { class: "bar" }, ok, no)));
+    sel.addEventListener("dblclick", () => dlg.close("ok"));
+    dlg.addEventListener("close", () => { const yes = dlg.returnValue === "ok"; dlg.remove(); resolve(yes ? +sel.value : null); });
+    document.body.append(dlg);
+    dlg.showModal();
+    sel.focus();
   });
 }
 const askOk = (msg) => askDialog(msg, null);
@@ -5151,16 +5171,40 @@ setInterval(() => {
 }, 1000);
 
 /* ------------------------------------------------------------ files --- */
-$("savefile").addEventListener("click", () => {
+/* M-Vave-OP1: SAVE TO FILE writes the selected track's sound as one preset file (the library's format, kind "patch":
+   its parameters by name, its first 16 steps, an FM6 track's patch), the file every other place reads too (LOAD FILE,
+   the library's IMPORT, a device slot's REPLACE, tools/import_presets.py) */
+$("savefile").addEventListener("click", async () => {
   if (!dev) return;
-  const engine = dev.dump.engine, preset = dev.dump.preset;
-  const data = { format: "felucca-patch", version: 1, firmware: dev.info.version,
-    engineName: dev.info.engines[engine], presetName: (dev.names[engine] || [])[preset],
-    engine, preset, p: dev.dump.p.slice(), g: dev.dump.g.slice(),
-    steps: dev.steps.map((s) => ({ n: s.n, notes: s.notes.slice(), time: s.time, flags: s.flags, vel: s.vel })) };
-  download(`felucca-${fileSlug(data.engineName || "patch")}-${fileSlug(data.presetName || preset)}.json`, data);
+  const def = upName((dev.names[dev.dump.engine] || [])[dev.dump.preset] || dev.info.engines[dev.dump.engine]);
+  const name = await askText(t("promptName"), def);
+  if (name == null) return;
+  libOp(async (d, rqf) => {
+    const { patch } = await capturePatch(rqf, d.info, name.trim() || def);
+    await download(`${fileSlug(patch.name)}.json`, libraryFile("patch", [patch], libCtx()));
+    sayK("ready");
+  });
 });
 $("loadfile").addEventListener("click", () => { $("file").value = ""; $("file").click(); });
+/* a preset file onto the selected track: its sound (the steps stay); a file of several sounds: one picked from them.
+   (A "felucca-patch" file of an older editor: its sound and its steps, as it always loaded) */
+async function loadPresetFile(obj, fname) {
+  const r = readLibraryFile(obj, libCtx()), ok = r.patches.filter((p) => engineOk(p));
+  if (!ok.length) throw new Error(`${fname}: ${t("dfNone")}`);
+  let p = ok[0];
+  if (ok.length > 1) {
+    const k = await askPick(t("pickSound").replace("{n}", ok.length), ok.map((x) => `${x.name} (${x.engineName})`));
+    if (k == null) return;
+    p = ok[k];
+  }
+  await libOp(async (d, rqf) => {
+    selfLoad(true);
+    await auditionPatch(rqf, d.info, { ...p, p: fullParams(p) }, { gEng: gEng(), track: d.sel ?? 0,
+      progress: (i, n) => { if (i % 8 === 0) sayK("applying", `${i}/${n}`); } });
+    await afterSoundChange("ready", d);
+    sayK("loadedFile", p.name);
+  });
+}
 $("file").addEventListener("change", async () => {
   const f = $("file").files[0];
   if (!f || !dev) return;
@@ -5169,6 +5213,10 @@ $("file").addEventListener("change", async () => {
   try {
     data = JSON.parse(await f.text());
     assertSession(session);
+    if (data && (data.format === "felucca-library" || (data.format === "felucca-patch" && !Number.isInteger(data.preset)))) {
+      await loadPresetFile(data, f.name);
+      return;
+    }
     if (!Number.isInteger(data.engine) || !Number.isInteger(data.preset) || !Array.isArray(data.p)) throw new Error("engine / preset / p");
     if (data.engine < 0 || data.engine >= dev.info.nengines) throw new Error("engine " + data.engine);
   } catch (e) { if (e.message !== "closed") sayK("badfile", e.message); return; }
@@ -5348,14 +5396,19 @@ function renderLib() {
   const box = $("liblist");
   if (!lib.length) box.replaceChildren(el("div", { class: "none", text: t("libEmpty") }));
   else {
-    const tb = el("table", {}, el("colgroup", {}, el("col"), el("col", { class: "e" }), el("col"), el("col", { class: "d" })),
-      el("tr", {}, el("th", { text: t("name") }), el("th", { text: t("engine") }), el("th", { text: t("tagsCol") }), el("th", { text: t("date") })));
+    const tb = el("table", {}, el("colgroup", {}, el("col"), el("col", { class: "e" }), el("col"), el("col", { class: "d" }), el("col")),
+      el("tr", {}, el("th", { text: t("name") }), el("th", { text: t("engine") }), el("th", { text: t("tagsCol") }), el("th", { text: t("date") }), el("th")));
     for (const p of v) {
       const tr = el("tr", { "data-id": p.id, class: p.id === libSel ? "sel" : null, draggable: "true", title: p.name },
         el("td", {}, p.pattern || p.grid ? icon("note_eight") : "", p.name),
         el("td", { text: p.engineName || String(p.engine) }),
         el("td", { text: p.tags.join(", ") }),
-        el("td", { text: new Date(p.modified).toLocaleDateString(lang) }));
+        el("td", { text: new Date(p.modified).toLocaleDateString(lang) }),
+        el("td", { class: "acts" },                 /* (M-Vave-OP1: one sound: play it, save it as a file) */
+          el("button", { ic: "symbol_audio", title: t("rowPlay"), "aria-label": t("rowPlay"), disabled: !dev || libBusy,
+            onclick: (e) => { e.stopPropagation(); libAudition(p.id); } }),
+          el("button", { ic: "symbol_download", title: t("rowSave"), "aria-label": t("rowSave"),
+            onclick: (e) => { e.stopPropagation(); download(`${fileSlug(p.name)}.json`, libraryFile("patch", [p], libCtx())); } })));
       tr.addEventListener("click", () => { libSel = p.id; renderLib(); });
       tr.addEventListener("dblclick", () => libAudition(p.id));
       tr.addEventListener("dragstart", (e) => { libSel = p.id; e.dataTransfer.setData("text/x-felucca-lib", p.id); e.dataTransfer.effectAllowed = "copy"; });
