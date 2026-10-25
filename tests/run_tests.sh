@@ -86,12 +86,12 @@
 #                   SEQ layer (white keys scenes, OCT+ / OCT- next / before, black keys the tools, EDIT put back, PRESETS
 #                   the lane, LEDs, no song), the KO-II flow (a punch-in held while SEQ picks); screens into
 #                   build/scene_shots.
-# SCL > ORCHID (tests/orchid_test.c, M-Vave-OP1): the Orchid's chord block after ChoralRoot FM-1 (orchid.c): the
-#                   types, extensions, VOICE and names; through the real key input (F3 .. C#4 the block, silent; the roots
-#                   with their chord; a release ends its own notes; ORCHID off, a kit, a one-voice part as before; the
-#                   ARP over a chord); LOCK as ChoralRoot's (latch, toggles, resets, the lone repeat); the ORCHID page
-#                   (KNOB 1 ON, 2 VOICE, 3 LOCK), LEDs, STEP entry, ON and VOICE kept with the project; screens into
-#                   build/orchid_shots.
+# SCL > CSET (tests/cset_test.c, M-Vave-OP1): the chord sets after the Roland J-6's (cset.c, cset_data.h): the
+#                   hundred sets (set 1's C, the names, 1..4 notes up), the genres KNOB 3 steps; the chords (F3 .. E4 as
+#                   listed, octaves away, TRN, one voice: the lowest); through the real key input (every key a chord, a
+#                   black key under WHITE, OCT, a release ends its notes; off and a kit as before; the ARP); MIDI IN;
+#                   the page (KNOB 1 ON: POLY, OFF: the VOICE back; a sound loaded while on; KNOB 2 SET, 3 GENRE),
+#                   STEP entry, live recording, kept with the project; screens into build/cset_shots.
 # CLOUD (tests/cloud_test.c, M-Vave-OP1): FX1's TYPE (fx1.c): the DELAY untouched, a change fades, clears, starts empty;
 #                   CLOUD's grains always inside what was written (30 s of random settings), DENS, PITCH +-12 / +7, the
 #                   level, FDBK bounded and dying away, CLOUD FREEZE; the FX1 / CLOUD pages, F5, kept with the project;
@@ -348,9 +348,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     mkdir -p build/scene_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/scene_test" tests/scene_test.c -lm
     run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT+ held copy, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
-    mkdir -p build/orchid_shots
-    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/orchid_test" tests/orchid_test.c -lm
-    run "SCL > ORCHID (the Orchid's keyboard): types, extensions, VOICE, names, the key input, LOCK, the page, LEDs, STEP entry, kept" "$OUT/orchid_test" build/orchid_shots
+    mkdir -p build/cset_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cset_test" tests/cset_test.c -lm
+    run "SCL > CSET (chord sets after the J-6's): the data, the chords, the key input, MIDI IN, the page, STEP entry, recording, kept" "$OUT/cset_test" build/cset_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/songchain_test" tests/songchain_test.c -lm
     run "SONG as OP-Z pattern chains: typed with REC + A..D, LOOP / STOP, new chains and edits while it plays" "$OUT/songchain_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fxtrack_test" tests/fxtrack_test.c -lm

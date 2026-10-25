@@ -258,8 +258,8 @@ static void kg_rec(void)
         keyboard_block();
         ok = t->step[5].hit == 1u << DV_HATC && !t->step[5].n;
         t->seq_idx = 9;
-        rec_note(t, 36, 120);                           /* (a lane's note, hard: accented) */
-        rec_note(t, 49u, 90);                           /* (a crash: a note on its lane) */
+        rec_note(t, 36, 120, 0);                        /* (a lane's note, hard: accented) */
+        rec_note(t, 49u, 90, 0);                        /* (a crash: a note on its lane) */
         ok &= t->step[9].hit == 1u << DV_KICK && t->step[9].acc == 1u << DV_KICK && t->step[9].n == 1u &&
               t->step[9].note[0] == 49u && step_lanes(eng, &t->step[9]) == (1u << DV_KICK | 1u << DV_HATO);
         song.rec = 0;

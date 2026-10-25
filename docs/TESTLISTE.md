@@ -50,6 +50,10 @@ kann nur das echte Gerät zeigen.
 - [ ] **REC drücken startet nichts**, es macht nur scharf (Meldung REC ARMED: PRESS PLAY). Erst PLAY startet, mit
       Count-in, wenn COUNT-IN an ist (REC halten: COUNT-IN auf 1 BAR / 2 BARS).
 - [ ] REC und live einspielen: Die Noten landen im Pattern.
+- [ ] **Legato:** Einen Mono-Sound (VOICE LEG, z. B. SAW LEAD) aufnehmen und dabei überlappend spielen (die nächste
+      Taste drücken, bevor die vorige losgelassen ist). Beim Abspielen startet die Hüllkurve an diesen Stellen nicht
+      neu, genau wie beim Einspielen. Im Piano-Roll verbindet eine dunkle Linie die beiden Noten. Lässt du vorher
+      los, startet die nächste Note wie bisher neu.
 - [ ] REC halten + OCT−: Die Aufnahme wird rückgängig gemacht. REC halten + OCT+: Sie ist wieder da.
 - [ ] **REC halten + F#5 (oberste schwarze Taste) = ZURÜCK:** macht die letzte Änderung rückgängig (eine Aufnahme,
       ein Step auf OFF, ein geladener Sound …). Die Taste atmet, solange es etwas zurückzunehmen gibt; nochmal
@@ -59,6 +63,8 @@ kann nur das echte Gerät zeigen.
       Schwarze Tasten 1–6 wählen die Lane und spielen sie, 7 und 8 bleiben dunkel und tun nichts. Weiße Tasten setzen
       Hits, ACC (schwarze Taste 9) gehalten setzt Akzente, die Lanes blinken beim Abspielen.
 - [ ] VDRUM: REC und live einspielen (auf dem Raster oder mit den normalen Tasten): Die Schläge landen als Hits.
+- [ ] **VDRUM Kick ohne Rauschen:** Kick mit Kopfhörern laut anhören (INIT, TUBES, DUB): Das Ausklingen ist sauber,
+      kein helles Zischen mehr darunter.
 - [ ] VDRUM: EDIT halten + schwarze Taste: die Lane stumm (Display „SNARE MUTED“), nochmal: wieder an.
 - [ ] VDRUM: SEQ halten: BEAT, RANDOM, COOK und die Lane-Werkzeuge (CLR, REV, FILL, RND der gewählten Lane).
 - [ ] Ein altes Projekt mit VDRUM-Noten laden: klingt **genau wie vorher**, die Schläge stehen jetzt als Hits im
@@ -73,11 +79,15 @@ kann nur das echte Gerät zeigen.
 - [ ] Tasten halten: Die Arp-Töne leuchten mit, der aktuelle Ton in der Akzentfarbe.
 - [ ] ARP-Tipp wechselt die bearbeitete Reihe (MODE RATE OCT GATE ↔ SWING PROB HOLD ORDER).
 
-## F. SCL und ORCHID
+## F. SCL und CSET
 
 - [ ] SCL: Grundton und Tonleiter ändern, die Tasten folgen.
-- [ ] SCL > ORCHID einschalten: F3–C#4 sind Akkordtasten, ab D4 spielen Grundtöne Akkorde. Der Akkordname
-      erscheint.
+- [ ] **SCL > CSET** (SCL dreimal tippen: SCL, CHORD, CSET), KNOB 1 ON: Jede Taste spielt einen Akkord des Sets.
+      Die Spur wird POLY (eine LEG-Spur wie Spur 1 klingt jetzt mehrstimmig); KNOB 1 OFF: sie ist wieder LEG.
+- [ ] KNOB 2 dreht durch die 100 Sets (Nummer und Genre oben), KNOB 3 springt zum nächsten Genre. Der gespielte
+      Akkord leuchtet in der Liste, darunter seine Töne.
+- [ ] F3 bis E4 klingen in der Lage aus der J-6-Liste, die Oktave darüber eine Oktave höher.
+- [ ] REC + PLAY und Akkorde spielen: Sie landen als Noten im Pattern. MIDI-Keyboard: spielt ebenfalls Akkorde.
 
 ## G. Effekte (FX)
 

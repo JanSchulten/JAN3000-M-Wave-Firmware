@@ -261,7 +261,7 @@ typedef struct {                 /* acid-style step: up to 4 notes (POLY), time,
     uint8_t vel;
     uint8_t hit;                 /* bit l: lane l hits (its GM note, on any engine): the DRUM grid */
     uint8_t acc;                 /* bit l: that hit is accented (velocity 127) */
-    uint8_t probability;         /* 0 = legacy 100%; 1..100 = percent, 101 = silent */
+    uint8_t probability;         /* 0 = legacy 100%; 1..100 = percent, 101 = silent; bit 7 STEP_LEG (M-Vave-OP1) */
 } step_t;
 typedef struct {                 /* a step as formats 1..4 (projects to FUN4) stored it: no hits */
     uint8_t note[4];
@@ -269,8 +269,19 @@ typedef struct {                 /* a step as formats 1..4 (projects to FUN4) st
 } step8_t;
 
 /* Probability keeps zero-initialized and legacy patterns at 100%. */
-static uint32_t step_chance(const step_t *s) { return !s->probability ? 100u : s->probability <= 100u ? s->probability : 0u; }
-static void step_set_chance(step_t *s, uint32_t chance) { s->probability = (uint8_t)(chance >= 100u ? 0u : chance ? chance : 101u); }
+#define STEP_LEG 0x80u           /* M-Vave-OP1: bit 7 of probability, LEGATO: a NOTE step played legato from the notes held
+                                  * into it (seq.c seq_step: no new envelope, a glide only as GLIDE says), as live recording
+                                  * heard it on a LEG / UNI track (rec_note). Stored in the project's extras (opstore.c) */
+static uint32_t step_chance(const step_t *s)
+{
+    uint32_t p = s->probability & ~STEP_LEG;
+    return !p ? 100u : p <= 100u ? p : 0u;
+}
+static void step_set_chance(step_t *s, uint32_t chance)
+{
+    s->probability = (uint8_t)((s->probability & STEP_LEG) | (chance >= 100u ? 0u : chance ? chance : 101u));
+}
+static int step_leg(const step_t *s) { return s->time == ST_NOTE && s->n && (s->probability & STEP_LEG); }
 /* RATCH: a NOTE step plays its notes and hits this many times (1..4), in equal parts of the step; every older
  * pattern holds 0 there, x1 */
 static uint32_t step_ratchet(const step_t *s) { return ((s->flags & SF_RATCH) >> SF_RATCH_SH) + 1u; }

@@ -30,8 +30,8 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"REVERB", "[K1]TYPE[K2]SIZE[SELECT]SLICER"},
     {"CHORUS", "[K1]TYPE[K4]FDBK[SELECT]DELAY"},
     {"SCL", "[K2]SCALE[K3]QUANT[SELECT]CHORDS"},
-    {"CHORD", "[K1]CHORD[SELECT]ORCHID"},
-    {"ORCHID", "[K1]ON[K2]VOICE[K3]LOCK"},   /* (M-Vave-OP1, orchid.c) */
+    {"CHORD", "[K1]CHORD[SELECT]CSET"},
+    {"CSET", "[K1]ON[K2]SET[K3]GENRE"},     /* (M-Vave-OP1, cset.c) */
     {"EDIT 1", H_EDIT},
     {"EDIT 2", H_EDIT},
     {"FILTER", "[K1]LP BP HP[K2]CUTOFF[SELECT]VOICE"},

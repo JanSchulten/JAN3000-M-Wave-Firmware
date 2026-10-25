@@ -342,19 +342,6 @@ static int idle_leds(void)
         fm1_led_idle_start(settings_leds == LEDS_DIM || settings_leds == LEDS_DIM_LO);
     return fm1_led_idle_on();
 }
-/* M-Vave-OP1, SCL > ORCHID (orchid.c): the selected track plays the Orchid's keyboard here (no layer, no grid, no
- * NAME, not SONG's keys) */
-static int orc_ui(void) { return orc_on(TSEL) && !song.grid; }
-/* .. the chord block's LEDs: a key down or latched lit, B3 lit while LOCK is on */
-static uint32_t orc_leds(void)
-{
-    uint32_t k, m = 0, down = orc.down;
-    for (k = 0; k < ORC_KEYS; k++)
-        m |= (ORC_KEY[k] == ORC_LOCK ? (uint32_t)orc.lock : (down >> ORC_KEY[k]) & 1u) << k;
-    return m;
-}
-/* .. ORCHID's KNOB 1 ON / OFF (the selected track's), KNOB 2 its VOICE (-12..+12), KNOB 3 LOCK (the ISR takes it:
- * orc_lock_req) */
 /* .. GLO > KEY's knobs (key.c): KNOB 1 the bar (the cursor), 2 its ROOT (- before C .. B: - none), 3 LEN 1..16, 4 ON.
  * M-Vave-OP1: an edit makes the KEY the scene playing's own (key_own: scene.c keeps it with the scene) */
 static void key_knob(uint32_t slot, int32_t steps)
@@ -455,16 +442,17 @@ static void key_keys(uint32_t notes)
     key_live = (uint8_t)pc;
     scn_irq_on();
 }
-static void orc_knob(uint32_t slot, int32_t steps)
+/* M-Vave-OP1, SCL > CSET's knobs (cset.c), the selected track's: KNOB 1 ON / OFF (ON makes it POLY, OFF gives its
+ * VOICE back), 2 the SET (1 .. 100), 3 the GENRE (the first set of the next / previous one) */
+static void cset_knob(uint32_t slot, int32_t steps)
 {
-    if (slot == 0u) {
-        orc_en = (uint8_t)(steps > 0 ? orc_en | 1u << song.sel : orc_en & ~(1u << song.sel));
-    } else if (slot == 1u) {
-        int32_t v = clamp((int32_t)orc_voice[song.sel] + (steps > 0 ? 1 : -1), -12, 12);
-        orc_voice[song.sel] = (int8_t)v;
-    } else if (slot == 2u) {
-        orc_lock_req = (uint8_t)(steps > 0 ? 2u : 1u);
-    }
+    uint32_t k = song.sel % NTRK;
+    if (slot == 0u)
+        cset_switch(TSEL, steps > 0);
+    else if (slot == 1u)
+        cset_set[k] = (uint8_t)clamp((int32_t)cset_set[k] + steps, 0, (int32_t)CSET_N - 1);
+    else if (slot == 2u)
+        cset_set[k] = (uint8_t)cset_genre_step(cset_set[k], steps);
 }
 
 /* the key LEDs, bit k = key k: NAME's keys, the layer's map, the DRUM grid, else the keys held and the notes
@@ -478,7 +466,6 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
     if (!grid_on())                                     /* (M-Vave-OP1: a lane's flash only for hits the grid saw) */
         memset((void *)drum_lit, 0, sizeof drum_lit);
     c = name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds(br) : grid_on() ? grid_leds() :
-        orc_ui() ? (((fm1_in.notes & ~kb_layer) | play_leds() | step_leds()) & ~ORC_BLOCK) | orc_leds() :
                  (fm1_in.notes & ~kb_layer) | play_leds() | step_leds() | (song_keys_on() ? song_leds() : 0u);
     if (slots_keys_on())                                /* M-Vave-OP1, PROJECT: the projects' keys and NEW */
         c = 1u << 0 | 1u << 2 | 1u << 4 | 1u << 6 | 1u << SLOT_KEY_NEW;
@@ -1104,6 +1091,7 @@ static void step_edit(uint32_t slot, int32_t steps)
             st->note[0] = last_note;
             st->n = 1;
             st->time = ST_NOTE;
+            st->probability &= (uint8_t)~STEP_LEG;        /* (a note of its own: no LEGATO from before) */
             note_off.step = 0;
         } else {
             for (i = 0; i < st->n; i++) {
@@ -1176,6 +1164,7 @@ static void step_oct(int up)
     if (st->time != ST_NOTE || !st->n) {
         st->n = 0;
         st->time = ST_NOTE;
+        st->probability &= (uint8_t)~STEP_LEG;
     }
     for (i = 0; i < st->n && st->note[i] != last_note; i++)
         ;
@@ -1205,8 +1194,8 @@ static void edit_param(uint32_t slot, int32_t steps)
         ev_knob(slot, steps);
         return;
     }
-    if (pg->graph == GR_ORCH) {                        /* M-Vave-OP1, SCL > ORCHID: 1 ON, 2 VOICE, 3 LOCK */
-        orc_knob(slot, steps);
+    if (pg->graph == GR_CSET) {                        /* M-Vave-OP1, SCL > CSET: 1 ON, 2 SET, 3 GENRE */
+        cset_knob(slot, steps);
         return;
     }
     if (pg->graph == GR_CHO && (slot == 0u || slot == 3u)) {   /* .. CHORUS: KNOB 1 TYPE, 4 FDBK (fx.c chos; RATE
@@ -1518,6 +1507,7 @@ static void step_toggle(const track_t *t, step_t *st, const uint8_t *ch, uint32_
     if (st->time != ST_NOTE) {
         st->n = 0;
         st->time = ST_NOTE;
+        st->probability &= (uint8_t)~STEP_LEG;
     }
     for (j = 0; j < st->n && st->note[j] != ch[0]; j++)
         ;
@@ -1557,15 +1547,15 @@ static void seq_entry(uint32_t pressed)
 {
     track_t *t = TSEL;
     step_t *st = &t->step[ui.cursor];
-    uint32_t k, add = (ui_prefs2 & (PREF_CHORD_ADD >> 16)) != 0u, orc_k = orc_ui() ? ORC_BLOCK : 0u;
+    uint32_t k, add = (ui_prefs2 & (PREF_CHORD_ADD >> 16)) != 0u, cs = cset_on(t);
     for (k = 0; k < 27u; k++) {
-        uint8_t ch[ORC_MAX];
+        uint8_t ch[CHORD_MAX];
         int32_t r;
         uint16_t mask;
         uint32_t note, n, i, j;
-        if (!((pressed >> k) & 1u) || ((orc_k >> k) & 1u))   /* (SCL > ORCHID: the chord block enters nothing) */
+        if (!((pressed >> k) & 1u))
             continue;
-        note = kb_map(t, k);
+        note = cs ? cset_key(k) : kb_map(t, k);         /* (M-Vave-OP1, SCL > CSET: every key its chord, cset.c) */
         if (note == KB_SILENT)
             continue;
         if (!ui.entry_open) {
@@ -1573,10 +1563,11 @@ static void seq_entry(uint32_t pressed)
             if (!add) {
                 st->n = 0;
                 st->time = ST_NOTE;
+                st->probability &= (uint8_t)~STEP_LEG;   /* (M-Vave-OP1: notes written anew, no LEGATO) */
             }
         }
-        if (orc_k)                                     /* M-Vave-OP1, SCL > ORCHID: the Orchid's chord (orchid.c) */
-            n = orc_chord(note, orc_type(), (orc.down >> ORC_X6) & 15u, orc_voice[song.sel], trk_vmode(t) != V_POLY, ch);
+        if (cs)
+            n = cset_make(t, note, t->p[P_TRANS], ch);
         else
             n = chord_make(t, note, ch, &r, &mask);    /* (CHRD OFF, a kit: the note alone; MONO: the root) */
         if (add)
@@ -1594,7 +1585,7 @@ static void seq_entry(uint32_t pressed)
         }
         last_note = (uint8_t)note;
     }
-    if (ui.entry_open && !(fm1_in.notes & ~kb_layer & ~orc_k)) {   /* (a chord key held: the roots go on) */
+    if (ui.entry_open && !(fm1_in.notes & ~kb_layer)) {
         if (add)
             ui.entry_open = 0;                          /* (ADD: the cursor stays) */
         else
@@ -2124,7 +2115,7 @@ static void ui_input(void)
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
             || pg->graph == GR_SONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD ||
-            (pg->graph == GR_ORCH && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
+            (pg->graph == GR_CSET && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
             (vdu_page(pg->graph) && vdu_field(k) != VU_NONE)) {   /* (not an empty column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;

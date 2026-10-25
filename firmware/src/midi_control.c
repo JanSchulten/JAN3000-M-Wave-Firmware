@@ -99,12 +99,13 @@ static void midi_release(uint32_t ch, uint32_t note)
     }
 }
 
-/* a MIDI note-on (ch, note) of track t: its chord (chord.c) or the note alone. A note another key or MIDI
+/* a MIDI note-on (ch, note) of track t: its chord (chord.c; M-Vave-OP1: a chord set's, cset.c) or the note alone. A note another key or MIDI
  * note holds already sounds: not started again */
 static void midi_play(track_t *t, uint32_t ch, uint32_t note, uint32_t vel)
 {
     uint8_t nn[CHORD_MAX];
-    uint32_t n = chord_build(t, note, nn), i, f = 0;
+    uint32_t n = cset_on(t) ? cset_build(t, note, 0, nn) : chord_build(t, note, nn), i, f = 0;   /* (M-Vave-OP1, SCL >
+                                                     * CSET: the chord of the note's key, cset.c) */
     if (n > 1u || nn[0] != note)
         for (f = 0; f < MCHORD_N && mchord[f].id; f++)
             ;

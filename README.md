@@ -6,8 +6,8 @@ This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo 
 (Hügelton Instruments). It keeps Felucca's hardware layer, USB, update loader, web installer,
 storage, engines and tests, and builds an OP-1 / OP-Z-style workflow on top: a KEY track that moves the patterns
 through a chord progression, and from the OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
-switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and, after ChoralRoot FM-1, the
-Orchid's chord keyboard as SCL > ORCHID. What is planned next is in the [roadmap](docs/ROADMAP.md).
+switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and the Roland J-6's 100 chord
+sets as SCL > CSET. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development, running on a real FM-1 since the first flash (JAN3000 v0.8: the name on its splash).
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
@@ -149,28 +149,24 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   older M-Vave-OP1 loads as scene 1. While a song plays (GLO > SONG) scenes are not picked (STOP THE SONG FIRST); a
   song plays each slot as it was saved.
 
-## SCL > ORCHID (the Orchid's keyboard)
+## SCL > CSET: chord sets after the Roland J-6
 
-SCL's third page (SCL, CHORD, **ORCHID**) turns the keyboard into the Telepathic Instruments Orchid's, as
-[ChoralRoot FM-1](https://github.com/Quixotic7/ChoralRootFM1) by Quixotic7 does (GPL-3.0; its chord block, tables,
-voicing and LOCK are rewritten in `firmware/src/orchid.c`). **KNOB 1** turns it on or off for the selected track
-(each track its own, before the track's CHRD); the ARP page is Felucca's and arpeggiates the Orchid's chords too.
+SCL's third page (SCL, CHORD, **CSET**) plays the 100 chord sets of the Roland J-6 (the owner's manual's Chord Set
+List, version 1.02: POP, JAZZ, BLUES, the UTILITY sets, SYNTHWAVE, HOUSE, EDM, NEO SOUL, BOSSA NOVA, CLASSICAL and
+more; the note data in `firmware/src/cset_data.h`, made by `tools/gen_cset.py`). It replaces SCL > ORCHID.
 
-- **F3 .. C#4 are the chord block** and play nothing themselves. Black keys: **F#3 DIM, G#3 MIN, A#3 MAJ, C#4 SUS**.
-  White keys: **F3 6, G3 m7, A3 M7, C4 9** (added to the type), **B3 LOCK**.
-- **D4 .. G5 are the roots.** A root plays its chord with the block's keys held now (the type pressed last counts);
-  with no type the root alone. The chord is fixed when the root goes down; letting go of the root ends it.
-- **KNOB 2 VOICE** (-12 .. +12): each step up moves the lowest note an octave up, each step down the highest an octave
-  down. **KNOB 3 LOCK** (or B3): chord keys let go stay latched (lit). With LOCK on, a type pressed alone resets the
-  latch to that type; the only latched type pressed again alone turns it off (the extensions wait for the next
-  type); an extension pressed alone toggles. LOCK off clears the latch.
-- The page shows the chord as the Orchid does (its Geek Out view): the name large (DM, Dm, D 7 9, Dsus m7; three
-  extensions JAZZ, four WTF), a keyboard with the chord's notes lit and the notes by name. The block's LEDs show the
-  keys held or latched.
-- **One voice:** a track on VOICE MONO, LEGATO or UNISON plays the root alone (the page says ROOT ONLY; track 1 is
-  LEGATO by default). A DRUM or other kit track has no chord block.
-- STEP entry writes the chord (up to four notes a step, as the keys' chords); live recording takes the
-  notes as played. ON and VOICE are kept with the project; LOCK and the latch start off after a load.
+- **KNOB 1 ON / OFF** for the selected track (each track its own, before the track's CHRD and QNT). ON makes the
+  track POLY (a chord needs the voices), OFF gives the VOICE it had back. A sound loaded while it is on plays POLY too
+  (OFF then gives that sound's VOICE). A track set to MONO / LEG / UNI by hand plays the chord's lowest note.
+- **Every key is a chord:** the key's note C .. B plays that chord of the set, voiced as the list voices it. The keys
+  F3 .. E4 play it where the list has it (its basses F2 .. E3, so the twelve chords lie together as on the J-6);
+  each octave above or below plays it an octave higher or lower, the octave buttons too. TRN moves the chords. A MIDI
+  note plays the chord of its key the same way.
+- **KNOB 2 SET** 1 .. 100, **KNOB 3 GENRE**: the first set of the next or previous genre (the list's order).
+- The page shows the set's number and genre, its twelve chords by name in the keys' order (C C# D / D# E F / ...;
+  the black keys' framed), the chord played last lit and its notes by name.
+- Live recording and STEP entry write the chord (up to four notes a step); the ARP arpeggiates it. ON, each track's
+  SET and the VOICE before ON are kept with the project. A project saved with ORCHID on loads with CSET off.
 
 ## ANALOG2: two oscillators, a filter and an LFO each
 
@@ -214,6 +210,10 @@ BEAT pattern and MIDI drum parts play on it.
   7 and 8 stay dark). Live recording writes hits, EDIT held + a black key mutes a part (its resonator send too), SEQ
   TOOLS has BEAT and the lane tools. A DRUM beat moved onto VDRUM keeps its lanes (its RIM and BELL hits play and show
   on CLAP and HAT OP).
+- **Clean tails:** a layer's level ramp now lands exactly on the next block's level. It used to fall a little short
+  and jump back every 32 samples, a sawtooth at 1378 Hz under the decaying sound (around -70 dBFS whatever its level),
+  heard as a hiss on the kicks. Above 4 kHz the kicks' tails are now about 10 to 20 dB lower (INIT: from -74..-79 to
+  -89..-96 dBFS), as clean as DRUM's 808; the attack and body (the first 400 ms) are unchanged.
 
 - **Steps written as notes before the grid** become hits when the project loads or the scene is picked: the same
   notes at the same velocities, nothing sounds different; other notes stay notes, shown on their lane.
@@ -333,6 +333,14 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 - **REC arms, PLAY starts.** A REC tap only arms the recording (the pattern's, GLO > KEY's, an FX TRACK's): REC ARMED:
   PRESS PLAY. PLAY then starts it, with the count-in first when MENU / REC layer COUNT-IN is set (Felucca's REC
   started the transport at once).
+- **Legato is recorded as played.** On a LEG or UNI track (VOICE; the mono presets are LEG) a note pressed while the
+  one before is still held plays legato: no new envelope, a glide only if GLIDE is set. Live recording now keeps
+  that: the step is LEGATO, the step before holds its note into it, and playback sounds as you played it (before, it
+  started a new envelope there). The roll draws the join as a dim line (a SLIDE's is bright, and still glides).
+  REVERSE keeps the legato between the same two notes. A note pressed after letting go, or any note on a MONO / POLY
+  track, starts its own envelope as before. LEGATO is saved with the project (its extras): an older firmware loads
+  the project with every note starting its envelope; a scene bank with LEGATO steps it cannot read (it loads the
+  project's current scene only).
 - **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
   change in the same hold is put back by OCT- as before.
 - **REC held + F#5 (the highest black key): BACK**, one step back from the last change, whatever it was (a recording,

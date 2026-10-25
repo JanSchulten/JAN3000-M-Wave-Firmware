@@ -267,7 +267,8 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
             for (j = 0; j < sizeof(step_t); j++)
                 if ((bm >> j) & 1u)
                     SCN_GET(s[j]);
-            if (st->n > 4u || st->time > ST_REST || (st->flags & ~(3u | SF_RATCH | SF_NUDGE)) || st->probability > 101u)
+            if (st->n > 4u || st->time > ST_REST || (st->flags & ~(3u | SF_RATCH | SF_NUDGE)) ||
+                (st->probability & ~STEP_LEG) > 101u)
                 return 0;                            /* (what proj_pack takes: a scene played is always saved) */
         }
     }

@@ -80,7 +80,7 @@ static int play(void)
     bad += check("  a chord of 3 at x3: 9 note-ons", run(t, passes(t, 1), 0, 0, 0) == 9u);
     t = one_step(1, SF_SLIDE);
     run(t, 4, 0, 0, 0);
-    ok = t->seq_hold == 1u;
+    ok = t->seq_hold == 3u;                         /* (held, bit 1: a slide's glide into the next; M-Vave-OP1 seq.c) */
     t = one_step(2, SF_SLIDE);
     run(t, passes(t, 1), 0, 0, 0);
     bad += check("  x1 slides out as before; x2 never (its last part ends at its gate)", ok && !t->seq_hold && !t->seq_n);

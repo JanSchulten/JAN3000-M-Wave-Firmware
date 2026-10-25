@@ -66,7 +66,7 @@ static void rnd_step(step_t *s)
     s->vel = (uint8_t)rnd(128);
     s->hit = (uint8_t)(rnd(4) ? 0 : rnd(256));
     s->acc = (uint8_t)(s->hit & rnd(256));
-    s->probability = (uint8_t)rnd(102);
+    s->probability = (uint8_t)(rnd(102) | (rnd(4) ? 0u : STEP_LEG));   /* (M-Vave-OP1: LEGATO, kept with the step) */
 }
 static void rnd_pattern(chain_pattern_t *p, uint32_t density)
 {
@@ -182,7 +182,8 @@ static void test_codec(void)
             for (k = 0; k < NTRK; k++)
                 for (j = 0; j < NSTEP; j++) {
                     const step_t *s = &pb.step[k][j];
-                    ok &= s->n <= 4u && s->time <= ST_REST && s->probability <= 101u && !(s->flags & ~(3u | SF_RATCH | SF_NUDGE));
+                    ok &= s->n <= 4u && s->time <= ST_REST && (s->probability & ~STEP_LEG) <= 101u &&
+                          !(s->flags & ~(3u | SF_RATCH | SF_NUDGE));
                 }
             ok &= motion_valid(&pb.motion) && pb.fx[0].len <= NSTEP && pb.fx[1].len <= NSTEP;
             if (cut != n)                            /* (cut short: never the whole scene) */

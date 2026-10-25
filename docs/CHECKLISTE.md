@@ -75,22 +75,24 @@ des Sounds bleiben):
       läuft gleichmäßig durch (besser für lange Flächen). Sag Bescheid, wenn du das lieber hättest.
 - [ ] **Presets nach Gehör:** Die 40 neuen Presets habe ich nach den Parametern gebaut, nicht nach Gehör. Was nicht
       gut klingt, sag mir, oder speichere es als User-Preset und nenn mir die Werte.
-- [ ] **J-6 Chord Mode:** gibt es in dieser Firmware nicht (siehe unten). Willst du ihn?
-- [ ] **Flash:** noch 14,8 KB frei. Für größere neue Funktionen wird es eng; die Sample-Sets (104 KB) wären der große
+- [ ] **J-6 Chord Mode (SCL > CSET):** ist wieder drin (siehe unten); auf dem Gerät durchprobieren.
+- [ ] **Flash:** nur noch 5,9 KB frei (nach SCL > CSET). Für neue Funktionen wird es eng; die Sample-Sets (104 KB) wären der große
       Brocken, falls einmal Platz gebraucht wird.
 
-## 7. Akkord-Funktionen, die es gibt
+## 7. Akkorde: SCL > CSET (J-6)
 
-Kein J-6-Modus, aber drei andere (alle aus früheren Durchgängen):
+SCL > CSET (aus dem Branch `claude/cset-chords`, jetzt zusammengeführt) **ersetzt SCL > ORCHID**: die 100 Chord Sets
+des Roland J-6, jede Taste ein Akkord des gewählten Sets. Ein Projekt mit ORCHID an lädt mit CSET aus.
 
-- **SCL > CHORD (CHRD, VOIC):** eine Taste spielt einen Akkord, entweder in der Tonart (DIA3, DIA7) oder einen festen
-  Typ (MAJ MIN DOM7 MAJ7 MIN7 SUS4 POW); VOIC die Lage (CLOSE OPEN INV1 INV2 +OCT).
-- **SCL > ORCHID:** die Akkord-Tastatur des Telepathic Instruments Orchid (links Typ und Erweiterungen, rechts die
-  Grundtöne, LOCK).
-- **GLO > KEY:** eine Akkordfolge über die Patterns, wie der Key-Track des OP-Z.
+- [ ] SCL dreimal: die Seite heißt CSET. KNOB 1 ON, KNOB 2 das Set (1 .. 100), KNOB 3 springt nach Stilrichtung.
+- [ ] F3 .. E4 spielen die Akkorde des Sets in der Lage der J-6-Liste; Oktavtasten und TRN verschieben sie.
+- [ ] Die Seite zeigt den zuletzt gespielten Akkord. ON macht die Spur POLY, OFF gibt die vorige VOICE zurück.
+- [ ] STEP und Live-Aufnahme schreiben die Akkorde; MIDI-Noten spielen ebenfalls den Akkord ihrer Taste.
+- [ ] Projekt speichern und laden: ON und Set bleiben pro Spur.
 
-Was der J-6 anders macht: 100 fertige **Chord Sets** (je 16 Akkorde einer Stilrichtung auf den Tasten), dazu
-Voicing-Varianten. So etwas bräuchte ~3–7 KB für die Akkordtabellen; das passt noch in den freien Flash.
+Außerdem gibt es weiterhin **SCL > CHORD** (CHRD, VOIC: eine Taste ein Akkord der Tonart oder ein fester Typ) und
+**GLO > KEY** (eine Akkordfolge über die Patterns, wie beim OP-Z). Mit dem Merge kamen auch die **Legato-Aufnahme**
+(gebundene Töne bleiben beim Live-Aufnehmen gebunden) und der **VDRUM-Kick ohne Rauschen** im Ausklingen zurück.
 
 ## 8. Erledigt in diesem Durchgang
 

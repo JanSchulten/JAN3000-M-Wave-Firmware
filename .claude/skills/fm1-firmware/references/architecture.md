@@ -104,17 +104,15 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
 - opstore.c: the banks in USR2 (`scb_write`, `scb_load`, `scb_retag`), tagged with `xtra_id` like the extras; the
   autosave's signature hashes the bank's bytes, so a pick and back again writes nothing.
 
-## M2d: SCL > ORCHID (the Orchid's keyboard)
+## M2e: SCL > CSET (the Roland J-6's chord sets; replaced M2d's SCL > ORCHID)
 
-- `orchid.c` (included by seq.c after the AM_* enum): a track with its `orc_en` bit (SCL > ORCHID's KNOB 1) makes
-  F3 .. C#4 the chord block (`ORC_KEY`, `orc_press` / `orc_release`: ChoralRoot FM-1's `cu_mod_press`, noinline, once
-  a press) and D4 .. G5 roots: `key_on` asks `orc_build` instead of `chord_build`, into the same `kb_chord[k]` (now 7
-  wide), so the notes go Felucca's way (voices, the ARP, MIDI OUT, live recording).
-- `keyboard_block` marks block keys in `kb_orc` (their release goes back to `orc_release`), only for a track with
-  ORCHID on that is not a kit and with no layer or DRUM grid. `orc_lock_req` (KNOB 3) is taken at the start of a block.
-- ON (`orc_en`) and VOICE per track (`orc_voice[NTRK]`) are in the extras (`proj_xtra_t`, `XTRA_V2`); LOCK and the
-  latch are runtime (`orc_reset` on a project load). The page GR_ORCH: `draw_columns` / `edit_param` special-case it
-  (`orc_knob`), `graph_orc` draws it, the signature hashes `orc.gen`, `orc.lgen`, LOCK, VOICE, ON.
+- `cset.c` (included by seq.c after the ARP's modes): a track with its `cset_en` bit (SCL > CSET's KNOB 1) that is no
+  kit plays on every key (and MIDI note) the chord of the key's note in its set (`cset_set[NTRK]`, KNOB 2; KNOB 3 by
+  genre): `cset_make` from `CSET_NOTE` (`cset_data.h`, written by `tools/gen_cset.py` from the J-6 owner's manual's
+  Chord Set List), F3 .. E4 in the list's own voicing. It comes before CHRD and QNT. ON makes the track POLY
+  (`cset_voice` keeps the VOICE before). The page GR_CSET shows the last chord (`cset_last`).
+- ON and the set per track are in the project extras (`opstore.c`; ORCHID's old bytes stay reserved, written 0).
+  `orchid.c` and `tests/orchid_test.c` are gone; `tests/cset_test.c` tests the sets.
 
 ## M-Vave-OP1 defaults
 

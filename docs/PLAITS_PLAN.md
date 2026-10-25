@@ -325,7 +325,7 @@ PRTCL klingen dadurch etwas anders laut als im ZIP davor (die Golden-Renders der
 
 | | vor Schritt 4 | jetzt |
 | --- | --- | --- |
-| Image | 569 516 B | **566 796 B** (14 768 B frei) |
+| Image | 569 516 B | **575 672 B** (5 892 B frei; mit SCL > CSET aus `claude/cset-chords`: +8 876 B) |
 | RAM `.data`+`.bss` | 56 616 B | 52 152 B |
 | Engines | ANALOG LOFI SAMPLE WHEEL GRAIN PHYS DRUM NOISE FM6 ANLG2 VDRUM + PHASE VOICE TRIO SLICE DBOX | dieselben elf + WSHAPE HRMNC PRTCL WTABLE SWARM |
 

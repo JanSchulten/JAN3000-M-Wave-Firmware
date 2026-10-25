@@ -40,7 +40,7 @@ The RAM / POOL split is only a budget line in the linker script; both are the sa
 | --- | --- | --- | --- |
 | RAM `.data`+`.bss` | 52 152 B | 73 728 B | before step 4 (PHASE VOICE TRIO SLICE DBOX retired): 56 616; WSHAPE +384 |
 | Pool | 339 548 B | 368 640 B | build.py demands ≥ 8 192 B free |
-| App image (XIP) | 566 796 B | 581 564 B | **14 768 B free**; before step 4: 569 516 (the FPU probe and its Plaits tables in it: 12 192 B); WSHAPE +1 904, HRMNC +2 228, PRTCL +5 704, WTABLE +30 688 (25.5 KB of 8-bit tables), SWARM +2 860 |
+| App image (XIP) | 575 672 B | 581 564 B | **5 892 B free**; before step 4: 569 516 (the FPU probe and its Plaits tables in it: 12 192 B); WSHAPE +1 904, HRMNC +2 228, PRTCL +5 704, WTABLE +30 688 (25.5 KB of 8-bit tables), SWARM +2 860, SCL > CSET +8 876 (from claude/cset-chords) |
 | Audio ISR static cost `fm1_alnk0_irq` | 37 802 | 41 252 | 37 502 + 10 % (tests/target_budget.py) |
 | Key-scan ISR `fm1_timer5_irq` | 33 887 | 36 725 | |
 

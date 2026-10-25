@@ -194,11 +194,10 @@ static void ui_power_on(void)
         xtra_fx1(&x, 0);
     }
     perf_bank = 0;                                /* (M-Vave-OP1 E2: the FX layer's MAP A, as at power-on) */
-    orc_reset();                                  /* (M-Vave-OP1 PLAY MODE CHORD: nothing held or latched, VOICE 0) */
-    memset(orc_voice, 0, sizeof orc_voice);
-    kb_orc = 0;
-    orc_en = 0;
-    orc_lock_req = 0;
+    cset_en = 0;                                  /* (M-Vave-OP1, SCL > CSET: off, set 1, nothing played) */
+    memset(cset_set, 0, sizeof cset_set);
+    memset(cset_voice, CSET_VNONE, sizeof cset_voice);
+    memset((void *)&cset_last, 0, sizeof cset_last);
     chos.type = CHO_CHORUS;                       /* (M-Vave-OP1: the chorus bus's TYPE and FDBK, as at power-on) */
     chos.fdbk = 0;
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
@@ -6592,6 +6591,24 @@ static int test_seq_tools(void)
     ok &= cur_page()->graph == GR_ROLL;
     bad += check("  from elsewhere the SEQ page shown last; one remembered that left SEQ: STEP", ok);
 
+    {   /* M-Vave-OP1: a LEGATO step (live recording's, core.h STEP_LEG): C4 TIE D4(LEGATO) TIE E4 reversed is E4 D4 TIE
+         * C4(LEGATO) TIE: the legato is between D4 and C4 again, now C4's; E4 none */
+        ui_power_on();
+        tl_melody();
+        for (k = 0; k < 8u; k++)
+            step_clear(&TSEL->step[k]);
+        tl_note(&TSEL->step[0], 60);
+        tl_tie(&TSEL->step[1]);
+        tl_note(&TSEL->step[2], 62);
+        TSEL->step[2].probability = STEP_LEG;
+        tl_tie(&TSEL->step[3]);
+        tl_note(&TSEL->step[4], 64);
+        (void)tl_do(TSEL, TL_REV, 0);
+        ok = TSEL->step[3].note[0] == 64 && !step_leg(&TSEL->step[3]) && TSEL->step[4].note[0] == 62 &&
+             !step_leg(&TSEL->step[4]) && TSEL->step[5].time == ST_TIE && TSEL->step[6].note[0] == 60 &&
+             step_leg(&TSEL->step[6]) && TSEL->step[7].time == ST_TIE;
+        bad += check("  REVERSE: a LEGATO step's legato goes to the note before it, which now follows it", ok);
+    }
     /* the whole sequence: REVERSE (a note's ties stay after it), SHIFT, CLEAR, locks, LEN, silent keys, undo */
     ui_power_on();
     tl_melody();

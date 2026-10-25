@@ -628,7 +628,8 @@ static int proj_pack(project_store_t *out, const project_t *q)
             const step_t *s = &q->t[t].step[i];
             uint32_t r = step_ratchet(s) - 1u;          /* RATCH: bit 7 of the velocity and chance bytes (see the top) */
             uint32_t nd = (uint32_t)step_nudge(s) & 15u;   /* NUDGE (FUN10): bit j in bit 7 of note j */
-            if (s->n > 4u || s->time > ST_REST || (s->flags & ~(3u | SF_RATCH | SF_NUDGE)) || s->probability > 101u)
+            if (s->n > 4u || s->time > ST_REST || (s->flags & ~(3u | SF_RATCH | SF_NUDGE)) ||
+                (s->probability & ~STEP_LEG) > 101u)    /* (M-Vave-OP1: LEGATO is in the extras, opstore.c) */
                 return 0;
             for (uint32_t j = 0; j < 4u; j++)           /* what proj_unpack checks, so a saved project always loads: */
                 b[pos++] = (uint8_t)((s->note[j] > 127u ? 127u : s->note[j]) | (nd >> j & 1u) << 7);   /* notes and
@@ -636,7 +637,7 @@ static int proj_pack(project_store_t *out, const project_t *q)
             b[pos++] = (uint8_t)(s->n | s->time << 3 | (s->flags & 3u) << 5);   /* only on hits */
             b[pos++] = (uint8_t)((s->vel > 127u ? 127u : s->vel) | (r & 1u) << 7); b[pos++] = s->hit;
             b[pos++] = s->acc & s->hit;
-            b[pos++] = (uint8_t)(s->probability | (r >> 1) << 7);
+            b[pos++] = (uint8_t)((s->probability & ~STEP_LEG) | (r >> 1) << 7);
         }
     }
     if (pos + sizeof q->chain + sizeof q->motion > PROJ_FM6_OFF) return 0;
@@ -818,7 +819,7 @@ static void proj_bound(project_t *q)
             step_t *s = &q->t[t].step[i];
             s->flags &= 3u | SF_RATCH | SF_NUDGE;
             s->vel &= 127u;
-            if (s->probability > 101u) s->probability = 0;
+            if ((s->probability & ~STEP_LEG) > 101u) s->probability &= STEP_LEG;
         }
         for (i = 0; i < P_COUNT; i++) {
             const param_desc_t *d = param_desc_of(q->t[t].engine % NENGINES, i);
@@ -1034,7 +1035,6 @@ static int project_restore_runtime(const project_t *input)
     transport_req = 0;
     scene_reset();                                      /* (M-Vave-OP1: one scene, the project's; project_load and the
                                                          * autosave bring its others) */
-    orc_reset();                                        /* (.. PLAY MODE CHORD's block: nothing held or latched) */
     chain_config = p->chain;
     motion = p->motion;
     memset(motion_active, 0, sizeof motion_active);
@@ -1120,7 +1120,7 @@ static void project_load(uint32_t slot)
 
 /* M-Vave-OP1, SAVE > PROJECT > NEW: a new project, everything as at power-on: empty steps (PROJ_DEF_SOUND), the
  * globals' defaults (BPM, the FX buses), no song, no motion, no name; and the extras none has (FX TRACKS empty, FX1 the
- * DELAY, ORCHID off, the CHORUS Felucca's, no KEY run), one scene; its sounds drawn (newproj.c: T1 a bass, T3 a lead,
+ * DELAY, CSET off, the CHORUS Felucca's, no KEY run), one scene; its sounds drawn (newproj.c: T1 a bass, T3 a lead,
  * T4 a drum kit, T2 the power-on pad). Through project_restore_runtime, as a load (the transport stopped, the ISR off
  * while it changes). slot: the empty slot it was asked for on (OCT- there: SAVE goes to it, its letter in the header),
  * else (F#5) none; the slots stay */
@@ -1151,7 +1151,7 @@ static void project_new(uint32_t slot)
     memset(&none, 0, sizeof none);
     xtra_lanes(fxt_lane, &none, 0);
     xtra_fx1(&none, 0);
-    xtra_orc(&none, 0);
+    xtra_misc(&none, 0);
     np_sounds();
     for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
         pat_sig[k] = steps_sig(&trk[k]);
@@ -1257,6 +1257,7 @@ static uint32_t chain_prepare(void)
             for (k = 0; k < NTRK; k++) {
                 memcpy(chain.source[i].step[k], p->t[k].step, sizeof p->t[k].step);
                 proj_steps(chain.source[i].step[k]);
+                xtra_leg(chain.source[i].step[k], k, &xtra_slot[i], xtra_proj_id(i));   /* (M-Vave-OP1: LEGATO) */
                 chain.source[i].qnt[k] = p->t[k].p[P_SQNT] != 0;
                 for (j = 0; j < 4u; j++)
                     chain.source[i].timing[k][j] = (int16_t)clamp(p->t[k].p[P_SLEN + j],
@@ -1390,8 +1391,9 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
-    h = as_mix(h, orc_voice, sizeof orc_voice);     /* SCL > ORCHID's VOICE and ON too; */
-    h = as_mix(h, &orc_en, 1);
+    h = as_mix(h, cset_set, sizeof cset_set);       /* SCL > CSET's ON, SETs and VOICEs too; */
+    h = as_mix(h, cset_voice, sizeof cset_voice);
+    h = as_mix(h, &cset_en, 1);
     {                                               /* the CHORUS's TYPE and FDBK (fx.c) */
         uint8_t c[2] = {chos.type, chos.fdbk};
         h = as_mix(h, c, 2);

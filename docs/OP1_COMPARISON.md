@@ -56,7 +56,7 @@ Das Handbuch beschreibt den Ablauf so: *Sound erstellen → sequenzieren → auf
 | --- | --- | --- | --- |
 | 1. Sound wählen | SYNTH oder DRUM, Sound-Taste 1–8 | ALGORITHM (Spur), PRESETS (Sound) | Synth und Drum sind auf dem FM-1 einfach Spuren mit verschiedenen Engines; das passt |
 | 2. Sound formen | T1–T4 + Farb-Encoder, SHIFT+T1 tauscht nur die Engine | EDIT, ENV, FX, LFO + KNOB 1–4; EDIT halten tauscht die Engine | kaum; Grafiken im OP-1-Stil fehlen (Schritt 9) |
-| 3. Sequenzieren | 4 Sequencer, Tasten transponieren die Sequenz | Step-Sequencer (64 Schritte), ARP, Orchid-Akkorde (SCL > ORCHID), SONG | ENDLESS, TOMBOLA, FINGER; Transponieren per Taste (Schritt 8) |
+| 3. Sequenzieren | 4 Sequencer, Tasten transponieren die Sequenz | Step-Sequencer (64 Schritte), ARP, Akkord-Sets des Roland J-6 (SCL > CSET), SONG | ENDLESS, TOMBOLA, FINGER; Transponieren per Taste (Schritt 8) |
 | 4. Aufnehmen | TAPE, Spur, REC + PLAY | GLO > TAPE, REC | ✅ seit M1 |
 | 5. Tape bearbeiten | Lift, Drop, Split, Tricks, Speed, Reverse | Loop, Speed, Rückwärts, Löschen | Lift/Drop/Split, Tricks, Sprünge (Schritte 2–4) |
 | 6. Mischen | Pegel/Pan, EQ, Master-FX, Drive | Pegel, Pan, Hall, Mute pro Spur, Limiter | EQ, Master-FX, Drive (Schritt 6) |
@@ -119,7 +119,7 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | TOMBOLA: Noten springen in einem drehenden Sechseck | ❌ | Schritt 8 |
 | FINGER: zwei Spieler, Muster pro weißer Taste, JOIN/REPLACE/FILL IN | ❌ | Schritt 8 |
 | Transponieren einer Sequenz mit der Tastatur | 🟡 SCL > TRN, nicht per Taste | Schritt 8 |
-| – | ARP mit vielen Modi; SCL > ORCHID, die Akkord-Tastatur des Orchid (nach ChoralRoot FM-1: Akkordblock F3 .. C#4, Grundtöne D4 .. G5, VOICE, LOCK); Akkord-Tasten (CHRD), SONG-Kette | Extras des FM-1 |
+| – | ARP mit vielen Modi; SCL > CSET, die 100 Akkord-Sets des Roland J-6 (jede Taste ein Akkord); Akkord-Tasten (CHRD), SONG-Kette | Extras des FM-1 |
 | (OP-Z) Pattern-Ketten, nächstes Pattern vormerken | SONG: REC + A–D tippt eine Kette, LOOP, Änderungen im laufenden Song | ✅ seit M2b |
 | (OP-Z) 16 Patterns pro Projekt | SZENEN: SEQ halten + weiße Taste, OCT+ / OCT− die nächste / vorige, OCT+ halten kopiert die Szene in die nächste freie; im Spiel am Ende des Patterns | ✅ seit M2c |
 | (OP-Z) FX-Spuren FX1/FX2 und aufgenommene Punch-in-FX | FX > FX TRACKS: zwei Effekt-Spuren, REC + FX halten + Tasten nimmt auf | ✅ seit M2b |

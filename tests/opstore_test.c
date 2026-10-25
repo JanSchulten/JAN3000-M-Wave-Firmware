@@ -223,6 +223,45 @@ static int test_extras(void)
         ok &= !keyt.on && keyt.len == 4u && keyt.root[0] == KEY_NONE;
         bad += check("KEY: ON, LEN and the roots saved and loaded with the project; older extras: none", ok);
     }
+    {   /* M-Vave-OP1: the LEGATO steps (core.h STEP_LEG) with the project's extras, its own steps without them (an older
+         * firmware loads the project, each note starting its envelope); extras from before (XTRA_V4): none; a song's */
+        project_store_t *ps = &proj_slot[3];
+        uint32_t k, i, n = 0, plain = 1;
+        memset(trk[1].step, 0, sizeof trk[1].step);
+        trk[1].step[4].time = ST_NOTE; trk[1].step[4].n = 1; trk[1].step[4].note[0] = 60;
+        trk[1].step[5].time = ST_TIE;
+        trk[1].step[6].time = ST_NOTE; trk[1].step[6].n = 1; trk[1].step[6].note[0] = 62;
+        trk[1].step[6].probability = (uint8_t)(STEP_LEG | 50u);   /* (LEGATO and CHANCE 50 %) */
+        trk[2].step[63] = trk[1].step[6];
+        trk[2].step[63].probability = STEP_LEG;
+        ok = project_save(3) == 0 && msg_is_saved();
+        for (k = 0; k < NTRK; k++)                    /* (RAM keeps them as they were) */
+            for (i = 0; i < NSTEP; i++)
+                n += (trk[k].step[i].probability & STEP_LEG) != 0u;
+        ok &= n == 2u && xtra_slot[3].leg[1][0] == 0x40u && xtra_slot[3].leg[2][7] == 0x80u;
+        power_on();
+        project_load(3);
+        ok &= step_leg(&trk[1].step[6]) && step_chance(&trk[1].step[6]) == 50u && step_leg(&trk[2].step[63]) &&
+              step_chance(&trk[2].step[63]) == 100u && !(trk[1].step[4].probability & STEP_LEG);
+        project_capture(&proj_scratch);               /* (the project object alone loads with no LEGATO: an older
+                                                         * firmware's view) */
+        ok &= proj_import(&proj_scratch, ps, sizeof *ps);
+        for (k = 0; k < NTRK; k++)
+            for (i = 0; i < NSTEP; i++)
+                plain &= !(proj_scratch.t[k].step[i].probability & STEP_LEG);
+        ok &= plain && step_chance(&proj_scratch.t[1].step[6]) == 50u;
+        bad += check("LEGATO steps saved with the project's extras, loaded with it (after a power-on, CHANCE kept); the "
+                     "project itself has none", ok);
+        chain_config.count = 1;
+        chain_config.row[0] = chain_row_of(3, 1);
+        ok = chain_prepare() == 0 && step_leg(&chain.source[3].step[1][6]) && step_leg(&chain.source[3].step[2][63]);
+        transport_req = 0;
+        chain.armed = 0;
+        xtra_slot[3].size = XTRA_V4;                  /* (as an older firmware wrote them) */
+        project_load(3);
+        ok &= !step_leg(&trk[1].step[6]) && step_chance(&trk[1].step[6]) == 50u && trk[1].step[6].note[0] == 62u;
+        bad += check("  a SONG's sections have them; extras from before LEGATO: none (each note its envelope)", ok);
+    }
     bad += check("every write of the extras in its USR3 sectors, the projects' or their scenes' (0x97000..0xCFFFF)",
                  lo_w >= 0x97000u && hi_w <= 0xD0000u);
     return bad;
