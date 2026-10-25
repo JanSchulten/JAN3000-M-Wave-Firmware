@@ -159,6 +159,35 @@ if (nativePath) {                                             // web/emu/native_
   check(`the same song from the native build (cc): ${web.length / 2} frames, ${diff === 0 ? "bit for bit" : "differs at " + diff}`, diff === 0);
 }
 
+// ---- M-Vave-OP1: the web editor's NO DEVICE: its SysEx reaches editor.c (felucca_web.c web_sysex_*), notes the MIDI in
+{
+  const e = await device();
+  const { ex, mem } = e;
+  e.render(3000);
+  const ask = (frame) => {
+    let waited = 0;
+    while (ex.web_sysex_busy() && waited++ < 100) e.render(3);
+    new Uint8Array(mem.buffer, ex.web_sysex_in(), frame.length).set(frame);
+    ex.web_sysex_feed(frame.length);
+    e.render(30);
+    const n = ex.web_sysex_out_len(), out = new Uint8Array(mem.buffer, ex.web_sysex_out(), n).slice();
+    ex.web_sysex_take();
+    return out;
+  };
+  const info = ask([0xF0, 0x7D, 0x46, 0x4C, 1, 0xF7]);
+  const text = String.fromCharCode(...info.filter((c) => c >= 32 && c < 127));
+  check("NO DEVICE: INFO through web_sysex_*: the version and the engines (WSHAPE .. SWARM among them)",
+    info[0] === 0xF0 && info[4] === 1 && info[info.length - 1] === 0xF7 && /FELUCCA/.test(text) && /WSHAPE/.test(text) && /SWARM/.test(text));
+  const preset = ask([0xF0, 0x7D, 0x46, 0x4C, 8, 17, 2, 0xF7]);         // PRESET: WSHAPE (17), its preset 3
+  const dump = ask([0xF0, 0x7D, 0x46, 0x4C, 4, 0xF7]);
+  check("NO DEVICE: PRESET then DUMP answer (the editor's sound load)", preset[4] === 8 && dump[4] === 4 && dump.length > 100);
+  e.peak = 0;
+  ex.web_midi(0x90, 60, 100);
+  e.render(300);
+  ex.web_midi(0x80, 60, 0);
+  check(`NO DEVICE: a note on MIDI channel 1 (the computer keyboard) sounds track 1 (peak ${e.peak.toFixed(3)})`, e.peak > 0.01);
+}
+
 // ---- the cost: 1 s of the heavy song against real time (the best of 3, after 2 s to settle)
 let best = Infinity;
 s1.rec = false;

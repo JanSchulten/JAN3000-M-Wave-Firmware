@@ -43,6 +43,8 @@ if (typeof registerProcessor === "function") {
       this.frames = 0;
       this.queue = [];                                // button / key changes, each held >= HOLD_MS of device time
       this.nextOk = 0;
+      this.sysex = [];                                // M-Vave-OP1: the web editor's frames, fed one at a time
+      this.running = false;
       this.port.onmessage = (e) => this.onMessage(e.data);
     }
 
@@ -72,6 +74,7 @@ if (typeof registerProcessor === "function") {
       else if (m.type === "master") ex.web_master(m.value | 0);
       else if (m.type === "midi") ex.web_midi(m.data[0] | 0, m.data[1] | 0, m.data[2] | 0);
       else if (m.type === "visible") this.period = m.on ? 1 / 30 : 1 / 4;
+      else if (m.type === "sysex") this.sysex.push(Uint8Array.from(m.data));   // (the editor: felucca_web.c web_sysex_*)
     }
 
     publish() {
@@ -119,10 +122,34 @@ if (typeof registerProcessor === "function") {
       }
     }
 
+    // M-Vave-OP1: the web editor talks to this FM-1 as to a device (felucca_web.c web_sysex_*): its frames go in once
+    // the device runs and has taken the one before; its replies (and pushes) go back as they come
+    editorIn() {
+      const ex = this.ex;
+      if (!this.running && ex.web_running()) {
+        this.running = true;
+        this.port.postMessage({ type: "running" });
+      }
+      if (!this.running) return;
+      while (this.sysex.length && !ex.web_sysex_busy()) {
+        const f = this.sysex.shift(), n = Math.min(f.length, ex.web_sysex_in_size());
+        new Uint8Array(ex.memory.buffer, ex.web_sysex_in(), n).set(f.subarray(0, n));
+        ex.web_sysex_feed(n);
+      }
+    }
+    editorOut() {
+      const ex = this.ex, n = ex.web_sysex_out_len();
+      if (!n) return;
+      const data = new Uint8Array(ex.memory.buffer, ex.web_sysex_out(), n).slice();
+      ex.web_sysex_take();
+      this.port.postMessage({ type: "sysex", data }, [data.buffer]);
+    }
+
     process(inputs, outputs) {
       const ex = this.ex;
       if (!ex) return true;
       if (this.queue.length) this.input();
+      if (ex.web_sysex_in) this.editorIn();
       const out = outputs[0], n = out[0].length;
       const t0 = clock();
       ex.web_render(n);
@@ -130,6 +157,7 @@ if (typeof registerProcessor === "function") {
       this.frames += n;
       out[0].set(new Float32Array(ex.memory.buffer, ex.web_out_l(), n));
       if (out[1]) out[1].set(new Float32Array(ex.memory.buffer, ex.web_out_r(), n));
+      if (ex.web_sysex_in) this.editorOut();
       if (currentTime - this.lastFrame >= this.period) {
         this.lastFrame = currentTime;
         this.publish();

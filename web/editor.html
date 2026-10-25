@@ -31,6 +31,7 @@
   button { font: inherit; background: var(--fg); color: var(--bg); border: 0; padding: 2px 10px; cursor: pointer; }
   button:disabled { opacity: .3; cursor: default; }
   button.lang { color: var(--dim); background: none; }
+  select.lang { text-decoration: none; border: 0; cursor: pointer; }
   select, input[type=text], input[type=number], input[type=search] {
     font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 1px 3px; border-radius: 0; }
   input[type=range] { width: 100%; margin: 0; accent-color: var(--fg); }
@@ -156,18 +157,20 @@
 </head>
 <body>
 <main>
-  <button class="lang" id="lang"></button>
+  <select class="lang" id="lang" aria-label="Language / Sprache / 言語"><option value="en">English</option><option value="de">Deutsch</option><option value="ja">日本語</option></select>
   <h1>Felucca Editor</h1>
   <p class="dim"><a href="../installer/" style="color:inherit" data-t="installer"></a></p>
   <!-- always visible: connection, version, sync mode, the tabs and (Sound / Sequencer / Tracks) the track selector -->
   <header class="top">
     <div class="bar">
       <button id="connect" data-t="connect" data-ic="port_usb_c"></button>
+      <button id="emuconnect" data-t="emuConnect" data-ic="symbol_audio"></button>
       <span id="version" class="dim"></span>
       <span id="live" class="dim"></span>
       <span id="mock" class="dim" hidden data-t="mock"></span>
     </div>
     <div id="status"></div>
+    <div id="kbdbar" class="dim" hidden></div>
     <nav class="tabs" id="tabs" role="tablist">
       <button role="tab" data-tab="sound" data-t="sound" data-ic="symbol_audio"></button>
       <button role="tab" data-tab="fm6" data-t="tabFm6" data-ic="ui_knob"></button>
@@ -2611,7 +2614,9 @@ const TEXT = {
     deviceRejected: "本体がこの設定を受け付けませんでした。",
     devicePending: "反映しました。再生を停止すると保存されます。",
 
-    other: "English", connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
+    other: "English", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
+    kbdHelp: "キーボード: {keys} で演奏 ({range}) · {oct} オクターブ · {vel} ベロシティ {v}",
+    connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
     sound: "音色", engine: "エンジン", presets: "プリセット", initSound: "音色を初期化",
     track: "トラック",
     saveFile: "ファイルに保存", loadFile: "ファイルを読み込む", projects: "プロジェクト",
@@ -2720,6 +2725,8 @@ const TEXT = {
     devicePending: "Applied. Settings will save when playback stops.",
 
     other: "日本語", connect: "Connect", disconnect: "Disconnect", mock: "Mock device (no hardware)",
+    emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
+    kbdHelp: "Keyboard: {keys} play ({range}) · {oct} octave · {vel} velocity {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Init sound",
     track: "Track",
     saveFile: "Save to file", loadFile: "Load file", projects: "Projects",
@@ -2784,15 +2791,131 @@ const TEXT = {
     system: "System", firmware: "Firmware", sync: "Sync", tracksN: "Tracks", stepsN: "Steps", enginesL: "Engines",
     smpSlots: "Sample slots", userBank: "User presets", none: "none",
   },
+  de: {
+    tabFm6: "6-OP FM", fm6Help: "Das ganze Patch der FM6-Engine (sechs Operatoren) bearbeiten. Die Regler am Gerät sind Makros darüber. SysEx-Datei laden, eine Stimme wählen, bearbeiten und an eine Spur senden: sie spielt sofort. Eine Spur hat ein Patch: was du lädst, wird es (SLOT zeigt OWN).",
+    fm6Source: "Patches rein und raus", fm6ReadBtn: "Von Spur lesen", fm6SendBtn: "An Spur senden", fm6Live: "Beim Bearbeiten senden",
+    fm6Import: "SysEx laden", fm6Export: "SysEx speichern",
+    fm6Init: "Stimme zurücksetzen", fm6Voice: "Stimme", fm6Ops: "Operatoren", fm6Carriers: "Träger", fm6Feedback: "Rückkopplung",
+    fm6PitchEg: "Tonhöhen-EG", fm6Freq: "Frequenz",
+    fm6Legend: "R1..R4 / L1..L4: Raten und Pegel der Hüllkurve; BP LD RD LC RC: Pegelskalierung über die Tastatur; RS: Ratenskalierung; AMS: Amplitudenmodulation durch den LFO; KVS: Anschlag; OL: Ausgangspegel; MODE: Verhältnis / fest; FC FF: Frequenz grob / fein; DET: Verstimmung (7 = Mitte). ● = Träger.",
+    fm6Pick: "Stimmen der geladenen Datei (zum Bearbeiten anklicken):", fm6Picked: "In Bearbeitung:", fm6Sent: "An Spur gesendet", fm6Read: "Von Spur gelesen",
+    fm6Loaded: "Geladen", fm6BadSum: "eine Prüfsumme stimmte nicht",
+    fm6Keep: "Um eine Stimme zu behalten: an eine Spur senden, dann am Gerät ein User-Preset (SAVE) oder ein Projekt speichern.",
+    fm6Short: "einige Daten waren abgeschnitten", fm6Skipped: "{x} Blöcke ohne Stimmen übersprungen",
+    fm6NoVoice: "Keine 6-Operator-FM-Stimmen gefunden (erwartet eine Bank mit 32 Stimmen oder ein Einzelstimmen-SysEx)",
+    fm6NotSysex: "Keine SysEx-Datei (erwartet eine 6-Operator-FM-Bank mit 32 Stimmen oder ein Einzelstimmen-SysEx)",
+    fm6Is4op: "Das sind 4-Operator-FM-Stimmen: FM6 liest nur 6-Operator-Stimmen",
+    fm6OtherBlocks: "6-Operator-Dateiformat, aber keine Stimmen (nur Performance- oder Zusatzdaten)",
+    fm6OtherMaker: "SysEx eines anderen Herstellers", fm6Universal: "Universal-SysEx, keine Stimmdaten",
+    fm6Factories: "Werks-Patch",
+    fm6NeedDevice: "Verbinde das FM-1 (oder „Ohne Gerät“), um 6-OP-FM-Stimmen zu bearbeiten und an eine Spur zu senden.",
+    fm6NoFw: "Diese Firmware hat kein 6-OP FM (FM6). Aktualisiere auf Felucca 1.0 oder neuer.",
+    motion: "Automation", motionOn: "Automation abspielen", motionClear: "Automation löschen", motionConfirm: "Die Automation dieser Spur löschen?", chance: "Chance %", ratchet: "Ratchet", motionStep: "Step", motionParam: "Parameter", motionValue: "Wert",
+    backupTitle: "Komplettes Backup", backupExport: "Backup speichern", backupImport: "Backup wiederherstellen", backupHelp: "Die aktuelle Musik, A–D, die Sound-Bänke, User-Samples und Einstellungen auf diesem Computer speichern.", backupOld: "Komplette Backups brauchen eine Firmware mit Archiv-Unterstützung.", backupConfirm: "Dieses komplette Backup wiederherstellen? Aktuelle Musik, gespeicherte Daten und Samples werden ersetzt. USB verbunden lassen.", backupWorking: "Backup / Wiederherstellen ", backupDone: "Backup gespeichert", backupRestored: "Komplettes Backup wiederhergestellt",
+    deviceDisplay: "Gerätedisplay",
+    deviceDisplayHelp: "Änderungen gelten für den FM-1-Bildschirm und werden gespeichert. Während der Wiedergabe gemachte Änderungen werden nach STOP gespeichert.",
+    devicePresets: "Presets am Gerät",
+    deviceFavHelp: "Sterne und der Favoriten-Filter werden mit dem FM-1 abgeglichen. Sounds aus der Bibliothek erst auf einen User-Platz des Geräts speichern, dann mit Stern versehen.",
+    deviceList: "Zeigen",
+    deviceAll: "Alle Presets",
+    deviceFavorites: "Nur Favoriten",
+    deviceEmpty: "Noch keine Favoriten. Wähle „Alle Presets“, um welche hinzuzufügen.",
+    deviceTheme: "Farbschema",
+    deviceFont: "Schrift",
+    deviceMonitor: "MIDI-Monitor",
+    deviceRegular: "Normal",
+    deviceBold: "Fett",
+    deviceOff: "Aus",
+    deviceEvents: "Ereignisse",
+    deviceNotes: "Gehaltene Noten / Akkorde",
+    deviceStar: "Zu Favoriten",
+    deviceUnstar: "Aus Favoriten entfernen",
+    deviceUnsaved: "Übernommen, aber am Gerät nicht gespeichert. Bitte noch einmal versuchen.",
+    deviceRejected: "Das Gerät hat diese Einstellung abgelehnt.",
+    devicePending: "Übernommen. Die Einstellungen werden gespeichert, wenn die Wiedergabe stoppt.",
+
+    connect: "Verbinden", disconnect: "Trennen", mock: "Simuliertes Gerät (keine Hardware)",
+    emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
+    kbdHelp: "Tastatur: {keys} spielen ({range}) · {oct} Oktave · {vel} Anschlag {v}",
+    sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Sound zurücksetzen",
+    track: "Spur",
+    saveFile: "Als Datei speichern", loadFile: "Datei laden", projects: "Projekte",
+    load: "Laden", save: "Speichern", used: "belegt", empty: "leer", unknown: "—",
+    steps: "Steps", reload: "Neu lesen", clearSeq: "Sequenz löschen",
+    notesHelp: "Noten wie C4 E4 G4 eingeben (bis zu 4, C4 = 60). Hits sind DRUM-Spuren: KICK >SNARE HATCL (> = Akzent).",
+    notes: "Noten", hits: "Hits", time: "Länge", acc: "Akzent", slide: "Slide", vel: "Anschlag",
+    foot: "Läuft in Chrome oder Edge.", iconsCredit: "Icons: Fukiai (MIT), Hügelton Instruments",
+    nomidi: "Dieser Browser kann kein MIDI. Öffne die Seite in Chrome oder Edge (oder nimm „Ohne Gerät“).",
+    denied: "MIDI-Zugriff (SysEx) wurde nicht erlaubt.",
+    nodevice: "Felucca nicht gefunden. Per USB anschließen und noch einmal auf Verbinden drücken.",
+    connecting: "Verbinde", reading: "Lese ", steploading: "Lese Steps ",
+    ready: "Verbunden", disconnected: "Getrennt", lost: "Felucca wurde abgesteckt",
+    noreply: "Keine Antwort vom Gerät", error: "Fehler: ", busy: "Beschäftigt",
+    applying: "Schreibe ", applied: "Geladen", badfile: "Datei nicht lesbar: ",
+    savedSlot: "Gespeichert in Platz ", loadedSlot: "Platz geladen ", emptySlot: "Leerer Platz: ",
+    confirmSave: "Platz {n} überschreiben?", confirmLoad: "Platz {n} laden? Sounds und Sequenzen aller vier Spuren werden ersetzt (kein Rückgängig).",
+    confirmClear: "Die ganze Sequenz löschen?", confirmInit: "Den Sound auf die Grundwerte der Engine zurücksetzen? Die Sequenz bleibt (SAVE am Gerät halten macht es rückgängig).",
+    samples: "Samples", smpHelp: "Dateien wählen oder einen Eingang aufnehmen. Die Enden der Wellenform ziehen zum Kürzen; Mausrad zoomt. Bis zu 16 Sounds und etwa 7 s pro Platz.",
+    zones: "Zonen", smpName: "Name", chooseFiles: "Dateien wählen", slotFile: "Slot-Datei", slotFileTip: "Eine fertige Slot-Datei (.slot, z. B. samples/FLUTE.slot, SAX.slot) unverändert schreiben", upload: "Hochladen", erase: "Löschen", clearList: "Liste leeren",
+    file: "Datei", root: "Grundton", keys: "Tasten", length: "Länge", remove: "Entfernen",
+    record: "Aufnehmen", stopRec: "Stopp", recInput: "Eingang", recDenied: "Aufnahme nicht möglich", recFull: "Der Platz ist voll", recSilent: "Stille: Eingang prüfen",
+    preview: "Abspielen", autoTrim: "Automatisch kürzen", trim: "Kürzen",
+    smpTooBig: "zu groß", smpDecodeFail: "Nicht lesbar: ", smpUploading: "Lade hoch USR", smpDone: "Hochgeladen USR",
+    smpFail: "Sample-Upload fehlgeschlagen: ", smpErased: "Gelöscht USR",
+    confirmErase: "USR{n} löschen?", confirmUpload: "In USR{n} schreiben? Der bisherige Inhalt wird ersetzt.",
+    layout: "(Die Firmware hat eine andere Parameterzahl; einfache Liste.)",
+    ctlHelp: "Regler: anklicken, dann mit Mausrad oder Pfeiltasten fein einstellen (Shift: Zehnerschritte); Doppelklick setzt zurück.",
+    live: "● Live", polling: "○ Abfrage (ältere Firmware)",
+    library: "Bibliothek", libSearch: "Name oder Tag suchen", allEngines: "Alle Engines", allTags: "Alle Tags",
+    sortModified: "Zuletzt geändert", sortCreated: "Zuletzt hinzugefügt", sortName: "Name", sortEngine: "Engine",
+    name: "Name", tagsCol: "Tags", date: "Geändert",
+    audition: "Anhören", toSlot: "Auf Geräteplatz", rename: "Umbenennen", tags: "Tags", duplicate: "Duplizieren", delete: "Löschen",
+    exportPatch: "Exportieren", saveToLib: "Aktuellen Sound speichern", import: "Importieren", exportLib: "Bibliothek exportieren", exportPresets: "Presets exportieren",
+    exportPresetsTip: "Die angezeigten Sounds als Preset-Datei (tools/import_presets.py macht daraus Werks-Presets)",
+    factoryToLib: "In die Bibliothek", libEmpty: "Die Bibliothek ist leer. Sounds hinzufügen mit „Aktuellen Sound speichern“, durch Kopieren eines Werks-Presets oder eines Geräteplatzes, oder durch Importieren einer Datei.",
+    noMatch: "Kein Treffer", noLibDB: "(dieser Browser kann sie nicht speichern: nach dem Neuladen ist sie weg)",
+    bank: "User-Presets am Gerät", bankLoad: "Laden", bankStore: "Aktuellen Sound ablegen", bankGet: "In die Bibliothek",
+    exportBank: "Bank exportieren", dndHelp: "Du kannst auch zwischen Bibliothek und Plätzen ziehen.",
+    confirmOverwrite: "Platz {n} ({name}) überschreiben?",
+    dfTitle: "Presets am Gerät", dfHelp: "Die User-Preset-Plätze als Dateien: eins herunterladen, eins durch eine Datei ersetzen (Button, oder die Datei auf die Zeile ziehen), oder mehrere hochladen (ein Sound mit dem Namen eines Platzes ersetzt ihn, die anderen kommen auf leere Plätze). Sie erscheinen in PRESETS neben den Werks-Presets. Schick mir eine Datei, um ein Werks-Preset daraus zu machen.",
+    dfUpload: "Dateien hochladen", dfAll: "Alle herunterladen", dfGet: "Herunterladen", dfPut: "Ersetzen", dfGetTip: "Dieses Preset als Datei",
+    dfPutTip: "Diesen Platz durch eine Preset-Datei ersetzen", dfNone: "kein Sound für diese Firmware darin", dfReplaces: "ersetzt",
+    dfFull: "Kein leerer Platz mehr für", dfConfirm: "Diese Presets auf das Gerät schreiben?", dfDone: "Presets geschrieben: ", confirmEraseSlot: "Platz {n} ({name}) löschen?",
+    confirmDelete: "„{name}“ aus der Bibliothek löschen?",
+    promptName: "Name (das Gerät behält 12 ASCII-Zeichen)", promptTags: "Tags (durch Komma getrennt)",
+    promptNameAuto: "Name (12 ASCII-Zeichen; leer: das Gerät benennt ihn)",
+    auditioning: "Bereite Anhören vor ", auditioned: "Zum Anhören geladen (nur der Sound, die Sequenz bleibt; SAVE am Gerät halten macht es rückgängig): ",
+    savedLib: "In der Bibliothek gespeichert: ", copiedLib: "In die Bibliothek kopiert: ", imported: "Importiert: ",
+    skippedN: " ({n} nicht lesbar)", patchesN: " Sounds",
+    putDone: "Auf das Gerät geschrieben: Platz ", storedSlot: "Am Gerät abgelegt: Platz ", erasedSlot: "Platz gelöscht ",
+    loadedUser: "Sound geladen (die Sequenz bleibt; das Pattern liegt am Gerät unter SAVE > PHRASES; SAVE halten macht es rückgängig): ", reloaded: "Der Sound hat sich am Gerät geändert: neu gelesen", readingBank: "Lese die Plätze",
+    badEngine: "Diese Firmware hat diese Engine nicht: ", flashFail: "Schreiben fehlgeschlagen (rc {rc})",
+    installer: "Felucca-Installer",
+    tabSeq: "Sequencer", tabTracks: "Spuren", tabSettings: "Einstellungen",
+    needDevice: "Verbinde das FM-1 (oder nimm „Ohne Gerät“), um zu bearbeiten.", smpNone: "Diese Firmware hat keine User-Sample-Plätze.",
+    bankConnect: "Verbinde das FM-1, um auch seine User-Presets zu sehen.", bankNone: "Diese Firmware hat keine User-Presets.",
+    mixer: "Mixer", mixHelp: "Die vier Spuren der MIXER-Seite des Geräts. Der Fader ist der Pegel. Pan wird in jede Spur geschrieben, ohne die Auswahl zu ändern (Firmware 0.8: durch kurzes Auswählen). REC zeigt eine Spur, die am Gerät für die Live-Aufnahme scharf ist.",
+    level: "Pegel", pan: "Pan", mute: "Stumm", rec: "REC", selectTrack: "Wählen", selectedTrack: "Gewählt",
+    projHelp: "Ein Projekt enthält die Sounds und Patterns aller vier Spuren, die Song-Kette, die gewählte Spur und die globalen Einstellungen.",
+    slot: "Platz", songTitle: "Song", songHelp: "Patterns aus gespeicherten Plätzen anordnen und ihre Wiederholungen wählen. Die aktuellen Sounds bleiben. Oben ein Projekt speichern, um die Kette zu behalten. Die Zeilen wechseln am Ende von Spur 1; der Song stoppt am Ende.", songAdd: "Zeile hinzufügen", songRemove: "Letzte Zeile entfernen", songPlay: "Von vorn spielen", songStop: "Stopp", songReps: "Wiederholungen", songEmpty: "Erst eine Zeile hinzufügen", songBusy: "Vor dem Bearbeiten stoppen", songInvalid: "Plätze und Wiederholungen prüfen", songPlaying: "Spielt Zeile", songSaved: "Kette geändert. Ein Projekt speichern, um sie zu behalten.",
+    system: "System", firmware: "Firmware", sync: "Sync", tracksN: "Spuren", stepsN: "Steps", enginesL: "Engines",
+    smpSlots: "Sample-Plätze", userBank: "User-Presets", none: "keine",
+  },
 };
-let lang = (navigator.language || "en").toLowerCase().startsWith("ja") ? "ja" : "en";
-const t = (k) => TEXT[lang][k] ?? k;
+/* EN / DE (M-Vave-OP1) / 日本語: the choice kept (localStorage), else the browser's language; a string DE lacks: EN's */
+const LANG_KEY = "felucca-editor-lang";
+let lang = (() => {
+  try { const v = localStorage.getItem(LANG_KEY); if (TEXT[v]) return v; } catch (e) { /* no storage */ }
+  const b = (navigator.language || "en").toLowerCase();
+  return b.startsWith("ja") ? "ja" : b.startsWith("de") ? "de" : "en";
+})();
+const t = (k) => TEXT[lang][k] ?? TEXT.en[k] ?? k;
 let lastKey = null, lastArg = "";
 function sayK(k, arg = "") { lastKey = k; lastArg = arg; $("status").textContent = t(k) + arg; }
 function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((e) => setLabel(e, t(e.dataset.t)));
-  $("lang").textContent = t("other");
+  $("lang").value = lang;
   setLabel($("connect"), t(dev ? "disconnect" : "connect"));
   if (lastKey) $("status").textContent = t(lastKey) + lastArg;
   $("libq").placeholder = t("libSearch");
@@ -2803,7 +2926,11 @@ function applyLang() {
   renderPanels();
   if (dev) { renderSlots(); renderStepHead(); renderSamples(); renderTrackbar(); renderMixer(); renderSysinfo(); renderFm6(); }
 }
-$("lang").addEventListener("click", () => { lang = lang === "ja" ? "en" : "ja"; applyLang(); });
+$("lang").addEventListener("change", () => {
+  lang = TEXT[$("lang").value] ? $("lang").value : "en";
+  try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* no storage */ }
+  applyLang();
+});
 
 /* ---------------------------------------------------------------- tabs --- */
 /* one panel at a time; the last one is remembered (localStorage) and in the URL hash (#sound ...) */
@@ -2913,23 +3040,27 @@ const EXPECT = { pcount: 91, gcount: 27, pe0: 83 };
 /* the same layout without the chord keys (P_COUNT 89, P_E0 81), the FM operator ENVs too (69, 61) or the matrix
    (firmware 1.0: 57, 49) */
 const knownLayout = (info) => info.gcount === EXPECT.gcount &&
-  [[99, 91], [91, 83], [89, 81], [69, 61], [57, 49]].some(([c, e]) => info.pcount === c && info.pe0 === e);
+  [[111, 103], [104, 96], [99, 91], [91, 83], [89, 81], [69, 61], [57, 49]].some(([c, e]) => info.pcount === c && info.pe0 === e);
+/* 1.2 (104, 96): LFO 2's SYNC TRIG POL 91..93, QUANTIZE 94 (the steps'), SPREAD 95; 1.5 (111, 103): the INSERT 96..100,
+   ANALOG's filter TYPE 101, ENV SYNC 102. M-Vave-OP1: ANLG2's WAVE 2 (CUT2 RES2 LFO2 RATE2) at 61..64 */
 const P = { LEVEL: 0, SLEN: 29 };
 const LAYOUT = (pe0) => [
-  { t: "ENV", pages: [["ENV", 0, [1, 2, 3, 4]], ["ENV DEST", 0, [5, 6, 7, 8]]] },
-  { t: "LFO", pages: [["LFO", 0, [9, 10, 11, 12]], ["LFO DEST", 0, [13, 14, 15, 16]]] },
+  { t: "ENV", pages: [["ENV", 0, [1, 2, 3, 4, ...(pe0 >= 103 ? [102] : [])]], ["ENV DEST", 0, [5, 6, 7, 8]]] },
+  { t: "LFO", pages: [["LFO", 0, [9, 10, 11, 12]], ...(pe0 >= 96 ? [["LFO 2", 0, [91, 92, 93]]] : []), ["LFO DEST", 0, [13, 14, 15, 16]]] },
   ...(pe0 >= 61 ? [{ t: "MOD", mod: 49 }] : []),   /* the matrix: P_M1SRC 49 .. P_M4AMT 60, one row per slot */
   { t: "EDIT", engine: true, pages: [["EDIT 1", 0, [pe0, pe0 + 1, pe0 + 2, pe0 + 3]], ["EDIT 2", 0, [pe0 + 4, pe0 + 5, pe0 + 6, pe0 + 7]],
-    ...(pe0 >= 91 && engName() === "DRUM" ? [["LANES", 0, P_LANES.slice(0, 4)], ["LANES 2", 0, P_LANES.slice(4)]] : [])] },   /* lane levels 83..90 */
+    ...(pe0 >= 91 && engName() === "DRUM" ? [["LANES", 0, P_LANES.slice(0, 4)], ["LANES 2", 0, P_LANES.slice(4)]] : []),   /* lane levels 83..90 */
+    ...(pe0 >= 103 && engName() === "ANALOG" ? [["FILTER", 0, [101]]] : []),
+    ...(pe0 >= 103 && engName() === "ANLG2" ? [["WAVE 2", 0, [61, 62, 63, 64]]] : [])] },
   ...(pe0 >= 81 && engName() === "DIGITAL" ? [{ t: "OP ENV", pages: [   /* P_FM1_ATK 61: ATK DEC SUS REL LVL per operator (a
                                                     FELUCCA_FM4=1 firmware only: DIGITAL retired, its engine is "-") */
     ...[0, 1, 2, 3].map((k) => [`OP${k + 1}`, 0, [61 + 5 * k, 62 + 5 * k, 63 + 5 * k, 64 + 5 * k]]),
     ["OP LVL", 0, [65, 70, 75, 80]]] }] : []),
-  { t: "VOICE", pages: [["LEVEL", 0, [0]], ["VOICE", 0, [37, 38, 41, 42]], ["VOICE 2", 0, [43, 44, 39, 40]]] },
-  { t: "FX", pages: [["FX", 0, [33, 34, 35, 36]], ["SLICER", 0, [45, 46, 47, 48]], ["DLY", 1, [4, 5, 6, 7]], ["REVERB", 1, [24, 8, 9]], ["CHORUS", 1, [10, 11]]] },   /* G_RTYPE 24: ROOM / SPRING / HALL / SHIMMER */
+  { t: "VOICE", pages: [["LEVEL", 0, [0]], ["VOICE", 0, [37, 38, 41, 42]], ["VOICE 2", 0, [43, 44, 39, 40, ...(pe0 >= 96 ? [95] : [])]]] },
+  { t: "FX", pages: [["FX", 0, [33, 34, 35, 36]], ...(pe0 >= 103 ? [["INSERT", 0, [96, 97, 98, 99, 100]]] : []), ["SLICER", 0, [45, 46, 47, 48]], ["DLY", 1, [4, 5, 6, 7]], ["REVERB", 1, [24, 8, 9]], ["CHORUS", 1, [10, 11]]] },   /* G_RTYPE 24: ROOM / SPRING / HALL / SHIMMER */
   { t: "SCL", pages: [["SCL", 0, [25, 26, 27, 28]], ...(pe0 >= 83 ? [["CHORD", 0, P_CHORD]] : [])] },   /* CHRD VOIC 81, 82 */
   { t: "ARP", pages: [["ARP", 0, [17, 18, 19, 20]], ["ARP 2", 0, [21, 22, 23, 24]]] },
-  { t: "SEQ PATTERN", tab: "seqgroups", pages: [["PATTERN", 0, [29, 30, 31, 32]]] },
+  { t: "SEQ PATTERN", tab: "seqgroups", pages: [["PATTERN", 0, [29, 30, 31, 32, ...(pe0 >= 96 ? [94] : [])]]] },
   /* 1.2: as the device shows them: HOME > CLOCK (BPM SWG; CLK not here), MENU > AUDIO TUNE, MENU > MIDI > MIDI IN (G_ROUTE) */
   { t: "GLOBAL", tab: "setgroups", pages: [["CLOCK", 1, [0, 1, 2]], ["AUDIO", 1, [3]], ["MIDI", 1, [14]]] },
 ];
@@ -2945,12 +3076,167 @@ const pPan = () => pById("PAN", 39), pMute = () => pById("MUTE", 40);
 
 /* -------------------------------------------------------------- MIDI --- */
 let connecting = false;
+
+/* M-Vave-OP1: NO DEVICE: the FM-1's firmware runs in this page (emu/felucca.wasm in an AudioWorklet, web/emu: the same
+   sources as the device's, its sound, its flash kept in this browser) and the editor reaches it as a MIDI device: its
+   SysEx goes to the firmware's editor.c (felucca_web.c web_sysex_*), notes to its MIDI in. A MIDI keyboard on this
+   computer plays it too (emuMidiKeys) */
+const EMU_STORE = "mvave-op1-editor-flash";
+let emu = null;                                       /* {ctx, node, access, ext (the keyboards' MIDIAccess)} */
+function emuFlashLoad() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(EMU_STORE) || "{}"), out = {};
+    for (const [off, b64] of Object.entries(raw)) out[off] = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return out;
+  } catch { return {}; }
+}
+function emuFlashSave(sectors) {
+  const raw = {};
+  for (const [off, s] of Object.entries(sectors)) {
+    let t = "";
+    for (let i = 0; i < s.length; i += 1024) t += String.fromCharCode.apply(null, s.subarray(i, i + 1024));
+    raw[off] = btoa(t);
+  }
+  try { localStorage.setItem(EMU_STORE, JSON.stringify(raw)); } catch { /* the saves last until the page closes */ }
+}
+/* the replies, as they come (one or more whole frames F0 .. F7) -> one MIDI message each */
+function emuFrames(bytes, input) {
+  for (let i = 0; i < bytes.length;) {
+    if (bytes[i] !== 0xF0) { i++; continue; }
+    const e = bytes.indexOf(0xF7, i);
+    if (e < 0) break;
+    if (input.onmidimessage) input.onmidimessage({ data: bytes.slice(i, e + 1) });
+    i = e + 1;
+  }
+}
+async function emuStart() {
+  const base = new URL("emu/", location.href);
+  const ctx = new AudioContext({ sampleRate: 44100, latencyHint: "interactive" });
+  await ctx.audioWorklet.addModule(new URL("worklet.js", base).href);
+  const res = await fetch(new URL("felucca.wasm", base).href);
+  if (!res.ok) throw new Error("emu/felucca.wasm: " + res.status);
+  const wasm = await res.arrayBuffer();
+  const node = new AudioWorkletNode(ctx, "felucca", { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+  node.connect(ctx.destination);
+  const input = { id: "emu-in", name: "Felucca (no device)", type: "input", state: "connected", onmidimessage: null };
+  const output = { id: "emu-out", name: "Felucca (no device)", type: "output", state: "connected",
+    send(d) {
+      const a = Uint8Array.from(d);
+      if (a[0] === 0xF0) node.port.postMessage({ type: "sysex", data: a });
+      else if (a[0] >= 0x80 && a[0] < 0xF0) node.port.postMessage({ type: "midi", data: [a[0], a[1] | 0, a[2] | 0] });
+    } };
+  await new Promise((resolve, reject) => {
+    const tm = setTimeout(() => reject(new Error("the firmware did not start")), 20000);
+    node.port.onmessage = (e) => {
+      const m = e.data;
+      if (m.type === "sysex") emuFrames(m.data, input);
+      else if (m.type === "running") { clearTimeout(tm); resolve(); }
+      else if (m.type === "error") { clearTimeout(tm); reject(new Error(m.message)); }
+      if (m.sectors) emuFlashSave(m.sectors);
+    };
+    node.port.postMessage({ type: "load", wasm, sectors: emuFlashLoad() }, [wasm]);
+  });
+  await ctx.resume();
+  return { ctx, node, access: { sysexEnabled: true, inputs: new Map([[input.id, input]]), outputs: new Map([[output.id, output]]),
+    onstatechange: null }, ext: null };
+}
+function emuStop() {
+  if (!emu) return;
+  if (emu.ext) for (const i of emu.ext.inputs.values()) i.onmidimessage = null;
+  emu.ctx.close().catch(() => {});
+  emu = null;
+  access = null;
+  $("mock").hidden = !MOCK;
+}
+async function connectEmu() {
+  if (connecting) return;
+  if (dev) { wantConnected = false; disconnect(); }
+  if (access && !emu) { access.onstatechange = null; access = null; }
+  sayK("emuStarting");
+  $("emuconnect").disabled = true;
+  try {
+    emu = await emuStart();
+    access = emu.access;
+    $("mock").hidden = false;
+    $("mock").textContent = t("emuLabel");
+    await connect();
+    emuMidiKeys();
+  } catch (e) {
+    console.error(e);
+    emuStop();
+    sayK("error", e.message);
+  } finally { $("emuconnect").disabled = false; }
+}
+/* a MIDI keyboard on this computer plays the selected track of the page's FM-1 (its notes, bends, controllers on that
+   track's channel: MIDI CH1-4 as the device routes them) */
+async function emuMidiKeys() {
+  if (!emu || !navigator.requestMIDIAccess) return;
+  try { emu.ext = await navigator.requestMIDIAccess(); } catch { return; }
+  const hook = () => {
+    if (!emu || !emu.ext) return;
+    for (const i of emu.ext.inputs.values())
+      if (!/felucca|m-?vave|fm-?1/i.test(i.name || ""))
+        i.onmidimessage = (e) => {
+          const d = e.data, st = d[0] & 0xF0;
+          if (!emu || !dev || st < 0x80 || st === 0xF0) return;
+          emu.access.outputs.get("emu-out").send([st | ((dev.sel ?? 0) & 3), d[1] | 0, d[2] | 0]);
+        };
+  };
+  emu.ext.onstatechange = hook;
+  hook();
+}
+
+/* the computer keyboard as a keyboard (as Ableton's): A W S E D F T G Y H U J K O L P ; ' play from the octave's C,
+   Z / X the octave down / up, C / V the velocity; it plays the selected track (on its channel: MIDI CH1-4), on the
+   device or the page's FM-1. Keys in a text field, a select or with a modifier are the page's */
+const KBD_NOTES = { KeyA: 0, KeyW: 1, KeyS: 2, KeyE: 3, KeyD: 4, KeyF: 5, KeyT: 6, KeyG: 7, KeyY: 8, KeyH: 9, KeyU: 10, KeyJ: 11,
+  KeyK: 12, KeyO: 13, KeyL: 14, KeyP: 15, Semicolon: 16, Quote: 17 };
+const kbd = { oct: 4, vel: 100, held: new Map(), names: null };
+const kbdBase = () => 12 * (kbd.oct + 1);
+const kbdName = (code, fall) => (kbd.names && kbd.names.get(code) || fall).toUpperCase();
+function kbdSend(on, ch, note, vel) {
+  if (!dev) return;
+  try { dev.output.send(on ? [0x90 | ch, note, vel] : [0x80 | ch, note, 0]); } catch { /* the port went */ }
+}
+function kbdAllOff() { for (const [, [ch, n]] of kbd.held) kbdSend(false, ch, n); kbd.held.clear(); }
+function renderKbd() {
+  const bar = $("kbdbar");
+  bar.hidden = !dev;
+  if (bar.hidden) return;
+  const oct = ["C" + kbd.oct, "C" + (kbd.oct + 1)];
+  bar.textContent = t("kbdHelp").replace("{keys}", `${kbdName("KeyA", "a")} ${kbdName("KeyW", "w")} ${kbdName("KeyS", "s")} … ${kbdName("Quote", "'")}`)
+    .replace("{oct}", `${kbdName("KeyZ", "z")} / ${kbdName("KeyX", "x")}`).replace("{range}", `${oct[0]}–F${kbd.oct + 1}`)
+    .replace("{vel}", `${kbdName("KeyC", "c")} / ${kbdName("KeyV", "v")}`).replace("{v}", kbd.vel);
+}
+if (navigator.keyboard && navigator.keyboard.getLayoutMap)     /* the letters of this keyboard's layout (QWERTZ: Y, not Z) */
+  navigator.keyboard.getLayoutMap().then((m) => { kbd.names = m; renderKbd(); }).catch(() => {});
+addEventListener("keydown", (e) => {
+  if (!dev || e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.("input, textarea, select, [contenteditable]")) return;
+  const n = KBD_NOTES[e.code];
+  if (n === undefined && !["KeyZ", "KeyX", "KeyC", "KeyV"].includes(e.code)) return;
+  e.preventDefault();
+  if (e.repeat) return;
+  if (n !== undefined) {
+    const ch = (dev.sel ?? 0) & 3, note = Math.min(127, kbdBase() + n);
+    kbd.held.set(e.code, [ch, note]);
+    kbdSend(true, ch, note, kbd.vel);
+    return;
+  }
+  if (e.code === "KeyZ" || e.code === "KeyX") { kbdAllOff(); kbd.oct = Math.max(-1, Math.min(8, kbd.oct + (e.code === "KeyX" ? 1 : -1))); }
+  else kbd.vel = Math.max(1, Math.min(127, kbd.vel + (e.code === "KeyV" ? 20 : -20)));
+  renderKbd();
+});
+addEventListener("keyup", (e) => {
+  const h = kbd.held.get(e.code);
+  if (h) { kbd.held.delete(e.code); kbdSend(false, h[0], h[1]); }
+});
+addEventListener("blur", kbdAllOff);
 async function connect() {
   if (connecting || dev) return;
   connecting = true;
   let connectedDevice = null;
   wantConnected = true;
-  if (!MOCK && !navigator.requestMIDIAccess) { connecting = false; sayK("nomidi"); return; }
+  if (!MOCK && !emu && !navigator.requestMIDIAccess) { connecting = false; sayK("nomidi"); return; }
   $("connect").disabled = true;
   sayK("connecting");
   try {
@@ -2980,6 +3266,7 @@ async function connect() {
     connectedDevice = dev;
     setLabel($("connect"), t("disconnect"));
     await load(connectedDevice);
+    renderKbd();
   } catch (e) {
     console.error(e);
     if (connectedDevice && connectedDevice === dev) { /* an old connection must not close a replacement */
@@ -2995,6 +3282,7 @@ async function connect() {
 
 function disconnect(reasonKey = "disconnected") {
   samplesLeave();                                   /* the Samples tab goes: so do the input and the preview */
+  kbdAllOff();
   if (dev) {
     dev.link.close();
     dev.input.onmidimessage = null;
@@ -3011,6 +3299,8 @@ function disconnect(reasonKey = "disconnected") {
   renderPreferences(true);
   $("version").textContent = "";
   setLabel($("connect"), t("connect"));
+  emuStop();
+  renderKbd();
   sayK(reasonKey);
 }
 
@@ -5262,6 +5552,7 @@ $("fm6export").addEventListener("click", () => downloadBytes(`${fileSlug(FM6.nam
 $("connect").addEventListener("click", () => {
   if (dev) { wantConnected = false; disconnect(); } else connect();
 });
+$("emuconnect").addEventListener("click", () => connectEmu());
 applyLang();
 showTab(tab);
 libInit();

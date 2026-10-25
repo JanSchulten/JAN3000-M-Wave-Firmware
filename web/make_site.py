@@ -9,7 +9,8 @@
   firmware/FM-1_015.fwsc      M-Vave-OP1: M-VAVE's official V15 (Apache-2.0, vendor/m-vave/), for
                               the installer's return to V15 without a separate download
   webapp/installer/index.html index_pkg.html, self-contained (fm1pkg.js, fm1ota.js, metadata inlined)
-  webapp/editor/index.html    editor.html (+ fukiai.ttf, FUKIAI-LICENSE.txt)
+  webapp/editor/index.html    editor.html (+ fukiai.ttf, FUKIAI-LICENSE.txt; emu/: the firmware for NO DEVICE,
+                              build/emu of web/emu/build.sh, when built)
   src/                        not touched
 
   web/make_site.py build/felucca-X.Y.fwsc X.Y OUT_DIR
@@ -85,6 +86,11 @@ def main(pkg, version, out):
     for f in ("fukiai.ttf", "FUKIAI-LICENSE.txt", "fm1backup.js"):
         if (HERE / f).exists():
             shutil.copy(HERE / f, ed / f)
+    emu = HERE.parent / "build" / "emu"             # M-Vave-OP1: the editor's NO DEVICE (web/emu/build.sh)
+    if (emu / "felucca.wasm").exists():
+        (ed / "emu").mkdir(exist_ok=True)
+        for f in ("worklet.js", "felucca.wasm"):
+            shutil.copy(emu / f, ed / "emu" / f)
     (out / "index.html").write_text(
         '<!doctype html><meta charset="utf-8"><title>Felucca</title>'
         '<meta http-equiv="refresh" content="0; url=webapp/installer/">'
