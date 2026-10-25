@@ -32,6 +32,8 @@
   button:disabled { opacity: .3; cursor: default; }
   button.lang { color: var(--dim); background: none; }
   select.lang { text-decoration: none; border: 0; cursor: pointer; }
+  dialog.ask { background: var(--bg); color: var(--fg); border: 1px solid var(--fg); padding: 16px 20px; max-width: min(90vw, 560px); }
+  dialog.ask::backdrop { background: rgba(0, 0, 0, .35); }
   select, input[type=text], input[type=number], input[type=search] {
     font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 1px 3px; border-radius: 0; }
   input[type=range] { width: 100%; margin: 0; accent-color: var(--fg); }
@@ -2614,7 +2616,7 @@ const TEXT = {
     deviceRejected: "本体がこの設定を受け付けませんでした。",
     devicePending: "反映しました。再生を停止すると保存されます。",
 
-    other: "English", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
+    other: "English", cancel: "キャンセル", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
     kbdHelp: "キーボード: {keys} で演奏 ({range}) · {oct} オクターブ · {vel} ベロシティ {v}",
     connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
     sound: "音色", engine: "エンジン", presets: "プリセット", initSound: "音色を初期化",
@@ -2725,7 +2727,7 @@ const TEXT = {
     devicePending: "Applied. Settings will save when playback stops.",
 
     other: "日本語", connect: "Connect", disconnect: "Disconnect", mock: "Mock device (no hardware)",
-    emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
+    cancel: "Cancel", emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
     kbdHelp: "Keyboard: {keys} play ({range}) · {oct} octave · {vel} velocity {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Init sound",
     track: "Track",
@@ -2835,7 +2837,7 @@ const TEXT = {
     devicePending: "Übernommen. Die Einstellungen werden gespeichert, wenn die Wiedergabe stoppt.",
 
     connect: "Verbinden", disconnect: "Trennen", mock: "Simuliertes Gerät (keine Hardware)",
-    emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
+    cancel: "Abbrechen", emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
     kbdHelp: "Tastatur: {keys} spielen ({range}) · {oct} Oktave · {vel} Anschlag {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Sound zurücksetzen",
     track: "Spur",
@@ -3074,10 +3076,34 @@ const pSlen = () => { const i = dev.pdesc.findIndex((d) => d && d.fmt === F.STEP
 const pById = (label, def) => { const i = dev.pdesc.findIndex((d, k) => d && k < dev.info.pe0 && d.label === label); return i >= 0 ? i : def; };
 const pPan = () => pById("PAN", 39), pMute = () => pById("MUTE", 40);
 
+/* confirm() and prompt() as the page's own dialog (M-Vave-OP1: inside a claude.ai Artifact the frame answers those false
+   and null at once) -> a promise: askOk true / false, askText the text / null */
+function askDialog(msg, value) {
+  return new Promise((resolve) => {
+    const inp = value == null ? null : el("input", { type: "text", value: String(value), spellcheck: "false", style: "width:100%" });
+    const ok = el("button", { type: "submit", value: "ok", text: "OK" });
+    const no = el("button", { type: "submit", value: "no", text: t("cancel"), formnovalidate: "" });
+    const form = el("form", { method: "dialog" }, el("p", { text: msg, style: "white-space:pre-line;max-width:60ch" }),
+      ...(inp ? [inp] : []), el("p", { class: "bar" }, ok, no));
+    const dlg = el("dialog", { class: "ask" }, form);
+    dlg.addEventListener("close", () => {
+      const yes = dlg.returnValue === "ok";
+      dlg.remove();
+      resolve(inp ? (yes ? inp.value : null) : yes);
+    });
+    document.body.append(dlg);
+    dlg.showModal();
+    (inp || ok).focus();
+    if (inp) inp.select();
+  });
+}
+const askOk = (msg) => askDialog(msg, null);
+const askText = (msg, def) => askDialog(msg, def ?? "");
+
 /* -------------------------------------------------------------- MIDI --- */
 let connecting = false;
 
-/* M-Vave-OP1: NO DEVICE: the FM-1's firmware runs in this page (emu/felucca.wasm in an AudioWorklet, web/emu: the same
+/* M-Vave-OP1: NO DEVICE: the FM-1's firmware runs in this page (emu/felucca.wasm, web/emu: the same
    sources as the device's, its sound, its flash kept in this browser) and the editor reaches it as a MIDI device: its
    SysEx goes to the firmware's editor.c (felucca_web.c web_sysex_*), notes to its MIDI in. A MIDI keyboard on this
    computer plays it too (emuMidiKeys) */
@@ -3109,40 +3135,93 @@ function emuFrames(bytes, input) {
     i = e + 1;
   }
 }
+/* the firmware: emu/felucca.wasm, or its JavaScript build (emu/felucca-js.mjs, wasm2js) where the page may not run
+   WebAssembly; it runs on this thread (as web/lab): a ScriptProcessor's callback drives its clock, 128 frames at a
+   time, and between them takes the editor's next frame and hands back its replies */
+async function emuCore(base) {
+  try {
+    const r = await fetch(new URL("felucca.wasm", base).href);
+    if (!r.ok) throw new Error("felucca.wasm: " + r.status);
+    return (await WebAssembly.instantiate(await r.arrayBuffer(), {})).instance.exports;
+  } catch (e) {
+    console.warn("M-Vave-OP1: no WebAssembly here, the JavaScript build", e);
+    return await import(new URL("felucca-js.mjs", base).href);
+  }
+}
 async function emuStart() {
   const base = new URL("emu/", location.href);
-  const ctx = new AudioContext({ sampleRate: 44100, latencyHint: "interactive" });
-  await ctx.audioWorklet.addModule(new URL("worklet.js", base).href);
-  const res = await fetch(new URL("felucca.wasm", base).href);
-  if (!res.ok) throw new Error("emu/felucca.wasm: " + res.status);
-  const wasm = await res.arrayBuffer();
-  const node = new AudioWorkletNode(ctx, "felucca", { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
-  node.connect(ctx.destination);
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let ctx;
+  try { ctx = new AC({ sampleRate: 44100, latencyHint: "interactive" }); } catch { ctx = new AC(); }
+  await ctx.resume();
+  const ex = await emuCore(base);
+  ex._initialize();
+  ex.web_nor_erase();
+  const nor = () => new Uint8Array(ex.memory.buffer, ex.web_nor(), ex.web_nor_size());
+  for (const [off, b] of Object.entries(emuFlashLoad()))
+    if (+off % 4096 === 0 && b.length === 4096 && +off + 4096 <= ex.web_nor_size()) nor().set(b, +off);
+  if (ex.web_seed) ex.web_seed((Math.random() * 4294967296) >>> 0);
+  ex.web_boot();
   const input = { id: "emu-in", name: "Felucca (no device)", type: "input", state: "connected", onmidimessage: null };
+  const queue = [];
   const output = { id: "emu-out", name: "Felucca (no device)", type: "output", state: "connected",
     send(d) {
       const a = Uint8Array.from(d);
-      if (a[0] === 0xF0) node.port.postMessage({ type: "sysex", data: a });
-      else if (a[0] >= 0x80 && a[0] < 0xF0) node.port.postMessage({ type: "midi", data: [a[0], a[1] | 0, a[2] | 0] });
+      if (a[0] === 0xF0) queue.push(a);
+      else if (a[0] >= 0x80 && a[0] < 0xF0) ex.web_midi(a[0], a[1] | 0, a[2] | 0);
     } };
-  await new Promise((resolve, reject) => {
-    const tm = setTimeout(() => reject(new Error("the firmware did not start")), 20000);
-    node.port.onmessage = (e) => {
-      const m = e.data;
-      if (m.type === "sysex") emuFrames(m.data, input);
-      else if (m.type === "running") { clearTimeout(tm); resolve(); }
-      else if (m.type === "error") { clearTimeout(tm); reject(new Error(m.message)); }
-      if (m.sectors) emuFlashSave(m.sectors);
-    };
-    node.port.postMessage({ type: "load", wasm, sectors: emuFlashLoad() }, [wasm]);
+  let writes = ex.web_flash_writes_count(), saveTm = 0;
+  const step = () => {                                /* between two quanta: the editor's frames in, replies out */
+    while (queue.length && !ex.web_sysex_busy()) {
+      const f = queue.shift(), n = Math.min(f.length, ex.web_sysex_in_size());
+      new Uint8Array(ex.memory.buffer, ex.web_sysex_in(), n).set(f.subarray(0, n));
+      ex.web_sysex_feed(n);
+    }
+    const n = ex.web_sysex_out_len();
+    if (n) {
+      const out = new Uint8Array(ex.memory.buffer, ex.web_sysex_out(), n).slice();
+      ex.web_sysex_take();
+      setTimeout(() => emuFrames(out, input), 0);
+    }
+    const w = ex.web_flash_writes_count();
+    if (w !== writes) {                               /* a save: kept in this browser, once it settles */
+      writes = w;
+      clearTimeout(saveTm);
+      saveTm = setTimeout(() => {
+        const out = {}, b = nor();
+        for (const [a, e] of [[0x97000, 0xE0000], [0xE5000, 0xE8000], [0xFC000, 0x100000]])
+          for (let off = a; off < e; off += 4096) {
+            const sct = b.subarray(off, off + 4096);
+            if (sct.some((v) => v !== 0xFF)) out[off] = sct.slice();
+          }
+        emuFlashSave(out);
+      }, 500);
+    }
+  };
+  const proc = ctx.createScriptProcessor(1024, 0, 2);
+  proc.onaudioprocess = (e) => {
+    const L = e.outputBuffer.getChannelData(0), R = e.outputBuffer.getChannelData(1);
+    for (let off = 0; off < L.length; off += 128) {
+      ex.web_render(128);
+      L.set(new Float32Array(ex.memory.buffer, ex.web_out_l(), 128), off);
+      R.set(new Float32Array(ex.memory.buffer, ex.web_out_r(), 128), off);
+      step();
+    }
+  };
+  proc.connect(ctx.destination);
+  await new Promise((resolve, reject) => {           /* past the splash: it answers */
+    const t0 = Date.now();
+    const poll = () => (ex.web_running() ? resolve() : Date.now() - t0 > 20000 ? reject(new Error("the firmware did not start"))
+      : setTimeout(poll, 50));
+    poll();
   });
-  await ctx.resume();
-  return { ctx, node, access: { sysexEnabled: true, inputs: new Map([[input.id, input]]), outputs: new Map([[output.id, output]]),
+  return { ctx, proc, access: { sysexEnabled: true, inputs: new Map([[input.id, input]]), outputs: new Map([[output.id, output]]),
     onstatechange: null }, ext: null };
 }
 function emuStop() {
   if (!emu) return;
   if (emu.ext) for (const i of emu.ext.inputs.values()) i.onmidimessage = null;
+  emu.proc.onaudioprocess = null;
   emu.ctx.close().catch(() => {});
   emu = null;
   access = null;
@@ -3211,7 +3290,7 @@ function renderKbd() {
 if (navigator.keyboard && navigator.keyboard.getLayoutMap)     /* the letters of this keyboard's layout (QWERTZ: Y, not Z) */
   navigator.keyboard.getLayoutMap().then((m) => { kbd.names = m; renderKbd(); }).catch(() => {});
 addEventListener("keydown", (e) => {
-  if (!dev || e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.("input, textarea, select, [contenteditable]")) return;
+  if (!dev || e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.("input, textarea, select, [contenteditable], dialog")) return;
   const n = KBD_NOTES[e.code];
   if (n === undefined && !["KeyZ", "KeyX", "KeyC", "KeyV"].includes(e.code)) return;
   e.preventDefault();
@@ -3636,7 +3715,7 @@ async function afterSoundChange(msg = "ready", d = dev) {
   sayK(msg);
 }
 $("init").addEventListener("click", async () => {
-  if (!dev || !confirm(t("confirmInit"))) return;
+  if (!dev || !await askOk(t("confirmInit"))) return;
   const releaseBusy = beginBusy();
   try { selfLoad(true); await rq(req.set(1, gEng(), dev.dump.engine)); await afterSoundChange(); }
   catch (err) { report(err); } finally { releaseBusy(); }
@@ -3665,7 +3744,7 @@ function renderSlots() {
 }
 async function project(op, slot) {
   if (!dev) return;
-  if (!confirm(t(op ? "confirmSave" : "confirmLoad").replace("{n}", slot + 1))) return;
+  if (!await askOk(t(op ? "confirmSave" : "confirmLoad").replace("{n}", slot + 1))) return;
   const releaseBusy = beginBusy();
   try {
     /* save writes flash: a long timeout and no retry */
@@ -3749,7 +3828,7 @@ $("backup-file").addEventListener("change", () => {
     if (file.size > 600000) throw new Error("Backup file too large");
     const { readBackup, restoreBackup } = await backupModule();
     const archive = readBackup(await file.text()); assertSession(d);
-    if (!confirm(t("backupConfirm"))) return;
+    if (!await askOk(t("backupConfirm"))) return;
     await restoreBackup((r, o) => sessionRequest(d, r, o), archive, backupProgress);
     await load(d); sayK("backupRestored");
   });
@@ -3796,7 +3875,7 @@ $("motion-on").addEventListener("change", () => op(async () => {
 }));
 $("motion-clear").addEventListener("click", () => op(async () => {
   const d = dev;
-  if (!d?.info?.motionMax || !confirm(t("motionConfirm"))) return;
+  if (!d?.info?.motionMax || !await askOk(t("motionConfirm"))) return;
   const r = parse[CMD.MOTION](await sessionRequest(d, req.motion(d.sel ?? 0, 2)));
   if (r.rc) throw new Error("Automation edit refused"); d.motion = r; renderMotion();
 }));
@@ -3935,7 +4014,7 @@ $("reloadsteps").addEventListener("click", async () => {
   try { await loadSteps(); sayK("ready"); } catch (err) { report(err); } finally { releaseBusy(); }
 });
 $("clearseq").addEventListener("click", async () => {
-  if (!dev || !confirm(t("confirmClear"))) return;
+  if (!dev || !await askOk(t("confirmClear"))) return;
   const releaseBusy = beginBusy();
   try {
     for (let i = 0; i < dev.info.nstep; i++) {
@@ -4357,7 +4436,7 @@ async function smpUpload(k) {
 
 /* writes built ({hdr, data}: buildSlot's, or a slot file's) into USRk+1 */
 async function smpSend(k, built) {
-  if (!dev || !confirm(t("confirmUpload").replace("{n}", k + 1))) return;
+  if (!dev || !await askOk(t("confirmUpload").replace("{n}", k + 1))) return;
   const { hdr, data } = built;
   const session = dev;
   const releaseBusy = beginBusy();
@@ -4390,7 +4469,7 @@ async function smpSend(k, built) {
 }
 
 async function smpErase(k) {
-  if (!dev || !confirm(t("confirmErase").replace("{n}", k + 1))) return;
+  if (!dev || !await askOk(t("confirmErase").replace("{n}", k + 1))) return;
   const session = dev;
   const releaseBusy = beginBusy();
   smpBusy = true;
@@ -5121,7 +5200,7 @@ $("libaud").addEventListener("click", () => libAudition(libSel));
 
 $("libsave").addEventListener("click", () => libOp(async (d, rqf) => {
   const def = upName((dev.names[dev.dump.engine] || [])[dev.dump.preset] || dev.info.engines[dev.dump.engine]);
-  const name = prompt(t("promptName"), def);
+  const name = await askText(t("promptName"), def);
   if (name == null) return;
   const { patch } = await capturePatch(rqf, dev.info, name.trim() || def);
   await libAdd([patch]);
@@ -5144,12 +5223,12 @@ $("factlib").addEventListener("click", () => libOp(async (d, rqf) => {
   sayK("copiedLib", `${dev.info.engines[e]} ${name}`);
 }));
 
-function libPut(id, slot) {
+async function libPut(id, slot) {
   const p = lib.find((x) => x.id === id);
   if (!p || !dev || !dev.bank || slot == null || libBusy) return;
   const s = dev.bank.slots[slot];
   if (!engineOk(p)) { sayK("badEngine", p.engineName || p.engine); return; }
-  if (s.used && !confirm(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  if (s.used && !await askOk(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
   libOp(async (d, rqf) => {
     const keep4 = p.fm4 && dev.info.engines[1] === "-" && p.fm4.length === dev.info.pcount;   /* a converted DIGITAL sound:
                                                      its DIGITAL values as engine 1 (the device converts them on load) */
@@ -5161,18 +5240,18 @@ function libPut(id, slot) {
 }
 $("libput").addEventListener("click", () => libPut(libSel, bankSel));
 
-$("libren").addEventListener("click", () => {
+$("libren").addEventListener("click", async () => {
   const p = lib.find((x) => x.id === libSel);
   if (!p) return;
-  const v = prompt(t("promptName"), p.name);
+  const v = await askText(t("promptName"), p.name);
   if (v == null || !v.trim()) return;
   p.name = v.trim().slice(0, 32);
   libUpdate(p);
 });
-$("libtags").addEventListener("click", () => {
+$("libtags").addEventListener("click", async () => {
   const p = lib.find((x) => x.id === libSel);
   if (!p) return;
-  const v = prompt(t("promptTags"), p.tags.join(", "));
+  const v = await askText(t("promptTags"), p.tags.join(", "));
   if (v == null) return;
   p.tags = [...new Set(v.split(",").map((x) => x.trim()).filter(Boolean))];
   libUpdate(p);
@@ -5183,21 +5262,32 @@ $("libdup").addEventListener("click", () => {
 });
 $("libdel").addEventListener("click", async () => {
   const p = lib.find((x) => x.id === libSel);
-  if (!p || !confirm(t("confirmDelete").replace("{name}", p.name))) return;
+  if (!p || !await askOk(t("confirmDelete").replace("{name}", p.name))) return;
   lib = lib.filter((x) => x !== p);
   libSel = null;
   try { await store.del(p.id); } catch (e) { console.warn(e); }
   renderLib();
 });
 
-function download(name, obj) {
-  const blob = new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" });
+/* a file for the viewer: the browser's download, or inside a claude.ai Artifact (M-Vave-OP1) the page's downloads
+   capability (it asks the viewer; a .syx is not among the types it saves) */
+let artDownloads = null;
+async function saveBlob(name, blob) {
+  if (typeof window.claude?.use === "function") {
+    artDownloads ??= window.claude.use("downloads");
+    const d = await artDownloads;
+    if (d) {
+      try { await d.save({ filename: name, data: blob }); } catch (e) { if (e?.code !== "declined") sayK("error", `${name}: ${e?.message || e?.code}`); }
+      return;
+    }
+  }
   const a = el("a", { href: URL.createObjectURL(blob), download: name });
   document.body.append(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+function download(name, obj) { return saveBlob(name, new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" })); }
 const fileSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "patch";
 const today = () => new Date().toISOString().slice(0, 10);
 $("libexp1").addEventListener("click", () => {
@@ -5243,13 +5333,13 @@ function bankLoad(slot) {
   });
 }
 $("bkload").addEventListener("click", () => bankLoad(bankSel));
-$("bkstore").addEventListener("click", () => {
+$("bkstore").addEventListener("click", async () => {
   const slot = bankSel;
   if (!dev || !dev.bank || slot == null) return;
   const s = dev.bank.slots[slot];
-  const name = prompt(t("promptNameAuto"), s.used ? s.name : "");
+  const name = await askText(t("promptNameAuto"), s.used ? s.name : "");
   if (name == null) return;
-  if (s.used && !confirm(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  if (s.used && !await askOk(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
   libOp(async (d, rqf) => {
     checkRc(await bank.store(rqf, slot, name.trim()));
     await refreshSlot(slot, d);
@@ -5268,11 +5358,11 @@ function bankGet(slot) {
   });
 }
 $("bkget").addEventListener("click", () => bankGet(bankSel));
-$("bkerase").addEventListener("click", () => {
+$("bkerase").addEventListener("click", async () => {
   const slot = bankSel;
   if (!dev || !dev.bank || slot == null) return;
   const s = dev.bank.slots[slot];
-  if (!s.used || !confirm(t("confirmEraseSlot").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  if (!s.used || !await askOk(t("confirmEraseSlot").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
   libOp(async (d, rqf) => {
     checkRc(await bank.erase(rqf, slot));
     await refreshSlot(slot, d);
@@ -5356,16 +5446,16 @@ async function devFilePut(slot, f) {
   let p;
   try { [p] = await devFileSounds(f); } catch (err) { report(err); return; }
   const s = dev.bank.slots[slot];
-  if (s.used && !confirm(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  if (s.used && !await askOk(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
   libOp(async (d, rqf) => {
     checkRc(await bank.put(rqf, slot, { ...p, name: upName(p.name), p: fullParams(p) }, dev.info));
     await refreshSlot(slot, d);
     sayK("putDone", `${slotName(slot)} ${upName(p.name)}`);
   });
 }
-function devFileErase(slot) {
+async function devFileErase(slot) {
   const s = dev && dev.bank && dev.bank.slots[slot];
-  if (!s || !s.used || libBusy || !confirm(t("confirmEraseSlot").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  if (!s || !s.used || libBusy || !await askOk(t("confirmEraseSlot").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
   libOp(async (d, rqf) => {
     checkRc(await bank.erase(rqf, slot));
     await refreshSlot(slot, d);
@@ -5395,7 +5485,7 @@ $("dffile").addEventListener("change", async () => {
   const { plan, left } = devFilePlan(dev.bank.slots, sounds);
   const lines = plan.map(([k, p]) => `${slotName(k)}  ${upName(p.name)}${dev.bank.slots[k].used ? "  (" + t("dfReplaces") + ")" : ""}`);
   if (left.length) lines.push(`${t("dfFull")}: ${left.map((p) => upName(p.name)).join(", ")}`);
-  if (!plan.length || !confirm(t("dfConfirm") + "\n\n" + lines.join("\n"))) return;
+  if (!plan.length || !await askOk(t("dfConfirm") + "\n\n" + lines.join("\n"))) return;
   libOp(async (d, rqf) => {
     for (const [k, p] of plan) {
       sayK("putDone", `${slotName(k)} ${upName(p.name)}`);
@@ -5540,13 +5630,7 @@ function fm6Why(r) {
   if (r.kinds.includes("universal")) return ["fm6Universal", ""];
   return [r.sysex ? "fm6NoVoice" : "fm6NotSysex", ""];
 }
-function downloadBytes(name, bytes) {
-  const a = el("a", { href: URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" })), download: name });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
+function downloadBytes(name, bytes) { return saveBlob(name, new Blob([bytes], { type: "application/octet-stream" })); }
 $("fm6export").addEventListener("click", () => downloadBytes(`${fileSlug(FM6.name(fm6v))}.syx`, FM6.singleSysex(fm6v)));
 
 $("connect").addEventListener("click", () => {

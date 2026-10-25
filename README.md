@@ -416,6 +416,17 @@ GRAIN's CLOUD PAD and GLITCH grain PIANO now. Both come as slot files, `dist/sam
 sustain loops as when they were built in). The web editor's Samples tab writes one into USR1 (**Slot file**); SAMPLE's
 SET USR1 (or GRAIN's SRC USR1) plays it. A sound saved with SET FLUTE or SAX plays PIANO.
 
+## The editor without a device
+
+The web editor's **No device** button (beside Connect) starts the FM-1's firmware in the page (`web/emu`, the same
+sources as the device's): the editor talks to it as to a device, so the Sound tab's parameter list, the engines and
+their presets, the 6-OP FM tab, the library and the user presets all work, with the firmware's own sound. Saves stay
+in that browser. The computer keyboard plays the selected track as Ableton's does (A W S E D F T G Y H U J K O L P ; '
+from the octave's C, Z / X octave, C / V velocity), on the device too; a MIDI keyboard on the computer plays the
+page's FM-1. The editor speaks English, German and Japanese. `python3 web/make_editor_artifact.py` builds it as a
+claude.ai Artifact page (there without Web MIDI: No device only; files are saved through the page's downloads
+capability).
+
 ## Presets as files
 
 - **Projects > Presets on the device** (web editor): the user preset slots (U01 .. U32) as files beside the projects:

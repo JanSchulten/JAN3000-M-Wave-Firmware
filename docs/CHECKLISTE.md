@@ -114,6 +114,16 @@ Außerdem gibt es weiterhin **SCL > CHORD** (CHRD, VOIC: eine Taste ein Akkord d
       schreibt mehrere (gleicher Name ersetzt, sonst ein leerer Platz), **Download all** alle in eine Datei. Danach am
       Gerät in PRESETS nachsehen: die neuen stehen neben den Werks-Presets.
 
+## 10. Editor ohne Gerät
+
+- [ ] Editor öffnen (Installer-Seite > Editor, oder der Link), oben **Ohne Gerät** klicken: nach ein paar Sekunden
+      „Verbunden“, darunter die Tastatur-Zeile. Sprache oben rechts: Deutsch.
+- [ ] Tastatur: A W S E D … spielt, Z / X Oktave, C / V Anschlag. Spur 1–4 oben wählen: die Tasten spielen diese Spur.
+- [ ] Sound-Tab: Engine und Preset wählen, Regler drehen, man hört es sofort.
+- [ ] Bibliothek: „Aktuellen Sound speichern“, mit Tags versehen, „Presets exportieren“ (die Datei an mich).
+- [ ] Ein MIDI-Keyboard am Mac spielt den Sound mit (Chrome fragt nach MIDI-Zugriff).
+- [ ] Am echten Gerät (Verbinden statt Ohne Gerät): die Tastatur spielt auch dort.
+
 ## 8. Erledigt in diesem Durchgang
 
 - [x] WSHAPE sparsamer (AUX 0: Plaits' zweiter Ausgang wird nicht gerechnet, OUT bitgleich)

@@ -89,7 +89,7 @@ def main(pkg, version, out):
     emu = HERE.parent / "build" / "emu"             # M-Vave-OP1: the editor's NO DEVICE (web/emu/build.sh)
     if (emu / "felucca.wasm").exists():
         (ed / "emu").mkdir(exist_ok=True)
-        for f in ("worklet.js", "felucca.wasm"):
+        for f in ("felucca.wasm",):
             shutil.copy(emu / f, ed / "emu" / f)
     (out / "index.html").write_text(
         '<!doctype html><meta charset="utf-8"><title>Felucca</title>'
