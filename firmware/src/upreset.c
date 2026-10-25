@@ -27,7 +27,7 @@
  * stored; the GM notes play the same drums).
  * Version 3 (UP_VER_GRID, since the DRUM grid) is the same record with a drum grid as its pattern: note[i] is
  * step i's lane hits (bit l = lane l), flags[i] their accents. A DRUM track whose first 16 steps strike a
- * lane is stored so (its notes on their lanes; M-Vave-OP1: a VDRUM or DBOX track too, kitlane.c); every other sound
+ * lane is stored so (its notes on their lanes; M-Vave-OP1: a VDRUM track too, kitlane.c); every other sound
  * as version 2, which older firmware reads.
  * Older firmware shows a version 3 record as empty and keeps its bytes.
  * A note pattern keeps each step's RATCH in its flags (core.h SF_RATCH, 8 | 16; 0 = x1, every older record):
@@ -272,17 +272,20 @@ static int up_parse(const uint8_t *a, uint32_t na, up_rec_t *r, uint32_t *slot)
 }
 
 #ifndef UP_HOST
-static void up_values(const up_rec_t *r, int16_t *v)   /* mapped and clamped for its engine */
+static void up_values(const up_rec_t *r, int16_t *v)   /* mapped and clamped for the engine it plays on */
 {
     int16_t def[P_COUNT];
-    uint32_t i;
+    uint32_t i, e = eng_successor(r->engine);
     for (i = 0; i < P_COUNT; i++)
-        def[i] = param_desc_of(r->engine, i)->def;
+        def[i] = param_desc_of(e, i)->def;
     up_params(r, v, def);
-    if (r->ver == 1u && ENGINES[r->engine] == &ENG_PHYS)   /* (before 1.0: MODEL 2 was DUST) */
+    if (r->ver == 1u && ENGINES[e] == &ENG_PHYS)       /* (before 1.0: MODEL 2 was DUST) */
         phys_legacy(&v[P_E0]);
+    if (e != r->engine && ENGINES[e]->npresets)         /* (M-Vave-OP1: a retired engine's sound: its successor's */
+        for (i = 0; i < 8u; i++)                        /* first preset, the rest as stored) */
+            v[P_E0 + i] = ENGINES[e]->presets[0].e[i];
     for (i = 0; i < P_COUNT; i++)
-        v[i] = (int16_t)param_fit(param_desc_of(r->engine, i), v[i]);   /* (a retired KIT: the kit it plays) */
+        v[i] = (int16_t)param_fit(param_desc_of(e, i), v[i]);   /* (a retired KIT: the kit it plays) */
 }
 
 #include "up_fm6.c"                            /* the FM6 user presets' patches: the same kind of store */
@@ -372,7 +375,8 @@ static void up_auto_name(char *b, uint32_t e, uint32_t k)
 {
     char l[4];
     e %= NENGINES;
-    str_cpy(b, ENGINES[eng_ok(e) ? e : ENGI_FM6]->name, 9);   /* (a DIGITAL record plays as FM6) */
+    str_cpy(b, ENGINES[eng_ok(e) ? e : e == ENGI_DIGITAL ? ENGI_FM6 : eng_successor(e)]->name, 9);   /* (a DIGITAL record
+                                                        * plays as FM6, a retired engine's as its successor) */
     up_slot_label(l, k);
     str_cpy(b + str_len(b), " ", 2);
     str_cpy(b + str_len(b), l + 1, 3);
@@ -411,7 +415,7 @@ static int up_store_cat(uint32_t k, const char *name, uint32_t cat)
         up_set_value(&r, i, motion_base_value(TSEL, i));
     up_pat_from(&r, TSEL->step);
     up_set_cat(&r, cat ? cat : track_cat(TSEL));
-    if (kit_track(TSEL)) {                              /* a kit track (DRUM, VDRUM, DBOX) striking a lane: its grid */
+    if (kit_track(TSEL)) {                              /* a kit track (DRUM, VDRUM) striking a lane: its grid */
         uint32_t any = 0, e = TSEL->eng_req;
         for (i = 0; i < 16u; i++)
             any |= step_lanes(e, &TSEL->step[i]);
@@ -425,7 +429,7 @@ static int up_store_cat(uint32_t k, const char *name, uint32_t cat)
     }
     {
         int rc = up_put(k, &r);                         /* the record first, then its FM6 patch (up_fm6.c) */
-        if ((rc == 0 || rc == 3) && (r.engine == ENGI_FM6 || r.engine == ENGI_VDRUM || r.engine == ENGI_DBOX)) {   /* (VDRUM, DBOX: their own kits) */
+        if ((rc == 0 || rc == 3) && (r.engine == ENGI_FM6 || r.engine == ENGI_VDRUM)) {   /* (VDRUM: its own kit) */
             int u = upf_store(k, (uint32_t)(TSEL - trk));
             if (u == 2)
                 rc = 2;
@@ -475,7 +479,7 @@ static int up_load(uint32_t k)
 #endif
     {
         fm1_irq_off();                                  /* the audio ISR must not see half a sound */
-        t->eng_req = r->engine;
+        t->eng_req = (uint8_t)eng_successor(r->engine);   /* (M-Vave-OP1: a retired engine's: up_values) */
         for (i = 0; i < P_COUNT; i++)
             if (!param_kept(i))
                 t->p[i] = v[i];
@@ -538,8 +542,13 @@ static void up_pat_load(track_t *t, uint32_t k)
     t->p[P_SLEN] = (int16_t)clamp(v[P_SLEN], 1, 16);   /* (the pattern has 16 steps) */
 }
 
-/* the engine a used slot's sound plays on (a DIGITAL record: FM6, without FELUCCA_FM4) */
-static uint32_t up_engine(uint32_t k) { return eng_ok(up_rec(k)->engine) ? up_rec(k)->engine : ENGI_FM6; }
+/* the engine a used slot's sound plays on (a DIGITAL record: FM6, without FELUCCA_FM4; a retired engine's: its
+ * successor, M-Vave-OP1) */
+static uint32_t up_engine(uint32_t k)
+{
+    uint32_t e = up_rec(k)->engine;
+    return eng_ok(e) ? e : e == ENGI_DIGITAL ? ENGI_FM6 : eng_successor(e % NENGINES);
+}
 
 static uint32_t up_count(void)                 /* used slots */
 {

@@ -68,9 +68,10 @@ static const char *const N_IRATE[] = {"689", "919", "1.1k", "1.4k", "1.8k", "2.2
 static const char *const N_MSRC[] = {"OFF", "LFO", "ENV", "VEL", "KEY", "RAND", "MODW", "AT", "EXPR", "S&H", "SLEW"};
 static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN", "DIST", "CHO", "DLY", "REV", "RATE",
                                      "VIB", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "DEPTH"};
-static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN", "PHYS",
-                                             "DRUM", "NOISE", "FM6", FELUCCA_SLICE ? "SLICE" : "-", "ANLG2",
-                                             "VDRUM", "DBOX"};   /* (M-Vave-OP1: 14 .. 16) */
+static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "-", "LOFI", "SAMPLE", "-", "-", "WHEEL", "GRAIN", "PHYS",
+                                             "DRUM", "NOISE", "FM6", "-", "ANLG2",
+                                             "VDRUM", "-", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM"};   /* (M-Vave-OP1: 14 .. 21; "-" a retired engine:
+                                                                       * engines.c ENG_GONE) */
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0, 0}
 #define PE(l, n, df) {l, F_ENUM, 0, (int16_t)(sizeof(n) / sizeof(n[0]) - 1), df, n, 0}
@@ -435,16 +436,15 @@ enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE,
        FAM_COUNT };
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
-       GR_SLCR, GR_MOD, GR_PATS, GR_SONG, GR_TOOLS, GR_CHORD, GR_SLICES, GR_EVENTS,
+       GR_SLCR, GR_MOD, GR_PATS, GR_SONG, GR_TOOLS, GR_CHORD, GR_EVENTS,
        GR_FMOP, GR_FMOP2, GR_FMENV, GR_INS,     /* (GR_STEPS: SEQ TOOLS' knobs; GR_FMOP..: FM6's operator pages, ui_fm6op.c) */
        GR_KEY,                                  /* M-Vave-OP1: GLO > KEY (key.c, ui_graph.c graph_key) */
        GR_FXT, GR_FXT2,                         /* .. FX > FX TRACKS, FX TRACKS 2 (fxtrack.c, ui_graph.c graph_fxt) */
        GR_FX1, GR_CLOUD,                        /* .. FX > FX1 (the delay bus's TYPE), CLOUD (fx1.c, ui_graph.c graph_fx1) */
-       GR_ORCH,                                 /* .. SCL > ORCHID (orchid.c, ui_graph.c graph_orc) */
+       GR_CSET,                                 /* .. SCL > CSET (cset.c, ui_graph.c graph_cset) */
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
        GR_DLANE,                                /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
-       GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2,     /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
-       GR_DBO1, GR_DBO2, GR_DBHIT };            /* .. EDIT > DBOX's key pages (ui_dbox.c), in this order */
+       GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2 };   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
 
 typedef struct {
     const char *title;
@@ -479,9 +479,9 @@ static const page_t PAGES[] = {
     {"FX TRACKS 2", FAM_FX, SC_GLOBAL, GR_FXT2, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (hidden: CLEAR a lane, both) */
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_TRANS}},
     {"CHORD", FAM_SCL, SC_TRACK, GR_CHORD, {P_CHRD, P_VOIC, 0xFF, 0xFF}},   /* SCL again: the chord keys (chord.c) */
-    /* M-Vave-OP1: SCL's third page the Orchid's keyboard (orchid.c): KNOB 1 ON / OFF (the track's, before CHRD), 2 VOICE,
-     * 3 LOCK (ui_input.c orc_knob, ui_draw.c); the chord shown as the Orchid shows it (ui_graph.c graph_orc) */
-    {"ORCHID", FAM_SCL, SC_TRACK, GR_ORCH, {0xFF, 0xFF, 0xFF, 0xFF}},
+    /* M-Vave-OP1: SCL's third page the chord sets after the Roland J-6's (cset.c): KNOB 1 ON / OFF (the track's, before
+     * CHRD), 2 SET, 3 GENRE (ui_input.c cset_knob, ui_draw.c); the set and the chord played (ui_graph.c graph_cset) */
+    {"CSET", FAM_SCL, SC_TRACK, GR_CSET, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E7}},   /* ANALOG only (1.5, #104): TYPE CUT RES KTR */
@@ -490,7 +490,6 @@ static const page_t PAGES[] = {
     {"LANES 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN4, P_LN5, P_LN6, P_LN7}},
     {"SOUNDS", FAM_EDIT, SC_TRACK, GR_DLANE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* M-Vave-OP1, DRUM only: a key picks the lane,
                                                                            * KNOB 1..4 its TUNE DECAY TONE SOUND */
-    {"SLICES", FAM_EDIT, SC_TRACK, GR_SLICES, {0xFF, 0xFF, 0xFF, 0xFF}},   /* SLICE only: the slices by hand (ui_slice.c) */
     {"OPERATOR", FAM_EDIT, SC_TRACK, GR_FMOP, {0xFF, 0xFF, 0xFF, 0xFF}},    /* FM6 only: KNOB 1 the operator, then its */
     {"OP ENV", FAM_EDIT, SC_TRACK, GR_FMENV, {0xFF, 0xFF, 0xFF, 0xFF}},     /* bytes of the track's patch (ui_fm6op.c): */
     {"OPERATOR 2", FAM_EDIT, SC_TRACK, GR_FMOP2, {0xFF, 0xFF, 0xFF, 0xFF}}, /* CRS FINE LEVEL / STG RATE LEVEL / MODE DTUN VEL */
@@ -501,10 +500,6 @@ static const page_t PAGES[] = {
     {"LAYER ENV", FAM_EDIT, SC_TRACK, GR_VDLE, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"PART", FAM_EDIT, SC_TRACK, GR_VDP, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"PART 2", FAM_EDIT, SC_TRACK, GR_VDP2, {0xFF, 0xFF, 0xFF, 0xFF}},
-    /* M-Vave-OP1: DBOX only, the key struck last (ui_dbox.c): PITCH WAVE ENV XMOD / PITCH WAVE ENV CUT / MODE LVL */
-    {"OSC 1", FAM_EDIT, SC_TRACK, GR_DBO1, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"OSC 2", FAM_EDIT, SC_TRACK, GR_DBO2, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"SOUND", FAM_EDIT, SC_TRACK, GR_DBHIT, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"OP1 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM1_ATK, P_FM1_DEC, P_FM1_SUS, P_FM1_REL}},
     {"OP2 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM2_ATK, P_FM2_DEC, P_FM2_SUS, P_FM2_REL}},
     {"OP3 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM3_ATK, P_FM3_DEC, P_FM3_SUS, P_FM3_REL}},

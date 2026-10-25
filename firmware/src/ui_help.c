@@ -15,7 +15,6 @@ static const char H_LANES[] = "[K1-4]LANE LEVELS[EDIT]HOLD: MUTES";
 static const char H_FMOP[] = "[K1]OPERATOR[SAVE]HOLD: UNDO";
 static const char H_VDL[] = "[KEYS]PART[K1]LAYER[SAVE]UNDO";
 static const char H_VDP[] = "[KEYS]PART[SAVE]HOLD: UNDO";
-static const char H_DBX[] = "[KEYS]SOUND[SAVE]HOLD: UNDO";
 static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"ENV", "[K1-4]A D S R[SELECT]ENV DEST"},
     {"ENV DEST", "[K1-4]ENV AMOUNTS[SELECT]ENV"},
@@ -31,15 +30,14 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"REVERB", "[K1]TYPE[K2]SIZE[SELECT]SLICER"},
     {"CHORUS", "[K1]TYPE[K4]FDBK[SELECT]DELAY"},
     {"SCL", "[K2]SCALE[K3]QUANT[SELECT]CHORDS"},
-    {"CHORD", "[K1]CHORD[SELECT]ORCHID"},
-    {"ORCHID", "[K1]ON[K2]VOICE[K3]LOCK"},   /* (M-Vave-OP1, orchid.c) */
+    {"CHORD", "[K1]CHORD[SELECT]CSET"},
+    {"CSET", "[K1]ON[K2]SET[K3]GENRE"},     /* (M-Vave-OP1, cset.c) */
     {"EDIT 1", H_EDIT},
     {"EDIT 2", H_EDIT},
     {"FILTER", "[K1]LP BP HP[K2]CUTOFF[SELECT]VOICE"},
     {"LANES", H_LANES},
     {"LANES 2", H_LANES},
     {"SOUNDS", "[KEYS]PICK[K1-4]TUNE DECAY TONE"},   /* (M-Vave-OP1: a DRUM lane's own) */
-    {"SLICES", "[K1]SLICE[K2]MOVE[OCT+]SPLIT, JOIN"},
     {"OPERATOR", H_FMOP},
     {"OP ENV", H_FMOP},
     {"OPERATOR 2", H_FMOP},
@@ -48,9 +46,6 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"LAYER ENV", H_VDL},
     {"PART", H_VDP},
     {"PART 2", H_VDP},
-    {"OSC 1", H_DBX},                                /* (M-Vave-OP1, ui_dbox.c) */
-    {"OSC 2", H_DBX},
-    {"SOUND", H_DBX},
     {"VOICE", "[K1]POLY, MONO[K2]GLIDE"},
     {"VOICE 2", "[K2]DETUNE[K3]PAN[K4]MUTE"},
     {"VOICE 3", "[K1]STEREO SPREAD[SELECT]EDIT 1"},

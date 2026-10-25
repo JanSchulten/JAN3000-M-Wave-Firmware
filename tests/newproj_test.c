@@ -3,13 +3,13 @@
 /* A new project's sounds, drawn at random (firmware/src/newproj.c, M-Vave-OP1), through the UI harness:
  *   NEW      SAVE > PROJECT's F#5 asks START A NEW PROJECT? (UNSAVED MUSIC IS LOST); OCT- keeps the music; OCT+
  *            makes a new project in no slot: T1 a factory BASS, T2 the power-on pad (FM6 PAD), T3 a LEAD, T4 a kit
- *            (one of DRUM's six, named after it: "66 KIT"; or a VDRUM or DBOX kit, not their INIT); no steps on any
- *            track, no song, no FX TRACKS, no KEY, ORCHID off, Felucca's chorus, the globals' defaults (BPM).
+ *            (one of DRUM's six, named after it: "66 KIT"; or a VDRUM kit, not its INIT); no steps on any
+ *            track, no song, no FX TRACKS, no KEY, CSET off, Felucca's chorus, the globals' defaults (BPM).
  *   SLOT     OCT- on an empty slot asks NEW PROJECT IN SLOT C?; OCT+ makes the new project there (SAVE goes to it).
  *   BOOT     power-on with nothing restored (main.c: project_boot_new): felucca_init's project, the sounds drawn;
  *            boots with other stirs draw other sounds.
  *   DRAWS    900 draws from different states: every BASS and LEAD factory preset of category.c's list (no alias, no
- *            SAMPLE set this build lacks), every DRUM kit and every VDRUM / DBOX kit but INIT comes up, nothing else.
+ *            SAMPLE set this build lacks), every DRUM kit and every VDRUM kit but INIT comes up, nothing else.
  * jan_test.c checks the page's keys, LOAD? and OVERWRITE?. Built and run by tests/run_tests.sh. */
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
@@ -42,7 +42,7 @@ static int sounds_ok(void)
 }
 static int empty_ok(void)
 {
-    uint32_t k, l, ok = chain_config.count == 0u && !keyt.on && !orc_en && chos.type == CHO_CHORUS && !chos.fdbk &&
+    uint32_t k, l, ok = chain_config.count == 0u && !keyt.on && !cset_en && chos.type == CHO_CHORUS && !chos.fdbk &&
                         song.g[G_BPM] == GP[G_BPM].def && !song.playing && motion.count == 0u;
     for (k = 0; k < NTRK; k++)
         ok &= seq_is_empty(&trk[k]);
@@ -51,7 +51,7 @@ static int empty_ok(void)
             ok &= !fxt_lane[l].step[k];
     return (int)ok;
 }
-/* music worth keeping: steps, a tempo, a song row, an FX TRACK step, KEY, ORCHID, the chorus a flanger */
+/* music worth keeping: steps, a tempo, a song row, an FX TRACK step, KEY, CSET, the chorus a flanger */
 static void some_music(void)
 {
     trk[0].step[0].time = ST_NOTE;
@@ -64,7 +64,7 @@ static void some_music(void)
     chain_config.count = 1;
     fxt_lane[0].step[2] = 3;
     keyt.on = 1;
-    orc_en = 1;
+    cset_en = 1;
     chos.type = CHO_FLANGER;
 }
 static void tap(uint32_t k) { key_down(k); frame(); key_up(k); frame(); }
@@ -91,7 +91,7 @@ static void test_new(void)
     press(B_OCTUP); frames(50);
     ck("  OCT+: a new project, NEW PROJECT, in no slot", !ui.confirm && msg_is("NEW PROJECT") && proj_cur == PROJ_NO_SLOT);
     ck("  T1 a BASS, T2 the power-on pad, T3 a LEAD, T4 a kit", sounds_ok());
-    ck("  nothing of the old music: no steps, song, FX TRACKS, KEY, ORCHID; the chorus, BPM as at power-on", empty_ok());
+    ck("  nothing of the old music: no steps, song, FX TRACKS, KEY, CSET; the chorus, BPM as at power-on", empty_ok());
     {   /* a DRUM track's name is its kit's (ui.c preset_name_of: the footer, HOME TRACKS); 808 as the preset */
         char nm[16];
         set_engine_of(&trk[3], ENGI_DRUM);
@@ -187,9 +187,9 @@ static void test_draws(void)
         }
     for (k = 0; k < NELEM(NP_KITS); k++)
         kits += seen[2][ENGI_DRUM][NP_KITS[k]];
-    snprintf(what, sizeof what, "900 draws: %u of %u BASS / LEAD presets, %u of 6 DRUM kits, %u of %u VDRUM / DBOX kits, "
-             "%u off the lists", got, want, kits, dgot, dwant, wrong);
-    ck(what, want >= 15u && got == want && kits == 6u && dwant == 10u && dgot == dwant && !wrong);
+    snprintf(what, sizeof what, "900 draws: %u of %u BASS / LEAD presets, %u of 6 DRUM kits, %u of %u VDRUM kits (DBOX "
+             "retired), %u off the lists", got, want, kits, dgot, dwant, wrong);
+    ck(what, want >= 15u && got == want && kits == 6u && dwant == 7u && dgot == dwant && !wrong);
 }
 
 int main(void)

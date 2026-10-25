@@ -6,6 +6,11 @@
  *    reaches VD_PEAK_MAX, DC under 2 % of the peak, it sounds (RMS above -40 dB of full scale in its first 50 ms),
  *    and the track is silent (track_render returns 0, no voice) within the part's ring time + the resonator's
  *    DECAY + 0.6 s; a second hit renders the same samples again (the part from rest: deterministic).
+ *    M-Vave-OP1: the kick's tail is clean: the kits whose kick is a sine (INIT TUBES STRINGS DUB WOOD), struck at 127,
+ *    from 0.1 to 0.6 s the RMS of the second difference (the high end: a 50 Hz sine's is ~-86 dB under its own
+ *    level) under -76 dBFS. The level ramp of a layer fell short of the next block's start, a sawtooth at the block
+ *    rate (1378 Hz) on the decaying sine at ~-70 dBFS, heard as a hiss (eng_vdrum.c vd_layer_ctl; DRUM's 808 kick:
+ *    -81.5 dBFS).
  * 2. the GM map: each note on its part (vd_part_note), part 6 pitched by the toms (41..50 around 45).
  * 3. choke: the closed hat (part 4) brings a sounding open hat (part 5, the same group) below -60 dB of its level
  *    within 3 ms; with the groups apart (CHOK 0) it rings on.
@@ -160,6 +165,26 @@ static void kits_test(void)
                 h2 = (h2 ^ (uint32_t)yb[i]) * 1099511628211ull;
             CHECK(h1 == h2, "%s %s: a second hit from rest renders the same", VDRUM_PRESETS[pr].name, N_VD_PART[k]);
         }
+    }
+}
+
+/* M-Vave-OP1: the sine kicks' tails without the block rate's sawtooth (see the head: 1.) */
+static void tail_test(void)
+{
+    static const uint8_t SINE_KICK[] = {0, 2, 3, 5, 7};   /* INIT TUBES STRINGS DUB WOOD */
+    uint32_t j, i, a = FS / 10, e = FS * 6 / 10;
+    for (j = 0; j < NELEM(SINE_KICK); j++) {
+        double s = 0, db;
+        kit_fresh(SINE_KICK[j]);
+        hit(36, 127, FS);                             /* (past e: hit zeroes the samples after its last block) */
+        for (i = a; i < e; i++) {
+            double d = (double)yb[i] - 2.0 * yb[i - 1u] + yb[i - 2u];
+            s += d * d;
+        }
+        db = 10 * log10(s / (e - a) / (32768.0 * 32768.0) + 1e-20);
+        printf("vdrum: %-8s KICK tail 0.1 .. 0.6 s: the high end (2nd difference) %6.1f dBFS\n",
+               VDRUM_PRESETS[SINE_KICK[j]].name, db);
+        CHECK(db < -76, "%s KICK: the tail's high end %.1f dBFS under -76 (no hiss)", VDRUM_PRESETS[SINE_KICK[j]].name, db);
     }
 }
 
@@ -380,6 +405,7 @@ int main(int argc, char **argv)
 {
     map_test();
     kits_test();
+    tail_test();
     choke_test();
     reso_test();
     own_test();

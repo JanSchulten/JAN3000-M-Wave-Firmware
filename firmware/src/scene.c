@@ -267,7 +267,8 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
             for (j = 0; j < sizeof(step_t); j++)
                 if ((bm >> j) & 1u)
                     SCN_GET(s[j]);
-            if (st->n > 4u || st->time > ST_REST || (st->flags & ~(3u | SF_RATCH | SF_NUDGE)) || st->probability > 101u)
+            if (st->n > 4u || st->time > ST_REST || (st->flags & ~(3u | SF_RATCH | SF_NUDGE)) ||
+                (st->probability & ~STEP_LEG) > 101u)
                 return 0;                            /* (what proj_pack takes: a scene played is always saved) */
         }
     }
@@ -516,7 +517,7 @@ static uint32_t scene_queue(uint32_t k)
     off = scb_off(k);
     if (!scn_decode(scb.data + off, scb.len[k], SCN_BUF, tm))
         return SQ_BAD;
-    for (j = 0; j < NTRK; j++)                   /* (a VDRUM or DBOX track's lane notes as hits: kitlane.c) */
+    for (j = 0; j < NTRK; j++)                   /* (a VDRUM track's lane notes as hits: kitlane.c) */
         kit_steps_load(trk[j].eng_req, SCN_BUF->step[j]);
     {
         scn_view_t v;

@@ -377,6 +377,39 @@ static void proj_perc(project_t *q)
     q->sum = proj_sum(q);
 }
 
+/* M-Vave-OP1: a project with tracks of a retired engine (engines.c ENG_GONE): each is its successor's first preset
+ * (core.h eng_successor; its E values the preset's, the rest of the sound and the steps as stored; the motion on its E
+ * values dropped, as proj_perc's); idempotent */
+static void proj_retired(project_t *q)
+{
+    uint32_t k, i, n, hit = 0;
+    for (k = 0; k < NTRK; k++) {
+        proj_trk_t *d = &q->t[k];
+        const engine_t *e;
+        if (!eng_retired(d->engine))
+            continue;
+        d->engine = (uint8_t)eng_successor(d->engine);
+        e = ENGINES[d->engine];
+        for (i = 0; i < 8u; i++)
+            d->p[P_E0 + i] = e->npresets ? e->presets[0].e[i] : e->edit[i].def;
+        if (d->preset < PROJ_DEF_KEEP)
+            d->preset = 0;
+        hit |= 1u << k;
+    }
+    if (!hit)
+        return;
+    for (i = n = 0; i < q->motion.count && i < MOTION_MAX; i++) {
+        const motion_event_t *e = &q->motion.event[i];
+        if (((hit >> (e->place >> 6)) & 1u) && MOTION_ID(e) >= P_E0)
+            continue;
+        q->motion.event[n++] = *e;
+    }
+    for (i = n; i < q->motion.count && i < MOTION_MAX; i++)
+        memset(&q->motion.event[i], 0, sizeof q->motion.event[i]);
+    q->motion.count = (uint8_t)n;
+    q->sum = proj_sum(q);
+}
+
 /* a format 4 project (n bytes in *v4) -> slot q as format 6 */
 static int proj_from_v4(project_t *q, const project_v4_t *v4, int n)
 {
@@ -595,7 +628,8 @@ static int proj_pack(project_store_t *out, const project_t *q)
             const step_t *s = &q->t[t].step[i];
             uint32_t r = step_ratchet(s) - 1u;          /* RATCH: bit 7 of the velocity and chance bytes (see the top) */
             uint32_t nd = (uint32_t)step_nudge(s) & 15u;   /* NUDGE (FUN10): bit j in bit 7 of note j */
-            if (s->n > 4u || s->time > ST_REST || (s->flags & ~(3u | SF_RATCH | SF_NUDGE)) || s->probability > 101u)
+            if (s->n > 4u || s->time > ST_REST || (s->flags & ~(3u | SF_RATCH | SF_NUDGE)) ||
+                (s->probability & ~STEP_LEG) > 101u)    /* (M-Vave-OP1: LEGATO is in the extras, opstore.c) */
                 return 0;
             for (uint32_t j = 0; j < 4u; j++)           /* what proj_unpack checks, so a saved project always loads: */
                 b[pos++] = (uint8_t)((s->note[j] > 127u ? 127u : s->note[j]) | (nd >> j & 1u) << 7);   /* notes and
@@ -603,7 +637,7 @@ static int proj_pack(project_store_t *out, const project_t *q)
             b[pos++] = (uint8_t)(s->n | s->time << 3 | (s->flags & 3u) << 5);   /* only on hits */
             b[pos++] = (uint8_t)((s->vel > 127u ? 127u : s->vel) | (r & 1u) << 7); b[pos++] = s->hit;
             b[pos++] = s->acc & s->hit;
-            b[pos++] = (uint8_t)(s->probability | (r >> 1) << 7);
+            b[pos++] = (uint8_t)((s->probability & ~STEP_LEG) | (r >> 1) << 7);
         }
     }
     if (pos + sizeof q->chain + sizeof q->motion > PROJ_FM6_OFF) return 0;
@@ -785,7 +819,7 @@ static void proj_bound(project_t *q)
             step_t *s = &q->t[t].step[i];
             s->flags &= 3u | SF_RATCH | SF_NUDGE;
             s->vel &= 127u;
-            if (s->probability > 101u) s->probability = 0;
+            if ((s->probability & ~STEP_LEG) > 101u) s->probability &= STEP_LEG;
         }
         for (i = 0; i < P_COUNT; i++) {
             const param_desc_t *d = param_desc_of(q->t[t].engine % NENGINES, i);
@@ -833,8 +867,6 @@ static void project_capture(project_t *p)
         memcpy(p->t[i].step, trk[i].step, sizeof trk[i].step);
         if (trk[i].eng_req == ENGI_VDRUM)               /* (M-Vave-OP1) a VDRUM track: its own kit in the patch's */
             vd_pack(i, p->fm6[i]);                      /* place (eng_vdrum.c; its FM6 patch is not kept) */
-        else if (trk[i].eng_req == ENGI_DBOX)           /* .. a DBOX track's (eng_dbox.c) */
-            dbx_pack(i, p->fm6[i]);
         else
             fm6_pack(fm6_patch[i], p->fm6[i]);
     }
@@ -995,6 +1027,7 @@ static int project_restore_runtime(const project_t *input)
     proj_phys(p);                                       /* .. before PHYS lost DUST and DRUM */
     proj_fm4(p);                                        /* .. that had DIGITAL tracks */
     proj_perc(p);                                       /* .. or SAMPLE PERC tracks */
+    proj_retired(p);                                    /* .. or tracks of an engine retired since (M-Vave-OP1) */
     transport_req = 2;
     panic_req = (1u << NTRK) - 1u;
     fm1_irq_off();                                      /* the audio ISR must not see half a project */
@@ -1002,7 +1035,6 @@ static int project_restore_runtime(const project_t *input)
     transport_req = 0;
     scene_reset();                                      /* (M-Vave-OP1: one scene, the project's; project_load and the
                                                          * autosave bring its others) */
-    orc_reset();                                        /* (.. PLAY MODE CHORD's block: nothing held or latched) */
     chain_config = p->chain;
     motion = p->motion;
     memset(motion_active, 0, sizeof motion_active);
@@ -1024,15 +1056,12 @@ static int project_restore_runtime(const project_t *input)
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset >= PROJ_DEF_KEEP ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
         proj_steps(t->step);
-        kit_steps_load(e, t->step);                     /* (M-Vave-OP1: a VDRUM or DBOX track's lane notes as hits) */
+        kit_steps_load(e, t->step);                     /* (M-Vave-OP1: a VDRUM track's lane notes as hits) */
         {   /* the project's own FM6 patch, never reloaded from SLOT: F n if it is that factory patch, else OWN; a VDRUM
              * track's own kit (M-Vave-OP1: in the patch's place) and the init voice */
             uint8_t v[FP_SIZE + 1u];
-            if (e == ENGI_VDRUM || e == ENGI_DBOX) {
-                if (e == ENGI_VDRUM)
-                    vd_unpack(k, p->fm6[k]);
-                else
-                    dbx_unpack(k, p->fm6[k]);
+            if (e == ENGI_VDRUM) {
+                vd_unpack(k, p->fm6[k]);
                 fm6_unpack(FM6_INIT, v);
             } else {
                 fm6_unpack(p->fm6[k], v);
@@ -1052,7 +1081,7 @@ static int project_restore_runtime(const project_t *input)
         track_t *t = &trk[k];
         int16_t keep[P_COUNT];
         if (p->t[k].preset == PROJ_DEF_SOUND) {
-            apply_preset_to(t, TRK_DEF[k][1]);
+            preset_load_to(t, TRK_DEF[k][1], 1);   /* with its sends, as saved then (ui.c preset_fx) */
             track_defaults_steps(t);
         } else if (p->t[k].preset == PROJ_DEF_KEEP) {   /* the steps, LEVEL PAN MUTE, LEN DIV SWING GATE kept */
             memcpy(keep, t->p, sizeof keep);
@@ -1091,7 +1120,7 @@ static void project_load(uint32_t slot)
 
 /* M-Vave-OP1, SAVE > PROJECT > NEW: a new project, everything as at power-on: empty steps (PROJ_DEF_SOUND), the
  * globals' defaults (BPM, the FX buses), no song, no motion, no name; and the extras none has (FX TRACKS empty, FX1 the
- * DELAY, ORCHID off, the CHORUS Felucca's, no KEY run), one scene; its sounds drawn (newproj.c: T1 a bass, T3 a lead,
+ * DELAY, CSET off, the CHORUS Felucca's, no KEY run), one scene; its sounds drawn (newproj.c: T1 a bass, T3 a lead,
  * T4 a drum kit, T2 the power-on pad). Through project_restore_runtime, as a load (the transport stopped, the ISR off
  * while it changes). slot: the empty slot it was asked for on (OCT- there: SAVE goes to it, its letter in the header),
  * else (F#5) none; the slots stay */
@@ -1122,7 +1151,7 @@ static void project_new(uint32_t slot)
     memset(&none, 0, sizeof none);
     xtra_lanes(fxt_lane, &none, 0);
     xtra_fx1(&none, 0);
-    xtra_orc(&none, 0);
+    xtra_misc(&none, 0);
     np_sounds();
     for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
         pat_sig[k] = steps_sig(&trk[k]);
@@ -1139,9 +1168,6 @@ static void project_new(uint32_t slot)
 /* settings + learned panel table: one flash object. The flash copy wins at
  * boot (the .noinit copies are garbage after a power-off). */
 #include "settings_persist.c"
-#if FELUCCA_FLASH && FELUCCA_SLICE
-#include "slice_store.c"                          /* SLICE's MAN slices, kept in the user slots */
-#endif
 #if FELUCCA_FLASH
 static persist_t persist_saved __attribute__((section(".pool")));
 static uint8_t persist_pending;                 /* 1 requested, 2 waiting after a flash error */
@@ -1159,9 +1185,6 @@ static void persist_boot(void)                    /* before settings_init / pane
         return;
     fl_plain_window_init();                        /* flash above 0x93000 reads as plaintext through XIP
                                                     * (user sample sets are played from there) */
-#if FELUCCA_SLICE
-    slc_store_boot();                              /* (the scans read each slot's stored slices) */
-#endif
     {
         uint32_t k;
         for (k = 0; k < SMP_USER_SLOTS; k++)
@@ -1234,6 +1257,7 @@ static uint32_t chain_prepare(void)
             for (k = 0; k < NTRK; k++) {
                 memcpy(chain.source[i].step[k], p->t[k].step, sizeof p->t[k].step);
                 proj_steps(chain.source[i].step[k]);
+                xtra_leg(chain.source[i].step[k], k, &xtra_slot[i], xtra_proj_id(i));   /* (M-Vave-OP1: LEGATO) */
                 chain.source[i].qnt[k] = p->t[k].p[P_SQNT] != 0;
                 for (j = 0; j < 4u; j++)
                     chain.source[i].timing[k][j] = (int16_t)clamp(p->t[k].p[P_SLEN + j],
@@ -1275,9 +1299,6 @@ static void settings_poll(void)
 {
 #if FELUCCA_FLASH
     persist_t p;
-#if FELUCCA_SLICE
-    slc_store_poll();                              /* SLICE's slices edited on the SLICES page */
-#endif
     if (!persist_pending || !flash_ok || transport_busy() ||
         (persist_pending == 2u && (uint32_t)(fm1_ms - persist_retry_ms) < 1000u)) {
         persist_since = fm1_ms;
@@ -1363,8 +1384,6 @@ static uint32_t autosave_sig(void)
         h = as_mix(h, fm6_patch[i], sizeof fm6_patch[i]);
         if (t->eng_req == ENGI_VDRUM)                   /* (M-Vave-OP1) its own kit, which the project keeps */
             h = as_mix(h, vd_own[i], VK_SIZE);
-        if (t->eng_req == ENGI_DBOX)
-            h = as_mix(h, dbx_own[i], VK_SIZE);
     }
     for (i = 0; i < G_COUNT; i++)
         if (i != G_SLOT && i != G_NAME && i != G_LOAD && i != G_SAVE)
@@ -1372,8 +1391,9 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
-    h = as_mix(h, orc_voice, sizeof orc_voice);     /* SCL > ORCHID's VOICE and ON too; */
-    h = as_mix(h, &orc_en, 1);
+    h = as_mix(h, cset_set, sizeof cset_set);       /* SCL > CSET's ON, SETs and VOICEs too; */
+    h = as_mix(h, cset_voice, sizeof cset_voice);
+    h = as_mix(h, &cset_en, 1);
     {                                               /* the CHORUS's TYPE and FDBK (fx.c) */
         uint8_t c[2] = {chos.type, chos.fdbk};
         h = as_mix(h, c, 2);

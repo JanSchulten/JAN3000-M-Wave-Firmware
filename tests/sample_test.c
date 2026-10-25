@@ -223,11 +223,6 @@ int main(int argc, char **argv)
               zone == 2 && rms(FS / 2u, FS) > 100.0);
     }
 
-    /* 2: SLICE's PIANO, SAMPLE PIANO's middle C zone itself */
-    check("SLICE PIANO: SAMPLE PIANO's middle C zone itself (16537 samples at 22,050 Hz, no copy)",
-          SLC_PIANO.len == 16537u && SLC_PIANO.rate == 32768u && SLC_PIANO.seg[0].off == SMP_ZONES[2].off &&
-          SLC_PIANO.len == SMP_ZONES[2].n);
-
     /* 3: PIANO HD (1.2's file of the old piano), from a user slot: as SET 0, bit for bit */
     snprintf(path, sizeof path, "%s.hdr", argv[1]);
     if (load(path, host_slots, SMP_USER_DATA) != (long)sizeof(smp_user_hdr_t)) {

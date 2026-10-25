@@ -82,7 +82,7 @@ static int mom_turn(uint32_t k, int32_t s)
     } else {
         if (act_cols() || lock_held() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
             pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
-            pg->graph == GR_PATS || (pg->graph == GR_SLICES && k < 2u) || (pg->graph == GR_MOD && k == 0u) ||
+            pg->graph == GR_PATS || (pg->graph == GR_MOD && k == 0u) ||
             pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
             return 0;
         d = page_desc(pg, k, &vp);
@@ -116,7 +116,8 @@ static uint32_t oct_leds(void)
         return ui.ly != LAYER_SEQ ? 1u :                /* SEQ: the scene before / after, lit where there is one */
                (scene_target() > 0u ? 1u : 0u) | (scene_target() + 1u < SCN_N ? 2u : 0u);
     if (ui.menu && !ui.confirm)
-        return ui.menu >= 2u ? 1u :                    /* (INFO, ABOUT: OCT- back, lit) */
+        return ui.menu >= 2u ? (ui.menu == 3u ? 1u | OCT_BREATH : 1u) :   /* (INFO, ABOUT: OCT- back, lit; INFO's
+                                                        * OCT+ the FPU probe, M-Vave-OP1) */
                ui.menu_sel == MI_LCLEAR ? (ml_count() ? OCT_BREATH : 0u) :   /* LEARN CLEAR: while CCs are learned */
                ui.menu_sel >= MI_VALUES ? OCT_BREATH :  /* CALIBRATION / INFO / ABOUT: OCT+ opens */
                (menu_step(ui.menu_sel, -1) != menu_get(ui.menu_sel) ? OCT_BREATH_DN : 0u) |   /* a value: each */
@@ -282,9 +283,6 @@ static uint32_t step_leds(void)
 static int keys_own(void)
 {
     return (name_on() && !ui.menu) || ui.layer || grid_on()
-#if FELUCCA_SLICE
-           || (!ui.menu && !name_on() && slice_page_on())
-#endif
         ;
 }
 
@@ -344,19 +342,6 @@ static int idle_leds(void)
         fm1_led_idle_start(settings_leds == LEDS_DIM || settings_leds == LEDS_DIM_LO);
     return fm1_led_idle_on();
 }
-/* M-Vave-OP1, SCL > ORCHID (orchid.c): the selected track plays the Orchid's keyboard here (no layer, no grid, no
- * NAME, not SONG's keys) */
-static int orc_ui(void) { return orc_on(TSEL) && !song.grid; }
-/* .. the chord block's LEDs: a key down or latched lit, B3 lit while LOCK is on */
-static uint32_t orc_leds(void)
-{
-    uint32_t k, m = 0, down = orc.down;
-    for (k = 0; k < ORC_KEYS; k++)
-        m |= (ORC_KEY[k] == ORC_LOCK ? (uint32_t)orc.lock : (down >> ORC_KEY[k]) & 1u) << k;
-    return m;
-}
-/* .. ORCHID's KNOB 1 ON / OFF (the selected track's), KNOB 2 its VOICE (-12..+12), KNOB 3 LOCK (the ISR takes it:
- * orc_lock_req) */
 /* .. GLO > KEY's knobs (key.c): KNOB 1 the bar (the cursor), 2 its ROOT (- before C .. B: - none), 3 LEN 1..16, 4 ON.
  * M-Vave-OP1: an edit makes the KEY the scene playing's own (key_own: scene.c keeps it with the scene) */
 static void key_knob(uint32_t slot, int32_t steps)
@@ -457,16 +442,17 @@ static void key_keys(uint32_t notes)
     key_live = (uint8_t)pc;
     scn_irq_on();
 }
-static void orc_knob(uint32_t slot, int32_t steps)
+/* M-Vave-OP1, SCL > CSET's knobs (cset.c), the selected track's: KNOB 1 ON / OFF (ON makes it POLY, OFF gives its
+ * VOICE back), 2 the SET (1 .. 100), 3 the GENRE (the first set of the next / previous one) */
+static void cset_knob(uint32_t slot, int32_t steps)
 {
-    if (slot == 0u) {
-        orc_en = (uint8_t)(steps > 0 ? orc_en | 1u << song.sel : orc_en & ~(1u << song.sel));
-    } else if (slot == 1u) {
-        int32_t v = clamp((int32_t)orc_voice[song.sel] + (steps > 0 ? 1 : -1), -12, 12);
-        orc_voice[song.sel] = (int8_t)v;
-    } else if (slot == 2u) {
-        orc_lock_req = (uint8_t)(steps > 0 ? 2u : 1u);
-    }
+    uint32_t k = song.sel % NTRK;
+    if (slot == 0u)
+        cset_switch(TSEL, steps > 0);
+    else if (slot == 1u)
+        cset_set[k] = (uint8_t)clamp((int32_t)cset_set[k] + steps, 0, (int32_t)CSET_N - 1);
+    else if (slot == 2u)
+        cset_set[k] = (uint8_t)cset_genre_step(cset_set[k], steps);
 }
 
 /* the key LEDs, bit k = key k: NAME's keys, the layer's map, the DRUM grid, else the keys held and the notes
@@ -480,12 +466,7 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
     if (!grid_on())                                     /* (M-Vave-OP1: a lane's flash only for hits the grid saw) */
         memset((void *)drum_lit, 0, sizeof drum_lit);
     c = name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds(br) : grid_on() ? grid_leds() :
-        orc_ui() ? (((fm1_in.notes & ~kb_layer) | play_leds() | step_leds()) & ~ORC_BLOCK) | orc_leds() :
                  (fm1_in.notes & ~kb_layer) | play_leds() | step_leds() | (song_keys_on() ? song_leds() : 0u);
-#if FELUCCA_SLICE
-    if (!ui.layer && !ui.menu && !name_on() && slice_page_on())
-        c |= slice_leds();                              /* SLICES: and the keys of the selected slice */
-#endif
     if (slots_keys_on())                                /* M-Vave-OP1, PROJECT: the projects' keys and NEW */
         c = 1u << 0 | 1u << 2 | 1u << 4 | 1u << 6 | 1u << SLOT_KEY_NEW;
     return c;
@@ -504,8 +485,8 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
  * keyboard (the steps of an empty pattern); on it the first step of each four (grid_beats: 1 5 9 13 of a page, where
  * no hit shows) glows steadier and brighter, so a bar's beats can be counted: DIM HI / DIM LO the mid level
  * (hal/fm1_input.h fm1_led_mid: lit 1 frame in 8, DIM LO in 12, over the glow), OFF and INV the glow alone (no
- * other key glows there). 1.2, MENU > SCALE LEDS ON (scale_leds; not over a map of the keys' own, nor on a DRUM or
- * SLICE track): the keys of the selected track's scale glow and the others are dark, the root's at the mid level, in
+ * other key glows there). 1.2, MENU > SCALE LEDS ON (scale_leds; not over a map of the keys' own, nor on a DRUM
+ * track): the keys of the selected track's scale glow and the others are dark, the root's at the mid level, in
  * DIM HI, DIM LO and OFF alike (asked for: OFF only takes the other glow away); INV turns it around as it does the
  * rest: the root's keys lit, the scale's at the mid level, the others glowing; the keys held and playing as ever
  * (lit, INV dark). Each picture is built off-line and copied one byte per column, the
@@ -1110,6 +1091,7 @@ static void step_edit(uint32_t slot, int32_t steps)
             st->note[0] = last_note;
             st->n = 1;
             st->time = ST_NOTE;
+            st->probability &= (uint8_t)~STEP_LEG;        /* (a note of its own: no LEGATO from before) */
             note_off.step = 0;
         } else {
             for (i = 0; i < st->n; i++) {
@@ -1182,6 +1164,7 @@ static void step_oct(int up)
     if (st->time != ST_NOTE || !st->n) {
         st->n = 0;
         st->time = ST_NOTE;
+        st->probability &= (uint8_t)~STEP_LEG;
     }
     for (i = 0; i < st->n && st->note[i] != last_note; i++)
         ;
@@ -1211,8 +1194,8 @@ static void edit_param(uint32_t slot, int32_t steps)
         ev_knob(slot, steps);
         return;
     }
-    if (pg->graph == GR_ORCH) {                        /* M-Vave-OP1, SCL > ORCHID: 1 ON, 2 VOICE, 3 LOCK */
-        orc_knob(slot, steps);
+    if (pg->graph == GR_CSET) {                        /* M-Vave-OP1, SCL > CSET: 1 ON, 2 SET, 3 GENRE */
+        cset_knob(slot, steps);
         return;
     }
     if (pg->graph == GR_CHO && (slot == 0u || slot == 3u)) {   /* .. CHORUS: KNOB 1 TYPE, 4 FDBK (fx.c chos; RATE
@@ -1351,13 +1334,6 @@ static void edit_param(uint32_t slot, int32_t steps)
         }
         return;
     }
-#if FELUCCA_SLICE
-    if (pg->graph == GR_SLICES && slot < 2u) {           /* SLICES: KNOB 1 the marker, 2 moves it (ui_slice.c) */
-        if (slice_page_ok())                              /* (the engine changed before ui_draw left the page) */
-            slice_knob(slot, steps);
-        return;
-    }
-#endif
     if (pg->graph == GR_DLANE) {                          /* M-Vave-OP1, EDIT > SOUNDS: the lane's TUNE DECAY TONE SOUND */
         if (drum_track(TSEL)) {
             uint32_t v = dl_get(TSEL->p, ui.lane, slot);
@@ -1392,10 +1368,6 @@ static void edit_param(uint32_t slot, int32_t steps)
     }
     if (vdu_page(pg->graph)) {                           /* (M-Vave-OP1) VDRUM's parts: their kit bytes (ui_vdrum.c) */
         vdu_knob(slot, steps);
-        return;
-    }
-    if (dbu_page(pg->graph)) {                           /* (M-Vave-OP1) DBOX's keys: their kit bytes (ui_dbox.c) */
-        dbu_knob(slot, steps);
         return;
     }
     if (pg->graph == GR_MOD && slot == 0u) {             /* MOD: KNOB 1 the slot, 2..4 its SRC DST AMT */
@@ -1456,13 +1428,6 @@ static void act_do(void)
             pat_load_ui(TSEL, pat_pick());
         return;
     }
-#if FELUCCA_SLICE
-    if (cur_page()->graph == GR_SLICES) {                 /* SPLIT / JOIN: stays picked (split again, join again) */
-        if (slice_page_ok())
-            slice_act(c);
-        return;
-    }
-#endif
     if (cur_page()->graph == GR_USER) {                   /* 1 LOAD, 2 ERASE, 3 SAVE (the NAME screen first) */
         if (c > 1u)
             ui.act = 0;
@@ -1542,6 +1507,7 @@ static void step_toggle(const track_t *t, step_t *st, const uint8_t *ch, uint32_
     if (st->time != ST_NOTE) {
         st->n = 0;
         st->time = ST_NOTE;
+        st->probability &= (uint8_t)~STEP_LEG;
     }
     for (j = 0; j < st->n && st->note[j] != ch[0]; j++)
         ;
@@ -1581,15 +1547,15 @@ static void seq_entry(uint32_t pressed)
 {
     track_t *t = TSEL;
     step_t *st = &t->step[ui.cursor];
-    uint32_t k, add = (ui_prefs2 & (PREF_CHORD_ADD >> 16)) != 0u, orc_k = orc_ui() ? ORC_BLOCK : 0u;
+    uint32_t k, add = (ui_prefs2 & (PREF_CHORD_ADD >> 16)) != 0u, cs = cset_on(t);
     for (k = 0; k < 27u; k++) {
-        uint8_t ch[ORC_MAX];
+        uint8_t ch[CHORD_MAX];
         int32_t r;
         uint16_t mask;
         uint32_t note, n, i, j;
-        if (!((pressed >> k) & 1u) || ((orc_k >> k) & 1u))   /* (SCL > ORCHID: the chord block enters nothing) */
+        if (!((pressed >> k) & 1u))
             continue;
-        note = kb_map(t, k);
+        note = cs ? cset_key(k) : kb_map(t, k);         /* (M-Vave-OP1, SCL > CSET: every key its chord, cset.c) */
         if (note == KB_SILENT)
             continue;
         if (!ui.entry_open) {
@@ -1597,10 +1563,11 @@ static void seq_entry(uint32_t pressed)
             if (!add) {
                 st->n = 0;
                 st->time = ST_NOTE;
+                st->probability &= (uint8_t)~STEP_LEG;   /* (M-Vave-OP1: notes written anew, no LEGATO) */
             }
         }
-        if (orc_k)                                     /* M-Vave-OP1, SCL > ORCHID: the Orchid's chord (orchid.c) */
-            n = orc_chord(note, orc_type(), (orc.down >> ORC_X6) & 15u, orc_voice[song.sel], trk_vmode(t) != V_POLY, ch);
+        if (cs)
+            n = cset_make(t, note, t->p[P_TRANS], ch);
         else
             n = chord_make(t, note, ch, &r, &mask);    /* (CHRD OFF, a kit: the note alone; MONO: the root) */
         if (add)
@@ -1618,7 +1585,7 @@ static void seq_entry(uint32_t pressed)
         }
         last_note = (uint8_t)note;
     }
-    if (ui.entry_open && !(fm1_in.notes & ~kb_layer & ~orc_k)) {   /* (a chord key held: the roots go on) */
+    if (ui.entry_open && !(fm1_in.notes & ~kb_layer)) {
         if (add)
             ui.entry_open = 0;                          /* (ADD: the cursor stays) */
         else
@@ -1656,7 +1623,7 @@ static void presets_turn(int32_t s)
         edit_param(0, s);                                 /* KNOB 1's (STEP: STOP TO EDIT while a song plays) */
         ui.hot_col = 0;
         ui.hot_t = 40;
-    } else if (g != GR_TOOLS && g != GR_SLICES) {
+    } else if (g != GR_TOOLS) {
         preset_step(s);
     }
 }
@@ -1795,7 +1762,7 @@ static void ui_input(void)
     midi_pc_poll();                                     /* MIDI Program Change (before fm6_poll: a bank voice) */
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
     if (kit_track(TSEL) && ui.lane >= kit_track(TSEL))  /* (M-Vave-OP1: a VDRUM track's six lanes; lane 7 or 8 picked */
-        ui.lane = (uint8_t)(kit_track(TSEL) - 1u);      /* on a DRUM or DBOX track) */
+        ui.lane = (uint8_t)(kit_track(TSEL) - 1u);      /* on a DRUM track) */
 #if !FELUCCA_FM4
     for (k = 0; k < NTRK; k++)                          /* a DIGITAL sound any other way (the paths convert it */
         if (trk[k].eng_req == ENGI_DIGITAL)             /* already): FM6 (fm4_convert.c) */
@@ -2084,10 +2051,6 @@ static void ui_input(void)
         if (k < 27u)
             ui.lane = (uint8_t)drum_lane((uint32_t)drum_keys(TSEL, k));
     }
-#if FELUCCA_SLICE
-    if (notes && slice_page_on())                       /* SLICES: a key picks the slice it plays */
-        slice_keys_pick(notes);
-#endif
     lock_keys();                                        /* (a grid key on a hit let go: the hit goes) */
     if (song.grid == 5u) {
         slots_keys(notes);                              /* (M-Vave-OP1: SAVE > PROJECT) */
@@ -2151,10 +2114,9 @@ static void ui_input(void)
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
             || pg->graph == GR_SONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
-            pg->graph == GR_CLOUD || (pg->graph == GR_SLICES && k < 2u) ||
-            (pg->graph == GR_ORCH && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
-            (vdu_page(pg->graph) && vdu_field(k) != VU_NONE) || (dbu_page(pg->graph) && dbu_field(k) != DU_NONE)) {   /* (not an empty
-                                                                                                          * column) */
+            pg->graph == GR_CLOUD ||
+            (pg->graph == GR_CSET && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
+            (vdu_page(pg->graph) && vdu_field(k) != VU_NONE)) {   /* (not an empty column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;
         }

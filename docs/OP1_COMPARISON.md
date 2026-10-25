@@ -56,7 +56,7 @@ Das Handbuch beschreibt den Ablauf so: *Sound erstellen → sequenzieren → auf
 | --- | --- | --- | --- |
 | 1. Sound wählen | SYNTH oder DRUM, Sound-Taste 1–8 | ALGORITHM (Spur), PRESETS (Sound) | Synth und Drum sind auf dem FM-1 einfach Spuren mit verschiedenen Engines; das passt |
 | 2. Sound formen | T1–T4 + Farb-Encoder, SHIFT+T1 tauscht nur die Engine | EDIT, ENV, FX, LFO + KNOB 1–4; EDIT halten tauscht die Engine | kaum; Grafiken im OP-1-Stil fehlen (Schritt 9) |
-| 3. Sequenzieren | 4 Sequencer, Tasten transponieren die Sequenz | Step-Sequencer (64 Schritte), ARP, Orchid-Akkorde (SCL > ORCHID), SONG | ENDLESS, TOMBOLA, FINGER; Transponieren per Taste (Schritt 8) |
+| 3. Sequenzieren | 4 Sequencer, Tasten transponieren die Sequenz | Step-Sequencer (64 Schritte), ARP, Akkord-Sets des Roland J-6 (SCL > CSET), SONG | ENDLESS, TOMBOLA, FINGER; Transponieren per Taste (Schritt 8) |
 | 4. Aufnehmen | TAPE, Spur, REC + PLAY | GLO > TAPE, REC | ✅ seit M1 |
 | 5. Tape bearbeiten | Lift, Drop, Split, Tricks, Speed, Reverse | Loop, Speed, Rückwärts, Löschen | Lift/Drop/Split, Tricks, Sprünge (Schritte 2–4) |
 | 6. Mischen | Pegel/Pan, EQ, Master-FX, Drive | Pegel, Pan, Hall, Mute pro Spur, Limiter | EQ, Master-FX, Drive (Schritt 6) |
@@ -82,16 +82,16 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | OP-1 | Bestes Gegenstück auf dem FM-1 | Stand |
 | --- | --- | --- |
 | FM (4 Operatoren: Topology, Freq, FM Amount, Detune) | FM6 (6 Operatoren, 32 Algorithmen, DX7-artig) | 🟡 mehr als das OP-1, aber keine 4-Regler-Makroseite |
-| Cluster (bis 6 Oszillatoren) | TRIO (3 Oszillatoren), ANALOG mit UNISON | 🟡 |
+| Cluster (bis 6 Oszillatoren) | ANALOG / ANLG2 mit UNISON (TRIO ausgemustert; geplant: SWARM nach Plaits) | 🟡 |
 | Digital (Wave Shaper, Octave, Ring Mod, Digitalness) | LOFI (Chip-Wellen) | 🟡 |
 | String (Waveguide) | PHYS (Saiten, Modal, Rings-Saiten) | ✅ |
 | Pulse (zwei Pulszüge) | ANALOG (Puls), LOFI PULSE | 🟡 |
-| Phase (Phase Distortion) | PHASE (CrispyZebra-Oszillator) | ✅ |
+| Phase (Phase Distortion) | – (PHASE ausgemustert; geplant: WAVESHAPE nach Plaits, [PLAITS_PLAN.md](PLAITS_PLAN.md)) | ❌ vorerst |
 | Dr Wave (Frequenzbereich) | WHEEL (additiv, 9 Teiltöne) | 🟡 |
 | Synth-Sampler (6 s) | SAMPLE (3 Nutzer-Slots, ~7 s bei 22 kHz) | 🟡 Samples kommen per USB, nicht über ein Mikrofon |
-| Drum-Sampler (12 s, Teile auf Tasten) | SLICE (Slices auf den Tasten) | ✅ das Prinzip ist dasselbe |
+| Drum-Sampler (12 s, Teile auf Tasten) | SAMPLE mit Nutzer-Slot (SLICE ausgemustert) | 🟡 |
 | DBOX (Drum-Synth) | DRUM (synthetische Kits, GM-Belegung) | ✅ |
-| – | VOICE (Formant), GRAIN, NOISE | Extras des FM-1 |
+| – | GRAIN, NOISE (VOICE ausgemustert; geplant: WAVETABLE nach Plaits) | Extras des FM-1 |
 
 ### Hüllkurve, Play Mode, Effekte, LFO
 
@@ -119,7 +119,7 @@ wie sie gespielt wurde, und bleibt trotzdem veränderbar.
 | TOMBOLA: Noten springen in einem drehenden Sechseck | ❌ | Schritt 8 |
 | FINGER: zwei Spieler, Muster pro weißer Taste, JOIN/REPLACE/FILL IN | ❌ | Schritt 8 |
 | Transponieren einer Sequenz mit der Tastatur | 🟡 SCL > TRN, nicht per Taste | Schritt 8 |
-| – | ARP mit vielen Modi; SCL > ORCHID, die Akkord-Tastatur des Orchid (nach ChoralRoot FM-1: Akkordblock F3 .. C#4, Grundtöne D4 .. G5, VOICE, LOCK); Akkord-Tasten (CHRD), SONG-Kette | Extras des FM-1 |
+| – | ARP mit vielen Modi; SCL > CSET, die 100 Akkord-Sets des Roland J-6 (jede Taste ein Akkord); Akkord-Tasten (CHRD), SONG-Kette | Extras des FM-1 |
 | (OP-Z) Pattern-Ketten, nächstes Pattern vormerken | SONG: REC + A–D tippt eine Kette, LOOP, Änderungen im laufenden Song | ✅ seit M2b |
 | (OP-Z) 16 Patterns pro Projekt | SZENEN: SEQ halten + weiße Taste, OCT+ / OCT− die nächste / vorige, OCT+ halten kopiert die Szene in die nächste freie; im Spiel am Ende des Patterns | ✅ seit M2c |
 | (OP-Z) FX-Spuren FX1/FX2 und aufgenommene Punch-in-FX | FX > FX TRACKS: zwei Effekt-Spuren, REC + FX halten + Tasten nimmt auf | ✅ seit M2b |
@@ -202,7 +202,7 @@ mit jeder Engine, wie bisher) und **zwei FX-Spuren**, die nur Schritte speichern
 
 | OP-Z | M-Vave-OP1 | Stand |
 | --- | --- | --- |
-| Spuren 1–8 (Drums, Synths) | vier Spuren, jede mit beliebiger Engine (DRUM, FM6, SAMPLE, SLICE …) | ✅ |
+| Spuren 1–8 (Drums, Synths) | vier Spuren, jede mit beliebiger Engine (DRUM, FM6, SAMPLE, VDRUM …) | ✅ |
 | FX1 / FX2 (Send-Effekte mit Schritten) | FX TRACKS: zwei Spuren mit den Effekten der FX-Ebene, eigene Länge 1–64 | ✅ |
 | Punch-in-FX (SHIFT + Tasten) | FX halten + weiße Tasten (Effekte), schwarze 1–4 (Mutes) | ✅ (aus Felucca) |
 | Punch-in-FX mit REC aufnehmen | REC auf FX TRACKS armt eine Spur; quantisiert, gehalten = TIE, Overdub, Punch | ✅ |

@@ -65,7 +65,7 @@ static int32_t midi_base(void)
 static uint32_t trk_midi_ch(uint32_t i) { return (midi_base() > 0 ? (uint32_t)midi_base() : 0u) + i % NTRK; }
 
 static int drum_track(const track_t *t) { return ENGINES[eng_idx(t->eng_req)] == &ENG_DRUM; }
-/* a track with a kit's grid (DRUM, M-Vave-OP1: VDRUM, DBOX; kitlane.c): its lanes, 0 for the piano roll */
+/* a track with a kit's grid (DRUM, M-Vave-OP1: VDRUM; kitlane.c): its lanes, 0 for the piano roll */
 static uint32_t kit_track(const track_t *t) { return kit_lanes(t->eng_req); }
 
 /* the 27 keys from F: black or white, and the key's place among the keys of its colour (white 0..15, black
@@ -206,7 +206,7 @@ static void arp_remove(track_t *t, uint32_t note)
 }
 
 #define ND_NONE 0u                      /* track_t nd_late / nd_early: nothing latched (seq_tick; else its seq_pos + 1) */
-static void rec_note(track_t *t, uint32_t note, uint32_t vel);
+static void rec_note(track_t *t, uint32_t note, uint32_t vel, int leg);
 static void rec_release(track_t *t, uint32_t note);
 static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) && song.playing && !chain.running; }
 
@@ -224,7 +224,7 @@ static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) &
  * notes together (the first 4), an octave higher each step through OCT */
 enum { AM_OFF, AM_UP, AM_DN, AM_UPDN, AM_RND, AM_ORD, AM_REPEAT, AM_DNUP, AM_UP8, AM_CONV, AM_DIVG, AM_PINKY,
        AM_THUMB, AM_WALK, AM_CHORD };
-#include "orchid.c"                              /* SCL > ORCHID (M-Vave-OP1): the Orchid's keyboard */
+#include "cset.c"                                /* SCL > CSET (M-Vave-OP1): chord sets after the Roland J-6's */
 
 static void arp_forget(track_t *t)               /* (its notes ended otherwise: trk_all_off) */
 {
@@ -259,7 +259,7 @@ static __attribute__((noinline)) void arp_chord(track_t *t, const uint32_t *list
         else
             t->arp_ch[i - 1u] = (uint8_t)nt;
         if (rec_on(t))
-            rec_note(t, nt, 100);
+            rec_note(t, nt, 100, 0);
         trk_note_on(t, nt, 100);
     }
 }
@@ -417,7 +417,7 @@ static __attribute__((noinline)) void arp_fire(track_t *t, uint32_t period)
         }
         t->arp_note = (uint8_t)list[j];
         if (rec_on(t))
-            rec_note(t, t->arp_note, 100);           /* recording: what the arp plays */
+            rec_note(t, t->arp_note, 100, 0);        /* recording: what the arp plays */
         trk_note_on(t, t->arp_note, 100);
     }
 }
@@ -472,8 +472,10 @@ static __attribute__((noinline)) int32_t rec_nudge(int32_t off, uint32_t period)
  * held becomes a TIE (rec_hold), up to the pattern length; a release before the middle
  * of the last one puts that step back (rec_release), so a short note stays one step.
  * A note recorded into another step ends the hold before (the step model ties the
- * notes of one step only). */
-static void rec_note(track_t *t, uint32_t note, uint32_t vel)
+ * notes of one step only). M-Vave-OP1: leg, the note played legato (a LEG / UNI track, a note sounding: input_on):
+ * pressed while the hold of a step before is still on, its step is LEGATO (core.h STEP_LEG), so it plays back as it
+ * was heard, the envelope going on (seq_step); a fresh step is no LEGATO. */
+static void rec_note(track_t *t, uint32_t note, uint32_t vel, int leg)
 {
     uint32_t len = t->p[P_SLEN] > 0 ? (uint32_t)t->p[P_SLEN] : 1u, idx = t->seq_idx % len, k;
     uint32_t period = div_samples((uint32_t)t->p[P_SDIV]), cur = step_samples(t, period, t->seq_idx);
@@ -486,12 +488,13 @@ static void rec_note(track_t *t, uint32_t note, uint32_t vel)
     /* the step's notes play later in this pass (it is the next one, not played early yet, or the one playing whose
      * nudge has not come yet): what sounds now must not play again there (rskip) */
     sounds = next ? t->nd_fired != idx + 1u : t->nd_late != ND_NONE;
-    if (kit_track(t)) {                             /* a kit (DRUM, VDRUM, DBOX): into the grid, no holds (hits) */
+    if (kit_track(t)) {                             /* a kit (DRUM, VDRUM): into the grid, no holds (hits) */
         uint32_t l = lane_of(t->eng_req, note);
         if (s->time != ST_NOTE || (!s->n && !s->hit)) {
             s->n = s->hit = s->acc = 0;
             s->flags = 0;
             s->vel = 0;
+            s->probability &= (uint8_t)~STEP_LEG;
             step_set_nudge(s, off);
         }
         s->time = ST_NOTE;
@@ -526,6 +529,7 @@ static void rec_note(track_t *t, uint32_t note, uint32_t vel)
         s->n = 0;                                   /* a fresh step */
         s->flags = 0;
         s->vel = 0;
+        s->probability &= (uint8_t)~STEP_LEG;
         step_set_nudge(s, off);
     }
     for (k = 0; k < s->n && s->note[k] != note; k++)
@@ -548,6 +552,8 @@ static void rec_note(track_t *t, uint32_t note, uint32_t vel)
         if (t->rskip_n < 4u)
             t->rskip[t->rskip_n++] = (uint8_t)note;
     }
+    if (leg && t->rh_n && t->rh_start != idx)        /* (M-Vave-OP1) legato from the hold of a step before: LEGATO */
+        s->probability |= STEP_LEG;
     if (!t->rh_n || t->rh_start != idx) {           /* a new hold (one in another step ends) */
         t->rh_n = 0;
         t->rh_start = (uint8_t)idx;
@@ -583,6 +589,7 @@ static void rec_hold(track_t *t, uint32_t idx, uint32_t len)
     s->flags = 0;
     s->vel = 0;
     s->hit = s->acc = 0;
+    s->probability &= (uint8_t)~STEP_LEG;
 }
 
 /* a key of a recorded note is up: the hold ends with the last one */
@@ -623,14 +630,13 @@ static void input_on(track_t *t, uint32_t note, uint32_t vel)
     if (t->eng_req == ENGI_VDRUM) {                 /* (M-Vave-OP1) the part the VDRUM pages edit (ui_vdrum.c) */
         int32_t st;
         vd_pick[trk_index(t)] = (uint8_t)(vd_part_note(note, &st) + 1u);
-    } else if (t->eng_req == ENGI_DBOX) {           /* .. the key the DBOX pages edit (ui_dbox.c) */
-        int32_t o;
-        dbx_pick[trk_index(t)] = (uint8_t)(dbx_key(note, &o) + 1u);
     }
     if (cin_left)
         cin_keep(t, note, vel);
-    if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes) */
-        rec_note(t, note, vel);
+    if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes; M-Vave-OP1: LEG / UNI with a
+                                                     * note sounding plays this one legato, trk_note_on: so it is kept) */
+        rec_note(t, note, vel, (trk_vmode(t) == V_LEGATO || trk_vmode(t) == V_UNISON) && t->mono_note &&
+                                   t->v[0].active && t->v[0].gate);
     if (t->p[P_AMODE])
         arp_add(t, note);
     else
@@ -714,10 +720,10 @@ static __attribute__((noinline)) void perf_key_remap(void)
  * holds already sounds: it is not started again (nor sent to MIDI OUT); the key keeps its notes */
 static void key_on(uint32_t k, track_t *t)
 {
-    uint32_t n = orc_on(t) ? orc_build(t, kb_note[k], kb_chord[k]) : chord_build(t, kb_note[k], kb_chord[k]), i,
-             mc = trk_midi_ch(trk_index(t));      /* (SCL > ORCHID: the Orchid's chord on a root, orchid.c) */
-    kb_chn[k] = 0;
-    in_key = (uint8_t)(k + 1u);                     /* (the arp keeps the key: arp_add) */
+    uint32_t cs = cset_on(t) && !song.grid, i, mc = trk_midi_ch(trk_index(t));
+    uint32_t n = cs ? cset_build(t, kb_note[k], t->p[P_TRANS], kb_chord[k]) : chord_build(t, kb_note[k], kb_chord[k]);
+    kb_chn[k] = 0;                                  /* (M-Vave-OP1, SCL > CSET: its set's chord, cset.c) */
+    in_key = (uint8_t)(cs ? 0u : k + 1u);           /* (the arp keeps the key: arp_add; a chord set's notes as they are) */
     for (i = 0; i < n; i++) {
         uint32_t x = kb_chord[k][i];
         if (midi_local_held(t, x))
@@ -769,8 +775,6 @@ static void keyboard_block(void)
     ch = cur ^ kb_prev;                          /* keys also sound while entering steps */
     if (perf_remap)
         perf_key_remap();
-    if (orc_lock_req)
-        orc_poll();                              /* (M-Vave-OP1: LOCK asked for by SCL > ORCHID's KNOB 3) */
     if (!ch)
         return;
     if (kb_boot_hold) {                           /* #137: under the splash; their release is silent too */
@@ -800,16 +804,12 @@ static void keyboard_block(void)
                     perf_key_press(k, 1);
                 continue;
             }
-            if (k < ORC_KEYS && !song.grid && orc_on(&trk[kb_trk[k]])) {   /* M-Vave-OP1, SCL > ORCHID: the chord */
-                kb_note[k] = KB_SILENT;           /* block (orchid.c) */
-                kb_orc |= 1u << k;
-                orc_press(k);
-                continue;
-            }
             if ((mute >> k) & 1u)                 /* NAME (ui_name.c): every key types, none sounds; SONG: A..D */
                 kb_note[k] = KB_SILENT;
             else if (song.grid == 1u)             /* the DRUM grid: a lane key plays its lane, the rest are the UI's */
                 kb_note[k] = grid_key_note(&trk[kb_trk[k]], k);
+            else if (!song.grid && cset_on(&trk[kb_trk[k]]))   /* M-Vave-OP1, SCL > CSET: every key its chord */
+                kb_note[k] = (uint8_t)cset_key(k);
             else
                 kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
             if (kb_note[k] == KB_SILENT)
@@ -822,11 +822,6 @@ static void keyboard_block(void)
             if ((kb_layer >> k) & 1u) {
                 kb_layer &= ~(1u << k);
                 perf_key_press(k, 0);
-                continue;
-            }
-            if ((kb_orc >> k) & 1u) {             /* (a key the chord block took: its release too) */
-                kb_orc &= ~(1u << k);
-                orc_release(k);
                 continue;
             }
             if (kb_note[k] == KB_SILENT)
@@ -901,8 +896,10 @@ static void seq_stop(void)
 }
 
 /* play one step: TIE extends, REST releases, NOTE (re)triggers its notes, then its lane hits (their GM
- * notes, DRUM_LANE_NOTE; DBOX's own, kitlane.c kit_notes; an accented hit at 127); a SLIDE on the previous step
- * makes this one legato with a glide (acid style). skip: bit k = note k, bit 8 + l = the hit of lane l already
+ * notes, DRUM_LANE_NOTE, kitlane.c kit_notes; an accented hit at 127); a SLIDE on the previous step
+ * makes this one legato with a glide (acid style). M-Vave-OP1: a LEGATO step (core.h STEP_LEG, live recording's) is
+ * legato too, the step before holding its notes into it, but glides only as GLIDE says (seq_hold: bit 0 hold the notes
+ * to the next step, bit 1 slide into it). skip: bit k = note k, bit 8 + l = the hit of lane l already
  * sounds from live recording (not triggered, not released here); SEQ_REP: a RATCH repeat (seq_ratchet).
  * RATCH x2..x4 (core.h step_ratchet): a NOTE step plays all of it again in equal parts of its swung length, each
  * part retriggered with GATE of the part; the chance is rolled once for the whole step (a failed roll: no part),
@@ -915,9 +912,10 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
 {
     uint32_t i, j, gate = period * (uint32_t)t->p[P_SGATE] / 128u;
     uint32_t vel = (s->flags & SF_ACCENT) ? 127u : (s->vel ? s->vel : 96u);
-    uint32_t slide_in = t->seq_hold && t->seq_n && !(skip & SEQ_REP);
+    uint32_t slide_in = t->seq_hold && t->seq_n && !(skip & SEQ_REP), glide_in = slide_in && (t->seq_hold & 2u);
     uint32_t len = t->p[P_SLEN] ? (uint32_t)t->p[P_SLEN] : 1u;
-    uint32_t next_tie = seq_steps(t)[(idx + 1u) % len].time == ST_TIE;
+    const step_t *ns = &seq_steps(t)[(idx + 1u) % len];
+    uint32_t next_tie = ns->time == ST_TIE || step_leg(ns);   /* (a LEGATO step next: held into it as into a TIE) */
     uint32_t hits = step_ratchet(s);
     uint8_t nn[4 + NLANE], vv[4 + NLANE];           /* the notes it plays: its notes, then its hits */
     uint32_t m = 0, sk = 0;
@@ -937,7 +935,7 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
     if (s->time == ST_TIE) {
         if (t->seq_n) {
             t->seq_off = gate + period / 2u;
-            t->seq_hold = (s->flags & SF_SLIDE) != 0 || next_tie;   /* chains hold at any GATE / swing */
+            t->seq_hold = (uint8_t)((s->flags & SF_SLIDE) ? 3u : next_tie);   /* chains hold at any GATE / swing */
         }
         return;
     }
@@ -971,7 +969,7 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
             sk |= ((skip >> (8u + i)) & 1u) << m;
             m++;
         }
-    t->slide_glide = (uint8_t)slide_in;
+    t->slide_glide = (uint8_t)glide_in;
     if (!slide_in)
         seq_release(t);
     for (i = 0; i < m; i++)
@@ -989,7 +987,8 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
         if (!((sk >> i) & 1u))
             t->seq_notes[t->seq_n++] = nn[i];
     t->seq_off = gate;
-    t->seq_hold = hits == 1u && ((s->flags & SF_SLIDE) != 0 || next_tie);   /* next step a TIE: keep the notes to it */
+    t->seq_hold = (uint8_t)(hits != 1u ? 0u : (s->flags & SF_SLIDE) ? 3u : next_tie);   /* next step a TIE: keep the
+                                                     * notes to it */
 }
 
 /* MENU > CONTROL > STEP PREVIEW (1.2, Discussion #169): the UI asks for a step of a track to sound once (aud_req: step
@@ -1197,7 +1196,7 @@ static __attribute__((noinline)) void cin_record(void)
         track_t *t = &trk[i];
         for (k = 0; k < cin_n[i]; k++)
             if (rec_on(t)) {
-                rec_note(t, cin_note[i][k], cin_vel[i][k]);
+                rec_note(t, cin_note[i][k], cin_vel[i][k], 0);
                 if ((cin_up[i] >> k) & 1u)
                     rec_release(t, cin_note[i][k]);
             }

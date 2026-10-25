@@ -3,7 +3,7 @@
 /* Engine switches on a part, hashed (1.5: the engines' per-part state shares one region, engines.c eng_mem).
  *   build/host/union_test [GOLDEN_FILE]      (run_tests.sh builds and runs it against tests/union_golden.txt)
  *
- * Every pair (and A -> B -> A) of the engines that keep state per part (GRAIN, PHYS, DRUM, FM6, SLICE), with
+ * Every pair (and A -> B -> A) of the engines that keep state per part (GRAIN, PHYS, DRUM, FM6; SLICE retired), with
  * ANALOG, SAMPLE and WHEEL (state outside the region) among them, on part 1 while part 3 plays other engines
  * alongside, at three presets: a chord and a low note held, released, still ringing at the next switch (the
  * fade on the old engine), and once more with the next notes inside the fade (they wait for the switch).
@@ -58,9 +58,6 @@ static void uplay(track_t *t, uint32_t e, uint32_t pi, uint32_t base, uint32_t w
 }
 
 static const uint32_t UE[] = {0 /* ANALOG */, ENGI_SAMPLE, 7 /* WHEEL */, 8 /* GRAIN */, ENGI_PHYS, ENGI_DRUM, ENGI_FM6,
-#if FELUCCA_SLICE
-                              13 /* SLICE */
-#endif
 };
 #define UNE (sizeof UE / sizeof UE[0])
 

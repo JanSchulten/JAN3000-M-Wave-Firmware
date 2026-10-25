@@ -1,6 +1,8 @@
 # VDRUM and DBOX: two drum engines (spec)
 
-Status: **both built.** VDRUM: `firmware/src/eng_vdrum.c`, `ui_vdrum.c`, tests `tests/vdrum_test.c`,
+Status: **both built; DBOX retired since** (M-Vave-OP1 step 4, [PLAITS_PLAN.md](PLAITS_PLAN.md): its code and tests
+are gone, its number 16 is reserved and its sounds load as DRUM). What follows on DBOX is the record of what it was.
+VDRUM: `firmware/src/eng_vdrum.c`, `ui_vdrum.c`, tests `tests/vdrum_test.c`,
 `tests/vdrum_ui_test.c`; DBOX: `firmware/src/eng_dbox.c`, `ui_dbox.c`, test `tests/dbox_test.c`. The decisions come from the interviews of 2026-10-21; section 7 lists what the build changed against
 the first draft.
 

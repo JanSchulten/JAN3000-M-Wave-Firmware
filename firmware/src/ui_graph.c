@@ -14,7 +14,6 @@
 static int32_t graph_ht = 100;
 #include "ui_fm6op.c"                                /* EDIT > OPERATOR, OP ENV, OPERATOR 2: FM6's operators (their charts below) */
 #include "ui_vdrum.c"                                /* (M-Vave-OP1) EDIT > LAYER .. PART 2: VDRUM's parts */
-#include "ui_dbox.c"                                 /* .. EDIT > OSC 1, OSC 2, SOUND: DBOX's keys */
 
 /* Matches voice.c: attack is linear, decay and release are exponential
  * (env += (target - env) * k each tick, ~99 % after the set time). Time
@@ -251,15 +250,17 @@ static void graph_roll(const track_t *t, uint16_t c)
             pr_bars(st, x + 2, 9, col, (st->flags & SF_ACCENT) != 0u, &y, step_ratchet(st));
         else                                          /* a TIE: the bars on through the gap before */
             pr_bars(st, x - 1, 12, col, (st->flags & SF_ACCENT) != 0u, &y, 1u);
-        if ((st->flags & SF_SLIDE) && step_ratchet(st) == 1u &&   /* (a ratcheted step never slides out) */
+        if (((st->flags & SF_SLIDE) || step_leg(ns)) && step_ratchet(st) == 1u &&   /* (a ratcheted step never slides
+                                                     * out; M-Vave-OP1: nor holds into a LEGATO one) */
             ns->time == ST_NOTE && ns->n && y >= PR_Y0 && y < ybot) {
             int32_t ny = clamp(pr_row_y(ns->note[0]), PR_Y0, ybot - PR_RH);
-            cv_line(x + 10, y + 2, x + 14, ny + 2, T_TEXT);   /* the slide into the next note */
+            cv_line(x + 10, y + 2, x + 14, ny + 2, st->flags & SF_SLIDE ? T_TEXT : T_MID);   /* the slide into the next
+                                                     * note (LEGATO: dimmer, no glide) */
         }
     }
 }
 /* SEQ > STEP on a DRUM track: the grid, 8 lanes x the 16 steps of the page shown. Lanes by their two-letter
- * names (BD SD CP CH OH TM RS CB; CG CL CY on the other kits; M-Vave-OP1: VDRUM's six parts BD .. TM, DBOX's eight).
+ * names (BD SD CP CH OH TM RS CB; CG CL CY on the other kits; M-Vave-OP1: VDRUM's six parts BD .. TM).
  * A hit is a rounded square (accented: the accent; a RATCH step's: its 2..4 parts as bars), an empty step a dot (brighter on the beats and on the selected lane); the selected lane is
  * underlaid RAISE, the cursor framed in TEXT; a TEXT bar over the step playing. 1.4.1: a muted lane (the EDIT layer's
  * black keys, eng_drum.c drum_mute): its name DIM, the MUTE icon after it, its hits DIM */
@@ -872,84 +873,49 @@ static void graph_pedal(const track_t *t, uint32_t part)
     cv_rrect(120 - 14, gh - 34, 28, 28, 14, edge, body);   /* the footswitch */
     cv_rrect(120 - 10, gh - 30, 20, 20, 10, ped(0xB8BCC4), edge);
 }
-/* M-Vave-OP1, SCL > ORCHID (orchid.c), as the Orchid shows a chord (its Geek Out view: the name, the keyboard, the
- * notes): the last chord's name large in the middle, its extensions after it in the accent; under it two octaves of
- * keys from the C below its lowest note (three when it spans more), its notes lit, the root in the accent; then its
- * notes by name, and LOCK (or ROOT ONLY on a one-voice part). Before the first chord: where the roots are and the
- * chord keys held or latched */
-static void graph_orc(const track_t *t)
+/* M-Vave-OP1, SCL > CSET (cset.c): the track's set, its number large and its genre; its twelve chords by name in the
+ * keys' order C .. B (four rows of three, 73 px a cell: the longest name, Bb5add9/b13, is 72; the black keys' framed),
+ * the one played last lit; under them that chord's notes by name (or where the list's voicing lies), and LOWEST NOTE
+ * on a part set to one voice */
+static void graph_cset(const track_t *t)
 {
-    static const uint8_t BLACK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
-    static const char *const NM[8] = {"DIM", "MIN", "MAJ", "SUS", "6", "m7", "M7", "9"};
-    uint32_t i, j, k = trk_index(t), last = orc.ln && orc.ltrk == k, lo, cnt, w, down = orc.down;
-    char b[12], x[12], h[40];
-    const char *st = trk_vmode(t) != V_POLY ? "ROOT ONLY" : orc.lock ? "LOCK" : "";
-    int32_t px, gw, sx = 226 - (st[0] ? text_w(&AF_S, st) + 10 : 0);
+    uint32_t i, k = trk_index(t), s = cset_set[k] % CSET_N, last = cset_last.n && cset_last.trk == k && cset_last.set == s;
+    int32_t px;
+    char b[16];
     if (chord_kit(t)) {
         panel_note("NO CHORDS ON KITS", 0, 0);
         return;
     }
-    if (!orc_on(t)) {
-        panel_note("ORCHID OFF", "[K1] ON: F3..C#4 CHORD KEYS", 0);
+    if (!cset_on(t)) {
+        panel_note("CSET OFF", "[K1] ON: EVERY KEY A CHORD", 0);
         return;
     }
-    if (last) {                                        /* the root large (L has no lower case: m / M / dim / sus in M) */
-        char r[4];
-        uint32_t rn;
-        orc_name(b, x, orc.lroot, orc.ltype, orc.lext);
-        rn = b[1] == '#' ? 2u : 1u;
-        str_cpy(r, b, rn + 1u);
-        gw = text_w(&AF_L, r) + (b[rn] ? 2 + text_w(&AF_M, b + rn) : 0) + (x[0] ? 6 + text_w(&AF_M, x) : 0);
-        px = 120 - gw / 2;
-        cv_text_on(px, 4, &AF_L, r, T_TEXT, T_SURF);
-        px += text_w(&AF_L, r);
-        if (b[rn] || x[0])
-            GFX_HOOK_ALIGN(0, 0, 0, 4 + AF_L.asc, AL_B, "orchid chord's type and extensions on the root's baseline");
-        if (b[rn]) {
-            cv_text_on(px + 2, 4 + AF_L.asc - AF_M.asc, &AF_M, b + rn, T_TEXT, T_SURF);
-            px += 2 + text_w(&AF_M, b + rn);
-        }
-        if (x[0])
-            cv_text_on(px + 6, 4 + AF_L.asc - AF_M.asc, &AF_M, x, T_ACCENT, T_SURF);
-        lo = orc.lnote[0] - orc.lnote[0] % 12u;
-        cnt = orc.lnote[orc.ln - 1u] - lo < 24u ? 24u : 36u;
-    } else {
-        GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "orchid idle line centred");
-        cv_text_in(0, 4 + AF_L.asc - AF_M.asc, 240, &AF_M, "PLAY A ROOT: D4 .. G5", T_MID, T_SURF);
-        lo = 60;
-        cnt = 24;
+    fmt_int(b, (int32_t)s + 1);
+    px = cv_text_on(14, 4, &AF_L, b, T_TEXT, T_SURF);
+    GFX_HOOK_ALIGN(0, 0, 0, 4 + AF_L.asc, AL_B, "cset genre on the set number's baseline");
+    cv_text_on(px + 8, 4 + AF_L.asc - AF_M.asc, &AF_M, CSET_GENRE[CSET_GENRE_OF[s] % CSET_NG], T_THEME, T_SURF);
+    GFX_HOOK_ALIGN(7, 0, 230, 0, AL_H | AL_CELLS | AL_N(3), "cset chord cells centred");   /* (3 x 73 + 2 x 2) */
+    for (i = 0; i < 12u; i++) {                       /* the chords, the keys' order: C C# D / D# E F / F# G G# / A A# B */
+        int32_t x = 7 + (int32_t)(i % 3u) * 75, y = 36 + (int32_t)(i / 3u) * 14;
+        uint32_t lit = last && cset_last.key == i, blk = (0x54Au >> i) & 1u;   /* (C# D# F# G# A#) */
+        uint16_t bg = lit ? T_THEME : blk ? T_SURF : T_RAISE;
+        cset_name(b, s, i);
+        cv_rrect(x, y, 73, 13, 3, bg, T_SURF);
+        if (blk && !lit)
+            cv_frame(x, y, 73, 13, T_RAISE);
+        cv_text_in(x, y + HALF_UP(13 - AF_S_CAP_H) - AF_S_CAP_Y, 73, &AF_S, b, lit ? T_INK : blk ? T_MID : T_TEXT, bg);
     }
-    w = 216u / cnt;
-    GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H | AL_CELLS | AL_N(cnt), "orchid keys centred");
-    for (i = 0; i < cnt; i++) {                        /* the keys: the black ones raised, the chord's lit */
-        uint32_t note = lo + i, on = 0;
-        int32_t kx = 13 + (int32_t)(i * w);             /* (216 px of keys and their gaps: x 13 .. 227) */
-        for (j = 0; last && j < orc.ln && j < ORC_MAX; j++)
-            on |= orc.lnote[j] == note;
-        cv_rrect(kx, BLACK[note % 12u] ? 40 : 52, (int32_t)w - 2, 32, w > 6u ? 3 : 2,
-                 !on ? T_RAISE : note % 12u == orc.lroot % 12u ? T_ACCENT : T_THEME, T_SURF);
-    }
-    if (st[0])
-        cv_text_r(226, 92, &AF_S, st, orc.lock && trk_vmode(t) == V_POLY ? T_ACCENT : T_MID, T_SURF);
-    if (last) {                                        /* the notes, low to high */
-        for (i = 0, px = 14; i < orc.ln && i < ORC_MAX; i++) {
-            note_name(b, orc.lnote[i]);
-            if (px + text_w(&AF_S, b) > sx)
-                break;
-            cv_text_on(px, 92, &AF_S, b, i == 0u ? T_TEXT : T_MID, T_SURF);
-            px += text_w(&AF_S, b) + 8;
-        }
+    if (trk_vmode(t) != V_POLY)
+        cv_text_r(226, 95, &AF_S, "LOWEST NOTE", T_MID, T_SURF);
+    if (!last) {
+        cv_text_on(14, 95, &AF_S, "F3..E4 AS LISTED", T_MID, T_SURF);
         return;
     }
-    for (i = 0, j = 0, h[0] = 0; i < 8u; i++)          /* nothing played yet: the chord keys held or latched */
-        if ((down >> i) & 1u) {
-            if (j)
-                h[j++] = ' ';
-            str_cpy(h + j, NM[i], (unsigned)(sizeof h - j));
-            j = str_len(h);
-        }
-    if (h[0] && text_w(&AF_S, h) <= sx - 14)
-        cv_text_on(14, 92, &AF_S, h, T_TEXT, T_SURF);
+    for (i = 0, px = 14; i < cset_last.n && i < CHORD_MAX; i++) {   /* the notes, low to high */
+        note_name(b, cset_last.note[i]);
+        cv_text_on(px, 95, &AF_S, b, i == 0u ? T_TEXT : T_MID, T_SURF);
+        px += text_w(&AF_S, b) + 8;
+    }
 }
 /* the four sends as faders under their cards: a RAISE slot, the THEME fill from the bottom, a cap */
 static void graph_fx(const track_t *t, uint16_t c)
@@ -1145,61 +1111,6 @@ static void graph_sample(uint16_t c)
         cv_line(left, 4, left, 90, T_MID); cv_line(right, 4, right, 90, T_MID);
     }
 }
-
-#if FELUCCA_SLICE
-/* SLICES (ui_slice.c): the waveform from the marker before the selected one to the one after it (the selected
- * slice tinted, its marker the accent, outside the slices DIM), under it the whole material with every marker and
- * the view; then the selected slice's length and the source */
-static void graph_slices(void)
-{
-    uint32_t a, b, len, n = slice_count(), j = slice_sel(), i, src, div, ma, mb;
-    char t[20], u[12];
-    if (!slice_src(&src, &div) || !n) {             /* (it plays a sine: eng_slice.c) */
-        panel_alert(ICON_X_NOFILE, "SAMPLE NOT FOUND");
-        return;
-    }
-    slice_view(&a, &b, &len);
-    slice_env(a, b);
-    ma = slice_mark(0);
-    mb = slice_mark(n);
-#define SPX(p) (12 + (int32_t)((uint32_t)((p) - a) * SP_COLS / (b - a)))   /* p in [a, b] */
-    if (j < n) {                                     /* the selected slice */
-        uint32_t s0 = slice_mark(j), s1 = slice_mark(j + 1u);
-        int32_t x0 = SPX(s0 > a ? s0 : a), x1 = SPX(s1 < b ? s1 : b);
-        if (x1 > x0)
-            cv_rect(x0, 6, x1 - x0, 80, T_TINT);
-    }
-    for (i = 0; i < SP_COLS; i++) {
-        uint32_t p = a + (uint32_t)((uint32_t)i * (b - a) / SP_COLS);
-        cv_line(12 + (int32_t)i, 46 - sp.hi[i] * 38 / 64, 12 + (int32_t)i, 46 - sp.lo[i] * 38 / 64,
-                p >= ma && p < mb ? T_THEME : T_DIM);
-    }
-    for (i = 0; i <= n; i++) {                       /* the markers in the view (the selected one last: on top) */
-        uint32_t p = slice_mark(i);
-        if (i != j && p >= a && p <= b)
-            cv_rect(SPX(p), 4, 1, 84, T_MID);
-    }
-    {
-        uint32_t p = slice_mark(j);
-        if (p >= a && p <= b)
-            cv_rect(SPX(p) > 226 ? 226 : SPX(p), 2, 2, 88, T_ACCENT);
-    }
-#undef SPX
-    cv_rrect(12, 96, (int32_t)SP_COLS, 3, 1, T_RAISE, T_SURF);   /* the whole: every marker, the view */
-    for (i = 0; i <= n; i++)
-        cv_rect(12 + (int32_t)((uint32_t)slice_mark(i) * (SP_COLS - 1u) / len), 94, 1, 7, i == j ? T_ACCENT : T_MID);
-    {
-        int32_t x0 = 12 + (int32_t)((uint32_t)a * SP_COLS / len), x1 = 12 + (int32_t)((uint32_t)b * SP_COLS / len);
-        cv_rect(x0, 103, x1 - x0 < 2 ? 2 : x1 - x0, 2, T_THEME);
-    }
-    str_cpy(t, "LEN ", sizeof t);
-    slice_time(u, j < n ? slice_mark(j + 1u) - slice_mark(j) : len - mb);
-    str_cpy(t + 4, u, sizeof t - 4);
-    str_cpy(t + str_len(t), " S", sizeof t - str_len(t));
-    cv_text(12, 104, &AF_M, t, T_MID);                  /* the slice's detail (M): its capitals rows 108 .. 118 */
-    cv_text_r(228, 104, &AF_M, N_SLC_SRC[src], src && src != SLC_SRC_PIANO ? T_THEME : T_DIM, T_SURF);
-}
-#endif
 
 /* WHEEL: the nine drawbars as rounded bars over RAISE slots (the bars of the knob just turned: the accent),
  * their footages under them */
@@ -1718,9 +1629,9 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_DLANE)                       /* M-Vave-OP1, SOUNDS: the lane picked, every lane's values */
         for (h ^= ui.lane * 40503u, i = 0; i < 16u; i++)
             h = (h ^ (uint16_t)t->p[P_DL0 + i]) * 16777619u;
-    if (pg->graph == GR_ORCH)                        /* M-Vave-OP1, SCL > ORCHID: the block, the last chord, ON */
-        h ^= (orc.gen * 2654435761u) ^ (orc.lgen * 40503u) ^ ((uint32_t)orc.lock << 9) ^ ((uint32_t)(uint8_t)orc_voice[song.sel] << 17) ^
-             (uint32_t)t->engine * 389u ^ (uint32_t)orc_en << 24;   /* (ROOT ONLY follows the sounding engine) */
+    if (pg->graph == GR_CSET)                        /* M-Vave-OP1, SCL > CSET: the set, the last chord, ON */
+        h ^= (cset_last.gen * 2654435761u) ^ ((uint32_t)cset_set[song.sel % NTRK] << 9) ^ (uint32_t)t->engine * 389u ^
+             (uint32_t)cset_en << 24;                /* (a kit, LOWEST NOTE: the sounding engine, VOICE: a parameter) */
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u +
@@ -1788,9 +1699,6 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_EVENTS)                      /* AUTOMATION: the rows, the one selected, + ADD's place, PLAY,
                                                       * QUANTIZE */
         h = (h ^ ev_sig()) * 16777619u;
-#if FELUCCA_SLICE
-    if (pg->graph == GR_SLICES && slice_page_ok()) h ^= slice_sig();
-#endif
     if (pg->scope == SC_ENGINE && (ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL || t->eng_req % NENGINES == ENGI_FM6 ||
                                    (FELUCCA_FM4 && t->eng_req % NENGINES == ENGI_DIGITAL)))
         h ^= (ui.hot_t ? ui.hot_col + 1u : 0u) * 65537u;
@@ -1799,7 +1707,6 @@ static uint32_t graph_signature(void)
         h ^= (fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u + (fop_op + 1u) * 40503u + (fop_stg + 1u) * 7919u;
     if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_SAMPLE) h ^= sample_wave.pos * 13u + sample_wave.key;
     if (vdu_page(pg->graph) && vdu_ok()) h ^= vdu_sig();   /* (M-Vave-OP1) VDRUM: the part, its bytes, LYR, KIT */
-    if (dbu_page(pg->graph) && dbu_ok()) h ^= dbu_sig();   /* .. DBOX: the key, its bytes, KIT */
     if (pg->graph == GR_ROLL) {
         uint32_t ph = song.playing ? t->seq_idx : 0xFFFFu;
         if (ph / 16u != ui.bank)
@@ -1827,13 +1734,13 @@ static const char *eng_abbr(const char *name)
 #if FELUCCA_FM4
                                        {"DIGITAL", "DGTL"},
 #endif
-                                       {"PHASE", "PHAS"}, {"LOFI", "LOFI"},
-                                       {"SAMPLE", "SMPL"}, {"VOICE", "VOCL"}, {"TRIO", "TRIO"}, {"WHEEL", "WHEL"},
+                                       {"LOFI", "LOFI"},
+                                       {"SAMPLE", "SMPL"}, {"WHEEL", "WHEL"},
                                        {"GRAIN", "GRAN"}, {"PHYS", "PHYS"}, {"DRUM", "DRUM"},
-                                       {"NOISE", "NOIS"}, {"FM6", "FM6"}, {"SLICE", "SLCE"},
+                                       {"NOISE", "NOIS"}, {"FM6", "FM6"},
                                        {"ANLG2", "ANL2"},   /* (M-Vave-OP1: ANLG2 is 1 px too wide for the EDIT
                                                              * layer's 20 px cells beside the engine's icon) */
-                                       {"VDRUM", "VDRM"}, {"DBOX", "DBOX"}};
+                                       {"VDRUM", "VDRM"}, {"WSHAPE", "WSHP"}, {"HRMNC", "HRMN"}, {"PRTCL", "PRTC"}, {"WTABLE", "WTBL"}, {"SWARM", "SWRM"}};
     uint32_t i;
     for (i = 0; i < sizeof A / sizeof A[0]; i++)
         if (str_eq(name, A[i][0]))
@@ -3070,9 +2977,9 @@ static void draw_graph(void)
             cv_oy = 0;
             graph_arp(t);
             break;
-        case GR_ORCH:                                /* M-Vave-OP1: SCL > ORCHID, the chord the Orchid's way */
+        case GR_CSET:                                /* M-Vave-OP1: SCL > CSET, the set and the chord played */
             cv_oy = 0;
-            graph_orc(t);
+            graph_cset(t);
             break;
         case GR_FX:
             graph_fx(t, c);
@@ -3133,12 +3040,6 @@ static void draw_graph(void)
             cv_oy = 0;
             panel_note("TURN TO PICK", "[OCT+] CONFIRM", 0);
             break;
-#if FELUCCA_SLICE
-        case GR_SLICES:
-            cv_oy = 0;
-            graph_slices();
-            break;
-#endif
         case GR_FMOP:
         case GR_FMOP2:
             if (fop_ok()) graph_fm6(t, c, fop_op % 6u);   /* the chart, the operator picked */
@@ -3152,11 +3053,6 @@ static void draw_graph(void)
         case GR_VDP:
         case GR_VDP2:
             if (vdu_ok()) graph_vdrum(t, c);
-            break;
-        case GR_DBO1:
-        case GR_DBO2:
-        case GR_DBHIT:
-            if (dbu_ok()) graph_dbox(t, c);
             break;
         default:
             if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL) graph_wheel(t, c);

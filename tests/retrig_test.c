@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
 /* M-Vave-OP1: retriggers and bit-crushers without a click or an offset, on the firmware's own sources (hostsim.c):
- *   TRIO     MONO, overlapping notes: the sounding voice retriggers and keeps its filter, its late sample and its
- *            cutoff's drift (eng_trio.c .keep 0x33; zeroed, the output fell to 0 in one sample: -12986 -> 0).
- *   PHASE    STRING (WAVE2 SAW-PULSE, ENV 0), C4 repeated in its release: the WAVE / WAVE2 toggles kept with the
- *            phases (eng_phase.c .keep 0x03; reset, half of the retriggers jumped to the other wave: 27388 -> 3448).
+ *   ANLG2    MONO, overlapping notes: the sounding voice retriggers and keeps its two filters and its noise
+ *            (eng_analog2.c .keep 0x73). (TRIO, retired, had this check first: its .keep 0x33.)
+ *   LOFI     PULSE LD, C4 repeated in its release: the held sample and the low-pass kept (eng_lofi.c .keep 0x11).
+ *            (PHASE, retired, had this check first: its WAVE / WAVE2 toggles, .keep 0x03.)
  *   CRUSH    the bit-crushers round to the nearest step: SAMPLE BITS, LOFI CRSH above 64, NOISE CRSH: a held note's
  *            mean as the uncrushed note's (floored, half a step of DC that followed the envelope: SAMPLE PIANO BITS
  *            127 -2346 against an RMS of 10355; NOISE WIND's low noise has a mean of its own, so the difference counts);
@@ -99,9 +99,9 @@ static void test_trio(void)
             ev[b] = ev[b - 1];
             ev[b - 1] = x;
         }
-    run(6, 0, V_MONO, ev, n, 1400, 0, 0);               /* TRIO FAT BASS */
+    run(14, 3, V_MONO, ev, n, 1400, 0, 0);              /* ANLG2 DUO BASS */
     w = worst_onset(ev, n, &cnt);
-    snprintf(what, sizeof what, "TRIO MONO, overlapping notes: %u retriggers, the worst %.1f x the note's own curvature", cnt, w);
+    snprintf(what, sizeof what, "ANLG2 MONO, overlapping notes: %u retriggers, the worst %.1f x the note's own curvature", cnt, w);
     check(what, cnt >= 8u && w < 2.0);
 }
 
@@ -115,12 +115,9 @@ static void test_phase(void)
         ev[n++] = (ev_t){b, 1, 60};
         ev[n++] = (ev_t){b + 95u, 0, 60};
     }
-    run(2, 2, V_POLY, ev, n, 1400, P_E3, 0);            /* PHASE STRING (WAVE2 SAW-PULSE), ENV 0: its DCW is
-                                                         * stepped a block at a time by the envelope, which an
-                                                         * attack from the release makes steeper (a smaller kink of
-                                                         * its own, not this one) */
+    run(3, 0, V_POLY, ev, n, 1400, 0, 0);               /* LOFI PULSE LD */
     w = worst_onset(ev, n, &cnt);
-    snprintf(what, sizeof what, "PHASE STRING, C4 repeated in its release: %u retriggers, the worst %.1f x the note's own curvature",
+    snprintf(what, sizeof what, "LOFI PULSE LD, C4 repeated in its release: %u retriggers, the worst %.1f x the note's own curvature",
              cnt, w);
     check(what, cnt >= 8u && w < 2.0);
 }

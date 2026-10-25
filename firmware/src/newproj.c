@@ -5,8 +5,8 @@
  *   bass, lead  a factory preset of category BASS or LEAD (category.c, any engine; never an alias, never a SAMPLE set
  *               this build lacks: it would play a sine);
  *   drums       a kit: one of DRUM's six (STD 808 10 66 55 77; eng_drum.c's others are aliases), or a factory kit of
- *               VDRUM or DBOX (their INITs, the plain kits to start an edit from, left out). Not the single drums
- *               (PHYS HAND DRUM, TOMS, ANALOG2's NOISE HAT) nor SLICE's loops.
+ *               VDRUM (its INIT, the plain kit to start an edit from, left out). Not the single drums
+ *               (PHYS HAND DRUM, TOMS, ANALOG2's NOISE HAT).
  * Where: project_new (SAVE > PROJECT: F#5 NEW, OCT- on an empty slot), and power-on with nothing restored
  * (RESTORE LAST OFF, the first start, after a crash: main.c, web/emu: project_boot_new).
  * Random numbers: xorshift32, its state in .noinit (after power-on the SRAM's own pattern, after a reset where it
@@ -30,13 +30,13 @@ static uint32_t np_rand(uint32_t n)                    /* 0 .. n - 1 */
 static const uint8_t NP_KITS[6] = {DK_STD, DK_80, DK_10, DK_66, DK_55, DK_77};
 #define NP_DRUMS 0xFFu                                 /* np_pick: the drum kits (not a category) */
 
-/* factory preset k of engine e can be drawn as cat (NP_DRUMS: a VDRUM or DBOX kit, not its INIT): its category, not an
+/* factory preset k of engine e can be drawn as cat (NP_DRUMS: a VDRUM kit, not its INIT): its category, not an
  * alias (SAMPLE's retired TRANH), its samples there */
 static int np_fits(uint32_t e, uint32_t k, uint32_t cat)
 {
     const engine_t *en = ENGINES[e];
     if (cat == NP_DRUMS)
-        return (e == ENGI_VDRUM || e == ENGI_DBOX) && preset_cat(e, k) == CAT_DRUM && !str_eq(en->presets[k].name, "INIT");
+        return e == ENGI_VDRUM && preset_cat(e, k) == CAT_DRUM && !str_eq(en->presets[k].name, "INIT");
     if (preset_cat(e, k) != cat || preset_orig(en, k) != k)
         return 0;
     return en != &ENG_SAMPLE || !smp_set_missing((uint32_t)en->presets[k].e[0] % SMP_NALL);

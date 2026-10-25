@@ -24,8 +24,8 @@ into a sampler, album mode) do not.
 
 | OP-1 | M-Vave-OP1 | Status |
 | --- | --- | --- |
-| Synth engines | Felucca's engines: FM6 (DX7-style), ANALOG, ANALOG2 (M-Vave-OP1: two oscillators, a filter and an LFO each), PHASE, LOFI, FORMANT, TRIO, WHEEL, GRAIN, PHYS, NOISE, SAMPLE, SLICE | from Felucca |
-| Drum sampler | DRUM engine, SLICE, SAMPLE with user slots | from Felucca |
+| Synth engines | Felucca's engines: FM6 (DX7-style), ANALOG, ANALOG2 (M-Vave-OP1: two oscillators, a filter and an LFO each), LOFI, WHEEL, GRAIN, PHYS, NOISE, SAMPLE (PHASE, VOICE, TRIO, SLICE retired for the Plaits engines: [PLAITS_PLAN.md](PLAITS_PLAN.md)) | from Felucca |
+| Drum sampler | DRUM engine, SAMPLE with user slots (SLICE retired) | from Felucca |
 | Tape: 4 tracks | the note TAPE of M1/M2 (loop, varispeed, reverse, kept in flash) | **dropped (M6)**: it did not play well; GLO > KEY took its place |
 | (OP-Z) key track | **KEY**: 1..16 bars of roots, the melodic tracks moved inside their scales | **done (M6)** |
 | Mixer | HOME > MIXER (level, pan, reverb send, mute) | from Felucca |
@@ -44,7 +44,8 @@ And from the OP-Z (M2b):
 | 16 patterns a project, switched with a key | **SCENES**: 16 a project, SEQ + a white key (OCT+ / OCT- the next / the one before; OCT+ held copies the scene into the next free one), at the pattern's end while playing | **done (M2c)** |
 | Punch-ins DUCK, STEREO, PITCH, RAMP UP, RANDOM .. | **MAP B** of the FX layer (FX + ALGORITHM): DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH, in the OP-Z's order | **done (E2)** |
 
-And from the Telepathic Instruments Orchid, after ChoralRoot FM-1 (M2d):
+And from the Telepathic Instruments Orchid, after ChoralRoot FM-1 (M2d; replaced by SCL > CSET, the Roland J-6's chord
+sets, M2e):
 
 | Orchid | M-Vave-OP1 | Status |
 | --- | --- | --- |
@@ -119,7 +120,15 @@ SONG section plays: the four tracks' steps, timing and QUANTIZE, the automation 
   (flash: copies, a write cut short, damage, another project's, rename, autosave); `ui_test.c` follows the tools'
   new keys.
 
-### M2d: SCL > ORCHID, the Orchid's keyboard (done)
+### M2e: SCL > CSET, the J-6's chord sets (done)
+
+SCL > ORCHID gave way to the Roland J-6's 100 chord sets (`firmware/src/cset.c`, `cset_data.h` from the J-6 owner's
+manual's Chord Set List by `tools/gen_cset.py`), on SCL's third page CSET, per track: ON (the track POLY, its VOICE
+back with OFF), SET 1 .. 100, GENRE. Every key and MIDI note plays the chord of its key, F3 .. E4 as the list voices
+them, each octave away an octave up or down; live recording, STEP entry and the ARP take the chords. ON, SET and the
+VOICE before ON are kept in the project extras (XTRA_V6). Tests: `tests/cset_test.c`.
+
+### M2d: SCL > ORCHID, the Orchid's keyboard (done; replaced by M2e)
 
 The Orchid's keyboard as ChoralRoot FM-1 by Quixotic7 (GPL-3.0) does it (`firmware/src/orchid.c`), on SCL's third
 page ORCHID, switched on per track (it was the ARP page's MODE CHORD for one version; the ARP is Felucca's again).

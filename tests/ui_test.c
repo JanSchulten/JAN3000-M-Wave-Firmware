@@ -184,8 +184,6 @@ static void ui_power_on(void)
     memset(vd_own, 0, sizeof vd_own);             /* (M-Vave-OP1 VDRUM: no own kits, no part struck, LYR L1) */
     memset((void *)vd_pick, 0, sizeof vd_pick);
     vdu_lyr = 0;
-    memset(dbx_own, 0, sizeof dbx_own);           /* (DBOX: no own kits, no key struck) */
-    memset((void *)dbx_pick, 0, sizeof dbx_pick);
     memset(pat_last, 0, sizeof pat_last);
     memset(pat_from, 0, sizeof pat_from);                /* (the header's slot letter: none) */
     memset(proj_slot, 0, sizeof proj_slot);
@@ -196,11 +194,10 @@ static void ui_power_on(void)
         xtra_fx1(&x, 0);
     }
     perf_bank = 0;                                /* (M-Vave-OP1 E2: the FX layer's MAP A, as at power-on) */
-    orc_reset();                                  /* (M-Vave-OP1 PLAY MODE CHORD: nothing held or latched, VOICE 0) */
-    memset(orc_voice, 0, sizeof orc_voice);
-    kb_orc = 0;
-    orc_en = 0;
-    orc_lock_req = 0;
+    cset_en = 0;                                  /* (M-Vave-OP1, SCL > CSET: off, set 1, nothing played) */
+    memset(cset_set, 0, sizeof cset_set);
+    memset(cset_voice, CSET_VNONE, sizeof cset_voice);
+    memset((void *)&cset_last, 0, sizeof cset_last);
     chos.type = CHO_CHORUS;                       /* (M-Vave-OP1: the chorus bus's TYPE and FDBK, as at power-on) */
     chos.fdbk = 0;
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
@@ -215,7 +212,7 @@ static void ui_power_on(void)
         track_t *t = &trk[i];
         track_defaults(t);
         set_engine_of(t, TRK_DEF[i][0]);
-        apply_preset_to(t, TRK_DEF[i][1]);
+        preset_load_to(t, TRK_DEF[i][1], 1);   /* with its sends (main.c) */
         t->engine = t->eng_req;
         track_defaults_steps(t);
         if (TRK_DEF[i][2])
@@ -1860,7 +1857,7 @@ static int test_menu_tabs(void)
     frame();
     ok &= oct_leds() == OCT_BREATH;
     press(B_OCTDN); ok &= ui.menu == 1 && ui.menu_sel == MI_INFO;
-    press(B_OCTUP); ok &= ui.menu == 3 && oct_leds() == 1u;
+    press(B_OCTUP); ok &= ui.menu == 3 && oct_leds() == (1u | OCT_BREATH);   /* (M-Vave-OP1: OCT+ the FPU probe) */
     turn(EN_PRESET, 3); turn(EN_K1, 1); turn(EN_ALGO, 1);
     ok &= ui.menu == 3 && !ui.menu_scroll && ui.menu_sel == MI_INFO;
     press(B_OCTDN); ok &= ui.menu == 1 && ui.menu_sel == MI_INFO;
@@ -3793,18 +3790,6 @@ static int test_sample_alert(void)
     frame();
     bad += check("GRAIN on an empty USR2: said", msg_is(nf));
     frames(1500);
-#if FELUCCA_SLICE
-    set_engine_of(TSEL, 13u);                        /* SLICE, SRC USR3 */
-    TSEL->p[P_E0] = 3;
-    frame();
-    ok = msg_is(nf);
-    frames(1500);
-    TSEL->p[P_E0] = 4;                               /* PIANO: there (the CC0 build) */
-    frame();
-    ok &= !ui.msg_t && !snd_missing(TSEL, &i) == (SLC_PIANO.len != 0u);
-    bad += check("SLICE on an empty USR3: said; PIANO: not (it has its sample)", ok);
-    frames(1500);
-#endif
     /* a project with an empty slot: said after LOADED */
     set_engine_of(TSEL, ENGI_SAMPLE);
     TSEL->p[P_E0] = (int16_t)(SMP_NSETS + 1u);
@@ -3825,173 +3810,6 @@ static int test_sample_alert(void)
     return bad;
 }
 
-#if FELUCCA_SLICE
-/* SLICES (EDIT family, a SLICE track: ui_slice.c; the MAN slices of eng_slice.c, ported from hugelton/Felucca#27 by
- * andreahaku): in the EDIT cycle after EDIT 2 on SLICE only; BREAK shows its slices, edits need a user slot; the first
- * edit takes the slices shown (8 equal) as MAN and sets DIV MAN; KNOB 1 the marker (then END), KNOB 2 moves it,
- * KNOB 3 / 4 pick SPLIT / JOIN and OCT+ does it (it stays picked), OCT- drops the pick, then goes HOME; a key picks
- * its slice and the keys of the selected slice are lit; the slot is marked for the store; another engine: EDIT 1 */
-static void host_slot_make(uint32_t k)                /* USR k + 1: 2 s at 22.05 kHz, a noise burst every 0.25 s */
-{
-    smp_user_hdr_t *h = (smp_user_hdr_t *)((uint8_t *)host_slots + k * SMP_USER_SIZE);
-    uint8_t *d = (uint8_t *)h + SMP_USER_DATA;
-    uint32_t n = 44100u, i, r = 12345u;
-    memset(h, 0, SMP_USER_SIZE);
-    h->magic = SMP_USER_MAGIC;
-    h->version = 1;
-    h->nz = 1;
-    memcpy(h->name, "TEST", 4);
-    h->data_len = n / 2u;
-    for (i = 0; i < n / 2u; i++) {                   /* (IMA codes: a burst of random ones, then +-1/8 steps) */
-        r = r * 1103515245u + 12345u;
-        d[i] = i % 2756u < 400u ? (uint8_t)(r >> 16) : 0x80u;
-    }
-    h->zone[0].n = n;
-    h->zone[0].le = n - 1u;
-    h->zone[0].rate = 32768u;                        /* 22050 / 44100, Q16 */
-    h->zone[0].root16 = 60 * 16;
-    h->zone[0].hi = 127;
-}
-static int test_slices(void)
-{
-    static const char *const CYC_S[] = {"EDIT 1", "EDIT 2", "SLICES", "VOICE", "VOICE 2", "VOICE 3", "EDIT 1"};
-    int bad = 0, ok;
-    uint32_t n, j, p0, k, note;
-    ui_power_on();
-    set_engine_of(TSEL, 13u);                        /* SLICE CHOP: BREAK, 16 */
-    bad += check("SLICES: SLICE's EDIT cycle EDIT 1 EDIT 2 SLICES VOICE VOICE 2 VOICE 3 EDIT 1", engine_cycle(CYC_S, NELEM(CYC_S)));
-    go_page(GR_SLICES); frame();
-    n = slice_count();
-    p0 = TSEL->p[P_E1];
-    turn(EN_K1, 2); turn(EN_K2, 3);
-    ok = n == 16u && slice_sel() == 2u && TSEL->p[P_E1] == p0 && msg_is("SRC USR1-3 TO EDIT") && !slice_act_ready(2);
-    bad += check("SLICES on BREAK: its 16 slices shown, KNOB 1 picks; edits need USR1-3 (DIV unchanged)", ok);
-    TSEL->p[P_E0] = 2;                               /* SRC USR2, empty: no slices (a sine plays): NO SAMPLE */
-    frame();
-    ok = slice_count() == 0u && (msg_is(MSG_NO_SAMPLE) || str_eq(ui.msg2, MSG_NO_SAMPLE));
-    turn(EN_K2, 1);
-    ok &= TSEL->p[P_E1] == p0 && msg_is("USR2 EMPTY");
-    TSEL->p[P_E0] = 0;
-    bad += check("SLICES on an empty USR2: NO SAMPLE, no slices; edits: \"USR2 EMPTY\"", ok);
-    TSEL->p[P_E0] = 4;                               /* SRC PIANO: its 16 slices shown, no edits */
-    frame();
-    turn(EN_K2, 1);
-    ok = slice_count() == 16u && TSEL->p[P_E1] == p0 && msg_is("SRC USR1-3 TO EDIT");
-    TSEL->p[P_E0] = 0;
-    frame();
-    bad += check("SLICES on PIANO: its 16 slices shown; edits need USR1-3 (DIV unchanged)", ok);
-
-    host_slot_make(0);
-    smp_user_scan(0);
-    TSEL->p[P_E0] = 1;                               /* SRC USR1, DIV 8 */
-    TSEL->p[P_E1] = 1;
-    frame();
-    n = slice_count();
-    p0 = slice_mark(2);
-    turn(EN_K2, 5);
-    ok = n == 8u && TSEL->p[P_E1] == SLC_DIV_MAN && msg_is("DIV MAN") && slice_count() == 8u && slice_sel() == 2u &&
-         slice_mark(2) > p0 && slc_man_of(slc_get(1)) && (slc_man_save & 1u);
-    bad += check("SLICES on USR1: the first KNOB 2 turn takes the 8 slices as MAN (DIV MAN), moves slice 3's start", ok);
-    turn(EN_K3, 1);
-    ok = ui.act == 3u && act_ready();
-    press(B_OCTUP);
-    ok &= slice_count() == 9u && slice_sel() == 3u && ui.act == 3u;
-    press(B_OCTUP);
-    ok &= slice_count() == 10u && slice_sel() == 4u;
-    bad += check("SLICES: KNOB 3 picks SPLIT, OCT+ splits the slice (again: it stays picked)", ok);
-    turn(EN_K4, 1);
-    ok = ui.act == 4u && act_ready();
-    press(B_OCTUP);
-    ok &= slice_count() == 9u && slice_sel() == 3u;
-    turn(EN_K1, -20);
-    ok &= slice_sel() == 0u && !act_ready();
-    press(B_OCTUP);
-    ok &= slice_count() == 9u && msg_is("FIRST SLICE");
-    bad += check("SLICES: KNOB 4 picks JOIN, OCT+ joins to the slice before; not the first slice", ok);
-    turn(EN_K1, 20);
-    p0 = slice_mark(slice_count());
-    turn(EN_K2, -4);
-    ok = slice_sel() == slice_count() && slice_mark(slice_count()) < p0 && !act_ready();
-    bad += check("SLICES: after the last slice the END marker: KNOB 2 trims the tail", ok);
-    {   /* DIV set back to a grid: the first touch shows the slot's MAN slices (DIV MAN), it does not replace them */
-        slc_man_t keep = *slc_man_of(slc_get(1));
-        TSEL->p[P_E1] = 2;                           /* DIV 16 */
-        frame();
-        turn(EN_K1, -1); turn(EN_K2, 1);
-        ok = TSEL->p[P_E1] == SLC_DIV_MAN && msg_is("DIV MAN") && slc_man_of(slc_get(1))->n == keep.n &&
-             !memcmp(slc_man_of(slc_get(1))->pos, keep.pos, keep.n * sizeof keep.pos[0]);
-        turn(EN_K1, -20); turn(EN_K2, 1);            /* then KNOB 2 edits that table */
-        ok &= slc_man_of(slc_get(1))->n == keep.n && memcmp(slc_man_of(slc_get(1))->pos, keep.pos, keep.n * sizeof keep.pos[0]);
-        bad += check("SLICES: DIV 16 over a slot's MAN slices: KNOB 2 goes back to them (DIV MAN), keeps them", ok);
-    }
-
-    note = 5u;                                       /* (the 6th key: SLICE maps every key) */
-    key_down(note); frame(); key_up(note); frame();
-    j = slc_note_slice(TSEL->p, kb_map(TSEL, note), slice_count());
-    ok = slice_sel() == j && ((slice_leds() >> note) & 1u);
-    for (k = 0; k < 27u; k++)
-        ok &= ((slice_leds() >> k) & 1u) == (slc_note_slice(TSEL->p, kb_map(TSEL, k), slice_count()) == j);
-    bad += check("SLICES: a key picks the slice it plays; the keys of the selected slice are lit", ok);
-    btn_down(B_OCTDN); frame(); btn_up(B_OCTDN); frame();
-    ok = ui.act == 0u && !ui.home;
-    btn_down(B_OCTDN); frame(); btn_up(B_OCTDN); frame();
-    ok &= ui.home;
-    bad += check("SLICES: OCT- drops the pick, then goes HOME", ok);
-    go_page(GR_SLICES); frame();
-    set_engine_of(TSEL, 0); frame();
-    bad += check("SLICES: on another engine the page is not there (EDIT 1)", str_eq(cur_page()->title, "EDIT 1"));
-    {   /* the engine changed (the editor's SET between two ui_input passes) while the page is still the current one:
-         * its knobs and actions do nothing to the track or the slot */
-        track_t before;
-        slc_man_t keep;
-        set_engine_of(TSEL, 13u);
-        TSEL->p[P_E0] = 1;
-        TSEL->p[P_E1] = SLC_DIV_MAN;
-        go_page(GR_SLICES); frame();
-        keep = *slc_man_of(slc_get(1));
-        set_engine(3u);                              /* LOFI, as ed_service's SET G_ENGSEL */
-        TSEL->p[P_E0] = 1;
-        before = *TSEL;
-        slc_man_save = 0;
-        host_enc[panel.enc[EN_K2]] += 2 * panel.dir[EN_K2];
-        host_ticks += 16000u; fm1_ms += 16u;
-        ui_input();                                  /* (no ui_draw yet) */
-        ok = cur_page()->graph == GR_SLICES && !slice_page_ok() && !act_cols();
-        ui.act = 3u;
-        act_do();
-        ui.act = 0;
-        ok &= !memcmp(&before, TSEL, sizeof before) && !slc_man_save && slc_man_of(slc_get(1))->n == keep.n &&
-              !memcmp(slc_man_of(slc_get(1))->pos, keep.pos, keep.n * sizeof keep.pos[0]);
-        bad += check("SLICES: left by an engine change not yet drawn: KNOB 2 and OCT+ change nothing", ok);
-        frame();
-    }
-    {   /* another sample of the same length uploaded into the slot: the waveform is decoded again */
-        int8_t lo0[SP_COLS], hi0[SP_COLS];
-        uint8_t *d = (uint8_t *)host_slots + SMP_USER_DATA;
-        smp_user_hdr_t *h = (smp_user_hdr_t *)host_slots;
-        set_engine_of(TSEL, 13u);
-        TSEL->p[P_E0] = 1;
-        TSEL->p[P_E1] = 2;
-        go_page(GR_SLICES); ui.force = 1; frame();
-        memcpy(lo0, sp.lo, sizeof lo0);
-        memcpy(hi0, sp.hi, sizeof hi0);
-        for (k = 0; k < h->data_len; k++)
-            d[k] = 0x80u;                            /* silence, the same length */
-        h->crc ^= 1u;
-        smp_user_scan(0);                            /* (the upload's END) */
-        ui.force = 1; frame();
-        ok = memcmp(lo0, sp.lo, sizeof lo0) || memcmp(hi0, sp.hi, sizeof hi0);
-        for (k = 0; k < SP_COLS; k++)
-            ok &= sp.lo[k] >= -1 && sp.hi[k] <= 1;   /* (near silence) */
-        bad += check("SLICES: a re-upload of the same length redraws the waveform", ok);
-        set_engine_of(TSEL, 0); frame();
-    }
-    memset(host_slots, 0, sizeof host_slots);        /* (the other tests: empty slots) */
-    smp_user_scan(0);
-    slc_man_save = 0;
-    return bad;
-}
-#endif
 
 /* ------------------------------------------------ the GLO SCL EDIT layers --- */
 static uint32_t black(uint32_t b) { return key_at(1, b); }
@@ -4138,24 +3956,26 @@ static int test_quick_layers(void)
     my_steps(TSEL); TSEL->p[P_SLCR] = SL_STUT; song.playing = 1;
     before = *TSEL;
     sync_reload = 0;
-    lay_combo(B_EDIT, white(eng_rank(2)));             /* (the keys: the engines one can pick, engines.c eng_vis) */
-    ok = TSEL->eng_req == 2u && TSEL->preset == 0u && ui.layer == LAYER_EDIT && sync_reload && !gates();
-    key_up(white(eng_rank(2))); frame();
+    lay_combo(B_EDIT, white(eng_rank(3)));             /* (the keys: the engines one can pick, engines.c eng_vis) */
+    ok = TSEL->eng_req == 3u && TSEL->preset == 0u && ui.layer == LAYER_EDIT && sync_reload && !gates();
+    key_up(white(eng_rank(3))); frame();
     key_down(white(1)); key_up(white(1)); frame();
     ok &= TSEL->eng_req == 14u;                         /* (G3: ANALOG2, second in ENGINE_ORDER) */
     key_down(white(2)); key_up(white(2)); frame();
     ok &= TSEL->eng_req == ENGI_FM6;                    /* (A3: FM6, third) */
     key_down(white(eng_rank(ENGI_DRUM))); key_up(white(eng_rank(ENGI_DRUM))); frame();
-    ok &= TSEL->eng_req == ENGI_DRUM;                   /* (DRUM, then M-Vave-OP1's VDRUM and DBOX last) */
-    key_down(white(eng_rank(ENGI_VDRUM))); key_up(white(eng_rank(ENGI_VDRUM))); frame();
-    ok &= TSEL->eng_req == ENGI_VDRUM;
-    key_down(white(LY_NENG - 1u)); key_up(white(LY_NENG - 1u)); frame();   /* (the last white key, G5: DBOX; a
-                                                         * FELUCCA_FM4 build shows 17 engines: VDRUM, DBOX PRESETS only) */
-    ok &= TSEL->eng_req == (FELUCCA_FM4 ? ENGI_VDRUM : ENGI_DBOX);
+    ok &= TSEL->eng_req == ENGI_DRUM;                   /* (DRUM, then M-Vave-OP1's VDRUM last) */
+    if (eng_rank(ENGI_VDRUM) < LY_NENG) {               /* (FELUCCA_FM4's 17 engines: VDRUM past the 16 keys) */
+        key_down(white(eng_rank(ENGI_VDRUM))); key_up(white(eng_rank(ENGI_VDRUM))); frame();
+        ok &= TSEL->eng_req == ENGI_VDRUM;
+    }
+    key_down(white(0)); key_up(white(0)); frame();
+    key_down(white(LY_NENG - 1u)); key_up(white(LY_NENG - 1u)); frame();   /* (the last engine key: VDRUM) */
+    ok &= TSEL->eng_req == eng_vis(LY_NENG - 1u) && (FELUCCA_FM4 || (TSEL->eng_req == ENGI_VDRUM && LY_NENG == NENG_SHOWN));
     ok &= !memcmp(TSEL->step, before.step, sizeof before.step) && TSEL->p[P_SLEN] == before.p[P_SLEN] &&
           TSEL->p[P_SLCR] == SL_STUT;
     btn_up(B_EDIT); frame();
-    bad += check("EDIT + white key n: the n-th engine shown (ANALOG2 2nd, FM6 3rd, DRUM, VDRUM, DBOX last), while playing; steps, LEN, SLICER stay", ok);
+    bad += check("EDIT + white key n: the n-th engine shown (ANALOG2 2nd, FM6 3rd, DRUM, VDRUM last), while playing; steps, LEN, SLICER stay", ok);
     hold(B_SAVE);
     bad += check("  SAVE held: UNDO back to before the layer's loads, the steps untouched",
                  TSEL->eng_req == 0u && TSEL->preset == before.preset && !memcmp(TSEL->step, before.step, sizeof before.step));
@@ -5010,15 +4830,17 @@ static int test_bughunt_ui2(void)
         }
         bad += check("piano roll: the C-1 label stays inside the panel (every palette)", !out);
     }
-    {   /* 7. EDIT (M-Vave-OP1): every white key an engine, INIT the last black key (F#5, drawn bottom right), no other */
-        uint32_t p, ok = (FELUCCA_FM4 || LY_NENG == NENG_SHOWN) && LY_NENG == 16u && LY_INIT_B == 10u;
+    {   /* 7. EDIT (M-Vave-OP1): a white key an engine (16: five retired, the five Plaits engines added), INIT the last black key (F#5, drawn bottom
+         * right), no other */
+        uint32_t p, ok = LY_NENG == 16u && NENG_SHOWN == 16u + FELUCCA_FM4 && LY_INIT_B == 10u;   /* (all 16 white keys:
+                                                                        * FELUCCA_FM4's 17th has none) */
         for (p = 0; p < 11u; p++) {
             ui_power_on(); go_home(); frame();
             btn_down(B_EDIT); key_down(black(p)); frame(); frames(50);
             ok &= (ui.confirm == CF_INIT_SOUND) == (p == LY_INIT_B);
             key_up(black(p)); btn_up(B_EDIT); frame();
         }
-        bad += check("EDIT: 16 engines on the white keys, INIT on F#5 alone", ok);
+        bad += check("EDIT: 11 engines on the white keys, INIT on F#5 alone", ok);
     }
     return bad;
 }
@@ -5141,7 +4963,8 @@ static int test_fm6_charts(void)
 static int test_fm4_retired(void)
 {
     int bad = 0, ok = 1;
-    uint32_t i, k, e, total, seen = 0, all = ((1u << NENGINES) - 1u) & ~(1u << ENGI_DIGITAL);
+    uint32_t i, k, e, total, seen = 0, all = ((1u << NENGINES) - 1u) & ~(1u << ENGI_DIGITAL) &   /* (M-Vave-OP1: */
+             ~(1u << 2 | 1u << 5 | 1u << 6 | 1u << ENGI_SLICE | 1u << ENGI_DBOX);                /* and the retired) */
     int16_t p[P_COUNT];
     uint8_t v[FP_SIZE + 1u];
     ui_power_on();
@@ -5153,7 +4976,8 @@ static int test_fm4_retired(void)
         if (e < NENGINES)
             seen |= 1u << e;
     }
-    bad += check("PRESETS: the list holds every engine's presets but DIGITAL's", seen == all && NENG_SHOWN == NENGINES - 1u);
+    bad += check("PRESETS: the list holds every engine's presets but DIGITAL's and the retired ones'", seen == all &&
+                 NENG_SHOWN == NENGINES - 1u - NENG_RETIRED);
     go_page(GR_BROWSE);
     set_engine_of(TSEL, 0);
     for (i = 0, seen = 0; i < NENG_SHOWN; i++) {
@@ -5162,11 +4986,14 @@ static int test_fm4_retired(void)
     }
     bad += check("PRESETS KNOB 2: the engines in order, DIGITAL skipped, back to the first",
                  seen == all && TSEL->eng_req == 0u && eng_step(0, 1) == 14u && eng_step(14, 1) == ENGI_FM6 &&
-                 eng_step(ENGI_FM6, 1) == 2u && eng_step(ENGI_FM6, -1) == 14u && eng_step(0, -1) == ENGI_DBOX &&
-                 eng_step(ENGI_DBOX, -1) == ENGI_VDRUM && eng_step(ENGI_VDRUM, -1) == ENGI_DRUM);
+                 eng_step(ENGI_FM6, 1) == ENGI_WSHAPE && eng_step(ENGI_WSHAPE, 1) == ENGI_HARMON && eng_step(ENGI_HARMON, 1) == ENGI_PRTCL && eng_step(ENGI_PRTCL, 1) == ENGI_WTABLE && eng_step(ENGI_WTABLE, 1) == ENGI_SWARM &&
+                 eng_step(ENGI_SWARM, 1) == 3u &&
+                 eng_step(ENGI_FM6, -1) == 14u && eng_step(0, -1) == ENGI_VDRUM &&
+                 eng_step(ENGI_VDRUM, -1) == ENGI_DRUM && eng_step(ENGI_DBOX, 1) == ENGI_VDRUM);   /* (a retired engine: as
+                                                                                        * its successor) */
     {   /* the display order (engines.c ENGINE_ORDER): every engine one can pick once; the PRESETS list follows it */
-        static const char *const ORDER[] = {"ANALOG", "ANLG2", "FM6", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO",
-                                            "WHEEL", "GRAIN", "PHYS", "NOISE", "SLICE", "DRUM", "VDRUM", "DBOX"};
+        static const char *const ORDER[] = {"ANALOG", "ANLG2", "FM6", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS",
+                                            "NOISE", "DRUM", "VDRUM"};
         uint32_t last = 0xFFu, r = 0, n = 0;
         ok = NENG_SHOWN == NELEM(ORDER);
         for (i = 0; ok && i < NENG_SHOWN; i++)
@@ -5181,7 +5008,7 @@ static int test_fm4_retired(void)
             last = e;
             r++;
         }
-        bad += check("engines shown ANALOG ANALOG2 FM6 ... NOISE SLICE DRUM VDRUM DBOX (ENGINE_ORDER); PRESETS lists them so",
+        bad += check("engines shown ANALOG ANALOG2 FM6 WSHAPE HRMNC PRTCL WTABLE SWARM ... NOISE DRUM VDRUM (ENGINE_ORDER); PRESETS lists them so",
                      ok && r == NENG_SHOWN);
     }
     /* a user preset stored with engine 1: kept as it is, it loads as FM6 with the converted patch */
@@ -6764,6 +6591,24 @@ static int test_seq_tools(void)
     ok &= cur_page()->graph == GR_ROLL;
     bad += check("  from elsewhere the SEQ page shown last; one remembered that left SEQ: STEP", ok);
 
+    {   /* M-Vave-OP1: a LEGATO step (live recording's, core.h STEP_LEG): C4 TIE D4(LEGATO) TIE E4 reversed is E4 D4 TIE
+         * C4(LEGATO) TIE: the legato is between D4 and C4 again, now C4's; E4 none */
+        ui_power_on();
+        tl_melody();
+        for (k = 0; k < 8u; k++)
+            step_clear(&TSEL->step[k]);
+        tl_note(&TSEL->step[0], 60);
+        tl_tie(&TSEL->step[1]);
+        tl_note(&TSEL->step[2], 62);
+        TSEL->step[2].probability = STEP_LEG;
+        tl_tie(&TSEL->step[3]);
+        tl_note(&TSEL->step[4], 64);
+        (void)tl_do(TSEL, TL_REV, 0);
+        ok = TSEL->step[3].note[0] == 64 && !step_leg(&TSEL->step[3]) && TSEL->step[4].note[0] == 62 &&
+             !step_leg(&TSEL->step[4]) && TSEL->step[5].time == ST_TIE && TSEL->step[6].note[0] == 60 &&
+             step_leg(&TSEL->step[6]) && TSEL->step[7].time == ST_TIE;
+        bad += check("  REVERSE: a LEGATO step's legato goes to the note before it, which now follows it", ok);
+    }
     /* the whole sequence: REVERSE (a note's ties stay after it), SHIFT, CLEAR, locks, LEN, silent keys, undo */
     ui_power_on();
     tl_melody();
@@ -9671,19 +9516,18 @@ static int test_edit_quick_actions(void)
     double e_all, e_nokick, e_mute, e_again;
     int32_t o[2u * CTL];
 
-    /* the map per engine: DRUM 8 actions (the lanes), M-Vave-OP1's kits their lanes (VDRUM 6, DBOX 8), every other
-     * engine none */
+    /* the map per engine: DRUM 8 actions (the lanes), M-Vave-OP1's kit its lanes (VDRUM 6), every other engine none */
     ui_power_on();
     ok = 1;
     for (i = 0; i < NENGINES; i++) {
-        uint32_t want = i == ENGI_DRUM || i == ENGI_DBOX ? NLANE : i == ENGI_VDRUM ? 6u : 0u;
+        uint32_t want = i == ENGI_DRUM ? NLANE : i == ENGI_VDRUM ? 6u : 0u;
         trk[0].eng_req = (uint8_t)i;
         n = eqa_count(&trk[0]);
         ok &= n == want;
         ok &= !eqa_of(&trk[0], want);
     }
     ui_power_on();
-    bad += check("1.4.1 EDIT quick actions: DRUM 8 (black keys 1..8), VDRUM 6, DBOX 8, every other engine none", ok);
+    bad += check("1.4.1 EDIT quick actions: DRUM 8 (black keys 1..8), VDRUM 6, every other engine none", ok);
 
     /* DRUM (T4): EDIT held, a black key toggles its lane's mute (SET, latched); LEDs lit = sounding, dark = muted */
     ui_power_on();
@@ -9909,9 +9753,6 @@ int main(void)
     bad += test_browse_no_pattern();
     bad += test_name();
     bad += test_edit_cycle();
-#if FELUCCA_SLICE
-    bad += test_slices();
-#endif
     bad += test_sample_alert();
     bad += test_quick_layers();
     bad += test_chord_page();

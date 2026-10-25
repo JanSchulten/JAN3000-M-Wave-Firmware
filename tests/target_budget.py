@@ -14,16 +14,20 @@ import os
 import re
 import sys
 
-FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital_render_legacy", "digital_render_custom", "phase_render", "lofi_render", "sample_render", "formant_render",
-         "trio_render", "trio_pass", "wheel_render", "wheel_block",
+FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital_render_legacy", "digital_render_custom", "lofi_render", "sample_render",
+         "wheel_render", "wheel_block",
          "grain_render", "grain_block", "phys_render", "drum_render", "noise_render", "fm6_render", "fm6_op_run", "fm6_op_fb", "px_modal_block", "px_modal_run", "px_memb_block",
          "px_string_excite", "px_string_run", "px_symp_run",
          "dv_metal_run", "dv_kick_run", "dv_snare_run", "dv_clap_run", "dv_hat_run", "dv_tom_run",   # drum_voice.c
          "dv_rim_run", "dv_bell_run", "dv_cym_run", "dv_out", "dv_metal_mix",
          "slicer_track",
-         "slice_render", "slc_rev",                          # SLICE (eng_slice.c): the render, the reverse windows
          "vd_render", "vd_layer_run", "vd_post",             # M-Vave-OP1: VDRUM (eng_vdrum.c): the parts, a layer, the resonator
-         "dbx_render",                                       # .. DBOX (eng_dbox.c)
+         "plv_post",                                        # M-Vave-OP1: the Plaits engines' filter (plaits_voice.c)
+         "wsh_model", "pws_render", "pws_slope",            # .. WSHAPE (eng_wshape.c, plaits_ws.c: on the FPU)
+         "har_model", "pad_spectrum",                       # .. HRMNC (eng_harm.c, plaits_add.c: on the FPU)
+         "prt_model", "prt_post", "pun_sqrt",               # .. PRTCL (eng_part.c, plaits_part.c: on the FPU)
+         "wtb_model", "pwt_mix",                            # .. WTABLE (eng_wtable.c, plaits_wt.c: on the FPU)
+         "swm_model",                                       # .. SWARM (eng_swarm.c, plaits_swarm.c: on the FPU)
          "fm1_alnk0_irq", "fm1_timer5_irq",               # the audio ISR; TIMER5: the key / LED scan (hal/fm1_input.h)
          "uac_tap48",                                       # the USB audio input at 48 kHz: the 44.1 -> 48 resampler (usb.c)
          "click_render",                                    # the metronome's click (click.c), while it sounds
@@ -55,10 +59,15 @@ INSN = re.compile(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s*(.*)$")
 TARGET = re.compile(r"goto -?\d+ <[^>]*: ([0-9a-f]+) >")
 
 
+FPU = re.compile(r"^3f [ef]5 $")                     # the FPU's 4-byte instructions: objdump knows only their first half
+
+
 def functions(path):
     """{name: [(addr, text)]}: a function runs to the next label not starting with '.' (the compiler's
-    jump-table labels are inside functions); jump-table data ('< n : 0x.. >') is left out"""
-    out, cur = {}, None
+    jump-table labels are inside functions); jump-table data ('< n : 0x.. >') is left out. An FPU instruction
+    (3f e5 / 3f f5 .. : objdump prints '<unknown instruction>' and decodes its second half as an instruction of
+    its own, at times a branch) counts once, as 'fpu'"""
+    out, cur, half = {}, None, None
     with open(path) as f:
         for line in f:
             m = LABEL.match(line.strip())
@@ -66,10 +75,23 @@ def functions(path):
                 name = m.group(1)
                 if not name.startswith("."):
                     cur = out.setdefault(name, []) if name in FUNCS else None
+                half = None
                 continue
             m = INSN.match(line)
-            if cur is not None and m and not m.group(3).lstrip().startswith("<"):
-                cur.append((int(m.group(1), 16), m.group(3).strip()))
+            if not m:
+                continue
+            a = int(m.group(1), 16)
+            if half is not None and a == half:
+                half = None                              # (the FPU instruction's second half)
+                continue
+            half = None
+            if FPU.match(m.group(2)) and m.group(3).strip() == "<unknown instruction>":
+                half = a + 2
+                if cur is not None:
+                    cur.append((a, "fpu"))
+                continue
+            if cur is not None and not m.group(3).lstrip().startswith("<"):
+                cur.append((a, m.group(3).strip()))
     return out
 
 

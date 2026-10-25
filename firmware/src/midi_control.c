@@ -99,12 +99,13 @@ static void midi_release(uint32_t ch, uint32_t note)
     }
 }
 
-/* a MIDI note-on (ch, note) of track t: its chord (chord.c) or the note alone. A note another key or MIDI
+/* a MIDI note-on (ch, note) of track t: its chord (chord.c; M-Vave-OP1: a chord set's, cset.c) or the note alone. A note another key or MIDI
  * note holds already sounds: not started again */
 static void midi_play(track_t *t, uint32_t ch, uint32_t note, uint32_t vel)
 {
     uint8_t nn[CHORD_MAX];
-    uint32_t n = chord_build(t, note, nn), i, f = 0;
+    uint32_t n = cset_on(t) ? cset_build(t, note, 0, nn) : chord_build(t, note, nn), i, f = 0;   /* (M-Vave-OP1, SCL >
+                                                     * CSET: the chord of the note's key, cset.c) */
     if (n > 1u || nn[0] != note)
         for (f = 0; f < MCHORD_N && mchord[f].id; f++)
             ;
@@ -218,11 +219,13 @@ static const uint8_t MIDI_CC_MAP[][2] = {
 };
 /* per engine (ENGINES[] order): CC74's E index + 1 in the high nibble, CC71's in the low one, 0 = none */
 static const uint8_t MIDI_CC_ENG[NENGINES] = {
-    0x56, 0x00, 0x30, 0x80, 0x50, 0x07, 0x67, 0x00,   /* ANALOG CUT RES, -, PHASE DCW, LOFI TONE, SAMPLE CUT, VOICE Q,
-                                                       * TRIO CUT RES, WHEEL - */
+    0x56, 0x00, 0x00, 0x80, 0x50, 0x00, 0x00, 0x00,   /* ANALOG CUT RES, -, (PHASE), LOFI TONE, SAMPLE CUT, (VOICE),
+                                                       * (TRIO), WHEEL - (M-Vave-OP1: a retired engine's none) */
     0x80, 0x30, 0x30, 0x34, 0x30,                     /* GRAIN TONE, PHYS BRIT, DRUM TONE, NOISE FREQ RES, FM6 MLVL */
-    0x80,                                             /* SLICE TONE (13; reserved without FELUCCA_SLICE) */
+    0x00,                                             /* (SLICE, retired) */
     0x56,                                             /* ANALOG2 CUT RES (WAVE 1's) */
+    0x00, 0x00,                                       /* VDRUM -, (DBOX, retired) */
+    0x56, 0x56, 0x56, 0x56, 0x56,                     /* WSHAPE, HRMNC, PRTCL, WTABLE, SWARM CUT RES (M-Vave-OP1) */
 };
 /* a CC sets parameter id of track t as a knob would: 0..127 over its range */
 static void midi_cc_set(track_t *t, uint32_t id, uint32_t value)

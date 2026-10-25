@@ -137,8 +137,6 @@ static void upf_set(uint32_t k, const uint8_t *pk)
         upf_empty();
     if (up_used(k) && up_rec(k)->engine == ENGI_VDRUM) {   /* a kit: as it is, or INIT when it is none (vd_kit_ok) */
         memcpy(c, vd_kit_ok(pk) ? pk : VD_FACTORY[0], FM6_PACKED);
-    } else if (up_used(k) && up_rec(k)->engine == ENGI_DBOX) {   /* .. DBOX's (dbx_kit_ok) */
-        memcpy(c, dbx_kit_ok(pk) ? pk : DBX_FACTORY[0], FM6_PACKED);
     } else {
         fm6_unpack(pk, v);
         fm6_pack(v, c);
@@ -216,13 +214,6 @@ static void upf_track_load(track_t *t, uint32_t k)
             vd_unpack(tr, pk);
         return;
     }
-    if (tr < NTRK && t->eng_req == ENGI_DBOX) {         /* .. DBOX: the same */
-        if (upf_get_of(k, pk, ENGI_DBOX))
-            dbx_own_reset(tr);
-        else
-            dbx_unpack(tr, pk);
-        return;
-    }
     if (tr >= NTRK || t->eng_req != ENGI_FM6)
         return;
     if (upf_get(k, pk)) {
@@ -240,8 +231,6 @@ static int upf_store(uint32_t k, uint32_t tr)
     uint8_t pk[FM6_PACKED];
     if (trk[tr % NTRK].eng_req == ENGI_VDRUM)           /* (M-Vave-OP1) VDRUM: its own kit */
         vd_pack(tr, pk);
-    else if (trk[tr % NTRK].eng_req == ENGI_DBOX)       /* .. DBOX's */
-        dbx_pack(tr, pk);
     else
         fm6_pack(fm6_patch[tr % NTRK], pk);
     upf_set(k, pk);

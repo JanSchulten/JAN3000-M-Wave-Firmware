@@ -138,6 +138,7 @@ static const icon_map_t ICON_MAP[] = {
     {"DRV", ICON_DRIVE}, {"KTR", ICON_KEYTRACK}, {"ALG", ICON_ALGORITHM}, {"R2", ICON_RATIO},
     {"R3", ICON_RATIO}, {"R4", ICON_RATIO}, {"IDX", ICON_MOD}, {"MDEC", ICON_DECAY},
     {"FB", ICON_FEEDBACK}, {"CHIP", ICON_CHIP}, {"DUTY", ICON_PULSE}, {"CRSH", ICON_BITS},
+    {"HARM", ICON_SHAPE}, {"TIMB", ICON_FOLD}, {"MORPH", ICON_SWEEP}, {"AUX", ICON_MIX},   /* M-Vave-OP1: WSHAPE */
     {"SWP", ICON_SWEEP}, {"VIB", ICON_VIBRATO}, {"ARP", ICON_ARP}, {"TONE", ICON_TONE},
     {"SET", ICON_SAMPLE}, {"BITS", ICON_BITS}, {"LOOP", ICON_LOOP}, {"WAVE2", ICON_WAVE},
     {"DCW", ICON_SHAPE}, {"ENV", ICON_ENV}, {"LINE", ICON_MIX}, {"SUB", ICON_SUB},
@@ -194,8 +195,6 @@ static uint32_t param_icon(const param_desc_t *d, int32_t v)
         return ICON_LFO_WAVE;                 /* "WAVE" is also the oscillator wave */
     if (d == &TP[P_ARATE] || d == &TP[P_SLRATE])
         return ICON_DIVISION;                 /* arp / SLICER RATE is a note division, not Hz */
-    if (d->names == N_TRIO_MODE)
-        return ICON_CUTOFF;                   /* TRIO's MODE is the filter type, not the arp mode */
     if (d == &TP[P_FTYPE])
         return ICON_CUTOFF;                   /* ANALOG's filter TYPE (1.5): "TYPE" is also the reverb's */
     if (d == &TP[P_ESYNC])
@@ -204,14 +203,6 @@ static uint32_t param_icon(const param_desc_t *d, int32_t v)
         return ICON_NOISE;                    /* NOISE's MODE is the source; its CLK the register clock */
     if (d == &NOISE_CLK)
         return ICON_RATE;
-#if FELUCCA_SLICE
-    if (d->names == N_SLC_DIV)
-        return ICON_SLICE;                    /* SLICE: DIV is the slicing, MODE the gate, REV the direction */
-    if (d->names == N_SLC_MODE)
-        return ICON_GATE;
-    if (d->names == N_SLC_REV)
-        return ICON_ORDER;
-#endif
     return icon_for_label(d->label);
 }
 
@@ -244,14 +235,18 @@ static uint32_t engine_icon(const char *name)
 #if FELUCCA_FM4
         {"DIGITAL", ICON_ALGORITHM},
 #endif
-        {"PHASE", ICON_PHASE}, {"LOFI", ICON_BITS},
-        {"SAMPLE", ICON_SAMPLE}, {"VOICE", ICON_MOUTH}, {"TRIO", ICON_TRIO}, {"WHEEL", ICON_DRAWBAR},
-        {"SLICE", ICON_SLICE},
+        {"LOFI", ICON_BITS},
+        {"SAMPLE", ICON_SAMPLE}, {"WHEEL", ICON_DRAWBAR},
         {"GRAIN", ICON_GRAIN},
         {"PHYS", ICON_PHYS},
         {"DRUM", ICON_DRUM},
         {"NOISE", ICON_NOISE},
         {"FM6", ICON_MOD},                    /* (symbol_modular: six operators patched; a glyph of its own wanted) */
+        {"WSHAPE", ICON_FOLD},                /* (M-Vave-OP1: the wavefolder) */
+        {"HRMNC", ICON_W_SIN},               /* (M-Vave-OP1: sine partials) */
+        {"PRTCL", ICON_PROB},                /* (M-Vave-OP1: random particles) */
+        {"WTABLE", ICON_WAVE},               /* (M-Vave-OP1: the wavetables) */
+        {"SWARM", ICON_W_SAW},               /* (M-Vave-OP1: a swarm of saws) */
     };
     uint32_t i;
     for (i = 0; i < sizeof M / sizeof M[0]; i++)

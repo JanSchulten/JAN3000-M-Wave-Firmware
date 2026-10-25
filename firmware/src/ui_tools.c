@@ -6,7 +6,7 @@
  *   F#3 CLEAR   G#3 REVERSE  A#3 SHIFT <  C#4 SHIFT >     the whole sequence
  *   D#4 RANDOM  F#4 COOK     G#4 BEAT (DRUM)               new / a little changed
  *   A#4 CLEAR   C#5 REVERSE  D#5 FILL     F#5 RANDOM      the selected lane (DRUM: ui.lane, PRESETS picks it)
- * M-Vave-OP1: VDRUM and DBOX are kits as DRUM is (BEAT, the lane row, RANDOM and COOK as beats: kitlane.c; VDRUM's six
+ * M-Vave-OP1: VDRUM is a kit as DRUM is (BEAT, the lane row, RANDOM and COOK as beats: kitlane.c; VDRUM's six
  * lanes its parts)
  * Each works on the selected track's steps 1..LEN (the steps past LEN stay) and is one undo: SAVE held swaps back
  * the copy taken just before it (ui.c undo, UNDO_PAT; unlike a load the track's automation stays), so after a few
@@ -25,7 +25,7 @@ static uint32_t tl_len(const track_t *t) { return (uint32_t)clamp(t->p[P_SLEN], 
 static uint32_t tl_rnd(uint32_t n) { return n ? rng() % n : 0u; }
 static int tl_gate(const step_t *s) { return s->time == ST_NOTE && s->n; }
 static uint32_t tl_lane(const track_t *t, const step_t *s, uint32_t l) { return (step_lanes(t->eng_req, s) >> l) & 1u; }
-/* place p's action is there for this track (the lane row and BEAT: a kit's, DRUM VDRUM DBOX) */
+/* place p's action is there for this track (the lane row and BEAT: a kit's, DRUM VDRUM) */
 static int tl_cell(const track_t *t, uint32_t p) { return p < TL_N && p != TL_GAP && (p < TL_BEAT || kit_track(t)); }
 
 /* the undo copy of t as it is now (ui.c load_begin, but the automation is copied and stays): one action */
@@ -85,10 +85,13 @@ static void tl_order(track_t *t, uint32_t len, const uint8_t *src)
     motion_unguard(f);
 }
 
-/* REVERSE: the mirror order; a note's ties (after it) would come before it, so the note goes first again */
+/* REVERSE: the mirror order; a note's ties (after it) would come before it, so the note goes first again.
+ * M-Vave-OP1: a LEGATO step (core.h STEP_LEG: played legato from the note before) hands it to that note, which now
+ * follows it */
 static void tl_reverse(track_t *t, uint32_t len)
 {
-    uint8_t src[NSTEP], h;
+    uint8_t src[NSTEP], h, to[NSTEP];
+    uint64_t leg = 0;
     uint32_t j, e, x;
     for (j = 0; j < len; j++)
         src[j] = (uint8_t)(len - 1u - j);
@@ -105,6 +108,18 @@ static void tl_reverse(track_t *t, uint32_t len)
         j = e;                                          /* (past the run and its note) */
     }
     tl_order(t, len, src);
+    for (j = 0; j < len; j++)
+        to[src[j]] = (uint8_t)j;
+    for (j = 0; j < len; j++) {                         /* the note before each LEGATO step (over its ties): LEGATO */
+        if (!step_leg(&undo.step[j]))
+            continue;
+        for (e = (j + len - 1u) % len, x = 0; x < len && undo.step[e].time == ST_TIE; x++)
+            e = (e + len - 1u) % len;
+        if (undo.step[e].time == ST_NOTE && undo.step[e].n)
+            leg |= (uint64_t)1 << to[e];
+    }
+    for (j = 0; j < len; j++)
+        t->step[j].probability = (uint8_t)((t->step[j].probability & ~STEP_LEG) | ((leg >> j) & 1u ? STEP_LEG : 0u));
 }
 
 /* SHIFT: rotated by one step inside LEN, d = 1 later (>), len - 1 earlier (<) */

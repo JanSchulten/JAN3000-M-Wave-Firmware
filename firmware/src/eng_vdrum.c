@@ -359,7 +359,12 @@ static inline int32_t vd_noise(const tsvf_t *c, int32_t k, int32_t in, int32_t *
 }
 
 /* a layer's block (vd_render, once a block and layer: its divides stay out of the samples): the envelope and the
- * pitch modulator one block on; the pitch (1/16 semitone) and the level ramp (Q15 per sample from g0); 0 = silent */
+ * pitch modulator one block on; the pitch (1/16 semitone) and the level ramp (Q23, g0 + i gd: from the level at the
+ * block's start to the one at its end); 0 = silent. M-Vave-OP1: the ramp lands on the next block's start. A ramp of
+ * Q15 steps a sample (gd truncated, and taken from the envelope's change rather than its two ends) fell short by up
+ * to ~32 units a block, so a decaying layer's level jumped back up at every block: a sawtooth at the block rate
+ * (1378 Hz) on the sound, its lines at ~-70 dBFS however far the sound had decayed, heard as a hiss on the kick's
+ * low sine (k x 1378 +- 50 Hz). Q23 leaves at most one Q15 unit (vdrum_test: the kick's tail clean) */
 static __attribute__((noinline)) int vd_layer_ctl(vd_part_t *P, vd_layer_t *L, const uint8_t *b, int32_t poff,
                                                   int32_t *p16, int32_t *g0, int32_t *gd)
 {
@@ -384,13 +389,13 @@ static __attribute__((noinline)) int vd_layer_ctl(vd_part_t *P, vd_layer_t *L, c
     }
     *p16 = clamp(12 * 16 + (int32_t)(b[VK_LPIT] & 127u) * 108 * 16 / 127 + poff + md, 0, 2047);
     g = (int32_t)(lv * lv * 2u);                 /* LVL, square law (Q15) */
-    *gd = mulq15(g, (L->env - e0) >> 9) >> CTL_LOG2;   /* the ramp: Q15 per sample */
-    *g0 = mulq15(g, e0 >> 9);
+    *g0 = mulq15(g, e0 >> 9) << 8;               /* (the level at the block's start, Q23) */
+    *gd = ((mulq15(g, L->env >> 9) << 8) - *g0) >> CTL_LOG2;   /* .. to its end's, Q23 a sample */
     return 1;
 }
 
 /* a layer's samples into y (added): the oscillator at p16 (its increment ramped from the last block's) or the noise
- * through the filter at p16, at the level ramp g0 + i gd */
+ * through the filter at p16, at the level ramp g0 + i gd (Q23) */
 static __attribute__((noinline)) void vd_layer_run(vd_part_t *P, vd_layer_t *L, uint32_t src, int32_t p16, int32_t g,
                                                    int32_t gd, int32_t *y, uint32_t n)
 {
@@ -400,7 +405,7 @@ static __attribute__((noinline)) void vd_layer_run(vd_part_t *P, vd_layer_t *L, 
         int32_t di = ((int32_t)(inc1 - inc)) >> CTL_LOG2;
         for (i = 0; i < n; i++) {
             int32_t s = src == VS_SIN ? sine_i(ph) : osc_saw(ph, inc);
-            y[i] += mulq15(s, g);
+            y[i] += mulq15(s, g >> 8);
             g += gd;
             ph += inc;
             inc += (uint32_t)di;
@@ -413,7 +418,7 @@ static __attribute__((noinline)) void vd_layer_run(vd_part_t *P, vd_layer_t *L, 
         tsvf_coef_k(&c, (p16 - 360) * 299 >> 4, kd);
         for (i = 0; i < n; i++) {
             int32_t s = vd_noise(&c, kd, (int32_t)noise32(&P->rng) >> 17, &L->f1, &L->f2, src);
-            y[i] += mulq15(s, g);
+            y[i] += mulq15(s, g >> 8);
             g += gd;
         }
     }

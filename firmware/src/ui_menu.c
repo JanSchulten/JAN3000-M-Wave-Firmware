@@ -38,13 +38,9 @@ typedef struct { const char *text; uint8_t kind; } menu_credit_t;
 static const menu_credit_t MENU_CREDITS[] = {
     {"H\xFCgelton Instruments", MC_TITLE},  /* Felucca's own: above; these are ours too */
     {"Leo Kuroshita", MC_TEXT},
-    {"CrispyZebra (PHASE waveforms), the DRUM voices, the Sample Pack: GPL-3.0", MC_TEXT},
+    {"The DRUM voices, the Sample Pack: GPL-3.0", MC_TEXT},
     {"Fukiai icon font: MIT", MC_TEXT},
     {"https://github.com/hugelton", MC_URL},
-    {"", MC_TEXT},
-    {"CHORALROOT FM-1", MC_TITLE},                 /* M-Vave-OP1: SCL > ORCHID (orchid.c) after it */
-    {"Quixotic7 / GPL-3.0", MC_TEXT},
-    {"https://github.com/Quixotic7/ChoralRootFM1", MC_URL},
     {"", MC_TEXT},
     {"KLATTSCH", MC_TITLE},
     {"Tony Gies / MIT", MC_TEXT},
@@ -350,6 +346,8 @@ static void menu_row(uint32_t k, uint32_t row)
         }
     }
 }
+#include "fpu_probe.c"                         /* M-Vave-OP1: INFO's FPU probe (OCT+) */
+
 /* MENU > SYSTEM > INFO (1.2, ui.menu 3): what the old GLO > SYSTEM page showed, read only: the firmware, the USB link (the
  * SYSTEM page's MIDI card: OFF no USB, WAIT no bus yet, BUS frames seen, ENUM being set up, MIDI in use) and the CPU load
  * of the audio (its SYSTEM card; the shown value follows every INFO_CPU_MS, not every frame). The rows as the menu's (no
@@ -368,7 +366,7 @@ static uint32_t info_sig(void)
         info.t = fm1_ms;
         info.cpu = (uint8_t)(song.cpu_q8 * 100u / 256u);
     }
-    return info.cpu * 7u + info_usb() * 131u + 1u;
+    return info.cpu * 7u + info_usb() * 131u + fpb.runs * 7919u + fpb.state * 65537u + 1u;
 }
 static void info_rows(void)                            /* (in screen rows: cv_oy set by the caller) */
 {
@@ -392,6 +390,43 @@ static void info_rows(void)                            /* (in screen rows: cv_oy
             cv_text_r(cv_text_r(MR_VR, vy + AF_M.asc - AF_S.asc, &AF_S, "%", T_MID, T_SURF) - 3, vy, &AF_M, cpu, T_THEME, T_SURF);
         } else {
             cv_text_r(MR_VR, vy, &AF_M, k ? USB_N[info_usb()] : FELUCCA_VERSION, T_THEME, T_SURF);
+        }
+    }
+}
+/* M-Vave-OP1: the FPU probe's rows (fpu_probe.c), in the second band: its verdict (OCT+ runs it), the float multiply-add,
+ * integer multiply-add and float divide in ns, one Plaits waveshaper voice as % of the audio's time */
+#define INFO_FPB_Y 136
+static void info_probe_rows(void)                      /* (in screen rows: cv_oy set by the caller) */
+{
+    static const char *const LBL[3] = {"FPU", "F I DIV NS", "WS VOICE"};
+    static const char *const ST[4] = {"OCT+ TEST", "OK", "WS DIFFERS", "WRONG"};
+    int32_t h = menu_large() ? 28 : 24;
+    uint32_t k;
+    char v[24], *p;
+    if (!ux.style)
+        cv_rrect(4, INFO_FPB_Y, 232, 3 * (h + 2) - 2 + 2 * MP_PAD, 8, T_SURF, T_BG);
+    for (k = 0; k < 3u; k++) {
+        int32_t y = INFO_FPB_Y + MP_PAD + (int32_t)k * (h + 2), vy = y + CAP_IN(M, h);
+        if (k)
+            cv_rect(MR_X + 6, y - 1, MR_W - 12, 1, ux.style ? T_RULE : T_LINE);
+        GFX_HOOK_ALIGN(0, y, 0, y + h, AL_V, "info row name centred up/down");
+        cv_text_on(MR_LX, vy, &AF_M, LBL[k], T_TEXT, T_SURF);
+        GFX_HOOK_ALIGN(0, y, 0, y + h, AL_V, "info row value centred up/down");
+        if (!k || fpb.state == FPB_NONE) {
+            cv_text_r(MR_VR, vy, &AF_M, k ? "-" : ST[fpb.state % 4u], k || fpb.state ? T_THEME : T_MID, T_SURF);
+        } else if (k == 1u) {                          /* the three times, one decimal */
+            fpb_fix1(v, fpb.f_ns10);
+            p = v + str_len(v);
+            *p++ = ' ';
+            fpb_fix1(p, fpb.i_ns10);
+            p += str_len(p);
+            *p++ = ' ';
+            fpb_fix1(p, fpb.d_ns10);
+            cv_text_r(MR_VR, vy, &AF_M, v, T_THEME, T_SURF);
+        } else {                                       /* % of the audio's time, its unit as CPU's */
+            fpb_fix1(v, fpb.ws_pm);
+            GFX_HOOK_ALIGN(0, 0, 0, vy + AF_M.asc, AL_B, "info row unit on its value's baseline");
+            cv_text_r(cv_text_r(MR_VR, vy + AF_M.asc - AF_S.asc, &AF_S, "%", T_MID, T_SURF) - 3, vy, &AF_M, v, T_THEME, T_SURF);
         }
     }
 }
@@ -440,6 +475,8 @@ static void draw_menu(void)
             cv_oy = -(int32_t)top_y;
             if (!pass)
                 info_rows();
+            else
+                info_probe_rows();
             cv_oy = 0;
             cv_blit(0, top_y);
         }
@@ -502,7 +539,8 @@ static void menu_close(void)
 
 /* menu: ALGORITHM steps between the tabs, PRESETS between the rows of one (both wrap; a tab comes back at the row
  * last picked in it), any of KNOB 1..4 or OCT+ / OCT- change a value (menu_items.c menu_step), OCT+ opens CALIBRATION /
- * INFO / ABOUT (OCT- nothing there); OCT- in INFO and ABOUT goes back to the tabs. HOME closes it, from them too
+ * INFO / ABOUT (OCT- nothing there); OCT- in INFO and ABOUT goes back to the tabs, OCT+ in INFO runs the FPU probe
+ * (M-Vave-OP1). HOME closes it, from them too
  * (ui_input.c) */
 static void menu_move(int32_t s)                       /* PRESETS: the next / previous row of the tab */
 {
@@ -526,6 +564,8 @@ static void menu_input(uint32_t oct)                  /* oct: ui_input.c oct_tap
                                                         * the tabs */
         if (dn)
             ui.menu = 1, ui.force = 1;
+        else if (up && ui.menu == 3)                   /* M-Vave-OP1: INFO's OCT+ runs the FPU probe */
+            fpu_probe_go(), ui.force = 1;
         else if (ui.menu == 2 && (s = panel_enc(EN_PRESET)) != 0)
             ui.menu_scroll = (uint16_t)clamp((int32_t)ui.menu_scroll + clamp(s, -128, 128) * 18, 0, menu_scroll_max());
         enc_drop();

@@ -84,8 +84,9 @@ static void host_tracks_init(void)                /* as felucca_init: defaults, 
     song.master_q12 = 4096;
 }
 
-/* the factory preset as ui.c apply_preset_to sets it (sound, sends; not the steps, not the track's own:
- * the mix, ARP, SCL, the pattern parameters, the SLICER);
+/* the factory preset as ui.c preset_load_to sets it with its sends (the power-on sounds' load: the renders keep
+ * hearing each preset through its own sends; a load from the PRESETS list keeps the track's, ui.c preset_fx) (sound,
+ * sends; not the steps, not the track's own: the mix, ARP, SCL, the pattern parameters, the SLICER);
  * the engine as the UI asks for it (eng_req: the audio side switches; host_preset: at once) */
 static void host_preset_values(track_t *t, uint32_t e, uint32_t pi, const preset_t *p)
 {
@@ -567,6 +568,73 @@ static int rec_step_is(const track_t *t, uint32_t i, uint32_t time, uint32_t n, 
     const step_t *s = &t->step[i];
     return s->time == time && s->n == n && (!n || s->note[0] == note);
 }
+/* M-Vave-OP1: notes played legato on a LEG track are recorded LEGATO (core.h STEP_LEG) and play back so: one envelope
+ * from the first note on (voice 0 not started again, its stage on), the pitch on to the next note at once (GLIDE 0, no
+ * slide's glide), as live. A note pressed after the one before was let go: a note of its own (its envelope new); a
+ * SLIDE on the step before still glides */
+static uint32_t leg_age(const track_t *t) { return t->v[0].age; }
+static int rec_legato_test(void)
+{
+    track_t *t = &trk[3];
+    uint32_t a0, a1, a2, pass, ok_rec, ok_play = 1, ok_det, ok_slide;
+    int32_t pc = 0;
+    host_preset(t, 0, 0);                           /* SAW LEAD, LEG */
+    t->p[P_VOICE] = V_LEGATO;
+    t->p[P_GLIDE] = 0;
+    song.rec = 0x08u;
+    rec_run_to(t, 1, 10);                           /* A from step 1, B in step 4 while A is down, A up, B up in 6 */
+    input_on(t, 60, 100);
+    rec_run_to(t, 4, 20);
+    a0 = leg_age(t);
+    input_on(t, 62, 100);
+    a1 = leg_age(t);                                /* (live: legato, voice 0 not started again) */
+    rec_run_to(t, 4, 60);
+    input_off(t, 60);
+    rec_run_to(t, 6, 70);
+    input_off(t, 62);
+    rec_run_to(t, 8, 10);                           /* C in step 8, let go, D in its next step: no legato */
+    input_on(t, 64, 100);
+    rec_run_to(t, 8, 30);
+    input_off(t, 64);
+    rec_run_to(t, 9, 10);
+    input_on(t, 65, 100);
+    rec_run_to(t, 9, 30);
+    input_off(t, 65);
+    ok_rec = a0 == a1 && rec_step_is(t, 1, ST_NOTE, 1, 60) && rec_step_is(t, 2, ST_TIE, 0, 0) &&
+             rec_step_is(t, 3, ST_TIE, 0, 0) && rec_step_is(t, 4, ST_NOTE, 1, 62) && step_leg(&t->step[4]) &&
+             rec_step_is(t, 5, ST_TIE, 0, 0) && rec_step_is(t, 6, ST_TIE, 0, 0) && !step_leg(&t->step[1]) &&
+             rec_step_is(t, 8, ST_NOTE, 1, 64) && rec_step_is(t, 9, ST_NOTE, 1, 65) && !step_leg(&t->step[9]);
+    song.rec = 0;
+    for (pass = 0; pass < 2u; pass++) {             /* played back: A's envelope on into B, at B's pitch at once */
+        rec_run_to(t, 3, 90);
+        a2 = leg_age(t);
+        rec_run_to(t, 4, 5);
+        pc = t->v[0].pitch_cur;
+        ok_play &= leg_age(t) == a2 && t->v[0].gate && t->v[0].note == 62u && t->v[0].pitch16 == 62 * 16 &&
+                   pc == 62 * 16;
+        rec_run_to(t, 9, 5);                        /* D: its own envelope */
+        ok_play &= leg_age(t) != a2 && t->v[0].note == 65u;
+    }
+    t->step[4].probability &= (uint8_t)~STEP_LEG;   /* the same steps without it: B starts its envelope (as before) */
+    rec_run_to(t, 3, 90);
+    a2 = leg_age(t);
+    rec_run_to(t, 4, 5);
+    ok_det = leg_age(t) != a2;
+    t->step[4].probability |= STEP_LEG;
+    t->step[3].flags |= SF_SLIDE;                   /* SLIDE on the step before: legato and its glide (acid), an octave */
+    t->step[4].note[0] = 72;
+    rec_run_to(t, 3, 90);
+    a2 = leg_age(t);
+    rec_run_to(t, 4, 0);
+    ok_slide = leg_age(t) == a2 && t->v[0].pitch16 == 72 * 16 && t->v[0].pitch_cur > 60 * 16 &&
+               t->v[0].pitch_cur < 72 * 16 && t->slide_glide;
+    t->step[3].flags &= (uint8_t)~SF_SLIDE;
+    t->step[4].note[0] = 62;
+    printf("tracks: recording legato (LEG): B pressed over A -> A TIE TIE B(LEGATO); let go first -> no LEGATO %s; "
+           "played back: one envelope, B's pitch at once (GLIDE 0) %s; without LEGATO B restarts %s; SLIDE glides %s\n",
+           ok_rec ? "ok" : "FAIL", ok_play ? "ok" : "FAIL", ok_det ? "ok" : "FAIL", ok_slide ? "ok" : "FAIL");
+    return !ok_rec + !ok_play + !ok_det + !ok_slide;
+}
 static int rec_test(void)
 {
     track_t *t1 = &trk[0], *t2 = &trk[1], *t3 = &trk[2];
@@ -646,7 +714,8 @@ static int rec_test(void)
     input_off(t3, 62);
     rec_run_to(t3, 14, 50);
     ok_mono = rec_step_is(t3, 10, ST_NOTE, 1, 60) && rec_step_is(t3, 11, ST_TIE, 0, 0) && rec_step_is(t3, 12, ST_NOTE, 1, 62) &&
-              rec_step_is(t3, 13, ST_TIE, 0, 0) && t3->step[14].time != ST_TIE;
+              rec_step_is(t3, 13, ST_TIE, 0, 0) && t3->step[14].time != ST_TIE && !step_leg(&t3->step[12]);   /* (MONO
+                                                     * restarts the envelope live: no LEGATO) */
     printf("tracks: recording lengths: held 3.3 steps -> NOTE TIE TIE (the 4th step put back) %s; 0.3 step -> one "
            "step %s; past the middle of the next -> NOTE TIE %s\n", ok_len ? "ok" : "FAIL", ok_short ? "ok" : "FAIL",
            ok_half ? "ok" : "FAIL");
@@ -655,7 +724,7 @@ static int rec_test(void)
     printf("tracks: recording with SWING 50 %%: nearest swung step (0.55 into a long step stays, 0.42 into a short "
            "one moves on) %s\n", ok_swing ? "ok" : "FAIL");
     fail = !ok_len + !ok_short + !ok_half + !ok_chord + !ok_cap + !ok_mono + !ok_swing;
-    return fail;
+    return fail + rec_legato_test();
 }
 
 /* TRS MIDI IN (midi_uart.c, untested on hardware): bytes through its parser into the same queue as

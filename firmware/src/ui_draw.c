@@ -1097,13 +1097,12 @@ static void draw_columns(void)
         draw_column(3, "LEN", val, "", VAL(3u), (int32_t)(len * 1000u / NSTEP), ICON_LENGTH);
         return;
     }
-    if (cur_page()->graph == GR_ORCH) {               /* M-Vave-OP1, SCL > ORCHID: ON, VOICE, LOCK (orchid.c; ui_input.c */
-        int32_t v = orc_voice[song.sel], on = (orc_en >> song.sel) & 1u;   /* orc_knob) */
-        draw_column(0, "ORCH", on ? "ON" : "OFF", "", on ? VAL(0u) : T_DIM, on ? 1000 : 0, ICON_SCALE);
-        val[0] = '+';
-        fmt_int(val + (v > 0), v);
-        draw_column(1, "VOICE", val, "", VAL(1u), (v + 12) * 1000 / 24, ICON_VOICE);
-        draw_column(2, "LOCK", orc.lock ? "ON" : "OFF", "", orc.lock ? T_ACCENT : VAL(2u), -1, ICON_X_LOCK);
+    if (cur_page()->graph == GR_CSET) {               /* M-Vave-OP1, SCL > CSET: ON, SET, GENRE (cset.c; ui_input.c */
+        uint32_t s = cset_set[song.sel % NTRK] % CSET_N, on = (cset_en >> song.sel) & 1u;   /* cset_knob) */
+        draw_column(0, "CSET", on ? "ON" : "OFF", "", on ? VAL(0u) : T_DIM, on ? 1000 : 0, ICON_SCALE);
+        fmt_int(val, (int32_t)s + 1);
+        draw_column(1, "SET", val, "", VAL(1u), (int32_t)(s * 1000u / (CSET_N - 1u)), ICON_VOICE);
+        draw_column(2, "GENRE", CSET_GENRE_S[CSET_GENRE_OF[s] % CSET_NG], "", VAL(2u), -1, ICON_SCALE);
         draw_column(3, "", "", "", T_THEME, -1, ICON_NONE);
         return;
     }
@@ -1168,41 +1167,6 @@ static void draw_columns(void)
         draw_act_column(1, "LOAD", used ? T_THEME : T_DIM, ICON_AUTO);
         draw_act_column(2, "ERASE", used ? T_THEME : T_DIM, ICON_AUTO);
         draw_act_column(3, "SAVE", T_THEME, ICON_AUTO);
-        return;
-    }
-#if FELUCCA_SLICE
-    if (cur_page()->graph == GR_SLICES) {                /* SLICE POS, then SPLIT JOIN (ui_slice.c) */
-        uint32_t n = slice_count(), j = slice_sel(), src, div, ok = slice_src(&src, &div) && src;
-        char u[8];
-        if (j < n) {
-            fmt_int(val, (int32_t)j + 1);
-            str_cpy(u, "/", 8);
-            fmt_int(u + 1, (int32_t)n);
-        } else {
-            str_cpy(val, n ? "END" : "--", sizeof val);
-            u[0] = 0;
-        }
-        draw_column(0, "SLICE", val, u, VAL(0u), -1, ICON_SLICE);
-        slice_time(val, slice_mark(j));
-        draw_column(1, "POS", val, "S", ok ? VAL(1u) : T_DIM, -1, ICON_AUTO);
-        draw_act_column(2, "SPLIT", ok ? T_THEME : T_DIM, ICON_AUTO);
-        draw_act_column(3, "JOIN", ok ? T_THEME : T_DIM, ICON_AUTO);
-        return;
-    }
-#endif
-    if (dbu_page(cur_page()->graph)) {                   /* (M-Vave-OP1) DBOX: the key's bytes (ui_dbox.c) */
-        for (c = 0; c < 4u; c++) {
-            const char *lb, *u;
-            int32_t r;
-            uint32_t ic;
-            int on;
-            if (!dbu_ok()) {                             /* (the engine changed before ui_draw left the page) */
-                draw_column(c, "", "", "", T_THEME, -1, ICON_NONE);
-                continue;
-            }
-            on = dbu_card(c, &lb, val, &u, &r, &ic);
-            draw_column(c, lb, val, u, on ? VAL(c) : T_DIM, r, ic);
-        }
         return;
     }
     if (vdu_page(cur_page()->graph)) {                   /* (M-Vave-OP1) VDRUM: the part's bytes (ui_vdrum.c) */

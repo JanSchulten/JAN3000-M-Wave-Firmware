@@ -13,20 +13,24 @@
 #define NTRK NPART               /* tracks (the formats and the protocol count these): every track is a part */
 #define NSTEP 64
 #define HALF_FRAMES 128          /* I2S half buffer: 2.9 ms at 44.1 kHz (a key waits 0..1 half, then plays 1 half later) */
-#ifndef FELUCCA_SLICE
-#define FELUCCA_SLICE 1          /* the SLICE engine (eng_slice.c), engine 13; FELUCCA_SLICE=0 builds without it */
-#endif
 #ifndef FELUCCA_FM4
 #define FELUCCA_FM4 0            /* the DIGITAL engine (eng_digital.c, four-operator FM): kept in the tree, not built
                                   * by default; replaced by FM6, its sounds convert (fm4_convert.c) */
 #endif
-#define NENGINES 17u              /* .. SLICE 13, ANALOG2 14, VDRUM 15, DBOX 16 (M-Vave-OP1): appended, the others keep
-                                  * their numbers (a FELUCCA_SLICE=0 build keeps 13 as a reserved slot) */
-#define ENGI_SLICE 13u
+#define NENGINES 22u              /* .. SLICE 13, ANALOG2 14, VDRUM 15, DBOX 16, WSHAPE 17, HRMNC 18, PRTCL 19, WTABLE 20,
+                                  * SWARM 21 (M-Vave-OP1): appended, the others keep
+                                  * their numbers; a retired engine keeps its number as a reserved slot (engines.c ENG_GONE) */
+#define ENGI_SLICE 13u           /* (retired, M-Vave-OP1: PHASE 2, VOICE 5, TRIO 6, SLICE 13, DBOX 16) */
 #define ENGI_VDRUM 15u
 #define ENGI_DBOX 16u
+#define ENGI_WSHAPE 17u          /* (M-Vave-OP1: the Plaits waveshaper, PHASE's successor) */
+#define ENGI_HARMON 18u          /* (M-Vave-OP1: the Plaits additive model, TRIO's successor) */
+#define ENGI_PRTCL 19u           /* (M-Vave-OP1: the Plaits particle model) */
+#define ENGI_WTABLE 20u          /* (M-Vave-OP1: the Plaits wavetable model, VOICE's successor) */
+#define ENGI_SWARM 21u           /* (M-Vave-OP1: the Plaits swarm model, SLICE's successor) */
+#define NENG_RETIRED 5u
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
-#define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - !FELUCCA_SLICE)   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
+#define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - NENG_RETIRED)   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
                                                 * in the display order of engines.c ENGINE_ORDER */
 #define UP_SLOTS 32u             /* user presets (upreset.c) */
 #define NELEM(a) (sizeof(a) / sizeof((a)[0]))
@@ -114,6 +118,15 @@ static void params_by_count(int16_t *out, const int16_t *in, uint32_t np, const 
 /* engine indices the stores name (engines.c ENGINES[]: append-only) */
 #define ENGI_PHYS 9u
 #define ENGI_DRUM 10u
+/* M-Vave-OP1: the engine a stored engine number plays as: a retired one's successor (engines.c ENG_GONE: PHASE 2 ->
+ * WSHAPE 17, TRIO 6 -> HRMNC 18, VOICE 5 -> WTABLE 20, SLICE 13 -> SWARM 21, DBOX 16 -> DRUM), any other itself. Projects (project.c proj_retired), user
+ * presets (upreset.c), the editor and every engine switch (ui.c set_engine_of) go through it; the sound loads as the
+ * successor's first preset. The Plaits engines will take ANALOG's place here as they come (docs/PLAITS_PLAN.md) */
+static inline int eng_retired(uint32_t e) { return e == 2u || e == 5u || e == 6u || e == ENGI_SLICE || e == ENGI_DBOX; }
+static inline uint32_t eng_successor(uint32_t e)
+{
+    return !eng_retired(e) ? e : e == ENGI_DBOX ? ENGI_DRUM : e == 2u ? ENGI_WSHAPE : e == 6u ? ENGI_HARMON : e == 5u ? ENGI_WTABLE : ENGI_SWARM;
+}
 /* PHYS MODEL DRUM (MODEL 4, before 1.0) -> the DRUM engine, its E values in place: {MODEL, TUNE, TONE, DECY,
  * SNAP, ACC, KICK 0..127, PERC 0..127} -> {KIT, TUNE, TONE, DECY, SNAP, ACC, KICK 0..1, DRV 0}. 1 = it was one
  * (its engine is ENGI_DRUM now); projects (project.c) and user presets (upreset.c) */
@@ -248,7 +261,7 @@ typedef struct {                 /* acid-style step: up to 4 notes (POLY), time,
     uint8_t vel;
     uint8_t hit;                 /* bit l: lane l hits (its GM note, on any engine): the DRUM grid */
     uint8_t acc;                 /* bit l: that hit is accented (velocity 127) */
-    uint8_t probability;         /* 0 = legacy 100%; 1..100 = percent, 101 = silent */
+    uint8_t probability;         /* 0 = legacy 100%; 1..100 = percent, 101 = silent; bit 7 STEP_LEG (M-Vave-OP1) */
 } step_t;
 typedef struct {                 /* a step as formats 1..4 (projects to FUN4) stored it: no hits */
     uint8_t note[4];
@@ -256,8 +269,19 @@ typedef struct {                 /* a step as formats 1..4 (projects to FUN4) st
 } step8_t;
 
 /* Probability keeps zero-initialized and legacy patterns at 100%. */
-static uint32_t step_chance(const step_t *s) { return !s->probability ? 100u : s->probability <= 100u ? s->probability : 0u; }
-static void step_set_chance(step_t *s, uint32_t chance) { s->probability = (uint8_t)(chance >= 100u ? 0u : chance ? chance : 101u); }
+#define STEP_LEG 0x80u           /* M-Vave-OP1: bit 7 of probability, LEGATO: a NOTE step played legato from the notes held
+                                  * into it (seq.c seq_step: no new envelope, a glide only as GLIDE says), as live recording
+                                  * heard it on a LEG / UNI track (rec_note). Stored in the project's extras (opstore.c) */
+static uint32_t step_chance(const step_t *s)
+{
+    uint32_t p = s->probability & ~STEP_LEG;
+    return !p ? 100u : p <= 100u ? p : 0u;
+}
+static void step_set_chance(step_t *s, uint32_t chance)
+{
+    s->probability = (uint8_t)((s->probability & STEP_LEG) | (chance >= 100u ? 0u : chance ? chance : 101u));
+}
+static int step_leg(const step_t *s) { return s->time == ST_NOTE && s->n && (s->probability & STEP_LEG); }
 /* RATCH: a NOTE step plays its notes and hits this many times (1..4), in equal parts of the step; every older
  * pattern holds 0 there, x1 */
 static uint32_t step_ratchet(const step_t *s) { return ((s->flags & SF_RATCH) >> SF_RATCH_SH) + 1u; }
@@ -427,6 +451,14 @@ static inline uint32_t swing_step_len(const track_t *t, uint32_t base, uint32_t 
 
 /* ----------------------------------------------------------- system --- */
 #define RING_PUBLISH() __asm__ volatile("" ::: "memory")   /* slot store before the index update */
+/* M-Vave-OP1: the chip's FPU (JieLi's SDK builds WL82 with -mfprev1; this build does not, its code is integer only). A
+ * function marked FM1_FPU computes its floats with it; every float helper it calls needs the mark too, else that helper
+ * is not inlined and runs as soft float (docs/PLAITS_PLAN.md). Host and browser builds: plain float */
+#ifdef __PI32V2__
+#define FM1_FPU __attribute__((target("fprev1")))
+#else
+#define FM1_FPU
+#endif
 static volatile uint32_t fm1_ms;  /* milliseconds since boot (TIMER4-based, TIMER5 ISR in main.c) */
 /* boot-loop guard (main.c): two boots in a row that die in the first 30 s -> UBOOT */
 #define BOOTGUARD_MAGIC 0x42475244u
