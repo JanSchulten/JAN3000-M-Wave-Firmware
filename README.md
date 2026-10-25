@@ -446,3 +446,9 @@ git merge upstream/main
 GPL-3.0-only, like Felucca. Bundled and ported parts keep their own licences; see
 [LICENSING.md](LICENSING.md) and `LICENSES/`. If you distribute this firmware, you must also
 offer its complete corresponding source under the same licence.
+
+## JAN3000 controls
+
+OCT+ and OCT- move the keyboard octave on STEP, stopped and playing. To add chord notes one at a time, set
+MENU > CONTROL > CHORD ENTRY to ADD, arm STEP with REC, and press the note keys; press a note again to remove it.
+The octave keys confirm or cancel dialogs and actions; held SEQ uses them for scenes.

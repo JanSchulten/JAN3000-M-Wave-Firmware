@@ -335,6 +335,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/key_test" tests/key_test.c -lm
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/jan_test" tests/jan_test.c -lm
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/workflow_test" tests/workflow_test.c -lm
+    run "JAN3000 single-path controls: octave keys on STEP" "$OUT/workflow_test"
     run "JAN3000 v0.8: another track opens the families' first pages, REC + OCT- / OCT+ undo / redo, SAVE > PROJECT > NEW" "$OUT/jan_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/newproj_test" tests/newproj_test.c -lm
     run "NEW PROJECT's sounds drawn: F#5, OCT- on an empty slot, power-on; every bass, lead and kit comes up, nothing else" "$OUT/newproj_test"

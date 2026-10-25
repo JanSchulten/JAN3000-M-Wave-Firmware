@@ -1137,53 +1137,6 @@ static void step_edit(uint32_t slot, int32_t steps)
     }
 }
 
-/* M-Vave-OP1: on STEP (a note track, not DETAIL, stopped) OCT+ / OCT- edit the cursor step's notes: OCT+ adds the note
- * played last (KNOB 2 moves it after), OCT- takes the step's last note out (the step a rest when none is left). The
- * keyboard's octave is OCT's while playing and on every other page */
-static int step_oct_on(void)
-{
-    return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_ROLL && !detail_on() &&
-           !kit_track(TSEL) && !song.playing && !chain_busy();
-}
-static void step_oct(int up)
-{
-    track_t *t = TSEL;
-    step_t *st = &t->step[ui.cursor];
-    uint32_t i;
-    if (!up && (!step_on(st) || !st->n)) {
-        ui_message("NO NOTE HERE");
-        return;
-    }
-    step_undo_take(t, 0x2400u | ui.cursor);              /* (each press its own undo) */
-    if (!up) {
-        st->n--;
-        if (!st->n)
-            st->time = ST_REST;
-        return;
-    }
-    if (st->time != ST_NOTE || !st->n) {
-        st->n = 0;
-        st->time = ST_NOTE;
-        st->probability &= (uint8_t)~STEP_LEG;
-    }
-    for (i = 0; i < st->n && st->note[i] != last_note; i++)
-        ;
-    if (i < st->n) {
-        ui_message("NOTE IS THERE");
-        return;
-    }
-    if (st->n >= 4u || (t->p[P_VOICE] && st->n)) {      /* (four a step; MONO / LEG / UNI: one, replaced) */
-        if (t->p[P_VOICE])
-            st->note[0] = last_note;
-        else
-            ui_message("STEP FULL (4)");
-        return;
-    }
-    st->note[st->n++] = last_note;
-    if (!st->vel)
-        st->vel = 100;
-}
-
 static void edit_param(uint32_t slot, int32_t steps)
 {
     int16_t *vp;
@@ -2011,10 +1964,6 @@ static void ui_input(void)
             uint32_t both = (1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP]);
             if (act_cols() || layer_set_open() || ui.ml.on)   /* action pages: enter / back (below); SET layers: OCT-; */
                 break;                                  /* MIDI LEARN: clear / done (below) */
-            if (step_oct_on()) {                        /* M-Vave-OP1: STEP stopped: a note in / out (step_oct) */
-                step_oct(b == B_OCTUP);
-                break;
-            }
             if ((fm1_in.buttons & both) == both)
                 song.octave = 0;
             else

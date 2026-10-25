@@ -8045,46 +8045,26 @@ static int lg_value_rows(uint32_t c)                    /* rows of card c's valu
             if (lg_px(x, y) == T_THEME) { n++; break; }
     return n;
 }
-/* M-Vave-OP1: on STEP, stopped, OCT+ adds the note played last to the cursor step, OCT- takes the step's last note out
- * (a rest with none left); playing (and on other pages) OCT is the keyboard's octave as before */
+/* OCT always moves the keyboard octave on STEP, stopped and playing. Notes are entered by the keys. */
 static int test_step_oct(void)
 {
-    int bad = 0, ok;
-    track_t *t;
+    int bad = 0, ok = 1;
+    uint32_t playing;
     ui_power_on();
-    stop_transport();
-    t = TSEL;
-    t->p[P_VOICE] = V_POLY;
-    track_defaults_steps(t);
     go_page(GR_ROLL);
     cursor_set(2);
-    frame();
-    key_down(5); frame(); key_up(5); frame();      /* (A#3 played: the note to add; not armed, nothing written) */
-    ok = !t->step[2].n && song.octave == 0;
-    press(B_OCTUP);
-    ok &= step_on(&t->step[2]) && t->step[2].n == 1u && t->step[2].note[0] == last_note && song.octave == 0;
-    key_down(9); frame(); key_up(9); frame();      /* (D4) */
-    press(B_OCTUP);
-    ok &= t->step[2].n == 2u && t->step[2].note[1] == last_note;
-    press(B_OCTUP);                                /* (the same again: there already) */
-    ok &= t->step[2].n == 2u;
-    press(B_OCTDN);
-    ok &= t->step[2].n == 1u && step_on(&t->step[2]);
-    press(B_OCTDN);
-    ok &= !step_on(&t->step[2]) && song.octave == 0;
-    bad += check("M-Vave-OP1 STEP stopped: OCT+ adds the note played last to the cursor step, OCT- takes the last out", ok);
-    song.playing = 1;
-    press(B_OCTUP);
-    ok = song.octave == 1 && !t->step[2].n;
+    TSEL->step[2] = (step_t){{60, 64, 67, 0}, 3, ST_NOTE, 0, 100};
+    step_t before = TSEL->step[2];
+    for (playing = 0; playing < 2u; playing++) {
+        song.playing = (uint8_t)playing;
+        song.octave = 0;
+        press(B_OCTUP);
+        ok &= song.octave == 1 && !memcmp(&before, &TSEL->step[2], sizeof before);
+        press(B_OCTDN);
+        ok &= song.octave == 0 && !memcmp(&before, &TSEL->step[2], sizeof before);
+    }
     song.playing = 0;
-    press(B_OCTDN);                                /* (stopped on STEP: an empty step, no note to take: nothing) */
-    ok &= song.octave == 1 && msg_is("NO NOTE HERE");
-    go_title("ENV");
-    press(B_OCTDN);
-    press(B_OCTDN);
-    ok &= song.octave == -1;
-    song.octave = 0;
-    bad += check("  playing, or another page: OCT the keyboard's octave as before", ok);
+    bad += check("STEP stopped and playing: OCT+ / OCT- move the octave, every note of the chord stays", ok);
     return bad;
 }
 /* M-Vave-OP1: on STEP KNOB 2 (NOTE) turns past the lowest (1) or the highest note (127): the step OFF (a rest, its
