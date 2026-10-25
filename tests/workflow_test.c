@@ -56,10 +56,25 @@ static void wf_mixer(void)
     wf_check("stored HOME LEVELS migrates to TRACKS", ui_home_view == HV_TRACKS && !home_levels());
 }
 
+static void wf_rec_menu(void)
+{
+    int ok = 1;
+    uint32_t i;
+    ui_power_on();
+    hold(B_HOME);
+    turn(EN_ALGO, 1); turn(EN_ALGO, 1);
+    for (i = 0; i < mtab_rows(MTAB_AUDIO); i++) {
+        ok &= ui.menu_sel != MI_CLICK && ui.menu_sel != MI_CLKLVL && ui.menu_sel != MI_COUNTIN;
+        turn(EN_PRESET, 1);
+    }
+    wf_check("AUDIO menu contains no CLICK, CLICK LEVEL or COUNT-IN; REC owns these settings", ok);
+}
+
 int main(void)
 {
     wf_octaves();
     wf_mixer();
+    wf_rec_menu();
     printf(wf_bad ? "WORKFLOW TESTS FAILED\n" : "WORKFLOW TESTS PASSED\n");
     return wf_bad != 0;
 }

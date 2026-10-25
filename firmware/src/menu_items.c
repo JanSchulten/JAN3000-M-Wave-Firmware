@@ -60,18 +60,32 @@ static const uint8_t MI_TAB[MI_COUNT] = {
 #define TUNE_MIN (-50)
 #define TUNE_N 101u
 typedef char mtab_fits_ui[sizeof ui.menu_row >= MTAB_COUNT ? 1 : -1];   /* (ui.c: the row last picked per tab) */
-static uint32_t mtab_first(uint32_t t)                 /* a tab's first row */
+/* Retired control paths keep their ids and storage, but are absent from the panel menu. */
+static int menu_visible(uint32_t row)
 {
-    uint32_t i = 0;
-    while (i < MI_COUNT && MI_TAB[i] != t)
-        i++;
-    return i;
+    return row != MI_CLICK && row != MI_CLKLVL && row != MI_COUNTIN;
 }
-static uint32_t mtab_rows(uint32_t t)                  /* .. and how many it has */
+static uint32_t mtab_nth(uint32_t tab, uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < MI_COUNT; i++)
+        if (MI_TAB[i] == tab && menu_visible(i) && !n--)
+            return i;
+    return MI_COLOR;
+}
+static uint32_t mtab_first(uint32_t t) { return mtab_nth(t, 0); }
+static uint32_t mtab_rows(uint32_t t)
 {
     uint32_t i, n = 0;
     for (i = 0; i < MI_COUNT; i++)
-        n += MI_TAB[i] == t;
+        n += MI_TAB[i] == t && menu_visible(i);
+    return n;
+}
+static uint32_t mtab_rank(uint32_t row)
+{
+    uint32_t i, n = 0;
+    for (i = 0; i < row && i < MI_COUNT; i++)
+        n += MI_TAB[i] == MI_TAB[row % MI_COUNT] && menu_visible(i);
     return n;
 }
 /* STYLE (ui_style, gfx.c ST_*): FLAT the filled cards; LINE black areas divided by 1 px rules (#50, #57: the 0.9 look)

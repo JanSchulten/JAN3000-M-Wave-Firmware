@@ -1711,7 +1711,8 @@ static int test_menu_tabs(void)
         n = mtab_rows(t);
         ok &= n >= 1u && n <= MTAB_ROWS && f < MI_COUNT;
         for (i = 0; i < MI_COUNT; i++)                  /* its rows in one run */
-            ok &= (MI_TAB[i] == t) == (i >= f && i < f + n);
+            if (MI_TAB[i] == t && menu_visible(i))
+                ok &= mtab_nth(t, mtab_rank(i)) == i;
         ui.menu_sel = (uint8_t)f;
         ui_prefs = 0;
         ok &= mr_y(n) - mr_gap() + MP_PAD <= MK_Y - 6;
@@ -1735,7 +1736,7 @@ static int test_menu_tabs(void)
     bad += check("MENU tabs: DISPLAY CONTROL AUDIO MIDI SYSTEM (8 7 7 2 6 rows), 1..8 each in a run, fit the page; tab gaps "
                  "constant (S, LARGE)",
                  ok && MTAB_COUNT == 5u && str_eq(MTAB_NAME[0], "DISPLAY") && str_eq(MTAB_NAME[MTAB_MIDI], "MIDI") &&
-                 mtab_rows(MTAB_DISPLAY) == 8u && MI_TAB[MI_HOME] == MTAB_DISPLAY && mtab_rows(MTAB_CONTROL) == 7u && mtab_rows(MTAB_AUDIO) == 7u &&
+                 mtab_rows(MTAB_DISPLAY) == 8u && MI_TAB[MI_HOME] == MTAB_DISPLAY && mtab_rows(MTAB_CONTROL) == 7u && mtab_rows(MTAB_AUDIO) == 4u &&
                  mtab_rows(MTAB_MIDI) == 2u && MI_TAB[MI_LCLEAR] == MTAB_MIDI && mtab_rows(MTAB_SYSTEM) == 6u && MI_TAB[MI_TUNE] == MTAB_AUDIO &&   /* (1.5: LEARN CLEAR, HELP) */
                  MI_TAB[MI_MIDIIN] == MTAB_MIDI && MI_TAB[MI_INFO] == MTAB_SYSTEM && MI_INFO >= MI_VALUES);
 
@@ -1777,7 +1778,7 @@ static int test_menu_tabs(void)
     ok = 1;
     for (i = 0; i < MI_VALUES; i++) {
         uint32_t n = menu_n(i), v, j, want;
-        if (!menu_valued(i))                           /* (1.5: LEARN CLEAR, an action) */
+        if (!menu_valued(i) || !menu_visible(i))     /* actions and retired paths */
             continue;
         uint8_t seen[128] = {0};                       /* (1.2: TUNE has 101 values) */
         ui.menu_sel = (uint8_t)i;
@@ -7763,31 +7764,24 @@ static int test_click_menu(void)
               str_eq(menu_vname(MI_CLKLVL, i), (const char *[]){"LOW", "MID", "HIGH"}[i]) &&
               str_eq(menu_vname(MI_COUNTIN, i), (const char *[]){"OFF", "1 BAR", "2 BARS"}[i]);
     bad += check("MENU > AUDIO: CLICK OFF / REC / ON, CLICK LEVEL LOW / MID / HIGH, COUNT-IN OFF / 1 BAR / 2 BARS; OFF MID OFF by default", ok);
+    btn_down(B_REC); frames(500);
+    turn(EN_K1, 1); turn(EN_K1, 1);
+    turn(EN_K2, 1); turn(EN_K2, 1);
+    turn(EN_K3, 1);
+    ok = click_mode == CLICK_ON && click_lvl == 2u && cin_bars == 2u;
+    btn_up(B_REC); frames(400);
     hold(B_HOME);
-    ui.menu_sel = MI_LOWCUT; ui.force = 1; ui_draw();
-    turn(EN_PRESET, 1); turn(EN_PRESET, 1);
-    ok = ui.menu_sel == MI_CLICK;
-    turn(EN_K1, 1); ok &= click_mode == CLICK_REC;
-    turn(EN_K2, 1); ok &= click_mode == CLICK_ON;
-    turn(EN_K2, 1); ok &= click_mode == CLICK_ON;      /* (stops at the end) */
-    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_CLKLVL;
-    press(B_OCTDN); ok &= click_lvl == 0u;
-    press(B_OCTUP); press(B_OCTUP); ok &= click_lvl == 2u;
-    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_COUNTIN;
-    turn(EN_K4, 1); ok &= cin_bars == 1u;
-    turn(EN_K4, 1); ok &= cin_bars == 2u;
-    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_TUNE;     /* (1.2: TUNE) */
-    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_SYNC;     /* (M-Vave-OP1: SYNC OUT, AUDIO's last) */
-    turn(EN_K1, 1); frame(); ok &= po_sync == 1u && !strcmp(menu_vname(MI_SYNC, menu_get(MI_SYNC)), "PO");
-    turn(EN_K1, 1); frame(); ok &= po_sync == 2u && !strcmp(menu_vname(MI_SYNC, menu_get(MI_SYNC)), "PO INV") &&
-                                   (ui_prefs2 & 0x30u) == 0x30u;
-    turn(EN_K1, 1); frame(); ok &= po_sync == 2u;      /* (stops at the end) */
-    turn(EN_K1, -1); frame(); ok &= po_sync == 1u && (ui_prefs2 & 0x30u) == 0x10u;
-    turn(EN_K1, -1); frame(); ok &= po_sync == 0u && !(ui_prefs2 & 0x30u);
-    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LOWCUT;   /* (wraps within AUDIO) */
+    ui.menu_sel = MI_LOWCUT; ui.force = 1; frame();
+    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_USB;
+    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_TUNE;
+    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_SYNC;
+    turn(EN_K1, 1); frame(); ok &= po_sync == 1u;
+    turn(EN_K1, 1); frame(); ok &= po_sync == 2u && (ui_prefs2 & 0x30u) == 0x30u;
+    turn(EN_K1, -1); turn(EN_K1, -1); frame(); ok &= !po_sync;
+    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LOWCUT;
     press(B_HOME);
     ok &= !ui.menu;
-    bad += check("MENU > AUDIO: PRESETS to CLICK, CLICK LEVEL, COUNT-IN, TUNE, SYNC OUT (OFF PO PO INV); knobs / OCT step them, applied at once", ok);
+    bad += check("REC owns CLICK / COUNT-IN / LEVEL; AUDIO skips them and retains SPEAKER EQ USB LEVEL TUNE SYNC OUT", ok);
     {
         persist_t p;
         settings_export(&p);
@@ -8239,7 +8233,9 @@ static int test_menu_prefs(void)
         for (j = 0; j < k; j++) ok &= memcmp(shot[j], shot[k], sizeof shot[k]) != 0;
         turn(EN_ALGO, 1);
     }
-    ok &= seen == (1u << MI_COUNT) - 1u && ui.menu_sel == 0u;
+    uint32_t visible = 0;
+    for (k = 0; k < MI_COUNT; k++) visible |= (uint32_t)menu_visible(k) << k;
+    ok &= seen == visible && ui.menu_sel == 0u;
     bad += check("MENU: ALGORITHM and PRESETS reach every row, each tab a page of its own", ok);
     /* ANIM */
     ui.menu_sel = MI_ANIM;

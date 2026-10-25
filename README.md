@@ -455,3 +455,6 @@ The octave keys confirm or cancel dialogs and actions; held SEQ uses them for sc
 
 The MIXER edits LEVEL, PAN and MUTE (KNOB 1, 2 and 4). REV is on FX > SEND only. EDIT > VOICE 2 holds
 ALLOC, DTUNE and SPRD. HOME offers TRACKS and SCOPE; a saved LEVELS view loads as TRACKS.
+
+CLICK, COUNT-IN and CLICK LEVEL are edited in the REC layer only (hold REC, KNOB 1..3). Their saved values
+and their effect on recording and playback are unchanged. MENU > AUDIO no longer repeats these controls.
