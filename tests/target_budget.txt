@@ -46,8 +46,7 @@ pad_spectrum 55
 prt_model 523
 prt_post 266
 pun_sqrt 24
-wtb_model 96
-pwt_mix 240
+wtb_model 367
 swm_model 470
 fm1_alnk0_irq 37502
 fm1_timer5_irq 33387

@@ -225,6 +225,9 @@
 # WTABLE (tests/wtable_test.c, M-Vave-OP1): the Plaits wavetable engine (src/eng_wtable.c around src/plaits_wt.c, its
 #                   8-bit tables and the part's cache of decoded waves): WSHAPE's checks, the cache's decoding, map and
 #                   eviction, 8 voices sweeping the table; demos in build/wtable_demo/.
+# BUDGET (tests/budget_test.c, M-Vave-OP1): the shared voice budget (src/voice.c voice_space): NVOICE at a full load
+#                   (the host's), one voice past NVOICE a half while the last half's load is under VOICE_ADMIT, up to
+#                   every part's NVOICE, none at the line; four chords in one half: one past NVOICE, the rest taken.
 # SWARM (tests/swarm_test.c, M-Vave-OP1): the Plaits swarm engine (src/eng_swarm.c around src/plaits_swarm.c): presets
 #                   and corners bounded without DC, in tune, a note's burst, Plaits' level through the limiter, a part
 #                   from rest alike, switches; demos in build/swarm_demo/.
@@ -490,6 +493,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/wtable_test" tests/wtable_test.c -lm
     mkdir -p build/wtable_demo
     run "WTABLE: presets sound without DC, bounded, in tune, MONO / UNISON, SHP, the wave cache, switches, demos" "$OUT/wtable_test" build/wtable_demo
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/budget_test" tests/budget_test.c -lm
+    run "BUDGET: NVOICE at a full load; past it one voice a half while the CPU has room; chords at once not past it" "$OUT/budget_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/swarm_test" tests/swarm_test.c -lm
     mkdir -p build/swarm_demo
     run "SWARM: presets and corners bounded, no DC, in tune, a note's burst, Plaits' level, switches, demos" "$OUT/swarm_test" build/swarm_demo

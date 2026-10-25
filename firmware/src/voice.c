@@ -4,8 +4,8 @@
  * Runs in the audio ISR.
  *
  * Each synth part has its own NVOICE voices (so MONO / LEGATO / UNISON keep using
- * v[0..]), but only NVOICE of all the parts' voices sound at once: a part that starts
- * a voice while the budget is full takes one from any part (voice_victim): the oldest
+ * v[0..]), but only NVOICE of all the parts' voices sound at once, more while the CPU has room (M-Vave-OP1:
+ * voice_space): a part that starts a voice while the budget is full takes one from any part (voice_victim): the oldest
  * released voice, else the oldest extra UNISON voice, else the oldest held voice of a
  * POLY part that is not its lowest note. A voice taken from another part fades out
  * over one block (stage 4: the envelope goes to 0, the block's amplitude ramp
@@ -99,6 +99,25 @@ static uint32_t voices_busy(void)                       /* sounding voices of al
     return n;
 }
 
+/* M-Vave-OP1: as many voices as the CPU allows. NVOICE sound at once always; one more (up to every part's NVOICE)
+ * while the last half buffer's load (audio.c, the render and TIMER5 nested in it) was under VOICE_ADMIT, one a half
+ * at the most, so the next half measures it before another comes (a chord on four parts at once: the ninth voice
+ * now, the rest taken as before). audio.c's shedding (85 % twice) stays the guard. Before the first half, and on the
+ * host (no audio.c), the load reads full: the budget is NVOICE, as Felucca's */
+#define VOICE_ADMIT (75u * 256u / 100u)         /* the load under which a voice past NVOICE may start, Q8 */
+static volatile uint8_t voice_load_q8 = 255;    /* audio.c: the last half's load, Q8 (255: full or unknown) */
+static volatile uint8_t voice_extra;            /* a voice past NVOICE started this half (audio.c clears it) */
+static int voice_space(void)                    /* a voice may start without taking one */
+{
+    const uint32_t n = voices_busy();
+    if (n < NVOICE)
+        return 1;
+    if (n >= NPART * NVOICE || voice_extra || voice_load_q8 >= VOICE_ADMIT)
+        return 0;
+    voice_extra = 1;
+    return 1;
+}
+
 static uint32_t lowest_held(const track_t *t)           /* index of the lowest held note (the bass), NVOICE = none */
 {
     uint32_t i, low = NVOICE;
@@ -156,7 +175,7 @@ static int voice_room(track_t *t, int soft)
 {
     track_t *vp = 0;
     uint32_t k;
-    if (voices_busy() < NVOICE)
+    if (voice_space())
         return 1;
     k = voice_victim(t, soft, &vp);
     if (k == NVOICE)
@@ -195,7 +214,7 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
             return voice_reuse(t, &t->v[i]);
         nfree += !t->v[i].active;
     }
-    if (nfree && voices_busy() >= NVOICE) {
+    if (nfree && !voice_space()) {
         track_t *vp = 0;
         uint32_t k = voice_victim(t, 0, &vp);
         if (k < np && vp == t)
