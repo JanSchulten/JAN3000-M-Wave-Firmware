@@ -2661,7 +2661,8 @@ const TEXT = {
     mirAskDev: "これらのスロットを本体のプリセット {n} 個で置き換えますか (本体の空きスロットはここでも空に)?",
     mirAskEmu: "本体のスロットを「本体なし」のプリセット {n} 個で置き換えますか (空きスロットは本体で消去)?",
     renamedSlot: "名前を変更しました: ", pickSound: "このファイルには {n} 個の音色があります。どれにしますか?", loadedFile: "ファイルから読み込みました (音色のみ; ステップはそのまま): ",
-    rowPlay: "試聴", rowSave: "ファイルに保存", cancel: "キャンセル", emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
+    rowPlay: "試聴", rowSave: "ファイルに保存", cancel: "キャンセル", emuFile: "ページがファイルとして開かれています: インストーラーのフォルダーの START-Mac.command (または START-Windows.bat) で起動してください", emuNoCore: "「本体なし」のファームウェアを読み込めませんでした",
+    emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
     kbdHelp: "キーボード: {keys} で演奏 ({range}) · {oct} オクターブ · {vel} ベロシティ {v}",
     connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
     sound: "音色", engine: "エンジン", presets: "プリセット", initSound: "音色を初期化",
@@ -2779,7 +2780,8 @@ const TEXT = {
     mirAskDev: "Replace these slots with the FM-1's {n} presets (its empty slots empty here too)?",
     mirAskEmu: "Replace the FM-1's slots with the {n} presets of No device (their empty slots erased on the FM-1)?",
     renamedSlot: "Renamed: ", pickSound: "This file holds {n} sounds. Which one?", loadedFile: "Loaded from the file (the sound; the steps stay): ",
-    rowPlay: "Audition", rowSave: "Save as a file", cancel: "Cancel", emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
+    rowPlay: "Audition", rowSave: "Save as a file", cancel: "Cancel", emuFile: "The page was opened as a file: start it with START-Mac.command (or START-Windows.bat) from the installer folder", emuNoCore: "The firmware for No device could not be loaded",
+    emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
     kbdHelp: "Keyboard: {keys} play ({range}) · {oct} octave · {vel} velocity {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Init sound",
     track: "Track",
@@ -2896,7 +2898,8 @@ const TEXT = {
     mirAskDev: "Diese Plätze durch die {n} Presets des FM-1 ersetzen (seine leeren Plätze werden hier auch leer)?",
     mirAskEmu: "Die Plätze des FM-1 durch die {n} Presets von „Ohne Gerät“ ersetzen (deren leere Plätze werden am FM-1 gelöscht)?",
     renamedSlot: "Umbenannt: ", pickSound: "Diese Datei enthält {n} Sounds. Welchen?", loadedFile: "Aus der Datei geladen (der Sound; die Steps bleiben): ",
-    rowPlay: "Anhören", rowSave: "Als Datei speichern", cancel: "Abbrechen", emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
+    rowPlay: "Anhören", rowSave: "Als Datei speichern", cancel: "Abbrechen", emuFile: "Die Seite wurde als Datei geöffnet: bitte mit START-Mac.command (oder START-Windows.bat) aus dem Installer-Ordner starten", emuNoCore: "Die Firmware für „Ohne Gerät“ ließ sich nicht laden",
+    emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
     kbdHelp: "Tastatur: {keys} spielen ({range}) · {oct} Oktave · {vel} Anschlag {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Sound zurücksetzen",
     track: "Spur",
@@ -3218,9 +3221,20 @@ async function emuCore(base) {
     if (!r.ok) throw new Error("felucca.wasm: " + r.status);
     return (await WebAssembly.instantiate(await r.arrayBuffer(), {})).instance.exports;
   } catch (e) {
-    console.warn("M-Vave-OP1: no WebAssembly here, the JavaScript build", e);
-    return await import(new URL("felucca-js.mjs", base).href);
+    console.warn("M-Vave-OP1: felucca.wasm not fetched", e);
   }
+  try {                                             /* the page opened as a file (file://: no fetch, no modules): the same
+                                                       firmware in a classic script, emu/felucca-wasm.js (base64) */
+    if (!window.FELUCCA_WASM_B64)
+      await new Promise((ok, no) => document.head.append(el("script", { src: new URL("felucca-wasm.js", base).href, onload: ok, onerror: no })));
+    const bin = atob(window.FELUCCA_WASM_B64), b = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+    return (await WebAssembly.instantiate(b, {})).instance.exports;
+  } catch (e) {
+    console.warn("M-Vave-OP1: no WebAssembly here, the JavaScript build", e);
+  }
+  try { return await import(new URL("felucca-js.mjs", base).href); }
+  catch (e) { throw new Error(t(location.protocol === "file:" ? "emuFile" : "emuNoCore") + " (" + e.message + ")"); }
 }
 async function emuStart() {
   const base = new URL("emu/", location.href);

@@ -91,6 +91,10 @@ def main(pkg, version, out):
         (ed / "emu").mkdir(exist_ok=True)
         for f in ("felucca.wasm",):
             shutil.copy(emu / f, ed / "emu" / f)
+        import base64                               # (the page opened as a file, file://: no fetch, a classic script)
+        (ed / "emu" / "felucca-wasm.js").write_text(
+            "/* M-Vave-OP1: emu/felucca.wasm as base64, for the editor opened as a file (editor.html emuCore) */\n"
+            "window.FELUCCA_WASM_B64 = \"" + base64.b64encode((emu / "felucca.wasm").read_bytes()).decode() + "\";\n")
     (out / "index.html").write_text(
         '<!doctype html><meta charset="utf-8"><title>Felucca</title>'
         '<meta http-equiv="refresh" content="0; url=webapp/installer/">'
