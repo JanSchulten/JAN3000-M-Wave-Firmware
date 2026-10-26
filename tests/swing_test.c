@@ -2,7 +2,8 @@
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* Host test of SWING (issue #31), same sources as the firmware (through hostsim.c):
  *   build/host/swing_test
- * 1. the sum: a track's SWG plus the global SWG is at most 100 (core.h track_swing).
+ * 1. the sum: a track's SWG plus a stored global SWG is at most 100 (core.h swing_fold; M-Vave-OP1: the global goes
+ *    into the tracks' as a project loads, track_swing is the track's own, the global retired at 0).
  * 2. the sequencer: with both at 100 the steps play 1.4 x / 0.6 x the straight length (not 1.8 x /
  *    0.2 x), measured from the transport; with the sum at 100 or below nothing changes.
  * 3. the SLICER: its step lengths are the sequencer's (one helper), and it stays on the sequencer's
@@ -18,10 +19,10 @@ static int check(const char *what, int ok)
     return ok ? 0 : 1;
 }
 
-static void set_swing(track_t *t, int own, int global)
+static void set_swing(track_t *t, int own, int global)   /* (as a project with that global loads: swing_fold) */
 {
-    t->p[P_SSWING] = (int16_t)own;
-    song.g[G_SWING] = (int16_t)global;
+    t->p[P_SSWING] = swing_fold(own, global);
+    song.g[G_SWING] = 0;
 }
 
 /* ------------------------------------------------------------ 1. sum --- */
@@ -34,8 +35,12 @@ static int test_sum(void)
     for (k = 0; k < sizeof C / sizeof C[0]; k++) {
         set_swing(&trk[0], C[k][0], C[k][1]);
         bad += track_swing(&trk[0]) != C[k][2];
+        trk[0].p[P_SSWING] = (int16_t)C[k][0];       /* (a global set anyway: retired, the track's own plays) */
+        song.g[G_SWING] = (int16_t)C[k][1];
+        bad += track_swing(&trk[0]) != C[k][0];
     }
-    return check("track SWG + global SWG, at most 100 (0+0 30+20 60+40 100+0 0+100 70+50 100+100)", !bad);
+    song.g[G_SWING] = 0;
+    return check("track SWG + stored global SWG folded, at most 100 (0+0 30+20 60+40 100+0 0+100 70+50 100+100)", !bad);
 }
 
 /* ----------------------------------------------------- 2. sequencer --- */
@@ -124,9 +129,8 @@ static int test_slicer(void)
         trk[k].p[P_SLCR] = SL_GATE;
         trk[k].p[P_SLPAT] = (int16_t)(3u + k);
         trk[k].p[P_SLDEPTH] = 127;
-        trk[k].p[P_SSWING] = (int16_t)(40 + 20 * k);
+        trk[k].p[P_SSWING] = swing_fold(40 + 20 * k, 100);   /* (with the global 100 it had) */
     }
-    song.g[G_SWING] = 100;
     memset(sl, 0, sizeof sl);
     transport_req = 1;
     for (f = 0; f < 8u * FS; f += CTL) {
@@ -155,14 +159,15 @@ static const char *shown(const param_desc_t *d, int32_t v)
 static int test_display(void)
 {
     int ok = 1;
-    const param_desc_t *sw[3] = {&TP[P_SSWING], &GP[G_SWING], &TP[P_ASWING]};
+    const param_desc_t *sw[2] = {&TP[P_SSWING], &TP[P_ASWING]};
     uint32_t k;
-    for (k = 0; k < 3u; k++)
+    ok &= GP[G_SWING].min == 0 && GP[G_SWING].max == 0;   /* (M-Vave-OP1: the global retired) */
+    for (k = 0; k < 2u; k++)
         ok &= sw[k]->fmt == F_PCT && sw[k]->min == 0 && sw[k]->max == 100 && !strcmp(shown(sw[k], 100), "100") &&
               !strcmp(shown(sw[k], 50), "50") && !strcmp(shown(sw[k], 0), "0");
     ok &= !strcmp(shown(&TP[P_SUS], 127), "100") && !strcmp(shown(&TP[P_SUS], 64), "50") &&
           !strcmp(shown(&TP[P_DLY], 0), "0");
-    return check("display: SWG / global SWG / ARP SWG 100 -> 100 %, 50 -> 50 %; 0..127 percents unchanged", ok);
+    return check("display: SWG / ARP SWG 100 -> 100 %, 50 -> 50 %; the global retired; 0..127 percents unchanged", ok);
 }
 
 int main(void)

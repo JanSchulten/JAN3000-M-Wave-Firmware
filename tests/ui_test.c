@@ -2105,12 +2105,12 @@ static int test_mono_screens(void)
 }
 
 /* ROLL: the rolling digits of the four cards and the header BPM (ui_draw.c roll_*). The old GLOBAL page's four (1.2: a
- * test page over HOME > CLOCK, whose KNOB 4 is empty since TUNE went to the MENU): BPM (also in the header), SWG, CLK (a
+ * test page over HOME > CLOCK, whose KNOB 4 is empty since TUNE went to the MENU): BPM (also in the header), FDBK, CLK (a
  * name), TUNE (signed). A roll frame differs from the static render only inside the
  * value strip, its last frame is the static render; unchanged digits stay; the direction follows the sign; a
  * change mid-roll retargets; a fast turn, another shape, a page / track / palette change and ui.force snap. */
 static uint16_t roll_shot[240 * 240];
-static const page_t ROLL_PG = {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, G_TUNE}};
+static const page_t ROLL_PG = {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_DFDBK, G_CLOCK, G_TUNE}};   /* (M-Vave-OP1: the global SWG retired, the DELAY's FDBK in its place) */
 static void roll_settle(void)                     /* CLOCK + TUNE, nothing rolling, no knob hot */
 {
     uint32_t k;
@@ -2779,9 +2779,9 @@ static int test_page_cycles(void)
                 clock = i + 1u;
         }
         ok &= clock && PAGES[clock - 1u].fam == FAM_TRK && PAGES[clock - 1u].scope == SC_GLOBAL &&
-              PAGES[clock - 1u].id[0] == G_BPM && PAGES[clock - 1u].id[1] == G_SWING && PAGES[clock - 1u].id[2] == G_CLOCK &&
+              PAGES[clock - 1u].id[0] == G_BPM && PAGES[clock - 1u].id[1] == 0xFFu && PAGES[clock - 1u].id[2] == G_CLOCK &&
               PAGES[clock - 1u].id[3] == 0xFFu;
-        bad += check("1.2: no GLOBAL, no SYSTEM page; HOME > CLOCK has BPM SWG CLK (three knobs), TUNE and ROUT on no page", ok);
+        bad += check("1.2: no GLOBAL, no SYSTEM page; HOME > CLOCK has BPM, CLK (no global SWG), TUNE and ROUT on no page", ok);
     }
     /* remembered pages: one that left its family, or out of range, gives the family's first (1.2: GLO's whatever it was,
      * GLOBAL and SYSTEM too, now SONG; HOME's never remembered: from HOME the MIXER) */
@@ -2875,10 +2875,10 @@ static int test_product_ux(void)
         ok &= led_of(fm1_led, panel.btn[B_HOME]) && !led_of(fm1_led, panel.btn[B_GLO]);
         memcpy(led_pos, pos0, sizeof pos0);
     }
-    {   /* CLOCK's knobs: BPM SWG CLK as GLO > GLOBAL's were; KNOB 4 nothing */
+    {   /* CLOCK's knobs: BPM, CLK as GLO > GLOBAL's were; KNOB 2 (the global SWG, M-Vave-OP1: retired) and 4 nothing */
         int16_t bpm = song.g[G_BPM], swg = song.g[G_SWING], clk = song.g[G_CLOCK], tune = song.g[G_TUNE];
         turn(EN_K1, 1); turn(EN_K2, 1); turn(EN_K3, 1); turn(EN_K4, 5);
-        ok &= song.g[G_BPM] == bpm + 1 && song.g[G_SWING] == swg + 1 && song.g[G_CLOCK] != clk && song.g[G_TUNE] == tune;
+        ok &= song.g[G_BPM] == bpm + 1 && song.g[G_SWING] == swg && song.g[G_CLOCK] != clk && song.g[G_TUNE] == tune;
         song.g[G_CLOCK] = clk;
     }
     press(B_HOME);

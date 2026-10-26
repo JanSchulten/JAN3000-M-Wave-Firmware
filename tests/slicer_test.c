@@ -133,8 +133,7 @@ static int test_timing(void)
     host_tracks_init();
     memset(sl, 0, sizeof sl);
     song.g[G_BPM] = 97;
-    song.g[G_SWING] = 10;
-    t->p[P_SSWING] = 20;
+    t->p[P_SSWING] = 30;                          /* (own 20 + the global 10 it had) */
     set_slicer(t, SL_GATE, (int)pat, 1, 127);
     slicer_start();
     while (f + CTL <= sizeof out / sizeof out[0]) {
@@ -215,9 +214,8 @@ static int test_sync(void)
     uint32_t f, k, blocks = 0, miss = 0;
     char what[160];
     song_setup();
-    song.g[G_SWING] = 15;
     for (k = 0; k < NTRK; k++) {
-        trk[k].p[P_SSWING] = (int16_t)(10 * k);
+        trk[k].p[P_SSWING] = (int16_t)(15 + 10 * k);   /* (own 10 k + the global 15 it had) */
         trk[k].p[P_SLEN] = 16;                    /* 16 steps of 1/16: the SLICER's bar */
         set_slicer(&trk[k], k & 1u ? SL_STUT : SL_GATE, (int)(3u + k), 1, 127);
     }

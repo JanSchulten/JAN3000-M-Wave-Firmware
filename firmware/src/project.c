@@ -1086,6 +1086,7 @@ static int project_restore_runtime(const project_t *input)
 {
     project_t *p = &proj_scratch;
     uint32_t i, k;
+    int32_t gsw;
     if (!proj_ok(input) || !proj_engines_ok(input)) return 1;
     mom_back(0);                                  /* (ui_input.c MOMENTARY: the values as they were, then the load) */
     memset(drum_mute, 0, sizeof drum_mute);       /* (1.4.1: the DRUM lanes' mutes, performance state) */
@@ -1107,6 +1108,8 @@ static int project_restore_runtime(const project_t *input)
     memset(motion_active, 0, sizeof motion_active);
     motion_base_valid = 0;
     ui.song_row = 0;
+    gsw = clamp(p->g[G_SWING], 0, SWING_MAX);           /* M-Vave-OP1: the global SWG into the tracks' (below) */
+    scn_swing_fold = (uint8_t)gsw;                      /* (.. and the stored scenes': scene_loaded) */
     for (i = 0; i < G_COUNT; i++)
         if (i != G_SLOT && i != G_LOAD && i != G_SAVE)
             song.g[i] = (int16_t)clamp(p->g[i], GP[i].min, GP[i].max);
@@ -1120,6 +1123,7 @@ static int project_restore_runtime(const project_t *input)
             const param_desc_t *d = param_desc_of(e, i);
             t->p[i] = (int16_t)param_fit(d, s->p[i]);
         }
+        t->p[P_SSWING] = swing_fold(t->p[P_SSWING], gsw);   /* (M-Vave-OP1: as own + global played, core.h) */
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset >= PROJ_DEF_KEEP ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
         proj_steps(t->step);
@@ -1339,6 +1343,8 @@ static uint32_t chain_prepare(void)
                 for (j = 0; j < 4u; j++)
                     chain.source[i].timing[k][j] = (int16_t)clamp(p->t[k].p[P_SLEN + j],
                         TP[P_SLEN + j].min, TP[P_SLEN + j].max);
+                chain.source[i].timing[k][P_SSWING - P_SLEN] =   /* (M-Vave-OP1: the slot's own global SWG in it) */
+                    swing_fold(chain.source[i].timing[k][P_SSWING - P_SLEN], clamp(p->g[G_SWING], 0, SWING_MAX));
             }
         }
     }

@@ -192,7 +192,7 @@ static void timing(void)
 
     /* DIV 1/8 and SWING on the track: the click stays on the tempo's quarters */
     fresh(); grid_track();
-    trk[0].p[P_SDIV] = 1; trk[0].p[P_SSWING] = 60; song.g[G_SWING] = 30;
+    trk[0].p[P_SDIV] = 1; trk[0].p[P_SSWING] = 90;
     song.g[G_BPM] = 120; click_mode = CLICK_ON; transport_req = 1;
     run(ceil_div(QB * 9u, CTL));
     clicks(0);

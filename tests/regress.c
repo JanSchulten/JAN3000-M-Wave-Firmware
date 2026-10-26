@@ -299,7 +299,8 @@ static void job_song(const job_t *j)
             for (k = 0; k < 4u; k++)
                 trk[i].p[P_SLCR + k] = S[i][k];
         }
-        song.g[G_SWING] = 20;
+        for (i = 0; i < NTRK; i++)               /* (the global SWG 20 these renders had, in the tracks': core.h) */
+            trk[i].p[P_SSWING] = swing_fold(trk[i].p[P_SSWING], 20);
     }
     transport_req = 1;
     run_to(8u * FS);

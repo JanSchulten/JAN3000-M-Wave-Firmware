@@ -658,11 +658,11 @@ static int scene_saved(uint32_t s, uint32_t id)
     return scb_write(s & 3u, id);
 }
 /* project_load: slot s's scenes, if they are its project's (the scene playing: the one the project held) */
-static void scene_loaded(uint32_t s) { scb_load(s & 3u, xtra_proj_id(s)); }
+static void scene_loaded(uint32_t s) { scb_load(s & 3u, xtra_proj_id(s)); scene_swing_folded(); }
 static void scene_renamed(uint32_t s, uint32_t was, uint32_t id) { scb_retag(s & 3u, was, id); }
 static int scene_autosaved(uint32_t id)
 {
     scene_settle();
     return scb_write(4u, id);
 }
-static void scene_autoloaded(uint32_t id) { scb_load(4u, id); }
+static void scene_autoloaded(uint32_t id) { scb_load(4u, id); scene_swing_folded(); }

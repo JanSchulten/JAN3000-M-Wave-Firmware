@@ -618,6 +618,11 @@ HOME always returns HOME. Pressing any other page button opens its family; press
 including two quick taps. Hold the button for its live layer. Tempo is CLOCK's BPM knob or GLO held + F4 TAP;
 SELECT never changes tempo, and the old BPM LOCK bit remains reserved in stored settings.
 
+There is one swing: each track's SWG (SEQ held, KNOB 3; per scene with LEN DIV GATE). CLOCK no longer has a global
+SWG. A project saved with one plays the same: as it loads, its global SWG is added to every track's own (at most
+100, as the two summed before), in its stored scenes too, and a song adds each slot's own. The global stays 0 in the
+project file, so an older firmware plays such a project the same. ARP SWG stays the arpeggiator's own.
+
 PROJECT and USER share one storage workflow: white keys select the slot, OCT+ saves and OCT- asks to load.
 USER has 32 slots in two banks of 16, selected with KNOB 1; PROJECT uses its first four white keys for A–D.
 F#3 renames the selected slot, G#3 asks to delete it; OCT+ confirms and OCT- cancels. Knobs no longer pick

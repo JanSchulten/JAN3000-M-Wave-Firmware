@@ -101,6 +101,8 @@
 #                   SEQ layer (white keys scenes, OCT+ / OCT- next / before, black keys the tools, EDIT put back, PRESETS
 #                   the lane, LEDs, no song), the KO-II flow (a punch-in held while SEQ picks); screens into
 #                   build/scene_shots.
+# ONE SWING (tests/swingfold_test.c, M-Vave-OP1 Phase 2): the global SWG retired; a project's goes into each track's
+#                   own as it loads (at most 100), into its stored scenes and, in a song, each slot's own; CLOCK no SWG.
 # SCL > CHORD's sets (tests/cset_test.c, M-Vave-OP1): the chord sets after the Roland J-6's (cset.c, cset_data.h): the
 #                   hundred sets (set 1's C, the names, 1..4 notes up), the genres KNOB 3 steps; the chords (F3 .. E4 as
 #                   listed, octaves away, TRN, one voice: the lowest); through the real key input (every key a chord, a
@@ -513,7 +515,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     mkdir -p build/slicer_demo
     run "SLICER: no clicks, timing, sync with the sequencer, STUT, cost, demos" "$OUT/slicer_test" build/slicer_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/swing_test" tests/swing_test.c -lm
-    run "SWING: track + global at most 100, sequencer and SLICER step lengths, the SWG display" "$OUT/swing_test"
+    run "SWING: track + stored global at most 100, sequencer and SLICER step lengths, the SWG display" "$OUT/swing_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/swingfold_test" tests/swingfold_test.c -lm
+    run "ONE SWING: a project's global SWG into its tracks, stored scenes and song slots; CLOCK without SWG" "$OUT/swingfold_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/perform_test" tests/perform_test.c -lm
     mkdir -p build/perform_demo build/fx_demo build/throw_demo
     run "FX layer effects: on the 1/16, stereo, too-long REPEAT, SLICER, silent keys, idle bit-identical, clicks, OCT UP / DN, FLANGER, PHASER, the key map, dotted TIME, REV / ECHO THROW, cost, demos" "$OUT/perform_test" build/perform_demo build/fx_demo build/throw_demo

@@ -480,14 +480,21 @@ static track_t trk[NTRK];        /* the instrument: four parts */
 static song_t song;
 #define TSEL (&trk[song.sel])    /* the selected track */
 
-/* SWING of a track's step clock: the track's own plus the global one, at most 100 (#31). The sequencer
- * (seq.c step_samples) and the SLICER (slicer.c sl_enter) both time steps with it. At 100 the even
- * steps are 1.4 x the straight length and the odd ones 0.6 x. */
+/* SWING of a track's step clock (#31). The sequencer (seq.c step_samples) and the SLICER (slicer.c sl_enter) both
+ * time steps with it. At 100 the even steps are 1.4 x the straight length and the odd ones 0.6 x. M-Vave-OP1: the
+ * track's own SWG only; the global SWG of HOME > CLOCK is gone, a project's goes into its tracks' as it loads
+ * (swing_fold; project.c project_restore_runtime, the scenes, a song's slots), the sum at most 100 as before */
 #define SWING_MAX 100
 static inline int32_t track_swing(const track_t *t)
 {
-    int32_t sw = t->p[P_SSWING] + song.g[G_SWING];
+    int32_t sw = t->p[P_SSWING];
     return sw < 0 ? 0 : sw > SWING_MAX ? SWING_MAX : sw;
+}
+/* a track's own SWG with a stored global one added: what the two summed played (both 0 .. 100, the sum at most 100) */
+static inline int16_t swing_fold(int32_t own, int32_t global)
+{
+    int32_t sw = (own < 0 ? 0 : own) + (global < 0 ? 0 : global);
+    return (int16_t)(sw > SWING_MAX ? SWING_MAX : sw);
 }
 /* the length of step idx of a straight length `base`, swung: even steps longer, odd ones shorter */
 static inline uint32_t swing_step_len(const track_t *t, uint32_t base, uint32_t idx)

@@ -184,7 +184,7 @@ static const param_desc_t *ins_desc(int32_t type, uint32_t k)
 
 static const param_desc_t GP[G_COUNT] = {
     [G_BPM] = PD("BPM", F_BPM, 40, 240, 120),
-    [G_SWING] = PD("SWG", F_PCT, 0, 100, 0),
+    [G_SWING] = PD("SWG", F_PCT, 0, 0, 0),         /* M-Vave-OP1: retired, 0 (a project's goes into its tracks') */
     [G_CLOCK] = PE("CLK", N_CLOCK, 0),
     [G_TUNE] = PD("TUNE", F_INT, -50, 50, 0),     /* cents; edited on MENU > AUDIO TUNE (1.2: menu_items.c MI_TUNE) */
     [G_DTIME] = PE("TIME", N_DTIME, 1),
@@ -696,7 +696,7 @@ static const page_t PAGES[] = {
     /* HOME's pages (1.2): HOME tapped on HOME the MIXER (up to 1.1.5 GLO's; LEVEL PAN REV MUTE), again CLOCK (up to 1.1.5
      * GLO > GLOBAL; its TUNE is MENU > AUDIO's now), again HOME (ui.c home_tap). M-Vave-OP1: EQ and MASTER after CLOCK */
     {"MIXER", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},
-    {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, 0xFF}},
+    {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, 0xFF, G_CLOCK, 0xFF}},   /* (M-Vave-OP1: SWG per track only) */
     {"EQ", FAM_TRK, SC_GLOBAL, GR_EQ, {0xFF, 0xFF, 0xFF, 0xFF}, &EQ_OPS},   /* M-Vave-OP1: the selected track's (eq_set) */
     {"MASTER", FAM_TRK, SC_GLOBAL, GR_DYN, {0xFF, 0xFF, 0xFF, 0xFF}, &DYN_OPS},   /* M-Vave-OP1: the project's (dyn_set) */
 };

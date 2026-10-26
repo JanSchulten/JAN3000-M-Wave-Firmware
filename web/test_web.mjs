@@ -447,8 +447,10 @@ function mockTables() {
      tim[0].names.slice(0, 10).join() === "1/4,1/8,1/16,1/32,8T,16T,1/2,1/1,2BAR,4BAR" && tim[0].names[10] === "1/8D" &&
      shown(div).length === 10,
      "editor: 1.5.1 delay TIME: 1/8D 1/16D 1/4D appended (10..12), shown by length; DIV keeps its ten");
-  const swg = [T.TP, T.GP].flatMap((tb) => tb.filter((d) => d.label === "SWG"));
-  ok(swg.length === 3 && swg.every((d) => E.fmtValue(d, 100)[0] === "100" && E.fmtValue(d, 50)[0] === "50") &&
+  const swg = [T.TP, T.GP].flatMap((tb) => tb.filter((d) => d.label === "SWG" && d.max > d.min));   /* (M-Vave-OP1: the */
+  const gswg = T.GP.filter((d) => d.label === "SWG");                                                /* global retired, 0 .. 0) */
+  ok(swg.length === 2 && gswg.length === 1 && gswg[0].max === 0 &&
+     swg.every((d) => E.fmtValue(d, 100)[0] === "100" && E.fmtValue(d, 50)[0] === "50") &&
      E.fmtValue({ fmt: swg[0].fmt, min: 0, max: 127 }, 127)[0] === "100" && E.fmtValue({ fmt: swg[0].fmt, min: 0, max: 127 }, 64)[0] === "50",
      "editor: SWG 100 shows 100 % (not 79), 0..127 percents unchanged");
 }
