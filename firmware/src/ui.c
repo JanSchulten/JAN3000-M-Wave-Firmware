@@ -1017,7 +1017,10 @@ static void undo_capture(undo_t *u, track_t *t, uint32_t what)
     memset(u, 0, sizeof *u);
     u->trk = (uint8_t)(i + 1u); u->what = (uint16_t)what;
     u->eng = t->eng_req; u->preset = t->preset; u->user = t->user;
-    memcpy(u->p, t->p, sizeof u->p); memcpy(u->step, t->step, sizeof u->step);
+    /* Motion's sounding values are temporary. Copy the patch without restoring it here: opening a layer
+     * must leave the playing step untouched, and its undo must still recover the sound after STOP. */
+    for (k = 0; k < P_COUNT; k++) u->p[k] = motion_base_value(t, k);
+    memcpy(u->step, t->step, sizeof u->step);
     memcpy(u->fm6, fm6_patch[i], FP_SIZE); u->fm6_slot = fm6_slot[i];
     memcpy(u->vdk, vd_own[i], VK_SIZE);
     u->pat = pat_sig[i]; u->patn = pat_last[i]; u->from = pat_from[i]; u->from_h = pat_from_h[i];
@@ -1034,11 +1037,17 @@ static uint32_t undo_domain_sig(track_t *t, uint32_t what)
 {
     uint32_t h = 2166136261u, k;
     if (what == UNDO_SOUND) {
+        uint32_t guard = motion_guard();
         uint8_t id[] = {t->eng_req, t->preset, t->user};
         h = fnv(h, id, sizeof id);
-        for (k = 0; k < P_COUNT; k++) if (!param_kept(k)) h = fnv(h, &t->p[k], sizeof t->p[k]);
+        for (k = 0; k < P_COUNT; k++) if (!param_kept(k)) {
+            int16_t v = motion_base_value(t, k);
+            h = fnv(h, &v, sizeof v);
+        }
         h = fnv(h, fm6_patch[trk_index(t)], FP_SIZE);
-        return fnv(h, vd_own[trk_index(t)], VK_SIZE);
+        h = fnv(h, vd_own[trk_index(t)], VK_SIZE);
+        motion_unguard(guard);
+        return h;
     }
     if (what == UNDO_PAT) return pat_from_sig(t);
     if (what == UNDO_MOT) return motion_sig(t);
@@ -1236,7 +1245,7 @@ static int param_kept(uint32_t i);
 static void undo_swap(void)
 {
     track_t *t;
-    uint32_t i;
+    uint32_t i, guard;
     char b[4] = {'T', 0, 0, 0};
     if (!undo.trk) {
         ui_message("NOTHING TO UNDO");
@@ -1244,14 +1253,18 @@ static void undo_swap(void)
     }
     if (undo.what == UNDO_RECORD) { (void)record_swap(); return; }
     t = &trk[(undo.trk - 1u) % NTRK];
+    /* Restore, exchange and rebase as one batch: a step between them could reapply motion to the old
+     * sound, or remember that sound as the new patch's base. The nested motion guards preserve this one. */
+    guard = motion_guard();
     if (undo.what & (UNDO_SOUND | UNDO_PAT | UNDO_MOT)) {
         motion_restore(t);
         motion_store_t current_motion;
         motion_snapshot_track(t, &current_motion);
-        if (motion_replace_track(t, &undo.motion_backup) != 0) { ui_message("AUTOMATION FULL"); return; }
+        if (motion_replace_track(t, &undo.motion_backup) != 0) {
+            motion_unguard(guard); ui_message("AUTOMATION FULL"); return;
+        }
         undo.motion_backup = current_motion;
     }
-    fm1_irq_off();                                /* the audio ISR must not see half a sound */
     if (undo.what & UNDO_SOUND) {
         uint8_t e = t->eng_req, pr = t->preset, u = t->user;
         panic_req |= (uint8_t)(1u << trk_index(t));
@@ -1314,7 +1327,8 @@ static void undo_swap(void)
         undo_bytes(favorites.factory[15] + 14, undo.fxmap + 10, 10);
         undo_bytes((void *)&perf_bank, &undo.fxbank, 1); perf_remap = 1;
     }
-    fm1_irq_on();
+    if (undo.what & UNDO_SOUND) motion_rebase(t);
+    motion_unguard(guard);
     if (undo.what & UNDO_SOUND) {                 /* FM6: the track's patch as it was (edited, a project's, a
                                                    * converted DIGITAL sound), not a factory one; VDRUM's own kit */
         uint32_t tr = trk_index(t);

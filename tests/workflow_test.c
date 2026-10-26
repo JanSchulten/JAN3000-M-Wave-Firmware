@@ -230,6 +230,45 @@ static void wf_undo_groups(void)
     wf_check("recording is one SAVE undo/redo; REC BACK and REC OCT undo routes are absent", ok);
 }
 
+/* Exercise the sounding and saved values separately: a snapshot must not stop motion, and a swap must
+ * refresh its playback base before another step runs. The host audio clock advances explicitly here. */
+static void wf_undo_automation(void)
+{
+    int ok;
+    uint8_t original, loaded;
+    int16_t loaded_atk;
+    undo_t prior;
+    ui_power_on(); frames(400);
+    TSEL->p[P_ATK] = 23; original = TSEL->preset;
+    TSEL->step[0].time = ST_NOTE; TSEL->step[0].n = 1; TSEL->step[0].note[0] = 60;
+    motion_set_event(TSEL, 0, P_ATK, 92);
+    seq_start(); seq_tick(TSEL, CTL);
+    btn_down(B_EDIT); frames(500);
+    ok = TSEL->p[P_ATK] == 92 && motion_base_value(TSEL, P_ATK) == 23;
+    turn(EN_K2, 1);
+    loaded = TSEL->preset; loaded_atk = motion_base_value(TSEL, P_ATK);
+    btn_up(B_EDIT); frame(); hold(B_SAVE);
+    ok &= TSEL->preset == original && motion_base_value(TSEL, P_ATK) == 23;
+    motion_step(TSEL, 0, &motion, 1); seq_stop();
+    ok &= TSEL->p[P_ATK] == 23 && motion_count(TSEL) == 1;
+    wf_check("EDIT sound undo during automation restores the patch base, including after another step and STOP", ok);
+    seq_start(); seq_tick(TSEL, CTL); hold(B_SAVE);
+    ok = TSEL->preset == loaded && loaded != original && motion_base_value(TSEL, P_ATK) == loaded_atk;
+    motion_step(TSEL, 0, &motion, 1); seq_stop();
+    wf_check("sound redo during automation restores the loaded patch base through playback and STOP",
+             ok && TSEL->p[P_ATK] == loaded_atk && motion_count(TSEL) == 1);
+
+    ui_power_on(); frames(400); turn(EN_PRESET, 1);
+    motion_set_event(TSEL, 0, P_ATK, 92); motion_set_event(TSEL, 1, P_ATK, 37);
+    seq_start(); seq_tick(TSEL, CTL); prior = undo;
+    btn_down(B_EDIT); frames(500); turn(EN_K4, 1); /* unused: an input, but no persistent edit */
+    motion_step(TSEL, 1, &motion, 1);
+    btn_up(B_EDIT); frame();
+    wf_check("automation advancing during an unchanged EDIT opening preserves the preceding undo",
+             !memcmp(&prior, &undo, sizeof undo));
+    seq_stop();
+}
+
 static void wf_record_domains(void)
 {
     int ok;
@@ -327,6 +366,7 @@ int main(int argc, char **argv)
     wf_navigation();
     wf_storage();
     wf_undo_groups();
+    wf_undo_automation();
     wf_record_domains();
     wf_layer_settings();
     wf_empty_transaction();
