@@ -60,19 +60,43 @@ The final UI sweep has no lint findings and no alignment errors in either normal
 2764407 measurements in the normal build and 2965865 in the FM4 build. All 131 golden audio renders remain unchanged.
 
 `sh web/emu/build.sh` and the Node tests of each point's WebAssembly build pass: boot, panel controls, storage,
-audio determinism and the heavy-song workload. The cloud browser cannot reach the local emulator server, so a visual
-browser check is still outstanding. The images below come from the real C UI host harness, in GREY, and were inspected.
-They are not browser screenshots. A current emulator build is available locally through the normal build workflow.
+audio determinism and the heavy-song workload. The images below come from the real C UI host harness, in GREY, and
+were inspected; the browser screenshots further down come from the follow-up review.
 
 ![Phase 1 firmware screens](phase1-screens.png)
 
 README, the matching EN/DE manual sections (German ids prefixed `de-`) and the Lab workflows are updated.
 Manual ids are unique and both language trees cover the same sections.
 
+## Review follow-up
+
+A review of the eight commits found two regressions, each now fixed with a test in `tests/workflow_test.c` that fails
+without its fix and passes with it:
+
+- **Undo during automation restored the sounding value instead of the patch.** `undo_capture` and the sound signature
+  now read `motion_base_value`; `undo_swap` restores, exchanges and rebases the motion in one guarded batch, so the
+  patch base survives further automated steps and STOP.
+- **OCT- on PROJECT / USER transposed the keyboard.** The octave handler now leaves OCT to the storage pages
+  (`slots_keys_on`); save, load, overwrite and their cancellations keep the octave, and OCT transposes again after
+  leaving storage.
+
+The FX layer's message for the second key map now reads `FX MAP B` (formerly `FX MAP B: OP-Z`); `punch_test` checks
+the exact text.
+
+After these three commits: image 576020 B (limit 581564), RAM 52024 B, pool 348044 B, `fm1_alnk0_irq` 40344
+(unchanged). `sh tests/run_tests.sh` ends with `ALL HOST TESTS PASSED`, including the sanitizer runs (all eleven ran
+here without the workaround above), both UI alignment lints with 0 findings and the emulator's Node tests.
+
+The browser emulator was driven with Playwright in Chromium (colour palette, no console errors): OCT+ on HOME, then
+SAVE > PROJECT, OCT- on an empty slot (EMPTY SLOT), SELECT to USER, OCT+ to the NAME screen and OCT- to cancel. `OCT +1`
+stays in the header throughout and on HOME afterwards. Holding FX and turning ALGORITHM shows `FX MAP B` / `FX MAP A`.
+
+![Phase 1 in the browser emulator](phase1-browser.png)
+
 ## Remaining device checks and upstream merges
 
 Only hardware can establish encoder feel, tap/hold timing, recording latency, LED brightness and the physical
-audio output. No installation or hardware test was performed. The browser visual check is also outstanding.
+audio output. No installation or hardware test was performed.
 
 Future Felucca merges will need particular care in `ui.c`, `ui_input.c`, `ui_layer.c` and the page/menu tables:
 navigation, grouped undo, slot gestures and sparse menus now diverge from the upstream workflow. Stored sound
