@@ -562,13 +562,36 @@ static void graph_arp(const track_t *t)
  * spacing, FDBK how long they last); REVERB rings spreading (SIZE how far, DAMP how soon they fade; SPRING a coil
  * shaking); CHORUS two waves drifting apart (RATE, DEPTH) */
 static void graph_insert(const track_t *t, uint16_t c);
+/* M-Vave-OP1, PUMP: the level over four steps from x0 (ww wide), its top at y0, h tall (y0 + h: DEPTH 100 % ducked): the
+ * drop at each step, the release along PAT's curve (slicer.c sl_pump_r) over its part of the step; the step playing (cur,
+ * of the four: cur % 4) under it in the accent */
+static void pump_curve(const track_t *t, int32_t x0, int32_t y0, int32_t ww, int32_t h, uint16_t c, uint32_t cur, int on)
+{
+    uint32_t p = (uint32_t)(t->p[P_SLPAT] - 1) % SL_NPAT, sh = p >> 2, q = 4u - (p & 3u);
+    int32_t depth = clamp(t->p[P_SLDEPTH], 0, 127), x, py = y0, sw = ww / 4;
+    for (x = 0; x < ww; x++) {
+        int32_t st = x % sw, a = sw / 24 + 1, rl = sw * (int32_t)q / 4 - a, cl, y;
+        if (st < a)
+            cl = 32768 * st / a;                    /* (the drop) */
+        else
+            cl = sl_pump_r(sh, st - a >= rl ? 32768 : (st - a) * 32768 / (rl > 0 ? rl : 1));
+        y = y0 + (int32_t)((int64_t)cl * depth * h / (32768 * 127));
+        if (x)
+            cv_line_t(x0 + x - 1, py, x0 + x, y, on ? c : T_MID, 2);
+        py = y;
+    }
+    if (on)
+        cv_rect(x0 + (int32_t)(cur % 4u) * sw + 2, y0 + h + 4, sw - 4, 2, T_ACCENT);
+}
 static void fx_anim(const track_t *t, uint16_t c, uint16_t bgc, int32_t x0, int32_t y0, int32_t ww, int32_t hh0)
 {
     int32_t x1 = x0 + ww;
     const char *ti = cur_page()->title;
     uint32_t f = ui.frame, k;
     int32_t x, y, h, mid = y0 + hh0 / 2, py = mid, bot = y0 + hh0, half = hh0 / 2 - 2;
-    if (str_eq(ti, "SLICER")) {                 /* the pattern, the step playing marked */
+    if (str_eq(ti, "SLICER") && sl_pump_mode((uint32_t)t->p[P_SLCR])) {   /* PUMP: the level ducking, step by step */
+        pump_curve(t, x0 + 4, y0 + 4, ww - 8, hh0 - 14, c, sl[t - trk].idx, 1);
+    } else if (str_eq(ti, "SLICER")) {          /* the pattern, the step playing marked */
         uint32_t pat = sl_pattern(t), mode = (uint32_t)t->p[P_SLCR], cur = sl[t - trk].idx;
         for (k = 0; k < 16u; k++) {
             x = x0 + 2 + (int32_t)k * (ww - 4) / 16;
@@ -966,13 +989,18 @@ static void graph_insert(const track_t *t, uint16_t c)
         py = y;
     }
 }
-/* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE a bar as high as it stays
- * open (DEPTH), STUT hatched (it repeats the last 'x'); the step playing underlined. Grey when OFF. */
+/* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE (and GATE END) a bar as high as it
+ * stays open (DEPTH), STUT hatched (it repeats the last 'x'); the step playing underlined. Grey when OFF. PUMP (and
+ * PUMP END): the level over four steps (pump_curve) */
 static void graph_slicer(const track_t *t, uint16_t c)
 {
     uint32_t i, pat = sl_pattern(t), mode = (uint32_t)t->p[P_SLCR], cur = sl[t - trk].idx;
     int32_t open = 70 - t->p[P_SLDEPTH] * 70 / 127;      /* px a closed GATE step keeps */
     uint16_t col = mode == SL_OFF ? T_DIM : c;
+    if (sl_pump_mode(mode)) {                           /* M-Vave-OP1, PUMP: the level ducking over four steps */
+        pump_curve(t, 12, 8, 216, 72, c, cur, 1);
+        return;
+    }
     for (i = 0; i < 16u; i++) {
         int32_t x = bar_x(i), y;
         if ((pat >> i) & 1u) {

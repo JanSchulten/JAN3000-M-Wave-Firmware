@@ -56,7 +56,8 @@ static const char *const N_RTYPE[] = {"ROOM", "SPRING", "HALL", "SHIMMER"};   /*
 static const char *const N_GO[] = {"--", "GO"};
 static const char *const N_SLCR[] = {"OFF", "GATE", "STUT", "PUMP", "GT END", "PM END"};   /* SL_OFF .. SL_PEND
                                                   * (slicer.c; stored, append-only): GATE END, PUMP END on the cards */
-static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T"};   /* SL_DEN */
+static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T", "1/4"};   /* SL_DEN (1/4: M-Vave-OP1,
+                                                                                         * appended, the PUMP's) */
 /* the INSERT's types (1.5, fx.c IT_*; append-only: stored). Its three values A B C mean what the type says (ins_desc) */
 static const char *const N_ITYPE[] = {"OFF", "SOFT", "HARD", "FOLD", "FUZZ", "CRUSH", "PHASR", "FLANG", "CHOR"};
 /* CRUSH: BITS 1..16 and RATE (the held sample's rate, fx.c INS_HOLD) over the range in 16 even parts (0-terminated) */
@@ -295,7 +296,7 @@ static int32_t enum_step(const param_desc_t *d, int32_t from, int32_t v)
  * knobs and the gauges; the stored values (N_DIV, N_SLDIV indices: projects, presets, the editor protocol) stay.
  * -> the shown order of d's values (index: position, entry: value), 0 = the values' own order */
 static const uint8_t DIV_ORDER[10] = {9, 8, 7, 6, 0, 1, 4, 2, 5, 3};   /* 4BAR 2BAR 1/1 1/2 1/4 1/8 8T 1/16 16T 1/32 */
-static const uint8_t SLDIV_ORDER[6] = {0, 3, 1, 4, 2, 5};              /* 1/8 8T 1/16 16T 1/32 32T */
+static const uint8_t SLDIV_ORDER[7] = {6, 0, 3, 1, 4, 2, 5};           /* 1/4 1/8 8T 1/16 16T 1/32 32T */
 static const uint8_t DTIME_ORDER[13] = {9, 8, 7, 6, 12, 0, 10, 1, 11, 4, 2, 5, 3};   /* 4BAR 2BAR 1/1 1/2 1/4D 1/4 1/8D
                                                                                       * 1/8 1/16D 8T 1/16 16T 1/32 */
 static const uint8_t *enum_order(const param_desc_t *d)

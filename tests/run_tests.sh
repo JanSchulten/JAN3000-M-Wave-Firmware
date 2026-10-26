@@ -97,7 +97,8 @@
 #                   level, FDBK bounded and dying away, CLOUD FREEZE; the FX1 / CLOUD pages, F5, kept with the project;
 #                   screens into build/cloud_shots, WAV demos into build/cloud_demo.
 # SLICER POSITION (tests/fxchain_test.c, M-Vave-OP1): the SLICER at the START before DIST, at the END on the whole
-#                   sum after the reverb (the lowest END track drives it), PUMP / PUMP END.
+#                   sum after the reverb (the lowest END track drives it). PUMP: the drop at each step, the four curves and
+#                   their lengths, no clicks, RATE 1/4, PUMP END, the page.
 # PUNCH-INS (tests/punch_test.c, M-Vave-OP1 E2): the OP-Z's punch-ins on the FX layer (perform.c): DUCK's curve on the
 #                   beat (also stopped), STEREO's pan a 1/16 a side with the power kept, PITCH 5TH UP / 4TH DN's pitch
 #                   with no live part, RAMP UP from standing to in time, GLITCH's slices (from the next 1/16, their
@@ -381,7 +382,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
     run "FX1 CLOUD: granular in the delay's line (TYPE change, grains inside the line, DENS, PITCH, level, FDBK, FREEZE), pages, F5, kept" "$OUT/cloud_test" build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fxchain_test" tests/fxchain_test.c -lm
-    run "SLICER at the START / END of the chain" "$OUT/fxchain_test"
+    mkdir -p build/fxchain_shots
+    run "SLICER at the START / END of the chain, PUMP" "$OUT/fxchain_test" build/fxchain_shots
     mkdir -p build/punch_shots build/punch_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/punch_test" tests/punch_test.c -lm
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo

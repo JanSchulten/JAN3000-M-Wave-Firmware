@@ -34,7 +34,9 @@ dv_cym_run 67
 dv_out 35
 dv_metal_mix 16
 slicer_track 632
-sl_end_seg 16
+sl_end_seg 19
+sl_pump 36
+sl_pump_seg 23
 slicer_end 35
 vd_render 166
 vd_layer_run 118
