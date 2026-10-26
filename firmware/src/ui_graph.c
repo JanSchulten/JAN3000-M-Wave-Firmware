@@ -1622,6 +1622,9 @@ static uint32_t graph_signature(void)
     uint8_t rr[4];
     if (ui.home)
         return h ^ (ui.frame / 2u);                  /* scope: redraw every other frame */
+    if (ui.layer == LAYER_REC)
+        h ^= (uint32_t)ui_rec_prefs * 31u + (uint32_t)chain_busy() * 3u +
+             (uint32_t)(!seq_is_empty(t) || motion_count(t)) * 5u;
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u + ui.page * 1291u;
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;

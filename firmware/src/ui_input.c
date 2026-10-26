@@ -113,8 +113,8 @@ static uint32_t oct_leds(void)
 {
     if (name_on() && !ui.confirm && !ui.menu)           /* NAME: OCT- cancels, OCT+ (breathing) writes */
         return 1u | OCT_BREATH;
-    if (layer_set_open())                               /* a SET layer: OCT- puts back (UNDO), OCT+ nothing; M-Vave-OP1 */
-        return ui.ly != LAYER_SEQ ? 1u :                /* SEQ: the scene before / after, lit where there is one */
+    if (layer_set_open())                               /* SEQ: previous / next scene where one exists */
+        return
                (scene_target() > 0u ? 1u : 0u) | (scene_target() + 1u < SCN_N ? 2u : 0u);
     if (ui.menu && !ui.confirm)
         return ui.menu >= 2u ? (ui.menu == 3u ? 1u | OCT_BREATH : 1u) :   /* (INFO, ABOUT: OCT- back, lit; INFO's
@@ -744,6 +744,7 @@ static int rec_tap(void)                                /* 1: the arming changed
 {
     uint8_t bit = (uint8_t)(1u << song.sel);
     if (key_keys_on()) {                              /* M-Vave-OP1, GLO > KEY (key.c): its recording, not the pattern's; */
+        if (!key_arm) record_begin(0, 0, 1, 0);
         key_arm ^= 1u;                                /* armed only: PLAY starts it (the count-in first, if set) */
         ui.force = 1;
         ui_message(!key_arm ? "KEY REC OFF" : song.playing || seq_counting() ? "KEY REC: PLAY THE ROOTS"
@@ -756,6 +757,7 @@ static int rec_tap(void)                                /* 1: the arming changed
             ui_message("STOP TO RECORD");
             return 0;
         }
+        if (!(fxt.arm & lb)) record_begin(0, lb, 0, 0);
         fxt.arm ^= lb;                                /* (M-Vave-OP1: armed only, PLAY starts it) */
         ui.force = 1;
         ui_message(fxt.arm & lb ? (ui.fxt_sel ? "FX2 ARMED: HOLD [FX]" : "FX1 ARMED: HOLD [FX]")
@@ -763,6 +765,7 @@ static int rec_tap(void)                                /* 1: the arming changed
         return 1;
     }
     if (!ui.home && cur_page()->graph == GR_SONG && !(song.rec & bit)) {   /* SONG (M-Vave-OP1): REC types a chain */
+        if (!ui.song_rec) record_begin(0, 0, 0, 1);
         ui.song_rec ^= 1u;                            /* (song_chain_key), the first key a new one; not the pattern's */
         ui.song_new = ui.song_rec;
         ui.force = 1;
@@ -773,12 +776,9 @@ static int rec_tap(void)                                /* 1: the arming changed
         ui_message("STOP TO RECORD");
         return 0;
     }
+    if (!(song.rec & bit)) record_begin(bit, 0, 0, 0);
     song.rec ^= bit;
     ui.force = 1;                                     /* also refresh the status on MENU / ABOUT */
-    if (song.rec & bit) {                             /* M-Vave-OP1: the track as it was before it records, for */
-        step_undo_take(TSEL, 0);                      /* REC + OCT- (undo) / OCT+ (redo): its steps and motion */
-        motion_undo_done(TSEL);
-    }
     if ((song.rec & bit) && !song.playing && !seq_counting() && roll_on()) {
         ui_message(ui_prefs2 & (PREF_CHORD_ADD >> 16) ? "KEYS ADD TO STEP" : "KEYS WRITE STEPS");   /* step recording:
                                                          * stopped, at the cursor (CHORD ENTRY ADD: adding) */
@@ -1570,7 +1570,7 @@ static void fx_assign(int32_t s);
 static void fx_default(void);
 static void fx_bank(int32_t s);                 /* (M-Vave-OP1 E2: MAP A / MAP B) */
 static void seq_lane(int32_t s);                /* (M-Vave-OP1 scenes: SEQ + PRESETS, the DRUM lane) */
-static void seq_put_back(void);                 /* (.. SEQ + EDIT) */
+static void layer_undo_begin(uint32_t l);
 static void scene_switched_ui(void);
 static int layer_play(void);
 static int layer_set_open(void);
@@ -1668,6 +1668,8 @@ static void ui_input(void)
     uint32_t lay, combo = 0, lytap, lkeys, kq = 0;
     int32_t s, ks[4] = {0, 0, 0, 0};
     int32_t nav = 0;
+    record_poll();
+    if (rec_undo.active && !(song.rec || fxt.arm || key_arm || ui.song_rec)) record_finish(0);
     midi_pc_poll();                                     /* MIDI Program Change (before fm6_poll: a bank voice) */
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
     if (kit_track(TSEL) && ui.lane >= kit_track(TSEL))  /* (M-Vave-OP1: a VDRUM track's six lanes; lane 7 or 8 picked */
@@ -1681,7 +1683,7 @@ static void ui_input(void)
     fx_map_sync();                                      /* (the FX layer's key map: ui_layer.c, a settings load too) */
     fx_usb_fixed = (ui_prefs & PREF_USB_FIXED) != 0u;   /* (MENU > USB LEVEL: fx.c, audio.c) */
     scope_mix = (ui_prefs2 & (PREF_SCOPE_MIX >> 16)) != 0u;   /* (MENU > SCOPE: fx.c, audio.c) */
-    rp_apply();                                         /* (MENU > CLICK, CLICK LEVEL, COUNT-IN: click.c, seq.c) */
+    rp_apply();                                         /* (REC: CLICK, CLICK LEVEL, COUNT-IN, click.c and seq.c) */
     {   /* M-Vave-OP1: a scene the ISR switched to (scene.c): packed away, said; a pick dropped (memory) said */
         uint32_t r = scene_poll();
         if (scn.moved) {
@@ -1719,7 +1721,7 @@ static void ui_input(void)
     layer_oct_open(pressed);                            /* (OCT± with a SET layer's button down: it opens now) */
     oct = oct_taps(pressed, ui.menu || ui.confirm || act_cols() || slots_keys_on() || name_on() || layer_set_open() ||
                             ui.ml.on);
-    oct = layer_oct(pressed, oct);                      /* (a SET layer's OCT-: put back) */
+    oct = layer_oct(pressed, oct);                      /* (SEQ scenes alone consume the taps) */
     layer_masks();                                      /* seq.c: keys pressed with a layer's button are its own */
     lay = layer_held();
     if (!layer_allowed()) {
@@ -1742,8 +1744,6 @@ static void ui_input(void)
         combo |= (pressed & ~ly_bit(ui.ly) &            /* (REC + PLAY: PLAY plays and REC let go soon is still */
                   ~(ui.ly == LAYER_REC ? 1u << panel.btn[B_PLAY] : 0u)) != 0u;   /* a tap, it arms: as before) */
         notes = 0;                                      /* (the keys are the layer's, not the grid's or a step's) */
-        if (pressed & (1u << panel.btn[B_SAVE]))       /* no UNDO, no page */
-            ui.save_t0 |= 2u;
         if (pressed & (1u << panel.btn[B_HOME]))       /* no menu, no HOME */
             ui.home_t0 |= 2u;
         for (k = 0; k < 4u; k++)                        /* KNOB 1..4: the layer's (ui_layer.c layer_knob) */
@@ -1758,13 +1758,10 @@ static void ui_input(void)
         }
         if (ui.ly == LAYER_FX && ((pressed >> panel.btn[B_EDIT]) & 1u))
             fx_default();                               /* .. EDIT: its default back */
-        if (ui.ly == LAYER_SEQ && ((pressed >> panel.btn[B_EDIT]) & 1u))
-            seq_put_back();                             /* M-Vave-OP1, SEQ + EDIT: the track as the layer opened (OCT-:
-                                                         * the scene before now) */
         if ((s = panel_enc(EN_ALGO)) != 0 && ui.ly == LAYER_FX) {   /* E2: FX + ALGORITHM: MAP A / MAP B */
             fx_bank(s);
             combo = 1;
-        }                                               /* (else nobody's: OCT- puts back the layer's track only) */
+        }                                               /* (else nobody's while a layer is held) */
         if ((nav = panel_enc(EN_SELECT)) != 0)
             combo = 1;                                  /* SELECT still pages; the held button opens no page. */
     } else if ((kq = (uint32_t)layer_knobs_quiet()) != 0) {   /* a layer letting go: KNOB 1..4 are nobody's (#39) */
@@ -1818,9 +1815,13 @@ static void ui_input(void)
     }
     if (save == BT_HOLD && chain_busy())
         ui_message("STOP TO UNDO");
-    else if (save == BT_HOLD)                                /* SAVE held: undo the last sound load */
+    else if (save == BT_HOLD) {
+        record_finish(1);
+        undo_group_finish();
         undo_swap();
-    else if (save == BT_TAP && !ui.confirm)             /* SAVE acts on release (a hold is the undo) */
+        if (ui.layer) layer_undo_begin(ui.layer);
+    }
+    else if (save == BT_TAP && !ui.confirm && !lay)             /* SAVE acts on release (a hold is the undo) */
         open_family(FAM_SAVE);
     if (ui.confirm) {                                   /* OCT- cancels, OCT+ does it; nothing else reacts */
         if (oct & 2u) {

@@ -217,56 +217,21 @@ static void test_undo(void)
 {
     int ok;
     track_t *t;
-    ui_power_on();
-    frames(320);
-    t = TSEL;
+    ui_power_on(); frames(400); t = TSEL;
     memset(t->step, 0, sizeof t->step);
-    t->step[0].note[0] = 60; t->step[0].n = 1; t->step[0].vel = 100;   /* (what was there before) */
+    t->step[0].note[0] = 60; t->step[0].n = 1; t->step[0].vel = 100;
     press(B_REC); frames(400);
-    ok = (song.rec & 1u) != 0u && undo.trk == 1u && !undo.undone;
-    t->step[4].note[0] = 67; t->step[4].n = 1; t->step[4].vel = 100;   /* (what the recording added) */
-    t->step[0].note[0] = 62;
-    transport_req = 2;
-    blk();
-    rec_hold_oct(B_OCTUP);
-    ok &= msg_is("NOTHING TO REDO") && t->step[4].n == 1u;
+    ok = (song.rec & 1u) != 0u;
+    t->step[4].note[0] = 67; t->step[4].n = 1; t->step[4].vel = 100; t->step[0].note[0] = 62;
     rec_hold_oct(B_OCTDN);
-    ok &= t->step[4].n == 0u && t->step[0].note[0] == 60u && undo.undone;
-    ck("REC armed takes the track's copy; REC + OCT- undoes the recording (OCT+ before: nothing to redo)", ok);
-    rec_hold_oct(B_OCTDN);
-    ok = msg_is("ALREADY UNDONE") && t->step[4].n == 0u;
-    rec_hold_oct(B_OCTUP);
-    ok &= t->step[4].n == 1u && t->step[4].note[0] == 67u && t->step[0].note[0] == 62u && !undo.undone;
-    ck("  REC + OCT- again: already undone; REC + OCT+ redoes it", ok);
-    {   /* REC held + F#5 (the highest black key): BACK, one step, as OCT-; the key breathes with a step to go back,
-         * its row on the layer's map (F#5 BACK) */
-        uint32_t f5 = key_at(1, LY_INIT_B), a, b2;
-        btn_down(B_REC); frames(500);
-        a = leds_at(0); b2 = leds_at(250);
-        ok = ui.layer == LAYER_REC && rec_back_can() && (((a ^ b2) >> f5) & 1u);
-        key_down(f5); frame(); key_up(f5); frame();
-        ok &= t->step[4].n == 0u && t->step[0].note[0] == 60u && undo.undone && ui.layer == LAYER_REC;
-        a = leds_at(0); b2 = leds_at(250);
-        ok &= !rec_back_can() && !(((a | b2) >> f5) & 1u);
-        key_down(f5); frame(); key_up(f5); frame();
-        ok &= msg_is("ALREADY UNDONE") && t->step[4].n == 0u;
-        btn_up(B_REC); frames(400);
-        ck("REC held + F#5: BACK, one step (the recording undone), again: already back; its LED breathes while it can", ok);
-        rec_hold_oct(B_OCTUP);
-        ok = t->step[4].n == 1u && !undo.undone;
-        go_page(GR_ROLL);
-        frames(400);
-        cursor_set(4);
-        frame();
-        turn(EN_K2, -128);                               /* (STEP: the note turned OFF, the step to go back now) */
-        turn(EN_K2, -1);
-        ok &= t->step[4].time == ST_REST && rec_back_can();
-        btn_down(B_REC); frames(500);
-        key_down(f5); frame(); key_up(f5); frame();
-        btn_up(B_REC); frames(400);
-        ok &= t->step[4].time == ST_NOTE && t->step[4].n == 1u && t->step[4].note[0] == 67u;
-        ck("  BACK takes back the last change, whatever it was (a step turned down and OFF in one turn: the note before)", ok);
-    }
+    ok &= t->step[4].n == 1 && song.octave == -1;
+    btn_down(B_REC); frames(500); slot_key(black(LY_INIT_B)); btn_up(B_REC); frames(400);
+    ok &= t->step[4].n == 1;
+    hold(B_SAVE);
+    ok &= t->step[4].n == 0 && t->step[0].note[0] == 60 && undo.undone;
+    ck("REC OCT- changes octave; BACK is absent; SAVE held undoes the complete recording", ok);
+    hold(B_SAVE);
+    ck("SAVE held again redoes the complete recording", t->step[4].note[0] == 67 && t->step[4].n == 1 && t->step[0].note[0] == 62);
 }
 
 static void test_new(void)

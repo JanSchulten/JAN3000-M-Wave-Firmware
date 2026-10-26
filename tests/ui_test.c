@@ -180,6 +180,8 @@ static void ui_power_on(void)
     memset(&favorites, 0, sizeof favorites);
     ml_off();                                     /* (MIDI LEARN off, nothing learned) */
     memset(&undo, 0, sizeof undo);
+    memset(&undo_group, 0, sizeof undo_group);
+    memset(&rec_undo, 0, sizeof rec_undo);
     fop_op = fop_stg = 0;                         /* (FM6's operator pages: OP 1, stage 1, as at power-on) */
     memset(vd_own, 0, sizeof vd_own);             /* (M-Vave-OP1 VDRUM: no own kits, no part struck, LYR L1) */
     memset((void *)vd_pick, 0, sizeof vd_pick);
@@ -3733,7 +3735,7 @@ static int test_sample_alert(void)
 /* ------------------------------------------------ the GLO SCL EDIT layers --- */
 static uint32_t black(uint32_t b) { return key_at(1, b); }
 static void lay_combo(uint32_t btn, uint32_t k) { btn_down(btn); key_down(k); frame(); }
-static void oct_back(void) { btn_down(B_OCTDN); frame(); btn_up(B_OCTDN); frame(); }
+static void oct_back(void) { hold(B_SAVE); }   /* legacy test name: the sole undo is SAVE held */
 
 static int test_quick_layers(void)
 {
@@ -4166,7 +4168,7 @@ static int test_bughunt_ui(void)
             ui_power_on();
             song.octave = 1;                            /* (outside: OCT+ lit) */
             btn_down(LB[i]); frames(500);
-            ok &= layer_set_open() && oct_leds_seen(1) == 1u && oct_leds_seen(0) == 1u;
+            ok &= !layer_set_open() && oct_leds_seen(1) == 2u && oct_leds_seen(0) == 2u;
             btn_up(LB[i]); frame();
             ok &= oct_leds() == 2u;
         }
@@ -4175,7 +4177,7 @@ static int test_bughunt_ui(void)
         ok &= ui.layer == LAYER_FX && oct_leds() == 0u;
         btn_up(B_FX); frame();
     }
-    bad += check("SET layers: the OCT- LED lit (UNDO), OCT+ dark; after: the octave; FX: the octave", ok);
+    bad += check("all non-SEQ layers show the ordinary octave LEDs", ok);
     /* 9: no "HOLD [EDIT] QUICK" over NAME (EDIT tapped on USER / PROJECT renames) */
     ui_power_on();
     layer_seen = 0;
@@ -6367,10 +6369,10 @@ static int test_layer_knob_race(void)
         btn_up(B_FX); frames(400);
         ok = perf_k[0] == 5 && *vp == c;
         btn_down(B_FX); frames(560); press(B_OCTDN); btn_up(B_FX); frames(400);
-        ok &= !perf_k[0] && *vp == c;
+        ok &= perf_k[0] == 5 && *vp == c && song.octave == -1;
     }
     fx_latch = 0;
-    bad += check("  FX LATCH: FILTER stays after FX is let go, HOME's KNOB 1 never moves; FX + OCT- turns it off", ok);
+    bad += check("  FX LATCH: FILTER stays after FX is let go, HOME's KNOB 1 never moves; FX + OCT- shifts octave", ok);
     /* no layer: a late detent is HOME's KNOB 1's, once (the next pass) */
     ui_power_on();
     go_home(); frames(64);
@@ -6555,9 +6557,11 @@ static int test_seq_tools(void)
     bad += check("  SEQ + F#3 leaves the pattern and its locks unchanged", !memcmp(TSEL->step, ref, sizeof ref) && tl_lock_at(3));
     turn(EN_K1, -2);
     seq_edit();
-    ok = TSEL->p[P_SLEN] == 8 && !memcmp(TSEL->step, ref, sizeof ref);
+    ok = TSEL->p[P_SLEN] == 6;
+    hold(B_SAVE);
+    ok &= TSEL->p[P_SLEN] == 8 && !memcmp(TSEL->step, ref, sizeof ref);
     btn_up(B_SEQ); frame();
-    bad += check("  SEQ + EDIT still restores the open layer until undo is unified", ok);
+    bad += check("  SEQ + EDIT is inert; SAVE held restores the whole opening", ok);
 
     /* RANDOM / COOK on a melodic track (fixed seeds): the rhythm stays, the notes in the scale, near the middle */
     ok = okc = 1;
@@ -6586,7 +6590,7 @@ static int test_seq_tools(void)
     bad += check("  D#4 RANDOM (melodic): the rhythm kept, new notes in the scale near the middle (40 seeds)", ok);
     bad += check("  F#4 COOK x12: each press changes it, the rhythm and the scale kept, \"COOKED 12\"", okc);
     hold(B_SAVE);
-    bad += check("  SAVE held after COOKs: the last one undone only", !memcmp(TSEL->step, mid, sizeof mid));
+    bad += check("  SAVE held after COOKs: the complete opening undone", !memcmp(TSEL->step, ref, sizeof mid));
     ui_power_on();
     track_defaults_steps(TSEL);
     TSEL->p[P_SLEN] = 16;
@@ -6874,9 +6878,9 @@ static int test_rec_layer(void)
     key_down(white(1)); frame(); key_up(white(1)); frame();
     key_down(white(0)); frame(); key_up(white(0)); frame();
     ok = seq_is_empty(&trk[1]) && click_mode == 1u;
-    press(B_OCTDN);
+    hold(B_SAVE);
     ok &= !memcmp(trk[1].step, before, sizeof before) && ui_rec_prefs == 0u && click_mode == 0u &&
-          msg_is("REC PUT BACK") && song.octave == 0 && ui.layer == LAYER_REC;
+          msg_is("UNDO/REDO T2") && song.octave == 0 && ui.layer == LAYER_REC;
     rec_up();
     bad += check("  OCT- puts back CLICK and the cleared track; no octave shift", ok);
 
@@ -7082,62 +7086,23 @@ static int test_fx_latch(void)
     ok &= perf_latched == PF_BIT(PF_M1);
     btn_up(B_FX); frame();
     bad += check("  the FX LED lit while something is on; a mute key latches; C4 again: LPF off", ok);
+    /* OCT is always the keyboard octave in FX, including LATCH and a quick combo. */
     btn_down(B_FX); frame(); turn(EN_K1, -40);
-    ok = song.octave == 0 && oct_leds() == 1u;
-    btn_down(B_OCTDN); frame(); btn_up(B_OCTDN); frame();
-    ok &= !perf_latched && !perf_k[0] && !perf_k[1] && song.octave == 0 && msg_is("FX ALL OFF");
-    btn_up(B_FX); frame();
-    bad += check("  FX + OCT-: every latched effect and macro off (no octave)", ok);
-    /* the quick combo: FX down and OCT- before HOLD, nothing else touched (it was nobody's: no ALL OFF, no octave) */
-    btn_down(B_FX); key_down(lpf); frame(); key_up(lpf); frame(); turn(EN_K2, 20); btn_up(B_FX); frame();
-    frames(400);
-    ok = perf_latched == PF_BIT(PF_LPF) && perf_k[1] == 20 && !ui.layer;
-    btn_down(B_FX); frame(); btn_down(B_OCTDN); frame();
-    ok &= ui.layer == LAYER_FX && song.octave == 0;               /* (a combo: the map at once) */
-    btn_up(B_OCTDN); frame();
-    ok &= !perf_latched && !perf_k[1] && song.octave == 0 && msg_is("FX ALL OFF");
-    {   uint32_t h = ui.home, pg = ui.page;
-        btn_up(B_FX); frame();
-        ok &= !ui.layer && ui.home == h && ui.page == pg && !ui.lock;   /* (no tap: no page) */
-    }
-    bad += check("  FX LATCH: FX + OCT- quick (before HOLD): all off, no octave, no page", ok);
-    btn_down(B_FX); key_down(lpf); frame(); key_up(lpf); frame(); btn_up(B_FX); frame();
-    frames(400);
-    btn_down(B_FX); btn_down(B_OCTDN); frame(); btn_up(B_OCTDN); frame();   /* (both in one frame) */
-    ok = !perf_latched && song.octave == 0 && msg_is("FX ALL OFF");
-    btn_up(B_FX); frame();
-    btn_down(B_FX); frame(); frames(800);                         /* held past HOLD, then OCT- */
-    ok &= ui.layer == LAYER_FX;
+    ok = song.octave == 0 && oct_leds() == 0u;
     press(B_OCTDN);
-    ok &= song.octave == 0;
+    ok &= perf_latched == PF_BIT(PF_M1) && perf_k[0] == -40 && perf_k[1] == 30 && song.octave == -1;
     btn_up(B_FX); frame();
-    press(B_OCTDN);                                               /* no FX: the octave as always */
-    ok &= song.octave == -1 && !ui.layer;
     press(B_OCTUP);
+    btn_down(B_FX); btn_down(B_OCTDN); frame(); btn_up(B_OCTDN); frame(); btn_up(B_FX); frame();
+    ok &= song.octave == -1 && perf_latched == PF_BIT(PF_M1) && perf_k[1] == 30;
+    bad += check("FX LATCH: OCT- shifts octave, preserves effects and macros, including a quick combo", ok);
+    fx_latch = 0; frame(); song.octave = 0;
+    btn_down(B_FX); frames(500); press(B_OCTDN); btn_up(B_FX); frame();
+    ok = song.octave == -1;
+    btn_down(B_GLO); frame(); press(B_OCTUP); btn_up(B_GLO); frame();
     ok &= song.octave == 0;
-    bad += check("  FX LATCH: FX + OCT- in one frame / held: no octave; OCT- alone: the octave", ok);
-    fx_latch = 0;
-    frame();
-    btn_down(B_FX); frame(); btn_down(B_OCTDN); frame(); btn_up(B_OCTDN); frame();
-    ok = song.octave == -1 && ui.layer == LAYER_FX;               /* LATCH OFF: FX's HOLD layer, OCT- is the octave */
-    {   uint32_t h = ui.home, pg = ui.page;
-        btn_up(B_FX); frame();
-        ok &= !ui.layer && ui.home == h && ui.page == pg;
-    }
-    btn_down(B_FX); frame(); frames(800); press(B_OCTUP); btn_up(B_FX); frame();
-    ok &= song.octave == 0;
-    btn_down(B_FX); frame(); btn_up(B_FX); frame();               /* FX tap: its page still */
-    ok &= !ui.home && cur_page()->fam == FAM_FX;
-    go_home();
-    frames(400);
-    btn_down(B_GLO); frame(); btn_down(B_OCTDN); frame();          /* a SET layer the same: GLO + OCT- quick */
-    ok &= ui.layer == LAYER_GLO;
-    btn_up(B_OCTDN); frame();
-    ok &= song.octave == 0 && msg_is("MIX PUT BACK");
-    btn_up(B_GLO); frame();
-    ok &= ui.home && !ui.layer;
-    bad += check("  FX LATCH OFF: FX + OCT- quick / held shifts the octave (no page); FX tap: the FX page; "
-                 "GLO + OCT- quick: put back, no octave", ok);
+    bad += check("FX HOLD and GLO use the same octave keys", ok);
+    perf_latched = 0;
     fx_latch = 1;
     frame();
     btn_down(B_FX); key_down(lpf); frame(); key_up(lpf); frame(); btn_up(B_FX); frame();
@@ -9129,8 +9094,8 @@ static int test_edit_quick_actions(void)
     btn_up(B_EDIT); frame();
     ok &= drum_mute[3] == 1u && ui.home && !ui.layer;
     bad += check("  DRUM: EDIT + black key 1 / 6: KICK / TOM muted (latched; LEDs dark), again: on (lit); 9..11 dark", ok);
-    ok = undo.trk != 4u && motion_count(TSEL) == 0u && !lys.loaded;
-    bad += check("  the mutes take no undo copy, record nothing (no sound load)", ok);
+    ok = undo.trk == 4u && undo.what == UNDO_DRUM && motion_count(TSEL) == 0u && !lys.loaded;
+    bad += check("  the mutes take one layer undo copy and record no automation", ok);
 
     /* the white keys as before (an engine pick from DRUM: the sound load clears the mutes) */
     btn_down(B_EDIT); frames(500);
@@ -9162,7 +9127,7 @@ static int test_edit_quick_actions(void)
     key_down(black(7)); frame(); key_up(black(7)); frame();   /* BELL muted */
     ok = drum_mute[3] == (4u | 128u);
     oct_back();
-    ok &= drum_mute[3] == 1u && msg_is("MUTES PUT BACK") && ui.layer == LAYER_EDIT;
+    ok &= drum_mute[3] == 1u && msg_is("UNDO/REDO T4") && ui.layer == LAYER_EDIT;
     btn_up(B_EDIT); frame();
     bad += check("  OCT- in the layer: the lanes' mutes as it opened (KICK muted, CLAP BELL not)", ok && drum_mute[3] == 1u);
 

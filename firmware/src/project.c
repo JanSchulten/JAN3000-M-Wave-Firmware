@@ -1095,7 +1095,7 @@ static int project_restore_runtime(const project_t *input)
     proj_name_get(proj_name, (const uint8_t *)p->name);
     proj_cur = PROJ_NO_SLOT;                            /* (project_load: its slot) */
     pat_from_set(0);                                    /* (project_load: its slot; the header's letter) */
-    undo.trk = 0;                                       /* (ui.c) the undo copy belongs to the old project */
+    undo_clear();                                      /* (ui.c) the undo copy belongs to the old project */
     undo_depth++;                                       /* and these loads take none */
     for (k = 0; k < NTRK; k++) {                        /* the power-on sounds: format 1 (tracks 2..4), old drums */
         track_t *t = &trk[k];

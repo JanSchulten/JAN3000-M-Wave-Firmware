@@ -74,7 +74,7 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
 /* a layer's (LAYER_*): what its footer row (LAYERS[].foot) does not say */
 static const char *const HELP_LAYER[LAYER_N] = {
     "", "[KEYS]BLACK: MUTES[FX]HOLD", "[KEYS]SOLO MUTE TAP[K1-4]LEVELS", "[KEYS]ROOT[K1-4]ROOT SCL CHORD",
-    "[K1]ENGINE[K2]SOUND[K3]FAV", "[KEYS]BLACK: TOOLS[EDIT]PUT BACK", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",   /* (M-Vave-OP1:
+    "[K1]ENGINE[K2]SOUND[K3]FAV", "[KEYS]BLACK: TOOLS[SAVE]HOLD: UNDO", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",   /* (M-Vave-OP1:
                                                      * SEQ's white keys are the scenes, the footer says so) */
 };
 

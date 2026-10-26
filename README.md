@@ -53,7 +53,7 @@ fit the FM-1's RAM; an effect lane costs 66 bytes. The lanes play the FX layer's
 1/8 1/16 1/32, REVERSE, LPF, HPF, TAPE STOP, FREEZE, OCT UP, OCT DN, FLANGER, PHASER, REV THROW, ECHO THROW, CLOUD
 FREEZE, the OP-Z punch-ins below, and the mutes of tracks 1 to 4).
 
-- **FX** opens FX; tap again for **FX TRACKS**, again for **FX TRACKS 2**.
+- **FX** opens the FX family; **SELECT** browses to **FX TRACKS**.
 - **KNOB 1** picks the lane (FX1, FX2), **KNOB 2** the step, **KNOB 3** the step's effect (OFF, TIE to hold the effect
   before it on, the effects, the mutes), **KNOB 4** the lane's length (1 to 64 steps of a 1/16). Two lengths drift
   against each other, as the OP-Z's tracks do.
@@ -61,7 +61,7 @@ FREEZE, the OP-Z punch-ins below, and the mutes of tracks 1 to 4).
   white keys (effects) or the first four black keys (mutes): what you play goes onto the lane, quantised to the
   1/16, held on as TIEs. Nothing held writes nothing (overdub); a punch inside an older take gives the rest of it
   back. FX LATCH records too.
-- **FX TRACKS 2:** KNOB 1 CLEAR the selected lane, KNOB 2 both; OCT+ asks, OCT+ again clears.
+- **FX TRACKS + EDIT** asks before clearing the selected lane; OCT+ confirms, OCT- cancels.
 - The lanes are saved with the project (SAVE > PROJECT) and with the autosave.
 
 ## FX1: CLOUD (granular)
@@ -138,9 +138,9 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
 - An empty scene starts with the LEN DIV SWING GATE of the scene it is reached from. The cells: the scene playing
   filled (its key lit), one waiting ringed (its key breathing), one that holds something raised, an empty one
   dimmed.
-- The **tools are on the black keys** now, F#3 .. F#5 in Felucca's order: CLEAR, REVERSE, SHIFT < >, RANDOM, COOK, on
-  a DRUM track BEAT and the lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane). **SEQ + EDIT** puts the
-  track back as the layer opened (it was OCT-). KNOB 1..4 are LEN DIV SWING GATE as before.
+- The **tools are on the black keys** from G#3: REVERSE, SHIFT < >, RANDOM, COOK, on a DRUM track BEAT and the
+  lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane). F#3 is unassigned. Hold **SAVE** to undo all
+  edits in that opening, hold it again to redo. KNOB 1..4 are LEN DIV SWING GATE.
 - **As on the KO-II:** a punch-in stays on while its key is held, also after FX is let go. Hold SEQ meanwhile and
   pick the next scene; let go of the key and the effect stops.
 - The 15 scenes not playing wait packed in 7.7 KB (a scene of four 16-step parts takes about 250 to 900 bytes, the
@@ -309,9 +309,9 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 
 ## Other changes to Felucca's workflow
 
-- **SELECT turns the pages:** on any page SELECT goes to its family's next (or previous) page, round and round; the
-  page's button tapped again goes HOME. The tempo is HOME's: SELECT sets it on HOME and on HOME's MIXER and CLOCK (HOME
-  taps go round those as before). GLO + SELECT no longer sets it. A double tap still locks a layer over the page shown.
+- **SELECT turns every family's pages**, including HOME → MIXER → CLOCK → HOME. A page button opens its family;
+  the same button again returns HOME. HOME always returns HOME. Hold a button for its live layer. Tempo is CLOCK's
+  BPM knob or GLO + F4 TAP. SELECT never sets tempo; the old BPM LOCK bit remains reserved.
 
 - **JAN3000 v0.8 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
   like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
@@ -320,8 +320,9 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 - **SAVE opens PROJECT, played on the keys:** F3 G3 A3 B3 pick project A..D (the keys are silent there and lit),
   OCT+ saves into it (the NAME screen; a used one asks OVERWRITE? first), OCT- loads it (LOAD PROJECT? first). F#5,
   the highest black key, is **NEW**: OCT+ starts a new project (empty steps, the default tempo, no song, FX TRACKS,
-  KEY or scenes, no slot), stopped only (STOP FIRST). OCT- on an empty project asks NEW PROJECT IN SLOT C? and starts
-  the new one there (SAVE goes to it). SELECT goes on to USER, PRESETS, PHRASES, TOOLS.
+  KEY or scenes, no slot), stopped only (STOP FIRST). OCT- on an empty slot says EMPTY SLOT. SELECT goes on to USER,
+  PRESETS and PHRASES. USER uses the same key / OCT workflow, with two banks on KNOB 1. F#3 renames and G#3 deletes
+  a selected project or user sound after confirmation.
 - **A new project draws its sounds:** T1 a bass, T3 a lead (any factory preset of those categories, any engine), T4 a
   kit (one of DRUM's six, STD 808 10 66 55 77, or a VDRUM kit); T2 keeps its pad. So does power-on when
   nothing is restored (RESTORE LAST OFF, the first start). A DRUM track is named after its kit ("66 KIT") in the
@@ -331,7 +332,7 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   SAVE held undoes it. EDIT no longer clears the step on STEP (nor on the drum grid): a tap opens EDIT as on every
   page, with a step held it still clears that step's locks.
 - **REC arms, PLAY starts.** A REC tap only arms the recording (the pattern's, GLO > KEY's, an FX TRACK's): REC ARMED:
-  PRESS PLAY. PLAY then starts it, with the count-in first when MENU / REC layer COUNT-IN is set (Felucca's REC
+  PRESS PLAY. PLAY then starts it, with the count-in first when REC layer COUNT-IN is set (Felucca's REC
   started the transport at once).
 - **Legato is recorded as played.** On a LEG or UNI track (VOICE; the mono presets are LEG) a note pressed while the
   one before is still held plays legato: no new envelope, a glide only if GLIDE is set. Live recording now keeps
@@ -341,11 +342,9 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   track, starts its own envelope as before. LEGATO is saved with the project (its extras): an older firmware loads
   the project with every note starting its envelope; a scene bank with LEGATO steps it cannot read (it loads the
   project's current scene only).
-- **REC held: OCT- undo, OCT+ redo** of what was recorded since REC was armed (once each in a row). A clear or CLICK
-  change in the same hold is put back by OCT- as before.
-- **REC held + F#5 (the highest black key): BACK**, one step back from the last change, whatever it was (a recording,
-  a step turned OFF, a sound or pattern load, a SEQ tool), as SAVE held. Pressed again: ALREADY UNDONE (OCT+ redoes
-  it). Its key breathes while there is a step to go back; the layer's map shows it as its last row.
+- **SAVE held is the only undo; held again it redoes.** A recording is one step across all its armed domains;
+  a layer's persistent changes are one step. It works with the layer still open. REC has no BACK or OCT undo;
+  OCT shifts octave in non-SEQ live layers.
 - **Another track opens each family at its first page:** turn ALGORITHM, then FX (SCL, ENV ..) starts at its first
   card again; the page shown when the track changes stays.
 - **DRUM, every sound its own: EDIT > SOUNDS** (after LANES 2). A key picks the sound (it plays as everywhere), KNOB
@@ -381,13 +380,13 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 - **ARP on one screen:** ARP and ARP 2 show both their rows (MODE RATE OCT GATE, SWING PROB HOLD ORDER; the row the
   knobs edit raised, SELECT goes to the other) and under them a keyboard: the notes the arp runs through lit (the
   keys held brighter, the octaves OCT adds quieter), the note sounding in the accent.
-- **REC held:** F#3 clears both FX TRACKS, G#3 the selected track's automation (its recorded knob moves), each after
-  OCT+; the notes stay (F3 CLEAR clears the notes and the automation, as before).
-- **HOME shows the four tracks** by default. The oscilloscope is MENU > DISPLAY > HOME **SCOPE** (TRACKS, LEVELS,
-  SCOPE).
-- **STEP, stopped: OCT+ adds a note, OCT- removes one.** OCT+ puts the note played last into the cursor step (KNOB 1
-  the cursor, KNOB 2 moves the step's notes), as another chord note up to four; OCT- takes the step's last note out.
-  While playing, and on every other page, OCT shifts the keyboard's octave as before.
+- **Clearing has one home per object:** REC + F3 clears the selected pattern's notes and automation. AUTOMATION's
+  PLAY / CLEAR row clears its motion only. FX TRACKS + EDIT clears the selected lane after confirmation; SONG's
+  F#3 deletes a section and G#3 clears the song, both with confirmation. SEQ + F#3 has no action.
+- **HOME shows the four tracks** by default. MENU > DISPLAY > HOME selects TRACKS or SCOPE. Stored LEVELS maps to
+  TRACKS. MIXER edits LEVEL, PAN and MUTE; REV stays on FX > SEND. VOICE 2 contains ALLOC DTUNE SPRD.
+- **OCT always shifts the keyboard octave on STEP**, stopped and playing. Notes are entered with the keyboard;
+  MENU > CONTROL > CHORD ENTRY ADD adds individually pressed notes to a chord.
 - **DRUM starts with the 808 kit** (KIT 808, the 808 model kit Felucca calls 80): power-on, a track switched to DRUM,
   its preset. Projects and sounds saved before keep their kit.
 - **SYNC OUT PO** (MENU > AUDIO > SYNC OUT: OFF, PO, PO INV): Pocket Operator sync on the headphone jack. The left
@@ -478,3 +477,9 @@ USER has 32 slots in two banks of 16, selected with KNOB 1; PROJECT uses its fir
 F#3 renames the selected slot, G#3 asks to delete it; OCT+ confirms and OCT- cancels. Knobs no longer pick
 PROJECT slots or storage actions. PROJECT's F#5 starts a new project after confirmation; an empty slot's
 OCT- says EMPTY SLOT. Deleting a stored project leaves the music currently in RAM intact.
+
+SAVE held is the sole undo; held again it redoes. A layer's persistent changes form one step, including mix,
+scale, sound, favorites, drum mutes, REC settings and FX key maps. Undo also works while the layer stays open.
+A recording is one step across its armed instrument tracks, automation, KEY, FX lanes or SONG chain entry;
+SAVE ends its recording arms before swapping the take. REC + F#5 BACK, REC + OCT undo/redo and SEQ + EDIT
+put-back are retired. OCT keys shift octave in every non-SEQ live layer, including FX LATCH.

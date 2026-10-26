@@ -806,11 +806,11 @@ static int seq_is_empty(const track_t *t)
  * takes the copy too (UNDO_MOT: SAVE held puts the track's motion back, the sound and the steps stay; motion_undo_take).
  * A sound load keeps the track's motion on the parameters every engine has (load_end, motion.c motion_sound_loaded);
  * a pattern load drops it all (the steps it was on are gone) */
-enum { UNDO_SOUND = 1, UNDO_PAT = 2, UNDO_MOT = 4 };
-static struct {
+enum { UNDO_SOUND = 1, UNDO_PAT = 2, UNDO_MOT = 4, UNDO_MIX = 8, UNDO_SCALE = 16, UNDO_PREF = 32, UNDO_DRUM = 64, UNDO_RECORD = 128, UNDO_FAV = 256, UNDO_FXMAP = 512 };
+typedef struct {
     uint8_t trk;                 /* track + 1, 0 = nothing to undo */
     uint8_t keep;                /* the track is as the last load left it (undo.after): a next load keeps the copy */
-    uint8_t what;                /* UNDO_SOUND | UNDO_PAT: what the loads since the copy changed (undo_swap) */
+    uint16_t what;               /* UNDO_SOUND | UNDO_PAT: what the loads since the copy changed (undo_swap) */
     uint8_t eng, preset, user, patn;
     uint8_t fm6_slot;            /* the track's FM6 patch and its SLOT (eng_fm6.c): an edited or a project's */
     uint8_t fm6[FP_SIZE + 1u];   /* patch is the track's own, not a factory one */
@@ -824,7 +824,12 @@ static struct {
     uint8_t from;
     uint32_t t_ms;               /* time of the last load (the editor's SETs after it belong to it) */
     uint8_t undone;              /* M-Vave-OP1: the copy is swapped in (undo_swap once more: redo; REC + OCT- / OCT+) */
-} undo __attribute__((section(".pool")));   /* (main loop only: off the audio code's .bss) */
+    int16_t mix[9];
+    uint8_t mute[NPART], rec_pref;
+    uint8_t fav[14][32], fxmap[20], fxbank;
+    uint32_t fav_user;
+} undo_t;
+static undo_t undo __attribute__((section(".pool")));   /* (main loop only: off the audio code's .bss) */
 static uint8_t undo_depth;       /* loads nest (an engine jump loads its first preset): the outer one counts;
                                   * felucca_init / project_load raise it to take no copy at all */
 static uint32_t pat_sig[NTRK];   /* steps_sig of the pattern the last pattern load put into each track: such
@@ -879,6 +884,199 @@ static void pat_from_set(uint32_t slot)             /* every track's pattern is 
     }
 }
 
+/* A layer owns one transaction. Its working tools may still use undo.step as scratch; the opening copy is
+ * published only after an actual input changed its domain. Peeking never replaces the preceding undo. */
+static struct {
+    undo_t before, prior;
+    uint32_t sig[10];
+    uint8_t open, dirty, wrote;
+} undo_group __attribute__((section(".pool")));
+/* One recording can arm several instrument tracks, KEY, FX lanes or the song. Keep those domains together;
+ * the shared motion pool is rebuilt before swapping anything, so a capacity refusal cannot partly undo a take. */
+static struct {
+    step_t step[NTRK][NSTEP];
+    motion_store_t mo[NTRK];
+    fxt_lane_t fx[FXT_N];
+    uint8_t key[sizeof keyt], own;
+    chain_config_t chain;
+    uint8_t tracks, lanes, keys, song, active, last;
+    uint32_t sig;
+} rec_undo __attribute__((section(".pool")));
+static int param_kept(uint32_t i);
+static void undo_bytes(void *a, void *b, uint32_t n)
+{
+    uint8_t *x = a, *y = b;
+    while (n--) { uint8_t v = *x; *x++ = *y; *y++ = v; }
+}
+static uint32_t record_sig(void)
+{
+    uint32_t h = 2166136261u, k;
+    for (k = 0; k < NTRK; k++)
+        if ((rec_undo.tracks >> k) & 1u) h = (h ^ steps_sig(&trk[k]) ^ motion_sig(&trk[k])) * 16777619u;
+    for (k = 0; k < FXT_N; k++)
+        if ((rec_undo.lanes >> k) & 1u) h = fnv(h, &fxt_lane[k], sizeof fxt_lane[k]);
+    if (rec_undo.keys) h = fnv(h, (const void *)&keyt, sizeof keyt) ^ key_own;
+    if (rec_undo.song) h = fnv(h, &chain_config, sizeof chain_config);
+    return h;
+}
+static void record_mark_edit(void)
+{
+    if (rec_undo.active) { rec_undo.last = 0; rec_undo.sig = record_sig(); }
+}
+static void record_begin(uint32_t tracks, uint32_t lanes, uint32_t keys, uint32_t chainrec)
+{
+    uint32_t k;
+    if (!rec_undo.active) {
+        rec_undo.tracks = rec_undo.lanes = rec_undo.keys = rec_undo.song = 0;
+        rec_undo.active = 1;
+    }
+    fm1_irq_off();
+    for (k = 0; k < NTRK; k++)
+        if (((tracks & ~rec_undo.tracks) >> k) & 1u) {
+            memcpy(rec_undo.step[k], trk[k].step, sizeof trk[k].step);
+            motion_snapshot_track(&trk[k], &rec_undo.mo[k]);
+        }
+    for (k = 0; k < FXT_N; k++)
+        if (((lanes & ~rec_undo.lanes) >> k) & 1u) rec_undo.fx[k] = fxt_lane[k];
+    if (keys && !rec_undo.keys) {
+        memcpy(rec_undo.key, (const void *)&keyt, sizeof keyt);
+        rec_undo.own = key_own;
+    }
+    if (chainrec && !rec_undo.song) rec_undo.chain = chain_config;
+    fm1_irq_on();
+    rec_undo.tracks |= (uint8_t)tracks; rec_undo.lanes |= (uint8_t)lanes;
+    rec_undo.keys |= (uint8_t)keys; rec_undo.song |= (uint8_t)chainrec;
+    rec_undo.sig = record_sig(); rec_undo.last = 1;
+    undo.trk = (uint8_t)(song.sel + 1u); undo.what = UNDO_RECORD; undo.keep = undo.undone = 0;
+    if (undo_group.open) undo_group.prior = undo;
+}
+static void record_poll(void)
+{
+    if (rec_undo.active) {
+        uint32_t sig = record_sig();
+        if (sig != rec_undo.sig) { rec_undo.sig = sig; rec_undo.last = 1; }
+    }
+}
+static void record_finish(uint32_t stop)
+{
+    if (!rec_undo.active) return;
+    record_poll();
+    if (stop) { song.rec = 0; fxt.arm = 0; key_arm = 0; ui.song_rec = 0; }
+    if (rec_undo.last) {
+        undo.trk = (uint8_t)(song.sel + 1u); undo.what = UNDO_RECORD; undo.keep = undo.undone = 0;
+    }
+    rec_undo.active = 0;
+}
+static int record_swap(void)
+{
+    motion_store_t next = {0}, old;
+    uint32_t k, j, mask = rec_undo.tracks, guard = motion_guard();
+    old = motion; motion_unguard(guard);
+    next.on = old.on & (uint8_t)~mask;
+    for (j = 0; j < old.count; j++)
+        if (!((mask >> (old.event[j].place >> 6)) & 1u)) next.event[next.count++] = old.event[j];
+    for (k = 0; k < NTRK; k++) if ((mask >> k) & 1u) {
+        if ((uint32_t)next.count + rec_undo.mo[k].count > MOTION_MAX) { ui_message("AUTOMATION FULL"); return 0; }
+        memcpy(next.event + next.count, rec_undo.mo[k].event, rec_undo.mo[k].count * sizeof next.event[0]);
+        next.count += rec_undo.mo[k].count; next.on |= rec_undo.mo[k].on;
+    }
+    for (k = 0; k < NTRK; k++) if ((mask >> k) & 1u) motion_restore(&trk[k]);
+    fm1_irq_off();
+    old = motion;
+    motion = next;
+    for (k = 0; k < NTRK; k++) if ((mask >> k) & 1u) {
+        undo_bytes(trk[k].step, rec_undo.step[k], sizeof trk[k].step);
+        memset(&rec_undo.mo[k], 0, sizeof rec_undo.mo[k]);
+        rec_undo.mo[k].on = old.on & (uint8_t)(1u << k);
+        for (j = 0; j < old.count; j++)
+            if ((old.event[j].place >> 6) == k) rec_undo.mo[k].event[rec_undo.mo[k].count++] = old.event[j];
+        panic_req |= (uint8_t)(1u << k);
+    }
+    for (k = 0; k < FXT_N; k++) if ((rec_undo.lanes >> k) & 1u)
+        undo_bytes(&fxt_lane[k], &rec_undo.fx[k], sizeof fxt_lane[k]);
+    if (rec_undo.lanes) { fxt_stop(); fxt_section(); }
+    if (rec_undo.keys) {
+        undo_bytes((void *)&keyt, rec_undo.key, sizeof keyt);
+        uint8_t own = key_own; key_own = rec_undo.own; rec_undo.own = own;
+        key_scene(0); key_live = KEY_NONE;
+    }
+    fm1_irq_on();
+    for (k = 0; k < NTRK; k++) if ((mask >> k) & 1u) motion_rebase(&trk[k]);
+    if (rec_undo.song) {
+        undo_bytes(&chain_config, &rec_undo.chain, sizeof chain_config);
+        if (ui.song_row > chain_config.count) ui.song_row = chain_config.count;
+        chain_live(CHN_EDIT);
+    }
+    undo.undone ^= 1u; undo.keep = 0; ui.force = 1;
+    ui_message("UNDO/REDO RECORDING");
+    return 1;
+}
+static void undo_capture(undo_t *u, track_t *t, uint32_t what)
+{
+    uint32_t i = trk_index(t), k, guard = motion_guard();
+    memset(u, 0, sizeof *u);
+    u->trk = (uint8_t)(i + 1u); u->what = (uint16_t)what;
+    u->eng = t->eng_req; u->preset = t->preset; u->user = t->user;
+    memcpy(u->p, t->p, sizeof u->p); memcpy(u->step, t->step, sizeof u->step);
+    memcpy(u->fm6, fm6_patch[i], FP_SIZE); u->fm6_slot = fm6_slot[i];
+    memcpy(u->vdk, vd_own[i], VK_SIZE);
+    u->pat = pat_sig[i]; u->patn = pat_last[i]; u->from = pat_from[i]; u->from_h = pat_from_h[i];
+    motion_snapshot_track(t, &u->motion_backup);
+    for (k = 0; k < NTRK; k++) { u->mix[k] = trk[k].p[P_MUTE]; u->mix[4u + k] = trk[k].p[P_LEVEL]; }
+    u->mix[8] = song.g[G_BPM]; u->rec_pref = ui_rec_prefs;
+    memcpy(u->mute, drum_mute, sizeof u->mute);
+    memcpy(u->fav, favorites.factory, sizeof u->fav); u->fav_user = favorites.user;
+    memcpy(u->fxmap, favorites.factory[15], 10); memcpy(u->fxmap + 10, favorites.factory[15] + 14, 10);
+    u->fxbank = perf_bank;
+    motion_unguard(guard);
+}
+static uint32_t undo_domain_sig(track_t *t, uint32_t what)
+{
+    uint32_t h = 2166136261u, k;
+    if (what == UNDO_SOUND) {
+        uint8_t id[] = {t->eng_req, t->preset, t->user};
+        h = fnv(h, id, sizeof id);
+        for (k = 0; k < P_COUNT; k++) if (!param_kept(k)) h = fnv(h, &t->p[k], sizeof t->p[k]);
+        h = fnv(h, fm6_patch[trk_index(t)], FP_SIZE);
+        return fnv(h, vd_own[trk_index(t)], VK_SIZE);
+    }
+    if (what == UNDO_PAT) return pat_from_sig(t);
+    if (what == UNDO_MOT) return motion_sig(t);
+    if (what == UNDO_MIX) {
+        for (k = 0; k < NTRK; k++) {
+            h = fnv(h, &trk[k].p[P_MUTE], sizeof(int16_t)); h = fnv(h, &trk[k].p[P_LEVEL], sizeof(int16_t));
+        }
+        return fnv(h, &song.g[G_BPM], sizeof(int16_t));
+    }
+    if (what == UNDO_SCALE) return fnv(fnv(h, &t->p[P_ROOT], 4u * sizeof(int16_t)), &t->p[P_CHRD], 2u * sizeof(int16_t));
+    if (what == UNDO_PREF) return ui_rec_prefs;
+    if (what == UNDO_FAV) return fnv(h, favorites.factory, 14u * 32u) ^ favorites.user;
+    if (what == UNDO_FXMAP) return fnv(fnv(h, favorites.factory[15], 10), favorites.factory[15] + 14, 10) ^ perf_bank;
+    return fnv(h, drum_mute, sizeof drum_mute);
+}
+static void undo_group_begin(track_t *t, uint32_t what)
+{
+    uint32_t b;
+    if (!what) { undo_group.open = 0; return; }
+    undo_capture(&undo_group.before, t, what);
+    for (b = 0; b < 10u; b++) if (what & (1u << b)) undo_group.sig[b] = undo_domain_sig(t, 1u << b);
+    undo_group.prior = undo;
+    undo_group.open = 1; undo_group.dirty = undo_group.wrote = 0;
+}
+static void undo_group_finish(void)
+{
+    uint32_t b, changed = 0;
+    if (!undo_group.open) return;
+    if (undo_group.dirty)
+        for (b = 0; b < 10u; b++)
+            if ((undo_group.before.what & (1u << b)) && undo_group.sig[b] != undo_domain_sig(&trk[undo_group.before.trk - 1u], 1u << b))
+                changed |= 1u << b;
+    if (changed) { undo = undo_group.before; undo.what = (uint16_t)changed; record_mark_edit(); }
+    else if (undo_group.wrote) undo = undo_group.prior;
+    undo_group.open = 0;
+}
+static void undo_clear(void) { undo.trk = 0; undo_group.open = 0; rec_undo.active = 0; }
+
 /* load_begin, the copy taken: a pattern load drops the track's motion (its steps go); a sound load pauses it (PLAY
  * OFF while the sound changes under it) and load_end keeps what still means the same (motion_sound_loaded) */
 static void load_motion_hold(track_t *t, uint32_t what)
@@ -923,12 +1121,14 @@ static void mom_back(const track_t *t)            /* a sound load into t (0: a p
 static void load_begin(track_t *t, uint32_t what)
 {
     uint32_t i = trk_index(t);
+    record_mark_edit();
     if (what & UNDO_SOUND) {
         mom_back(t);                              /* (MOMENTARY: the sound as it was, then the load) */
         drum_mute[i] = 0;                         /* (1.4.1: the lanes' mutes go with the sound) */
     }
     if (undo_depth++)
         return;
+    if (undo_group.open && undo_group.dirty) undo_group.wrote = 1;
     motion_restore(t);
     if (undo.keep && undo.trk == i + 1u && !(undo.what & UNDO_MOT) && track_sig(t) == undo.after) {
         undo.what |= (uint8_t)what;               /* browsing on: the copy from before the first load stays */
@@ -936,7 +1136,7 @@ static void load_begin(track_t *t, uint32_t what)
         return;
     }
     undo.trk = (uint8_t)(i + 1u);
-    undo.what = (uint8_t)what;
+    undo.what = (uint16_t)what;
     undo.undone = 0;
     undo.eng = t->eng_req;
     undo.preset = t->preset;
@@ -993,12 +1193,14 @@ static uint32_t edit_sig(const track_t *t) { return undo.what & UNDO_PAT ? motio
 static void edit_undo_take(track_t *t, uint32_t tag, uint32_t what)
 {
     uint32_t i = trk_index(t);
+    record_mark_edit();
     if (tag && tag == undo_mot_tag && undo.keep && undo.trk == i + 1u && undo.what == what &&
         edit_sig(t) == undo.after && fm1_ms - undo.t_ms < 1500u)
         return;
+    if (undo_group.open && undo_group.dirty) undo_group.wrote = 1;
     undo_mot_tag = tag;
     undo.trk = (uint8_t)(i + 1u);
-    undo.what = (uint8_t)what;
+    undo.what = (uint16_t)what;
     undo.undone = 0;
     undo.eng = t->eng_req;
     undo.preset = t->preset;
@@ -1040,15 +1242,15 @@ static void undo_swap(void)
         ui_message("NOTHING TO UNDO");
         return;
     }
+    if (undo.what == UNDO_RECORD) { (void)record_swap(); return; }
     t = &trk[(undo.trk - 1u) % NTRK];
-    motion_restore(t);
-    motion_store_t current_motion;
-    motion_snapshot_track(t, &current_motion);
-    if (motion_replace_track(t, &undo.motion_backup) != 0) {
-        ui_message("AUTOMATION FULL");
-        return;
+    if (undo.what & (UNDO_SOUND | UNDO_PAT | UNDO_MOT)) {
+        motion_restore(t);
+        motion_store_t current_motion;
+        motion_snapshot_track(t, &current_motion);
+        if (motion_replace_track(t, &undo.motion_backup) != 0) { ui_message("AUTOMATION FULL"); return; }
+        undo.motion_backup = current_motion;
     }
-    undo.motion_backup = current_motion;
     fm1_irq_off();                                /* the audio ISR must not see half a sound */
     if (undo.what & UNDO_SOUND) {
         uint8_t e = t->eng_req, pr = t->preset, u = t->user;
@@ -1090,6 +1292,28 @@ static void undo_swap(void)
             undo.step[i] = s;
         }
     }
+    if (undo.what & UNDO_MIX) {
+        for (i = 0; i < NTRK; i++) {
+            undo_bytes(&trk[i].p[P_MUTE], &undo.mix[i], sizeof(int16_t));
+            undo_bytes(&trk[i].p[P_LEVEL], &undo.mix[4u + i], sizeof(int16_t));
+        }
+        undo_bytes(&song.g[G_BPM], &undo.mix[8], sizeof(int16_t));
+    }
+    if (undo.what & UNDO_SCALE) {
+        undo_bytes(&t->p[P_ROOT], &undo.p[P_ROOT], 4u * sizeof(int16_t));
+        undo_bytes(&t->p[P_CHRD], &undo.p[P_CHRD], 2u * sizeof(int16_t));
+    }
+    if (undo.what & UNDO_PREF) undo_bytes(&ui_rec_prefs, &undo.rec_pref, 1u);
+    if (undo.what & UNDO_DRUM) undo_bytes(drum_mute, undo.mute, sizeof drum_mute);
+    if (undo.what & UNDO_FAV) {
+        undo_bytes(favorites.factory, undo.fav, sizeof undo.fav);
+        undo_bytes(&favorites.user, &undo.fav_user, sizeof favorites.user);
+    }
+    if (undo.what & UNDO_FXMAP) {
+        undo_bytes(favorites.factory[15], undo.fxmap, 10);
+        undo_bytes(favorites.factory[15] + 14, undo.fxmap + 10, 10);
+        undo_bytes((void *)&perf_bank, &undo.fxbank, 1); perf_remap = 1;
+    }
     fm1_irq_on();
     if (undo.what & UNDO_SOUND) {                 /* FM6: the track's patch as it was (edited, a project's, a
                                                    * converted DIGITAL sound), not a factory one; VDRUM's own kit */
@@ -1107,6 +1331,8 @@ static void undo_swap(void)
         memcpy(undo.fm6, v, FP_SIZE);
         undo.fm6_slot = sl;
     }
+    if (undo.what & UNDO_PREF) rp_apply();
+    if (undo.what & (UNDO_PREF | UNDO_FAV | UNDO_FXMAP)) settings_save();
     undo.keep = 0;                                /* the next load copies the track as it is now */
     undo.undone ^= 1u;
     if (t == TSEL)

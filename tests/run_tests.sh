@@ -332,14 +332,14 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/motion_test" tests/motion_test.c -lm
     run "motion, whole-step chance, FUN7 migration, song restore, ARP repeat and the 1.2 ARP modes" "$OUT/motion_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ratchet_test" tests/ratchet_test.c -lm
-    run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
+    run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, DETAIL RATCH editor" "$OUT/ratchet_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/key_test" tests/key_test.c -lm
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/jan_test" tests/jan_test.c -lm
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/workflow_test" tests/workflow_test.c -lm
-    run "JAN3000 single-path controls: octave keys on STEP" "$OUT/workflow_test"
-    run "JAN3000 v0.8: another track opens the families' first pages, REC + OCT- / OCT+ undo / redo, SAVE > PROJECT > NEW" "$OUT/jan_test"
+    run "JAN3000 single-path controls: navigation, storage, clearing, step values, recording and layer undo" "$OUT/workflow_test"
+    run "JAN3000: family navigation, SAVE undo / redo, PROJECT slots and NEW" "$OUT/jan_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/newproj_test" tests/newproj_test.c -lm
-    run "NEW PROJECT's sounds drawn: F#5, OCT- on an empty slot, power-on; every bass, lead and kit comes up, nothing else" "$OUT/newproj_test"
+    run "NEW PROJECT's sounds drawn: F#5 only, empty slot load refused, power-on; every bass, lead and kit comes up, nothing else" "$OUT/newproj_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/kitgrid_test" tests/kitgrid_test.c -lm
     mkdir -p build/kitgrid_shots
     run "KIT GRID: VDRUM (6 parts) and DBOX (8 lanes) on the grid as DRUM, REC, mutes, BEAT, notes as hits on load" "$OUT/kitgrid_test" build/kitgrid_shots

@@ -190,7 +190,134 @@ static void wf_storage(void)
     wf_check("PROJECT and USER: white-key slots, USER two banks on K1; F#3 rename, G#3 delete; no knob actions", ok);
 }
 
-int main(void)
+static void wf_undo_groups(void)
+{
+    int ok;
+    int16_t level, scale;
+    step_t before[NSTEP];
+    ui_power_on(); frames(400);
+    level = trk[0].p[P_LEVEL];
+    btn_down(B_GLO); frames(500);
+    turn(EN_K1, -2); turn(EN_K2, -3); slot_key(black(1));
+    press(B_OCTDN);
+    ok = trk[0].p[P_LEVEL] == level - 2 && trk[1].p[P_MUTE] && song.octave == -1;
+    hold(B_SAVE);
+    ok &= trk[0].p[P_LEVEL] == level && !trk[1].p[P_MUTE];
+    hold(B_SAVE);
+    ok &= trk[0].p[P_LEVEL] == level - 2 && trk[1].p[P_MUTE];
+    btn_up(B_GLO); frame();
+    wf_check("GLO: OCT- only shifts octave; SAVE held inside the layer undoes/redoes its whole mix", ok);
+    ui_power_on(); frames(400); scale = TSEL->p[P_SCALE];
+    btn_down(B_SCL); frames(500); turn(EN_K2, 1); turn(EN_K3, 1);
+    btn_up(B_SCL); frame(); hold(B_SAVE);
+    ok = TSEL->p[P_SCALE] == scale && TSEL->p[P_CHRD] == TP[P_CHRD].def;
+    hold(B_SAVE); ok &= TSEL->p[P_SCALE] == scale + 1;
+    wf_check("SCL: all changes in one opening are one SAVE undo/redo", ok);
+    ui_power_on(); track_defaults_steps(TSEL); TSEL->step[0].time = ST_NOTE; TSEL->step[0].n = 1; TSEL->step[0].note[0] = 60; memcpy(before, TSEL->step, sizeof before);
+    btn_down(B_SEQ); frames(500); slot_key(black(1)); slot_key(black(2));
+    btn_down(B_EDIT); frame(); btn_up(B_EDIT); frame(); ok = memcmp(before, TSEL->step, sizeof before) != 0;
+    btn_up(B_SEQ); frame(); hold(B_SAVE);
+    ok &= !memcmp(before, TSEL->step, sizeof before);
+    wf_check("SEQ: EDIT does not reset; multiple tools in one opening undo together", ok);
+    ui_power_on(); frames(400); go_page(GR_ROLL); track_defaults_steps(TSEL); TSEL->step[0].time = ST_NOTE; TSEL->step[0].n = 1; TSEL->step[0].note[0] = 60; memcpy(before, TSEL->step, sizeof before);
+    press(B_REC); frames(400);
+    TSEL->step[0].note[0] = 62; TSEL->step[4].note[0] = 74;
+    btn_down(B_REC); frames(500); slot_key(black(LY_INIT_B)); press(B_OCTDN); press(B_OCTUP);
+    ok = TSEL->step[0].note[0] == 62;
+    btn_up(B_REC); frame(); hold(B_SAVE);
+    ok &= !memcmp(before, TSEL->step, sizeof before);
+    hold(B_SAVE); ok &= TSEL->step[0].note[0] == 62;
+    wf_check("recording is one SAVE undo/redo; REC BACK and REC OCT undo routes are absent", ok);
+}
+
+static void wf_record_domains(void)
+{
+    int ok;
+    uint8_t key_before[sizeof keyt];
+    ui_power_on(); frames(400);
+    trk[0].step[0].note[0] = 60; trk[1].step[0].note[0] = 65;
+    press(B_REC); frames(400); turn(EN_ALGO, 1); press(B_REC); frames(400);
+    trk[0].step[0].note[0] = 72; trk[1].step[0].note[0] = 77;
+    motion_set_lock(&trk[0], 0, P_ATK, 23);
+    motion_set_lock(&trk[3], 1, P_ATK, 45);
+    hold(B_SAVE);
+    ok = trk[0].step[0].note[0] == 60 && trk[1].step[0].note[0] == 65 && !motion_count(&trk[0]) && motion_count(&trk[3]) == 1;
+    hold(B_SAVE);
+    ok &= trk[0].step[0].note[0] == 72 && trk[1].step[0].note[0] == 77 && motion_count(&trk[0]) == 1;
+    wf_check("one recording undo spans all armed tracks and their motion; unarmed tracks stay intact", ok);
+    ui_power_on(); frames(400); go_page(GR_FXT);
+    fxt_lane[0].step[0] = 1; fxt_lane[1].step[1] = 2;
+    press(B_REC); frames(400); turn(EN_K1, 1); press(B_REC); frames(400);
+    fxt_lane[0].step[0] = 3; fxt_lane[1].step[1] = 4;
+    hold(B_SAVE);
+    ok = fxt_lane[0].step[0] == 1 && fxt_lane[1].step[1] == 2;
+    hold(B_SAVE); ok &= fxt_lane[0].step[0] == 3 && fxt_lane[1].step[1] == 4;
+    wf_check("FX recording: both armed lanes undo and redo as one take", ok);
+    ui_power_on(); frames(400); go_page(GR_KEY);
+    memcpy(key_before, (const void *)&keyt, sizeof keyt);
+    press(B_REC); frames(400); song.playing = 1; slot_key(white(3)); song.playing = 0;
+    ok = memcmp(key_before, (const void *)&keyt, sizeof keyt) != 0;
+    hold(B_SAVE); ok &= !memcmp(key_before, (const void *)&keyt, sizeof keyt) && !key_own;
+    hold(B_SAVE); ok &= memcmp(key_before, (const void *)&keyt, sizeof keyt) != 0 && key_own;
+    wf_check("KEY recording: roots, ON and scene ownership undo and redo together", ok);
+    ui_power_on(); frames(400); go_page(GR_SONG); chain_defaults(&chain_config);
+    press(B_REC); frames(400); slot_key(4); slot_key(6);
+    ok = chain_config.count == 2;
+    hold(B_SAVE); ok &= !chain_config.count;
+    hold(B_SAVE); ok &= chain_config.count == 2;
+    wf_check("SONG REC chain entry is one take for SAVE undo and redo", ok);
+}
+
+static void wf_layer_settings(void)
+{
+    int ok;
+    uint8_t map[20];
+    ui_power_on(); frames(400);
+    btn_down(B_EDIT); frames(500); turn(EN_K3, 1); btn_up(B_EDIT); frame();
+    ok = preset_favorite(); hold(B_SAVE); ok &= !preset_favorite(); hold(B_SAVE); ok &= preset_favorite();
+    wf_check("EDIT favorite changes participate in the layer's undo transaction", ok);
+    memcpy(map, favorites.factory[15], 10); memcpy(map + 10, favorites.factory[15] + 14, 10);
+    btn_down(B_FX); frames(500); key_down(white(1)); frame(); turn(EN_PRESET, 1); key_up(white(1)); frame(); btn_up(B_FX); frame();
+    ok = memcmp(map + 10, favorites.factory[15] + 14, 10) != 0;
+    hold(B_SAVE); ok &= !memcmp(map + 10, favorites.factory[15] + 14, 10);
+    hold(B_SAVE); ok &= memcmp(map + 10, favorites.factory[15] + 14, 10) != 0;
+    wf_check("FX key-map settings undo and redo via SAVE, independently of temporary punch-ins", ok);
+}
+
+static void wf_empty_transaction(void)
+{
+    int ok;
+    step_t before[NSTEP];
+    ui_power_on(); frames(400);
+    TSEL->step[0].time = ST_NOTE; TSEL->step[0].n = 1; TSEL->step[0].note[0] = 60;
+    memcpy(before, TSEL->step, sizeof before);
+    turn(EN_PRESET, 1);
+    uint8_t previous = undo.preset, selected = TSEL->preset;
+    btn_down(B_SEQ); frames(500); slot_key(black(1)); slot_key(black(1)); btn_up(B_SEQ); frame();
+    ok = !memcmp(before, TSEL->step, sizeof before);
+    hold(B_SAVE);
+    ok &= TSEL->preset == previous && TSEL->preset != selected;
+    wf_check("a layer changed back to its opening state preserves the preceding undo", ok);
+}
+
+static void wf_capture(const char *dir)
+{
+    ui_power_on(); frames(400); ui.msg_t = 0;
+    screen_save(dir, "home");
+    go_page(GR_TRK); ui.msg_t = 0; frame(); screen_save(dir, "mixer");
+    go_title("CLOCK"); ui.msg_t = 0; frame(); screen_save(dir, "clock");
+    go_title("VOICE 2"); ui.msg_t = 0; frame(); screen_save(dir, "voice2");
+    btn_down(B_REC); frames(500); ui.msg_t = 0; ui.force = 1; frame(); screen_save(dir, "recording"); btn_up(B_REC); frame();
+    btn_down(B_SEQ); frames(500); ui.msg_t = 0; ui.force = 1; frame(); screen_save(dir, "seq-tools"); btn_up(B_SEQ); frame();
+    go_title("DETAIL"); ui.msg_t = 0; frame(); screen_save(dir, "detail");
+    motion_set_lock(TSEL, 0, P_ATK, 70); go_auto_top(); ui.msg_t = 0; frame(); screen_save(dir, "automation");
+    go_page(GR_USER); ui.uslot = 31; up_store(31, "TEST SOUND"); ui.msg_t = 0; frame(); screen_save(dir, "user-bank2");
+    go_page(GR_SLOTS); ui.msg_t = 0; frame(); screen_save(dir, "project");
+    go_page(GR_FXT); ui.fxt_sel = 0; fxt_lane[0].step[0] = 1; confirm_open(CF_FXT_LANE, 0); frame(); screen_save(dir, "fx-clear");
+    ui.confirm = 0; go_page(GR_SONG); confirm_open(CF_CLEAR_SONG, 0); frame(); screen_save(dir, "song-clear");
+}
+
+int main(int argc, char **argv)
 {
     wf_octaves();
     wf_mixer();
@@ -199,6 +326,11 @@ int main(void)
     wf_clear_routes();
     wf_navigation();
     wf_storage();
+    wf_undo_groups();
+    wf_record_domains();
+    wf_layer_settings();
+    wf_empty_transaction();
+    if (argc > 1) wf_capture(argv[1]);
     printf(wf_bad ? "WORKFLOW TESTS FAILED\n" : "WORKFLOW TESTS PASSED\n");
     return wf_bad != 0;
 }
