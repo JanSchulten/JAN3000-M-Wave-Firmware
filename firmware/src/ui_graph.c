@@ -880,7 +880,7 @@ static void graph_pedal(const track_t *t, uint32_t part)
     cv_rrect(120 - 14, gh - 34, 28, 28, 14, edge, body);   /* the footswitch */
     cv_rrect(120 - 10, gh - 30, 20, 20, 10, ped(0xB8BCC4), edge);
 }
-/* M-Vave-OP1, SCL > CSET (cset.c): the track's set, its number large and its genre; its twelve chords by name in the
+/* M-Vave-OP1, SCL > CHORD on a chord set (cset.c): the track's set, its number large and its genre; its twelve chords by name in the
  * keys' order C .. B (four rows of three, 73 px a cell: the longest name, Bb5add9/b13, is 72; the black keys' framed),
  * the one played last lit; under them that chord's notes by name (or where the list's voicing lies), and LOWEST NOTE
  * on a part set to one voice */
@@ -891,10 +891,6 @@ static void graph_cset(const track_t *t)
     char b[16];
     if (chord_kit(t)) {
         panel_note("NO CHORDS ON KITS", 0, 0);
-        return;
-    }
-    if (!cset_on(t)) {
-        panel_note("CSET OFF", "[K1] ON: EVERY KEY A CHORD", 0);
         return;
     }
     fmt_int(b, (int32_t)s + 1);
@@ -1639,7 +1635,7 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_DLANE)                       /* M-Vave-OP1, SOUNDS: the lane picked, every lane's values */
         for (h ^= ui.lane * 40503u, i = 0; i < 16u; i++)
             h = (h ^ (uint16_t)t->p[P_DL0 + i]) * 16777619u;
-    if (pg->graph == GR_CSET)                        /* M-Vave-OP1, SCL > CSET: the set, the last chord, ON */
+    if (pg->graph == GR_CHORD)                       /* M-Vave-OP1, SCL > CHORD's sets: the set, the last chord, ON */
         h ^= (cset_last.gen * 2654435761u) ^ ((uint32_t)cset_set[song.sel % NTRK] << 9) ^ (uint32_t)t->engine * 389u ^
              (uint32_t)cset_en << 24;                /* (a kit, LOWEST NOTE: the sounding engine, VOICE: a parameter) */
     if (pg->graph == GR_SHIM)
@@ -2994,17 +2990,16 @@ static void draw_graph(void)
         case GR_SCALE:
             graph_scale(t, c);
             break;
-        case GR_CHORD:
+        case GR_CHORD:                               /* (M-Vave-OP1: on a chord set the set and the chord played) */
             cv_oy = 0;
-            graph_chord(t, c);
+            if (cset_on(t))
+                graph_cset(t);
+            else
+                graph_chord(t, c);
             break;
         case GR_ARP:                                 /* M-Vave-OP1: ARP and ARP 2, the rows and the keys */
             cv_oy = 0;
             graph_arp(t);
-            break;
-        case GR_CSET:                                /* M-Vave-OP1: SCL > CSET, the set and the chord played */
-            cv_oy = 0;
-            graph_cset(t);
             break;
         case GR_FX:
             graph_fx(t, c);

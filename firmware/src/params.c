@@ -443,7 +443,7 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_KEY,                                  /* M-Vave-OP1: GLO > KEY (key.c, ui_graph.c graph_key) */
        GR_FXT, GR_FXT2,                         /* .. FX > FX TRACKS, FX TRACKS 2 (fxtrack.c, ui_graph.c graph_fxt) */
        GR_FX1, GR_CLOUD,                        /* .. FX > FX1 (the delay bus's TYPE), CLOUD (fx1.c, ui_graph.c graph_fx1) */
-       GR_CSET,                                 /* .. SCL > CSET (cset.c, ui_graph.c graph_cset) */
+       GR_CSET,                                 /* .. (retired: SCL > CSET, now SCL > CHORD's sets) */
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
        GR_DLANE,                                /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
        GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2, GR_SHIM };   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
@@ -484,10 +484,10 @@ static const page_t PAGES[] = {
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},   /* (hidden: all the DELAY's) */
     {"CLOUD", FAM_FX, SC_GLOBAL, GR_CLOUD, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (hidden: all the CLOUD's) */
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_TRANS}},
-    {"CHORD", FAM_SCL, SC_TRACK, GR_CHORD, {P_CHRD, P_VOIC, 0xFF, 0xFF}},   /* SCL again: the chord keys (chord.c) */
-    /* M-Vave-OP1: SCL's third page the chord sets after the Roland J-6's (cset.c): KNOB 1 ON / OFF (the track's, before
-     * CHRD), 2 SET, 3 GENRE (ui_input.c cset_knob, ui_draw.c); the set and the chord played (ui_graph.c graph_cset) */
-    {"CSET", FAM_SCL, SC_TRACK, GR_CSET, {0xFF, 0xFF, 0xFF, 0xFF}},
+    /* SCL again: the chord keys (chord.c). M-Vave-OP1: KNOB 1 CHRD goes on past POW into the chord sets after the Roland
+     * J-6's, SET 1 .. 100 (cset.c; ui_input.c chrd_turn), KNOB 3 GENRE steps through them (chrd_genre); the panel the
+     * shape or the set and the chord played (ui_graph.c graph_chord, graph_cset) */
+    {"CHORD", FAM_SCL, SC_TRACK, GR_CHORD, {P_CHRD, P_VOIC, 0xFF, 0xFF}},
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E7}},   /* ANALOG only (1.5, #104): TYPE CUT RES KTR */

@@ -444,17 +444,46 @@ static void key_keys(uint32_t notes)
     key_live = (uint8_t)pc;
     scn_irq_on();
 }
-/* M-Vave-OP1, SCL > CSET's knobs (cset.c), the selected track's: KNOB 1 ON / OFF (ON makes it POLY, OFF gives its
- * VOICE back), 2 the SET (1 .. 100), 3 the GENRE (the first set of the next / previous one) */
-static void cset_knob(uint32_t slot, int32_t steps)
+/* M-Vave-OP1, one chord knob (SCL > CHORD's KNOB 1, SCL held KNOB 3), the selected track's: CHRD's shapes OFF .. POW,
+ * then the chord sets SET 1 .. 100 (cset.c). A set turns CSET on (POLY, the VOICE kept), a shape turns it off (the
+ * VOICE back); CHRD keeps the shape it had while a set plays. Nothing new is stored: the sets are CSET's (the
+ * project's extras), so a project with CSET on shows and plays its set. A kit: the shapes only (chord.c chord_kit) */
+#define CHRD_SETS (CH_POW + 1)                   /* the knob's value of SET 1 */
+static void chrd_to(track_t *t, int32_t v)
 {
-    uint32_t k = song.sel % NTRK;
-    if (slot == 0u)
-        cset_switch(TSEL, steps > 0);
-    else if (slot == 1u)
-        cset_set[k] = (uint8_t)clamp((int32_t)cset_set[k] + steps, 0, (int32_t)CSET_N - 1);
-    else if (slot == 2u)
-        cset_set[k] = (uint8_t)cset_genre_step(cset_set[k], steps);
+    uint32_t k = trk_index(t);
+    if (v < CHRD_SETS) {
+        cset_switch(t, 0);
+        t->p[P_CHRD] = (int16_t)v;
+    } else {
+        cset_set[k] = (uint8_t)(v - CHRD_SETS);
+        cset_switch(t, 1);
+    }
+}
+static void chrd_turn(int32_t steps)
+{
+    track_t *t = TSEL;
+    int32_t v = cset_on(t) ? CHRD_SETS + cset_set[song.sel % NTRK] : t->p[P_CHRD];
+    if (chord_kit(t)) {
+        t->p[P_CHRD] = (int16_t)clamp((int32_t)t->p[P_CHRD] + steps, 0, CHRD_SETS - 1);
+        return;
+    }
+    chrd_to(t, clamp(v + steps, 0, CHRD_SETS + (int32_t)CSET_N - 1));
+}
+/* SCL > CHORD's KNOB 3 GENRE: on a set the first set of the next / this or the previous genre (cset_genre_step),
+ * before SET 1 back to POW; on a shape right: SET 1 */
+static void chrd_genre(int32_t steps)
+{
+    track_t *t = TSEL;
+    uint32_t s = cset_set[song.sel % NTRK] % CSET_N;
+    if (chord_kit(t))
+        return;
+    if (!cset_on(t))
+        chrd_to(t, steps > 0 ? CHRD_SETS : t->p[P_CHRD]);
+    else if (steps < 0 && !s)
+        chrd_to(t, CH_POW);
+    else
+        chrd_to(t, CHRD_SETS + (int32_t)cset_genre_step(s, steps));
 }
 
 /* the key LEDs, bit k = key k: NAME's keys, the layer's map, the DRUM grid, else the keys held and the notes
@@ -1227,8 +1256,8 @@ static void edit_param(uint32_t slot, int32_t steps)
         ev_knob(slot, steps);
         return;
     }
-    if (pg->graph == GR_CSET) {                        /* M-Vave-OP1, SCL > CSET: 1 ON, 2 SET, 3 GENRE */
-        cset_knob(slot, steps);
+    if (pg->graph == GR_CHORD && slot == 2u) {         /* M-Vave-OP1, SCL > CHORD: KNOB 3 GENRE (the sets) */
+        chrd_genre(steps);
         return;
     }
     if (pg->graph == GR_CHO && (slot == 0u || slot == 3u)) {   /* .. CHORUS: KNOB 1 TYPE, 4 FDBK (fx.c chos; RATE
@@ -1410,6 +1439,11 @@ static void edit_param(uint32_t slot, int32_t steps)
     d = page_desc(pg, slot, &vp);
     if (!d || !vp || d->max == d->min)
         return;
+    if (vp == &TSEL->p[P_CHRD]) {                       /* M-Vave-OP1: CHRD on into the chord sets (chrd_turn) */
+        chrd_turn(steps);
+        ml_knob(TSEL, P_CHRD);
+        return;
+    }
     v = param_turn(d, *vp, accel(EN_K1 + slot, steps, d->fmt == F_ENUM ? 0 : d->max - d->min));
     if (vp == &song.g[G_RTYPE])
         v = clamp(v, 0, 2);                         /* stored 3 is legacy SHIMMER; new sounds use its own send */
@@ -2126,7 +2160,7 @@ static void ui_input(void)
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
             || pg->graph == GR_SONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD ||
-            (pg->graph == GR_CSET && k < 3u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
+            (pg->graph == GR_CHORD && k == 2u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
             (vdu_page(pg->graph) && vdu_field(k) != VU_NONE)) {   /* (not an empty column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;

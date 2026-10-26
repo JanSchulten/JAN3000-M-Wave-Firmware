@@ -85,14 +85,16 @@ des Sounds bleiben):
 - [ ] **J-6 Chord Mode (SCL > CSET):** ist wieder drin (siehe unten); auf dem Gerät durchprobieren.
 - [x] **Flash:** FLUTE und SAX sind raus (63 KB frei, siehe Abschnitt 9).
 
-## 7. Akkorde: SCL > CSET (J-6)
+## 7. Akkorde: SCL > CHORD mit den Sets des J-6
 
 SCL > CSET (aus dem Branch `claude/cset-chords`, jetzt zusammengeführt) **ersetzt SCL > ORCHID**: die 100 Chord Sets
 des Roland J-6, jede Taste ein Akkord des gewählten Sets. Ein Projekt mit ORCHID an lädt mit CSET aus.
 
-- [ ] SCL dreimal: die Seite heißt CSET. KNOB 1 ON, KNOB 2 das Set (1 .. 100), KNOB 3 springt nach Stilrichtung.
+- [ ] SCL, mit SELECT zu CHORD: KNOB 1 läuft OFF .. POW und weiter SET 1 .. 100, KNOB 3 springt nach Stilrichtung
+      (vor SET 1 zurück zu POW). Eine eigene CSET-Seite gibt es nicht mehr (Phase 2).
 - [ ] F3 .. E4 spielen die Akkorde des Sets in der Lage der J-6-Liste; Oktavtasten und TRN verschieben sie.
-- [ ] Die Seite zeigt den zuletzt gespielten Akkord. ON macht die Spur POLY, OFF gibt die vorige VOICE zurück.
+- [ ] Die Seite zeigt den zuletzt gespielten Akkord. Ein Set macht die Spur POLY, eine Akkordform gibt die vorige
+      VOICE zurück. SCL halten, KNOB 3: dieselbe Liste; SAVE halten nimmt den Wechsel zurück.
 - [ ] STEP und Live-Aufnahme schreiben die Akkorde; MIDI-Noten spielen ebenfalls den Akkord ihrer Taste.
 - [ ] Projekt speichern und laden: ON und Set bleiben pro Spur.
 

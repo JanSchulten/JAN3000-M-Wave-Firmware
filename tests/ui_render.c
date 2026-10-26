@@ -1189,7 +1189,7 @@ static void setup(int s)
         memset(held_key[song.sel], 0, sizeof held_key[0]);
         TSEL->held[0] = 60; TSEL->held[1] = 64; TSEL->held[2] = 67; TSEL->nheld = 3; TSEL->arp_note = 64;
         go_title(s == S_ARP_PLAY ? "ARP" : "ARP 2"); break;
-    /* M-Vave-OP1, SCL > CSET (cset.c): set 74 (NEO SOUL, the longest names), its A# chord played (A#M9/#11); set 1
+    /* M-Vave-OP1, SCL > CHORD on a chord set (cset.c): set 74 (NEO SOUL, the longest names), its A# chord played (A#M9/#11); set 1
      * nothing played yet; a one-voice part (LOWEST NOTE) on set 27's G */
     case S_CSET:
     case S_CSET_IDLE:
@@ -1200,7 +1200,7 @@ static void setup(int s)
         cset_set[song.sel] = s == S_CSET ? 73u : s == S_CSET_MONO ? 26u : 0u;
         if (s != S_CSET_IDLE)
             cset_build(TSEL, s == S_CSET ? 58u : 55u, 0, out);
-        go_title("CSET");
+        go_title("CHORD");
         break;
     }
     case S_VOICE: go_title("VOICE"); break;

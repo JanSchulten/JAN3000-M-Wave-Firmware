@@ -835,6 +835,7 @@ typedef struct {
     uint32_t t_ms;               /* time of the last load (the editor's SETs after it belong to it) */
     uint8_t undone;              /* M-Vave-OP1: the copy is swapped in (undo_swap once more: redo; REC + OCT- / OCT+) */
     int16_t mix[9];
+    uint8_t cs_on, cs_set, cs_voice;   /* M-Vave-OP1: the track's chord set (cset.c), with UNDO_SCALE: SCL > CHORD */
     uint8_t mute[NPART], rec_pref;
     uint8_t fav[14][32], fxmap[20], fxbank;
     uint32_t fav_user;
@@ -1041,6 +1042,7 @@ static void undo_capture(undo_t *u, track_t *t, uint32_t what)
     memcpy(u->fav, favorites.factory, sizeof u->fav); u->fav_user = favorites.user;
     memcpy(u->fxmap, favorites.factory[15], 10); memcpy(u->fxmap + 10, favorites.factory[15] + 14, 10);
     u->fxbank = perf_bank;
+    u->cs_on = (uint8_t)((cset_en >> i) & 1u); u->cs_set = cset_set[i]; u->cs_voice = cset_voice[i];
     motion_unguard(guard);
 }
 static uint32_t undo_domain_sig(track_t *t, uint32_t what)
@@ -1067,7 +1069,11 @@ static uint32_t undo_domain_sig(track_t *t, uint32_t what)
         }
         return fnv(h, &song.g[G_BPM], sizeof(int16_t));
     }
-    if (what == UNDO_SCALE) return fnv(fnv(h, &t->p[P_ROOT], 4u * sizeof(int16_t)), &t->p[P_CHRD], 2u * sizeof(int16_t));
+    if (what == UNDO_SCALE) {                    /* (M-Vave-OP1: CHRD's chord sets too, and the POLY a set brings) */
+        uint8_t cs[] = {(uint8_t)((cset_en >> trk_index(t)) & 1u), cset_set[trk_index(t)], (uint8_t)t->p[P_VOICE]};
+        h = fnv(fnv(h, &t->p[P_ROOT], 4u * sizeof(int16_t)), &t->p[P_CHRD], 2u * sizeof(int16_t));
+        return fnv(h, cs, sizeof cs);
+    }
     if (what == UNDO_PREF) return ui_rec_prefs;
     if (what == UNDO_FAV) return fnv(h, favorites.factory, 14u * 32u) ^ favorites.user;
     if (what == UNDO_FXMAP) return fnv(fnv(h, favorites.factory[15], 10), favorites.factory[15] + 14, 10) ^ perf_bank;
@@ -1323,8 +1329,18 @@ static void undo_swap(void)
         undo_bytes(&song.g[G_BPM], &undo.mix[8], sizeof(int16_t));
     }
     if (undo.what & UNDO_SCALE) {
+        uint32_t k = trk_index(t);
+        uint8_t on = (uint8_t)((cset_en >> k) & 1u);
         undo_bytes(&t->p[P_ROOT], &undo.p[P_ROOT], 4u * sizeof(int16_t));
         undo_bytes(&t->p[P_CHRD], &undo.p[P_CHRD], 2u * sizeof(int16_t));
+        if (on != undo.cs_on) {                   /* M-Vave-OP1: a chord set on / off, its POLY and the VOICE before */
+            cset_en = (uint8_t)((cset_en & ~(1u << k)) | ((uint32_t)undo.cs_on << k));
+            undo.cs_on = on;
+            undo_bytes(&t->p[P_VOICE], &undo.p[P_VOICE], sizeof(int16_t));
+            panic_req |= (uint8_t)(1u << k);
+        }
+        undo_bytes(&cset_set[k], &undo.cs_set, 1u);
+        undo_bytes(&cset_voice[k], &undo.cs_voice, 1u);
     }
     if (undo.what & UNDO_PREF) undo_bytes(&ui_rec_prefs, &undo.rec_pref, 1u);
     if (undo.what & UNDO_DRUM) undo_bytes(drum_mute, undo.mute, sizeof drum_mute);

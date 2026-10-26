@@ -7,7 +7,7 @@ This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo 
 storage, engines and tests, and builds an OP-1 / OP-Z-style workflow on top: a KEY track that moves the patterns
 through a chord progression, and from the OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
 switched while they play, pattern chains, a switchable FX1 with a granular CLOUD, the Roland J-6's 100 chord
-sets as SCL > CSET and patterns of up to 128 steps. What is planned next is in the [roadmap](docs/ROADMAP.md).
+sets on SCL > CHORD and patterns of up to 128 steps. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development, running on a real FM-1 since the first flash (JAN3000 v0.8: the name on its splash).
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
@@ -163,24 +163,30 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   older M-Vave-OP1 loads as scene 1. While a song plays (GLO > SONG) scenes are not picked (STOP THE SONG FIRST); a
   song plays each slot as it was saved.
 
-## SCL > CSET: chord sets after the Roland J-6
+## SCL > CHORD: chord shapes and chord sets after the Roland J-6
 
-SCL's third page (SCL, CHORD, **CSET**) plays the 100 chord sets of the Roland J-6 (the owner's manual's Chord Set
-List, version 1.02: POP, JAZZ, BLUES, the UTILITY sets, SYNTHWAVE, HOUSE, EDM, NEO SOUL, BOSSA NOVA, CLASSICAL and
-more; the note data in `firmware/src/cset_data.h`, made by `tools/gen_cset.py`). It replaces SCL > ORCHID.
+SCL > CHORD is the one place for chords. **KNOB 1 CHRD** runs through the chord shapes, OFF, DIA3, DIA7 (the triad
+and seventh of the track's scale), MAJ, MIN, DOM7, MAJ7, MIN7, SUS4, POW, and goes on into the 100 chord sets of the
+Roland J-6, **SET 1 .. 100** (the owner's manual's Chord Set List, version 1.02: POP, JAZZ, BLUES, the UTILITY sets,
+SYNTHWAVE, HOUSE, EDM, NEO SOUL, BOSSA NOVA, CLASSICAL and more; the note data in `firmware/src/cset_data.h`, made by
+`tools/gen_cset.py`). **KNOB 2 VOIC** voices the shapes (a set voices its own chords: dimmed), **KNOB 3 GENRE** jumps
+to the first set of the next or previous genre, and from a shape to SET 1; before SET 1 it goes back to POW. SCL held,
+KNOB 3 is the same list. There is no separate CSET page any more; it replaces SCL > ORCHID.
 
-- **KNOB 1 ON / OFF** for the selected track (each track its own, before the track's CHRD and QNT). ON makes the
-  track POLY (a chord needs the voices), OFF gives the VOICE it had back. A sound loaded while it is on plays POLY too
-  (OFF then gives that sound's VOICE). A track set to MONO / LEG / UNI by hand plays the chord's lowest note.
+- Each track has its own choice. A set comes before the track's QNT. Choosing a set makes the track POLY (a chord
+  needs the voices); going back to a shape gives the VOICE it had back. A sound loaded while a set plays plays POLY
+  too (a shape then gives that sound's VOICE). A track set to MONO / LEG / UNI by hand plays the chord's lowest note.
+- SAVE held undoes a chord change made in the SCL layer, the set and its POLY included.
+- Nothing new is stored: a set is kept as before (the project's extras), so a project saved with CSET on loads
+  showing and playing its set; the track's chord shape is kept underneath.
 - **Every key is a chord:** the key's note C .. B plays that chord of the set, voiced as the list voices it. The keys
   F3 .. E4 play it where the list has it (its basses F2 .. E3, so the twelve chords lie together as on the J-6);
   each octave above or below plays it an octave higher or lower, the octave buttons too. TRN moves the chords. A MIDI
   note plays the chord of its key the same way.
-- **KNOB 2 SET** 1 .. 100, **KNOB 3 GENRE**: the first set of the next or previous genre (the list's order).
 - The page shows the set's number and genre, its twelve chords by name in the keys' order (C C# D / D# E F / ...;
   the black keys' framed), the chord played last lit and its notes by name.
-- Live recording and STEP entry write the chord (up to four notes a step); the ARP arpeggiates it. ON, each track's
-  SET and the VOICE before ON are kept with the project. A project saved with ORCHID on loads with CSET off.
+- Live recording and STEP entry write the chord (up to four notes a step); the ARP arpeggiates it. Each track's set
+  and the VOICE before it are kept with the project. A project saved with ORCHID on loads with no set.
 
 ## ANALOG2: two oscillators, a filter and an LFO each
 

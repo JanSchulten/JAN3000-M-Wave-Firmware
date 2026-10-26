@@ -322,7 +322,7 @@ These live in this repository and can be studied or reused:
 - OP-Z punch-in effects, MAP B.
 - SONG pattern chains.
 - 16 SCENES per project.
-- SCL > CSET: the Roland J-6's 100 chord sets, every key a chord (it replaced SCL > ORCHID).
+- SCL > CHORD's sets (formerly SCL > CSET): the Roland J-6's 100 chord sets, every key a chord (it replaced SCL > ORCHID).
 - FX1 CLOUD: a granular effect on the delay bus.
 - Effect pages drawn as guitar pedals, with SEND as mixer faders.
 - CHORUS types CHORUS / FLANGER / VIBRATO with FDBK.
