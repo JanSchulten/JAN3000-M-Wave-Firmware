@@ -190,6 +190,42 @@ static void wf_storage(void)
     wf_check("PROJECT and USER: white-key slots, USER two banks on K1; F#3 rename, G#3 delete; no knob actions", ok);
 }
 
+static void wf_storage_octaves(void)
+{
+    uint32_t user;
+    for (user = 0; user < 2u; user++) {
+        int ok;
+        ui_power_on(); frames(400);
+        go_page(user ? GR_USER : GR_SLOTS);
+        ui.uslot = 0; song.g[G_SLOT] = 1; song.octave = 1;
+        press(B_OCTDN);
+        ok = song.octave == 1 && !ui.confirm && !name_on() && msg_is("EMPTY SLOT");
+        press(B_OCTUP);
+        ok &= song.octave == 1 && name_on();
+        press(B_OCTDN);
+        ok &= song.octave == 1 && !name_on();
+        press(B_OCTUP); press(B_OCTUP); /* empty slot: NAME, then write */
+        ok &= song.octave == 1 && !name_on() && (user ? up_used(0) : project_used(0));
+        press(B_OCTDN);
+        ok &= song.octave == 1 && ui.confirm == (user ? CF_LOAD_USER : CF_LOAD_PROJ);
+        press(B_OCTDN); /* cancel the load */
+        ok &= song.octave == 1 && !ui.confirm;
+        press(B_OCTUP);
+        ok &= song.octave == 1 && ui.confirm == (user ? CF_OVR_USER : CF_OVR_PROJ);
+        press(B_OCTDN); /* cancel the overwrite */
+        ok &= song.octave == 1 && !ui.confirm;
+        press(B_OCTUP); press(B_OCTUP); press(B_OCTUP); /* overwrite, NAME, write */
+        ok &= song.octave == 1 && !name_on() && !ui.confirm;
+        press(B_OCTDN); press(B_OCTUP); /* load, confirm */
+        ok &= song.octave == 1 && !ui.confirm;
+        wf_check(user ? "USER: empty/load/save/overwrite and their cancellations preserve the keyboard octave"
+                      : "PROJECT: empty/load/save/overwrite and their cancellations preserve the keyboard octave", ok);
+        go_home(); press(B_OCTUP); ok = song.octave == 2;
+        press(B_OCTDN);
+        wf_check("after leaving storage, OCT+ / OCT- still transpose the keyboard", ok && song.octave == 1);
+    }
+}
+
 static void wf_undo_groups(void)
 {
     int ok;
@@ -365,6 +401,7 @@ int main(int argc, char **argv)
     wf_clear_routes();
     wf_navigation();
     wf_storage();
+    wf_storage_octaves();
     wf_undo_groups();
     wf_undo_automation();
     wf_record_domains();
