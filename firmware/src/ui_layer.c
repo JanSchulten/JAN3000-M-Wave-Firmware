@@ -522,7 +522,7 @@ static void fx_bank(int32_t s)
         perf_remap = 1;
         ui.force = 1;
     }
-    ui_message(b ? "FX MAP B: OP-Z" : "FX MAP A");
+    ui_message(b ? "FX MAP B" : "FX MAP A");
 }
 /* the white key PRESETS assigns: the last pressed in the FX layer, while still held (+ 1; 0 none) */
 static uint32_t fx_key_held(void)
