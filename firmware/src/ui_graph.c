@@ -837,7 +837,9 @@ static void graph_pedal(const track_t *t, uint32_t part)
         p = q;
     } else if (str_eq(ti, "SLICER")) {
         pedal_t q = {"SLICER", "GATE", 0xF0C828, 0x141414, 0x141414, 0xF2F2F2, t->p[P_SLCR] != 0};
-        q.sub = N_SLCR[clamp(t->p[P_SLCR], 0, 2)];
+        static const char *const MODE[SL_NMODE] = {"OFF", "GATE", "STUT", "PUMP", "GATE END", "PUMP END"};   /* (the
+                                                       * cards' GT END, PM END: the pedal has the room) */
+        q.sub = MODE[clamp(t->p[P_SLCR], 0, SL_NMODE - 1)];
         p = q;
     }
     body = ped(p.body);
