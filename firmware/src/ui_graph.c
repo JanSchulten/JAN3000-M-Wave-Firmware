@@ -196,7 +196,7 @@ static void pr_bars(const step_t *st, int32_t x, int32_t w, uint16_t c, int acc_
 static void graph_roll(const track_t *t, uint16_t c)
 {
     uint32_t i, len = (uint32_t)t->p[P_SLEN], base = ui.bank * 16u, ncol, mask = scale_mask(t), held = pr_held();
-    uint64_t locks = motion_lock_steps(trk_index(t));
+    stepset_t locks = motion_lock_steps(trk_index(t));
     int32_t r, ybot = PR_Y0 + PR_ROWS * PR_RH, gw;
     char nb[8];
     ncol = base < len ? (len - base < 16u ? len - base : 16u) : 0u;
@@ -232,7 +232,7 @@ static void graph_roll(const track_t *t, uint16_t c)
             cv_frame(x, PR_Y0 - 2, PR_CW + 1, ybot - PR_Y0 + 4, T_TEXT);
         if (song.playing && si == t->seq_idx)
             cv_rect(x + 6, PR_Y0, 1, ybot - PR_Y0, T_ACCENT);
-        if ((locks >> si) & 1u)                       /* a parameter lock: a mark under the step */
+        if (ss_has(&locks, si))                     /* a parameter lock: a mark under the step */
             cv_rect(x + 3, ybot + 3, 7, 2, T_ACCENT);
         if (step_detailed(&seq_steps(t)[si]))         /* 1.5.1: CHANCE / RATCH / NUDGE set: a mark over it (DETAIL) */
             cv_rect(x + 4, 2, 5, 3, c);
@@ -273,10 +273,10 @@ static void graph_grid(const track_t *t, uint16_t c)
         sl[i] = (uint8_t)step_lanes(e, &seq_steps(t)[base + i]);
         sa[i] = (uint8_t)step_accents(e, &seq_steps(t)[base + i]);
     }
-    uint64_t locks = motion_lock_steps(trk_index(t));
+    stepset_t locks = motion_lock_steps(trk_index(t));
     int32_t y0 = 6;
     for (i = 0; i < 16u && base + i < len; i++) {   /* a parameter lock: a mark over the step; CHANCE / RATCH / */
-        if ((locks >> (base + i)) & 1u)               /* NUDGE set (1.5.1, DETAIL): a dot under it */
+        if (ss_has(&locks, base + i))             /* NUDGE set (1.5.1, DETAIL): a dot under it */
             cv_rect(41 + (int32_t)i * 12, 1, 8, 2, T_ACCENT);
         if (step_detailed(&seq_steps(t)[base + i]))
             cv_rect(43 + (int32_t)i * 12, 3, 4, 2, c);
@@ -562,13 +562,36 @@ static void graph_arp(const track_t *t)
  * spacing, FDBK how long they last); REVERB rings spreading (SIZE how far, DAMP how soon they fade; SPRING a coil
  * shaking); CHORUS two waves drifting apart (RATE, DEPTH) */
 static void graph_insert(const track_t *t, uint16_t c);
+/* M-Vave-OP1, PUMP: the level over four steps from x0 (ww wide), its top at y0, h tall (y0 + h: DEPTH 100 % ducked): the
+ * drop at each step, the release along PAT's curve (slicer.c sl_pump_r) over its part of the step; the step playing (cur,
+ * of the four: cur % 4) under it in the accent */
+static void pump_curve(const track_t *t, int32_t x0, int32_t y0, int32_t ww, int32_t h, uint16_t c, uint32_t cur, int on)
+{
+    uint32_t p = (uint32_t)(t->p[P_SLPAT] - 1) % SL_NPAT, sh = p >> 2, q = 4u - (p & 3u);
+    int32_t depth = clamp(t->p[P_SLDEPTH], 0, 127), x, py = y0, sw = ww / 4;
+    for (x = 0; x < ww; x++) {
+        int32_t st = x % sw, a = sw / 24 + 1, rl = sw * (int32_t)q / 4 - a, cl, y;
+        if (st < a)
+            cl = 32768 * st / a;                    /* (the drop) */
+        else
+            cl = sl_pump_r(sh, st - a >= rl ? 32768 : (st - a) * 32768 / (rl > 0 ? rl : 1));
+        y = y0 + (int32_t)((int64_t)cl * depth * h / (32768 * 127));
+        if (x)
+            cv_line_t(x0 + x - 1, py, x0 + x, y, on ? c : T_MID, 2);
+        py = y;
+    }
+    if (on)
+        cv_rect(x0 + (int32_t)(cur % 4u) * sw + 2, y0 + h + 4, sw - 4, 2, T_ACCENT);
+}
 static void fx_anim(const track_t *t, uint16_t c, uint16_t bgc, int32_t x0, int32_t y0, int32_t ww, int32_t hh0)
 {
     int32_t x1 = x0 + ww;
     const char *ti = cur_page()->title;
     uint32_t f = ui.frame, k;
     int32_t x, y, h, mid = y0 + hh0 / 2, py = mid, bot = y0 + hh0, half = hh0 / 2 - 2;
-    if (str_eq(ti, "SLICER")) {                 /* the pattern, the step playing marked */
+    if (str_eq(ti, "SLICER") && sl_pump_mode((uint32_t)t->p[P_SLCR])) {   /* PUMP: the level ducking, step by step */
+        pump_curve(t, x0 + 4, y0 + 4, ww - 8, hh0 - 14, c, sl[t - trk].idx, 1);
+    } else if (str_eq(ti, "SLICER")) {          /* the pattern, the step playing marked */
         uint32_t pat = sl_pattern(t), mode = (uint32_t)t->p[P_SLCR], cur = sl[t - trk].idx;
         for (k = 0; k < 16u; k++) {
             x = x0 + 2 + (int32_t)k * (ww - 4) / 16;
@@ -837,7 +860,9 @@ static void graph_pedal(const track_t *t, uint32_t part)
         p = q;
     } else if (str_eq(ti, "SLICER")) {
         pedal_t q = {"SLICER", "GATE", 0xF0C828, 0x141414, 0x141414, 0xF2F2F2, t->p[P_SLCR] != 0};
-        q.sub = N_SLCR[clamp(t->p[P_SLCR], 0, 2)];
+        static const char *const MODE[SL_NMODE] = {"OFF", "GATE", "STUT", "PUMP", "GATE END", "PUMP END"};   /* (the
+                                                       * cards' GT END, PM END: the pedal has the room) */
+        q.sub = MODE[clamp(t->p[P_SLCR], 0, SL_NMODE - 1)];
         p = q;
     }
     body = ped(p.body);
@@ -880,7 +905,7 @@ static void graph_pedal(const track_t *t, uint32_t part)
     cv_rrect(120 - 14, gh - 34, 28, 28, 14, edge, body);   /* the footswitch */
     cv_rrect(120 - 10, gh - 30, 20, 20, 10, ped(0xB8BCC4), edge);
 }
-/* M-Vave-OP1, SCL > CSET (cset.c): the track's set, its number large and its genre; its twelve chords by name in the
+/* M-Vave-OP1, SCL > CHORD on a chord set (cset.c): the track's set, its number large and its genre; its twelve chords by name in the
  * keys' order C .. B (four rows of three, 73 px a cell: the longest name, Bb5add9/b13, is 72; the black keys' framed),
  * the one played last lit; under them that chord's notes by name (or where the list's voicing lies), and LOWEST NOTE
  * on a part set to one voice */
@@ -891,10 +916,6 @@ static void graph_cset(const track_t *t)
     char b[16];
     if (chord_kit(t)) {
         panel_note("NO CHORDS ON KITS", 0, 0);
-        return;
-    }
-    if (!cset_on(t)) {
-        panel_note("CSET OFF", "[K1] ON: EVERY KEY A CHORD", 0);
         return;
     }
     fmt_int(b, (int32_t)s + 1);
@@ -968,13 +989,18 @@ static void graph_insert(const track_t *t, uint16_t c)
         py = y;
     }
 }
-/* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE a bar as high as it stays
- * open (DEPTH), STUT hatched (it repeats the last 'x'); the step playing underlined. Grey when OFF. */
+/* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE (and GATE END) a bar as high as it
+ * stays open (DEPTH), STUT hatched (it repeats the last 'x'); the step playing underlined. Grey when OFF. PUMP (and
+ * PUMP END): the level over four steps (pump_curve) */
 static void graph_slicer(const track_t *t, uint16_t c)
 {
     uint32_t i, pat = sl_pattern(t), mode = (uint32_t)t->p[P_SLCR], cur = sl[t - trk].idx;
     int32_t open = 70 - t->p[P_SLDEPTH] * 70 / 127;      /* px a closed GATE step keeps */
     uint16_t col = mode == SL_OFF ? T_DIM : c;
+    if (sl_pump_mode(mode)) {                           /* M-Vave-OP1, PUMP: the level ducking over four steps */
+        pump_curve(t, 12, 8, 216, 72, c, cur, 1);
+        return;
+    }
     for (i = 0; i < 16u; i++) {
         int32_t x = bar_x(i), y;
         if ((pat >> i) & 1u) {
@@ -1639,7 +1665,7 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_DLANE)                       /* M-Vave-OP1, SOUNDS: the lane picked, every lane's values */
         for (h ^= ui.lane * 40503u, i = 0; i < 16u; i++)
             h = (h ^ (uint16_t)t->p[P_DL0 + i]) * 16777619u;
-    if (pg->graph == GR_CSET)                        /* M-Vave-OP1, SCL > CSET: the set, the last chord, ON */
+    if (pg->graph == GR_CHORD)                       /* M-Vave-OP1, SCL > CHORD's sets: the set, the last chord, ON */
         h ^= (cset_last.gen * 2654435761u) ^ ((uint32_t)cset_set[song.sel % NTRK] << 9) ^ (uint32_t)t->engine * 389u ^
              (uint32_t)cset_en << 24;                /* (a kit, LOWEST NOTE: the sounding engine, VOICE: a parameter) */
     if (pg->graph == GR_SHIM)
@@ -1726,8 +1752,9 @@ static uint32_t graph_signature(void)
         h ^= steps_hash(t) + ph * 31u + ui.cursor * 7919u + ui.lane * 104723u + ui.bank * 613u +
              drum_mute[trk_index(t) % NPART] * 2654435761u;
         {                                            /* the parameter locks' marks (the roll, the grid) */
-            uint64_t lk = motion_lock_steps(trk_index(t));
-            h = (h ^ (uint32_t)lk ^ (uint32_t)(lk >> 32) * 2654435761u) * 16777619u;
+            stepset_t lk = motion_lock_steps(trk_index(t));
+            for (uint32_t w = 0; w < NSTEP / 64u; w++)
+                h = (h ^ (uint32_t)lk.w[w] ^ (uint32_t)(lk.w[w] >> 32) * 2654435761u) * 16777619u;
         }
         if (detail_on())                             /* DETAIL: QUANTIZE (NUDGE's DIM), the lane named in the accent */
             h = (h ^ (0xD1u + (uint32_t)t->p[P_SQNT] * 31u + (ui.hot_t ? ui.hot_col + 1u : 0u) * 977u)) * 2654435761u;
@@ -1752,7 +1779,8 @@ static const char *eng_abbr(const char *name)
                                        {"NOISE", "NOIS"}, {"FM6", "FM6"},
                                        {"ANLG2", "ANL2"},   /* (M-Vave-OP1: ANLG2 is 1 px too wide for the EDIT
                                                              * layer's 20 px cells beside the engine's icon) */
-                                       {"VDRUM", "VDRM"}, {"WSHAPE", "WSHP"}, {"HRMNC", "HRMN"}, {"PRTCL", "PRTC"}, {"WTABLE", "WTBL"}, {"SWARM", "SWRM"}};
+                                       {"VDRUM", "VDRM"}, {"WSHAPE", "WSHP"}, {"HRMNC", "HRMN"}, {"PRTCL", "PRTC"}, {"WTABLE", "WTBL"}, {"SWARM", "SWRM"},
+                                       {"ACID", "ACID"}};
     uint32_t i;
     for (i = 0; i < sizeof A / sizeof A[0]; i++)
         if (str_eq(name, A[i][0]))
@@ -1928,6 +1956,17 @@ static void graph_pats(void)
  * name / QUANTIZE's ON at EV_NX (QUANTIZE ends at x 86), the value right at 226 */
 #define EV_SX 60
 #define EV_NX 92
+/* a row's step (s from 0): "01" .. "99", "100" .. "128" (M-Vave-OP1's 128 steps: three digits fit before EV_NX) */
+static void ev_step_txt(char *b, uint32_t s)
+{
+    if (s + 1u >= 100u)
+        fmt_int(b, (int32_t)s + 1);
+    else {
+        b[0] = (char)('0' + (s + 1u) / 10u);
+        b[1] = (char)('0' + (s + 1u) % 10u);
+        b[2] = 0;
+    }
+}
 /* a row's value (M) and its unit (S, on the value's baseline, as a card's) ending at x 226; the value's left x */
 static int32_t ev_value(int32_t y, const char *v, const char *unit, uint16_t fg, uint16_t bg)
 {
@@ -2000,9 +2039,7 @@ static void graph_events(void)
             uint16_t vc = (kd == EVK_NUDGE && !ev_nudge_plays(t, &t->step[s])) ||   /* (QUANTIZE ON ..) */
                           (kd == EVK_VEL && !ev_vel_plays(&t->step[s])) ? T_DIM : T_TEXT;
             char b[8];
-            b[0] = (char)('0' + (s + 1u) / 10u);
-            b[1] = (char)('0' + (s + 1u) % 10u);
-            b[2] = 0;
+            ev_step_txt(b, s);
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
             cv_text_on(14, y + LIST_TY, &AF_M, "STEP", sel ? T_INK : T_MID, bg);
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
@@ -2029,9 +2066,7 @@ static void graph_events(void)
             const char *unit;
             const param_desc_t *d = track_desc(t, id);
             int32_t x;
-            b[0] = (char)('0' + ((e->place & 63u) + 1u) / 10u);
-            b[1] = (char)('0' + ((e->place & 63u) + 1u) % 10u);
-            b[2] = 0;
+            ev_step_txt(b, MO_STEP(e));
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
             cv_text_on(14, y + LIST_TY, &AF_M, lock ? "LOCK" : "AUTO", sel ? T_INK : lock ? T_ACCENT : T_MID, bg);
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
@@ -2355,6 +2390,8 @@ static void home_track_row(uint32_t c)
         cv_keycap(xr, TR_NY(large) + (ch - KC_H) / 2, KC_MUTE, sel ? T_INK : T_KEY, sel ? T_THEME : T_INK, bg);
         xr -= 6;
     }
+    if (np > 4u && xr > TR_PX - 3)                   /* (M-Vave-OP1: LEN > 64, up to 8 pips: they reach the name's line) */
+        xr = TR_PX - 3;
     x = 24;
     if (FELUCCA_ICONS && !large) {                   /* the engine's icon on the name's capitals */
         uint32_t ei = engine_icon(ENGINES[t->eng_req % NENGINES]->name);
@@ -2907,13 +2944,19 @@ static void graph_fxt(void)
         }
         if (song.playing && fxt.pos != FXT_START && fxt.idx[l] >= w0 && fxt.idx[l] < w0 + 16u)   /* the play head */
             cv_rect(FX_X0 + (int32_t)(fxt.idx[l] - w0) * FX_CP, y + FX_CH + 2, FX_CP - 1, 3, T_ACCENT);
-        for (i = 0; i < len; i++) {                   /* the lane's 64 steps, 3 px each; the 16 shown framed */
-            uint32_t e = fxt_plays(l, i);
-            cv_rect(FX_X0 + (int32_t)i * 3, y + FX_CH + 9, 2, 6, e < PF_N ? fxt_colour(e) : T_RAISE);
+        {   /* the lane's steps, 3 px each (LEN over 64, M-Vave-OP1: two a cell, the first effect of the two); the 16 shown
+             * framed */
+            uint32_t pr = len > NSTEP_FMT ? 2u : 1u, j;
+            for (i = 0; i * pr < len; i++) {
+                uint32_t e = PF_N;
+                for (j = 0; j < pr && e >= PF_N && i * pr + j < len; j++)
+                    e = fxt_plays(l, i * pr + j);
+                cv_rect(FX_X0 + (int32_t)i * 3, y + FX_CH + 9, 2, 6, e < PF_N ? fxt_colour(e) : T_RAISE);
+            }
+            cv_rect(FX_X0 + (int32_t)(w0 / pr) * 3, y + FX_CH + 16, 48 / (int32_t)pr - 1, 1, T_MID);
+            if (song.playing && fxt.pos != FXT_START)
+                cv_rect(FX_X0 + (int32_t)(fxt.idx[l] / pr) * 3, y + FX_CH + 7, 2, 1, T_ACCENT);
         }
-        cv_rect(FX_X0 + (int32_t)w0 * 3, y + FX_CH + 16, 47, 1, T_MID);
-        if (song.playing && fxt.pos != FXT_START)
-            cv_rect(FX_X0 + (int32_t)fxt.idx[l] * 3, y + FX_CH + 7, 2, 1, T_ACCENT);
     }
 }
 static void draw_graph(void)
@@ -2977,17 +3020,16 @@ static void draw_graph(void)
         case GR_SCALE:
             graph_scale(t, c);
             break;
-        case GR_CHORD:
+        case GR_CHORD:                               /* (M-Vave-OP1: on a chord set the set and the chord played) */
             cv_oy = 0;
-            graph_chord(t, c);
+            if (cset_on(t))
+                graph_cset(t);
+            else
+                graph_chord(t, c);
             break;
         case GR_ARP:                                 /* M-Vave-OP1: ARP and ARP 2, the rows and the keys */
             cv_oy = 0;
             graph_arp(t);
-            break;
-        case GR_CSET:                                /* M-Vave-OP1: SCL > CSET, the set and the chord played */
-            cv_oy = 0;
-            graph_cset(t);
             break;
         case GR_FX:
             graph_fx(t, c);

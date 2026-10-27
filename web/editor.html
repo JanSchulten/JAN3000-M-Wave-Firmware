@@ -31,6 +31,24 @@
   button { font: inherit; background: var(--fg); color: var(--bg); border: 0; padding: 2px 10px; cursor: pointer; }
   button:disabled { opacity: .3; cursor: default; }
   button.lang { color: var(--dim); background: none; }
+  select.lang { text-decoration: none; border: 0; cursor: pointer; }
+  dialog.ask { background: var(--bg); color: var(--fg); border: 1px solid var(--fg); padding: 16px 20px; max-width: min(90vw, 560px); }
+  dialog.ask::backdrop { background: rgba(0, 0, 0, .35); }
+  td.acts { white-space: nowrap; text-align: right; }
+  /* M-Vave-OP1: the TD-3 grid (Sequencer): a column a step, 16 a row (8 on a phone) */
+  .tdpanel { background: var(--card); border-top: 3px solid var(--c); border-radius: 6px; padding: 8px 10px 10px; margin: 6px 0 12px; }
+  .tdpanel > h2 { border-bottom: 0; color: var(--c); letter-spacing: .06em; text-transform: uppercase; }
+  .td { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 6px 3px; }
+  @media (max-width: 700px) { .td { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+  .td .col { display: grid; gap: 2px; min-width: 0; }
+  .td .col.beat { box-shadow: -2px 0 0 var(--c); padding-left: 2px; }
+  .td .n { text-align: center; color: var(--dim); font-size: 11px; }
+  .td .col.off .n { opacity: .5; }
+  .td select { width: 100%; min-width: 0; padding: 1px 0; font-size: 12px; text-align: center; }
+  .td button { width: 100%; min-width: 0; padding: 2px 0; font-size: 11px; background: var(--bg); color: var(--fg);
+               border: 1px solid var(--line); border-radius: 3px; }
+  .td button.on { background: var(--c); color: var(--bg); border-color: var(--c); font-weight: 600; }
+  td.acts button { padding: 0 6px; margin-left: 2px; }
   select, input[type=text], input[type=number], input[type=search] {
     font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 1px 3px; border-radius: 0; }
   input[type=range] { width: 100%; margin: 0; accent-color: var(--fg); }
@@ -39,8 +57,39 @@
   .dim { color: var(--dim); }
   #status { min-height: 1.4em; }
   section { margin: 12px 0; }
-  .groups { columns: 250px; column-gap: 20px; }
-  .group { break-inside: avoid; margin: 0 0 12px; }
+  /* M-Vave-OP1: the parameter groups as cards in a grid, each section its own colour (--c: the knobs' arc, the
+     headings, the curves); the colours as tokens for light and dark */
+  :root { --card: #f4f4f1; --env: #c2410c; --lfo: #0e7490; --mod: #7c3aed; --edit: #047857; --voice: #be185d; --fx: #1d4ed8;
+          --scl: #4d7c0f; --arp: #b45309; --seq: #0f766e; --glob: #57534e; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --card: #141414; --env: #fb923c; --lfo: #22d3ee; --mod: #a78bfa; --edit: #34d399;
+      --voice: #f472b6; --fx: #60a5fa; --scl: #a3e635; --arp: #fbbf24; --seq: #2dd4bf; --glob: #a8a29e; }
+  }
+  :root[data-theme="dark"] { --card: #141414; --env: #fb923c; --lfo: #22d3ee; --mod: #a78bfa; --edit: #34d399;
+    --voice: #f472b6; --fx: #60a5fa; --scl: #a3e635; --arp: #fbbf24; --seq: #2dd4bf; --glob: #a8a29e; }
+  .groups { columns: 300px; column-gap: 12px; }
+  .group { margin: 0 0 12px; }
+  .groups > .group { break-inside: avoid; margin: 0 0 12px; background: var(--card); border-top: 3px solid var(--c, var(--fg)); border-radius: 6px; padding: 8px 10px 10px;
+                     min-width: 0; }
+  .groups > .group > h2 { border-bottom: 0; color: var(--c, var(--fg)); letter-spacing: .06em; text-transform: uppercase; }
+  .groups > .group > h3 { color: var(--c, var(--dim)); opacity: .85; margin-top: 8px; letter-spacing: .04em; }
+  .sec-env { --c: var(--env); } .sec-lfo { --c: var(--lfo); } .sec-mod { --c: var(--mod); } .sec-edit { --c: var(--edit); }
+  .sec-voice { --c: var(--voice); } .sec-fx { --c: var(--fx); } .sec-scl { --c: var(--scl); } .sec-arp { --c: var(--arp); }
+  .sec-seq { --c: var(--seq); } .sec-glob { --c: var(--glob); }
+  .cells { display: flex; flex-wrap: wrap; gap: 6px 4px; margin-top: 2px; }
+  .cell { display: grid; justify-items: center; align-content: start; width: 66px; gap: 1px; font-size: 11px; }
+  .cell > .l { color: var(--dim); letter-spacing: .03em; white-space: nowrap; }
+  .cell > .v { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .cell.sel { width: 136px; justify-items: stretch; }
+  .cell.sel > .l { justify-self: start; }
+  .cell.sel > .v { display: none; }                 /* (the select shows its value) */
+  .cell.pushed > .v { font-weight: 600; }
+  .knob { position: relative; width: 46px; height: 46px; cursor: ns-resize; touch-action: none; border-radius: 50%; }
+  .knob svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .knob .tr { stroke: var(--line); } .knob .va { stroke: var(--c, var(--fg)); } .knob .pt { stroke: var(--fg); }
+  .knob:focus-within { outline: 2px solid var(--c, var(--fg)); outline-offset: 1px; }
+  .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+  canvas.viz { display: block; width: 100%; height: 86px; margin: 4px 0 6px; border-radius: 4px; background: var(--bg); }
   .row { display: grid; grid-template-columns: 46px 1fr 70px; gap: 6px; align-items: center; min-height: 22px; }
   .row .v { text-align: right; white-space: nowrap; }
   .row select { width: 100%; }
@@ -156,18 +205,20 @@
 </head>
 <body>
 <main>
-  <button class="lang" id="lang"></button>
+  <select class="lang" id="lang" aria-label="Language / Sprache / 言語"><option value="en">English</option><option value="de">Deutsch</option><option value="ja">日本語</option></select>
   <h1>Felucca Editor</h1>
   <p class="dim"><a href="../installer/" style="color:inherit" data-t="installer"></a></p>
   <!-- always visible: connection, version, sync mode, the tabs and (Sound / Sequencer / Tracks) the track selector -->
   <header class="top">
     <div class="bar">
       <button id="connect" data-t="connect" data-ic="port_usb_c"></button>
+      <button id="emuconnect" data-t="emuConnect" data-ic="symbol_audio"></button>
       <span id="version" class="dim"></span>
       <span id="live" class="dim"></span>
       <span id="mock" class="dim" hidden data-t="mock"></span>
     </div>
     <div id="status"></div>
+    <div id="kbdbar" class="dim" hidden></div>
     <nav class="tabs" id="tabs" role="tablist">
       <button role="tab" data-tab="sound" data-t="sound" data-ic="symbol_audio"></button>
       <button role="tab" data-tab="fm6" data-t="tabFm6" data-ic="ui_knob"></button>
@@ -189,6 +240,9 @@
       <div>
         <p class="bar"><button id="init" data-t="initSound"></button>
           <button id="factlib" data-t="factoryToLib" data-ic="symbol_folder"></button></p>
+        <p class="bar"><label><input type="checkbox" id="draftmode"> <span data-t="draftMode"></span></label></p>
+        <p class="bar"><button id="draftrevert" data-t="draftRevert"></button>
+          <button id="draftexport" data-t="draftExport" data-ic="symbol_download"></button> <span class="dim" id="draftinfo"></span></p>
         <p class="bar"><button id="savefile" data-t="saveFile" data-ic="symbol_download"></button>
           <button id="loadfile" data-t="loadFile" data-ic="symbol_upload"></button>
           <input type="file" id="file" accept=".json,application/json" hidden></p>
@@ -232,6 +286,13 @@
         <button id="clearseq" data-t="clearSeq" data-ic="symbol_trash"></button>
         <span class="dim" id="noteshelp"></span></p>
       <div class="grid" id="stepgrid"></div>
+      <div class="group sec-arp tdpanel" id="tdpanel" hidden>
+        <h2 data-t="tdTitle" data-ic="note_eight"></h2>
+        <p class="dim" data-t="tdHelp"></p>
+        <p class="bar"><label><span data-t="tdOct"></span> <select id="tdoct"></select></label>
+          <button id="tdroll" data-t="tdRoll"></button> <span class="dim" id="tdinfo"></span></p>
+        <div class="td" id="tdgrid"></div>
+      </div>
       <div class="stepcols" id="steptables"></div>
     </div>
     <div id="motion-panel" hidden style="margin-top:16px">
@@ -279,6 +340,7 @@
           <button id="libsave" data-t="saveToLib" data-ic="port_disk"></button>
           <button id="libimport" data-t="import" data-ic="symbol_upload"></button>
           <button id="libexport" data-t="exportLib" data-ic="symbol_download"></button>
+          <button id="libpresets" data-t="exportPresets" data-ic="symbol_download"></button>
           <input type="file" id="libfile" accept=".json,application/json" multiple hidden>
           <span class="dim" id="libcount"></span>
         </p>
@@ -293,6 +355,7 @@
             <button id="bkload" data-t="bankLoad" data-ic="symbol_folder_open"></button>
             <button id="bkstore" data-t="bankStore" data-ic="port_disk"></button>
             <button id="bkget" data-t="bankGet" data-ic="symbol_download"></button>
+            <button id="bkren" data-t="rename"></button>
             <button id="bkerase" data-t="erase" data-ic="symbol_trash"></button>
           </p>
           <p class="bar">
@@ -315,6 +378,15 @@
     <h2 data-t="projects" data-ic="symbol_folder"></h2>
     <p class="dim" data-t="projHelp"></p>
     <div class="slots" id="slots"></div>
+    <div class="group" id="devfiles" style="margin-top:16px" hidden>
+      <h2 data-t="dfTitle" data-ic="symbol_folder"></h2>
+      <p class="dim" data-t="dfHelp"></p>
+      <p class="bar"><button id="dfupload" data-t="dfUpload" data-ic="symbol_upload"></button>
+        <button id="dfall" data-t="dfAll" data-ic="symbol_download"></button>
+        <input id="dffile" type="file" accept=".json,application/json" multiple hidden><span class="dim" id="dfcount"></span></p>
+      <div class="list" id="dflist"></div>
+      <p class="bar" style="margin-top:6px"><button id="mircopy" data-ic="control_arrow_loop"></button><span class="dim" id="mirinfo"></span></p>
+    </div>
     <div id="backup-panel" style="margin-top:16px">
       <h2 data-t="backupTitle"></h2>
       <p class="bar"><button id="backup-export" data-t="backupExport"></button>
@@ -454,6 +526,8 @@ const parse = {
       if (trailer[r] === 0x4E && trailer[r + 1] === 1) r += 3;                            /* and the MENU settings (1.0.4) */
       if (o.syncCaps && trailer[r] === 0x52 && trailer[r + 1] === 1) o.ratchet = trailer[r + 2];   /* RATCH: max hits */
     }
+    const t = trailer.length - 4;                 /* M-Vave-OP1: the steps a track, the last block (58 01 lo hi; 128) */
+    if (t >= 0 && trailer[t] === 0x58 && trailer[t + 1] === 1) o.nstep = trailer[t + 2] | trailer[t + 3] << 7;
     return o;
   },
   [CMD.UI_STATE](a) {
@@ -544,6 +618,7 @@ const parse = {
       o.grid = o.pattern.map(([h, c]) => { const x = r.b(), hit = h | (x & 1) << 7; return [hit, (c | (x & 2) << 6) & hit]; });
       o.pattern = null;
     }
+    if (r.i < a.length) o.cat = r.b();               /* 1.2: the category (category.c CAT_*): kept through a rename */
     return o;
   },
   [CMD.UP_PUT](a) { return parse[CMD.SMP_BEGIN](a); },
@@ -635,7 +710,9 @@ const req = {
     ...(pt.grid
       ? [...Array.from({ length: UP.PAT }, (_, i) => hitsEnc(...(pt.grid[i] || [0, 0])).slice(0, 2)).flat(), 1,
          ...Array.from({ length: UP.PAT }, (_, i) => hitsEnc(...(pt.grid[i] || [0, 0]))[2])]
-      : Array.from({ length: UP.PAT }, (_, i) => { const x = (pt.pattern || [])[i] || [0, 0]; return [x[0] & 0x7F, x[1] & 7]; }).flat())]],
+      : Array.from({ length: UP.PAT }, (_, i) => { const x = (pt.pattern || [])[i] || [0, 0]; return [x[0] & 0x7F, x[1] & 7]; }).flat()),
+    ...(Number.isInteger(pt.cat) ? [...(pt.grid ? [] : [0, ...Array(UP.PAT).fill(0)]), pt.cat & 0x7F] : [])]],   /* (1.2: the category,
+                                                         after the kind byte and the 16 grid bytes, sent only as read) */
   upStore: (s, name) => [CMD.UP_STORE, [s & 0x7F, ...strEnc(name ? upName(name) : "")]],   /* "": the device names it ("ANALOG 07") */
   upLoad: (s) => [CMD.UP_LOAD, [s & 0x7F]],
   upErase: (s) => [CMD.UP_ERASE, [s & 0x7F]],
@@ -1019,6 +1096,24 @@ function buildSlot(name, zonesIn) {
   return { hdr, data, zones };
 }
 
+/* a slot file (tools/gen_samples.py --user-slot PREFIX.slot: header at 0, data at 512, as stored in flash; the
+   samples once built in, FLUTE and SAX, ship so) -> {hdr, data, name, zones}, uploaded as it is; throws if it is
+   not one */
+function parseSlotFile(buf) {
+  const b = new Uint8Array(buf), v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  if (b.length < SMP.DATA_OFF || v.getUint32(0, true) !== 0x504D5346 || v.getUint16(4, true) !== 1) throw new Error("not a slot file");
+  const nz = b[6], len = v.getUint32(16, true);
+  if (!nz || nz > SMP.MAX_ZONES || len > SMP.MAX_DATA || b.length < SMP.DATA_OFF + len) throw new Error("slot file damaged");
+  const data = b.slice(SMP.DATA_OFF, SMP.DATA_OFF + len);
+  if (crc32(data) !== v.getUint32(20, true)) throw new Error("slot file damaged (CRC)");
+  for (let j = 0; j < nz; j++) {
+    const o = 32 + j * 28, off = v.getUint32(o, true), n = v.getUint32(o + 4, true);
+    if (off + ((n + 1) >> 1) > len) throw new Error("slot file damaged (zone " + (j + 1) + ")");
+  }
+  const name = String.fromCharCode(...b.subarray(8, 16)).replace(/\0.*$/, "");
+  return { hdr: b.slice(0, SMP.HDR_LEN), data, name, zones: nz };
+}
+
 /* -------------------------------------------------------------- librarian --- */
 /* A patch (library entry, user preset):
      {name, engine (index), engineName, p: [P_COUNT values by parameter id, null = unknown],
@@ -1029,7 +1124,7 @@ function buildSlot(name, zonesIn) {
    Library / bank / single-patch file (JSON):
      {
        "format": "felucca-library", "version": 1,
-       "kind": "library" | "bank" | "patch",
+       "kind": "library" | "bank" | "patch" | "presets",   ("presets": tools/import_presets.py's input, M-Vave-OP1)
        "firmware": "FELUCCA 0.5 ...",          device version string when exported ("" if unknown)
        "pCount": 57, "pE0": 49,                 P_COUNT and the first engine parameter id
        "paramLabels": ["LVL", "ATK", ...],      one key per parameter id: the DESC label, "#2", "#3" appended to
@@ -1119,6 +1214,8 @@ function cleanPatch(pt) {
     created: pt.created || now, modified: pt.modified || pt.created || now,
   };
   if (Number.isInteger(pt.slot)) o.slot = pt.slot;
+  if (pt.factory && typeof pt.factory.engine === "string" && typeof pt.factory.name === "string")   /* (M-Vave-OP1: a factory */
+    o.factory = { engine: pt.factory.engine, name: pt.factory.name };                                  /* preset edited) */
   if (Array.isArray(pt.fm6) && pt.fm6.length === FM6.PACKED) o.fm6 = pt.fm6.map((x) => (x | 0) & 127);   /* (a converted */
   if (Array.isArray(pt.fm4)) o.fm4 = pt.fm4.map((v) => (Number.isFinite(v) ? Math.round(v) : null));    /* DIGITAL sound) */
   return o;
@@ -1677,7 +1774,7 @@ function makeMockDevice(opt = {}) {
     D("DST", F.PCT, 0, 127, 0), D("CHO", F.PCT, 0, 127, 0), D("DLY", F.PCT, 0, 127, 0), D("REV", F.PCT, 0, 127, 0),
     E("VCE", ["POLY", "MONO", "LEG", "UNI"], 0), D("GLD", F.TIME, 0, 127, 0), D("PAN", F.BIPCT, -64, 63, 0), E("MUTE", NONOFF, 0),
     E("GLMOD", ["RATE", "TIME"], 0), E("PRIO", ["LAST", "LOW", "HIGH"], 0), E("ALLOC", ["ROT", "REUSE"], 0), D("DTUNE", F.INT, 0, 127, 40),
-    E("SLCR", ["OFF", "GATE", "STUT"], 0), D("PAT", F.INT, 1, 16, 1), E("RATE", ["1/8", "1/16", "1/32", "8T", "16T", "32T"], 1), D("DEPTH", F.PCT, 0, 127, 127),
+    E("SLCR", ["OFF", "GATE", "STUT", "PUMP", "GT END", "PM END"], 0), D("PAT", F.INT, 1, 16, 1), E("RATE", ["1/8", "1/16", "1/32", "8T", "16T", "32T", "1/4"], 1), D("DEPTH", F.PCT, 0, 127, 127),
     ...[1, 2, 3, 4].flatMap((k) => [E("SRC" + k, MSRC, 0), E("DST" + k, MDST, 0), D("AMT" + k, F.BIPCT, -64, 63, 0)]),   /* the matrix */
   ];
   const GP = [
@@ -1687,7 +1784,7 @@ function makeMockDevice(opt = {}) {
     E("MIDI", ["USB", "TRS"], 0), E("SYNC", NDASH, 0), E("ROUT", ["CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16"], 0), D("CPU", F.INT, 0, 0, 0),
     D("SLOT", F.INT, 1, 4, 1), E("NAME", NDASH, 0), E("LOAD", NGO, 0), E("SAVE", NGO, 0),
     E("ENG", ["ANALOG", "-", "-", "LOFI", "SAMPLE", "-", "-", "WHEEL",
-      "GRAIN", "PHYS", "DRUM", "NOISE", "FM6", "-", "ANLG2", "VDRUM", "-", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM"], 0), E("SET", NGO, 0),   /* ("-": reserved) */
+      "GRAIN", "PHYS", "DRUM", "NOISE", "FM6", "-", "ANLG2", "VDRUM", "-", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM", "ACID"], 0), E("SET", NGO, 0),   /* ("-": reserved) */
     E("CLRSQ", NGO, 0), E("INIT", NGO, 0),
     E("TYPE", ["ROOM", "SPRING", "HALL", "SHIMMER"], 2),   /* G_RTYPE (id 24, was G_DRCH): the reverb's model (HALL: 1.2; SHIMMER: M-Vave-OP1) */
     D("-", F.INT, 0, 0, 0), D("-", F.INT, 0, 0, 0),   /* G_DRLVL, G_DRREV: inert since 1.0 */
@@ -1718,10 +1815,11 @@ function makeMockDevice(opt = {}) {
       presets: [P("PULSE LD", [0, 0, 32, 0, 0, 20, 0, 127], [0, 60, 90, 30], 1, 4), P("WAVE BASS", [1, 1, 0, 0, 0, 0, 0, 90], [0, 50, 70, 20], 1, 2),
         P("ARP 8BIT", [2, 0, 96, 0, 0, 0, 2, 110], [0, 60, 80, 40], 0, 13), P("WAVE LEAD", [0, 4, 92, 0, 0, 18, 0, 110], [0, 70, 90, 30], 1, 3),
         P("STEP LEAD", [4, 0, 40, 34, 0, 16, 0, 127], [0, 64, 127, 55], 1, 4)] },
-    { name: "SAMPLE", titles: ["SET", "TONE"], edit: [E("SET", ["PIANO", "PIANO", "FLUTE", "SAX", "PIANO", "USR1", "USR2", "USR3"], 0), D("TUNE", F.SEMI, -24, 24, 0), D("BITS", F.INT, 0, 127, 0),
+    { name: "SAMPLE", titles: ["SET", "TONE"], edit: [E("SET", ["PIANO", "PIANO", "PIANO", "PIANO", "PIANO", "USR1", "USR2", "USR3"], 0), D("TUNE", F.SEMI, -24, 24, 0), D("BITS", F.INT, 0, 127, 0),
         E("LOOP", NONOFF, 1), D("CUT", F.INT, 0, 127, 127), NONE, D("DRV", F.PCT, 0, 127, 0), NONE],
       presets: [P("PIANO", [0, 0, 0, 1, 127, 0, 0, 0], [0, 127, 127, 70]), P("PIANO", [0, 0, 0, 1, 127, 0, 0, 0], [0, 127, 127, 70]),
-        P("FLUTE", [2, 0, 0, 1, 127, 0, 0, 0], [12, 80, 120, 60]), P("SAX", [3, 0, 0, 1, 127, 0, 0, 0], [12, 80, 120, 60])] },
+        P("PIANO", [0, 0, 0, 1, 127, 0, 0, 0], [0, 127, 127, 70]), P("PIANO", [0, 0, 0, 1, 127, 0, 0, 0], [0, 127, 127, 70])] },   /* (2, 3: FLUTE, SAX
+        left the firmware: PIANO aliases; dist/samples/FLUTE.slot, SAX.slot load them into USR1..3) */
     GONE(),   /* 5: reserved (VOICE, retired) */
     GONE(),   /* 6: reserved (TRIO, retired) */
     { name: "WHEEL", titles: ["BARS", "TONE"], edit: [E("REG", ["FLUTE", "MELLO", "HOLLW", "SMOOT", "3BAR", "BLUES", "GOSPL", "ROCK",
@@ -1730,10 +1828,10 @@ function makeMockDevice(opt = {}) {
       presets: [P("FULL ORGAN", [15, 0, 0, 0, 0, 30, 20, 1], [0, 64, 127, 45], 0, 5), P("JAZZ PERC", [4, 0, 0, 0, 2, 50, 8, 1], [0, 64, 127, 40], 0, 3),
         P("GOSPEL", [6, 0, 0, 0, 1, 60, 40, 2], [0, 64, 127, 45], 0, 6), P("SOFT FLUTE", [1, 0, -2, 0, 0, 10, 0, 1], [0, 64, 127, 55], 0, 5),
         P("ROCK DRIVE", [7, 0, 0, 0, 0, 70, 100, 2], [0, 64, 127, 40], 0, 4)] },
-    { name: "GRAIN", titles: ["GRAN", "SPRY"], edit: [E("SRC", ["PIANO", "PIANO", "FLUTE", "SAX", "PIANO", "USR1", "USR2", "USR3"], 0),
+    { name: "GRAIN", titles: ["GRAN", "SPRY"], edit: [E("SRC", ["PIANO", "PIANO", "PIANO", "PIANO", "PIANO", "USR1", "USR2", "USR3"], 0),
         D("POS", F.PCT, 0, 127, 32), D("SIZE", F.PCT, 0, 127, 80), D("DENS", F.PCT, 0, 127, 80),
         D("PTCH", F.SEMI, -24, 24, 0), D("SPRD", F.PCT, 0, 127, 30), D("RAND", F.PCT, 0, 127, 10), D("TONE", F.PCT, 0, 127, 127)],
-      presets: [P("CLOUD PAD", [2, 50, 92, 88, 0, 40, 14, 100], [70, 90, 120, 90], 0, 5), P("GLITCH", [3, 64, 24, 112, 0, 100, 90, 127], [0, 70, 100, 30], 0, 4),
+      presets: [P("CLOUD PAD", [0, 50, 92, 88, 0, 40, 14, 100], [70, 90, 120, 90], 0, 5), P("GLITCH", [0, 64, 24, 112, 0, 100, 90, 127], [0, 70, 100, 30], 0, 4),
         P("FROZEN", [0, 40, 108, 72, 0, 0, 10, 92], [50, 100, 127, 100], 0, 5), P("SHIMMER", [0, 30, 70, 100, 12, 30, 24, 110], [30, 90, 110, 90], 0, 7)] },
     { name: "PHYS", titles: ["BODY", "EXCT"], edit: [E("MODEL", ["MODAL", "STRNG", "MEMB", "SYMP"], 0), D("STRC", F.PCT, 0, 127, 64),
         D("BRIT", F.PCT, 0, 127, 80), D("DAMP", F.PCT, 0, 127, 80), D("POS", F.PCT, 0, 127, 20), D("ACC", F.PCT, 0, 127, 90),
@@ -1811,6 +1909,13 @@ function makeMockDevice(opt = {}) {
         P("GRAIN BUZZ", [50, 90, 20, 0, 100, 20, 0, 64], [2, 70, 100, 40], 0, 3), P("DRONE", [30, 20, 100, 60, 90, 10, 0, 32], [80, 90, 120, 100], 0, 5),
         P("SINE SWARM", [60, 50, 90, 127, 120, 0, 0, 64], [30, 80, 110, 80], 0, 5), P("BURST PLUCK", [80, 100, 40, 0, 100, 20, 0, 64], [0, 75, 0, 50], 0, 7),
         P("BEE HIVE", [100, 110, 60, 0, 90, 30, 10, 64], [10, 80, 110, 70], 0, 5), P("CHORUS BASS", [20, 30, 120, 0, 70, 30, 20, 64], [0, 60, 80, 30], 1, 2)] },
+    /* M-Vave-OP1: ACID (engine 22, eng_acid.c): a TB-303 bass line: diode ladder, accent, slide; its own envelopes */
+    { name: "ACID", titles: ["ACID", "ENV"], edit: [E("WAVE", ["SAW", "SQR"], 0), D("TUNE", F.SEMI, -12, 12, 0), D("CUT", F.CUTOFF, 0, 127, 40),
+        D("RES", F.PCT, 0, 127, 100), D("ENV", F.PCT, 0, 127, 80), D("DEC", F.PCT, 0, 127, 45), D("ACC", F.PCT, 0, 127, 80), D("DIST", F.PCT, 0, 127, 0)],
+      presets: [P("ACID LINE", [0, 0, 40, 100, 80, 45, 80, 0], [0, 64, 127, 10], 1, 1), P("SQUELCH", [0, 0, 30, 118, 100, 60, 100, 20], [0, 64, 127, 10], 1, 14),
+        P("SQR ACID", [1, 0, 45, 90, 70, 40, 70, 0], [0, 64, 127, 10], 1, 15), P("RUBBER", [0, 0, 55, 60, 50, 25, 60, 0], [0, 64, 127, 10], 1, 2),
+        P("DIST 303", [0, 0, 42, 105, 85, 55, 90, 90], [0, 64, 127, 10], 1, 16), P("DEEP SUB", [1, -12, 30, 40, 30, 30, 40, 0], [0, 64, 127, 10], 1, 8),
+        P("SCREAM", [0, 0, 60, 124, 110, 80, 110, 60], [0, 64, 127, 10], 1, 17), P("SOFT BASS", [0, 0, 35, 50, 40, 35, 30, 0], [0, 64, 127, 10], 1, 2)] },
   ];
   const FM6_E = ENG.findIndex((e) => e.name === "FM6"), FM6_OWN = FM6.FACTORY_PK.length, DRUM_E = ENG.findIndex((e) => e.name === "DRUM");
   /* factory PATTERNS[] (engines.c; the device loads them from SAVE > PHRASES, presets only suggest one): absolute
@@ -1830,6 +1935,11 @@ function makeMockDevice(opt = {}) {
     [[60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75], [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]],
     [[36, 42, 42, 42, 38, 42, 36, 42, 36, 42, 42, 36, 38, 42, 46, 42], [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]],   /* 12 BEAT (DRUM) */
     [[48, 51, 55, 60, 63, 67, 72, 75, 48, 51, 55, 60, 63, 67, 72, 75], [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]],   /* 13 ARP */
+    /* M-Vave-OP1: 14 .. 17, the acid lines (ACID) */
+    [[36, 36, 48, 36, 0, 39, 36, 46, 36, 0, 43, 36, 48, 36, 39, 34], [1, 0, 2, 0, 0, 1, 0, 2, 1, 0, 0, 0, 1, 2, 0, 0]],
+    [[40, 40, 41, 40, 52, 40, 43, 40, 40, 47, 40, 52, 41, 40, 38, 40], [1, 0, 2, 0, 1, 0, 0, 2, 1, 0, 2, 0, 1, 0, 2, 0]],
+    [[33, 45, 33, 45, 33, 0, 45, 33, 36, 48, 36, 0, 31, 43, 31, 43], [1, 2, 0, 2, 1, 0, 0, 2, 1, 2, 0, 0, 1, 2, 0, 2]],
+    [[36, 0, 0, 39, 41, 0, 36, 43, 0, 36, 46, 0, 0, 48, 0, 36], [1, T_, 0, 2, 0, 0, 1, 0, 0, 2, 1, T_, 0, 2, 0, 1]],
   ];
   for (let op = 0; op < 4; op++) TP.push(D("ATK", F.TIME, 0, 127, 0), D("DEC", F.TIME, 0, 127, 0), D("SUS", F.PCT, 0, 127, 127), D("REL", F.TIME, 0, 127, 0), D("LVL", F.PCT, 0, 127, 127));
   TP.push(E("CHRD", ["OFF", "DIA3", "DIA7", "MAJ", "MIN", "DOM7", "MAJ7", "MIN7", "SUS4", "POW"], 0),   /* the chord keys 81, 82 */
@@ -2111,13 +2221,14 @@ function makeMockDevice(opt = {}) {
         break;
       }
       case CMD.INFO:
-        s(opt.legacy ? "FELUCCA 0.4 BETA (MOCK)" : "FELUCCA v1.0 (MOCK)"); b(ENG.length); b(P_COUNT); b(G_COUNT); b(NSTEP); b(P_E0);
+        s(opt.legacy ? "FELUCCA 0.4 BETA (MOCK)" : "FELUCCA v1.0 (MOCK)"); b(ENG.length); b(P_COUNT); b(G_COUNT); b(Math.min(NSTEP, 64)); b(P_E0);
         ENG.forEach((e) => s(e.name));
         if (!opt.legacy) b(NTRK);
         if (!opt.legacy && !opt.v3 && !opt.v5) {
           b(16);
           if (st.uiCaps) { b(0x55); b(1); b(st.uiCaps); b(0x4d); b(1); b(64); b(1); if (!opt.noFm6) { b(0x46); b(1); b(FM6.FACTORY_PK.length); b(0); }
-            if (syncCaps()) { b(0x53); b(1); b(syncCaps()); if (!opt.noFm6) { b(0x50); b(1); b(3); } if (ratchetOn()) { b(0x52); b(1); b(4); } } }   /* (FM6 v2: no bank, preset patches) */
+            if (syncCaps()) { b(0x53); b(1); b(syncCaps()); if (!opt.noFm6) { b(0x50); b(1); b(3); } if (ratchetOn()) { b(0x52); b(1); b(4); } }
+            b(0x58); b(1); b(NSTEP & 127); b(NSTEP >> 7); }   /* (FM6 v2: no bank, preset patches; M-Vave-OP1: 128 steps, last) */
         }
         break;
       case CMD.GET: case CMD.SET: {
@@ -2467,7 +2578,7 @@ function enumShown(d) {
 /* the order the device shows its engines in (src/engines.c ENGINE_ORDER): the lists here follow it, the protocol keeps
    the engine numbers. engineOrder(names): the indices of names in that order, "-" (a reserved number) left out; a name
    the list does not know (another firmware) follows in index order */
-const ENGINE_ORDER = ["ANALOG", "ANLG2", "FM6", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM", "DIGITAL", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS", "NOISE", "DRUM", "VDRUM"];
+const ENGINE_ORDER = ["ANALOG", "ANLG2", "FM6", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM", "DIGITAL", "LOFI", "SAMPLE", "WHEEL", "GRAIN", "PHYS", "NOISE", "DRUM", "VDRUM", "ACID"];
 function engineOrder(names) {
   const rank = (n) => { const k = ENGINE_ORDER.indexOf(n); return k < 0 ? ENGINE_ORDER.length : k; };
   return (names || []).map((n, i) => i).filter((i) => names[i] !== "-")
@@ -2584,7 +2695,21 @@ const TEXT = {
     deviceRejected: "本体がこの設定を受け付けませんでした。",
     devicePending: "反映しました。再生を停止すると保存されます。",
 
-    other: "English", connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
+    other: "English", mirFromDev: "本体のプリセットを取り込む", mirFromEmu: "「本体なし」のプリセットを本体へ",
+    mirDevInfo: "このブラウザに本体のプリセット {n} 個 ({when})", mirEmuInfo: "「本体なし」のプリセット {n} 個 ({when})",
+    mirDevNone: "本体のプリセットのコピーはまだありません: 一度接続してください", mirEmuNone: "「本体なし」にはまだプリセットがありません",
+    mirMine: "こちらのコピー: {when}", mirDone: "プリセットをコピーしました: ",
+    mirAskDev: "これらのスロットを本体のプリセット {n} 個で置き換えますか (本体の空きスロットはここでも空に)?",
+    mirAskEmu: "本体のスロットを「本体なし」のプリセット {n} 個で置き換えますか (空きスロットは本体で消去)?",
+    renamedSlot: "名前を変更しました: ", pickSound: "このファイルには {n} 個の音色があります。どれにしますか?", loadedFile: "ファイルから読み込みました (音色のみ; ステップはそのまま): ",
+    rowPlay: "試聴", rowSave: "ファイルに保存", cancel: "キャンセル", emuFile: "ページがファイルとして開かれています: インストーラーのフォルダーの START-Mac.command (または START-Windows.bat) で起動してください", emuNoCore: "「本体なし」のファームウェアを読み込めませんでした",
+    draftMode: "工場プリセットを編集: 変更を保持", draftRevert: "工場出荷時に戻す", draftExport: "編集したものを書き出し",
+    draftMine: "あなたの版", draftFactory: "工場出荷時", draftPick: "編集するプリセットを選んでください", draftCount: "{n} 個編集済み",
+    draftLoaded: "編集した版: ", draftAskRevert: "{name} のあなたの版を捨てて工場出荷時の音に戻しますか?",
+    tdTitle: "TD-3 グリッド", tdHelp: "各ステップを TD-3 のように: 音、オクターブ下 / 上、ノート · タイ · 休符、アクセント、スライド。「Acid を生成」はトラックのスケール (ROOT, SCL) で新しいアシッドラインを書き込みます。本体では ACID トラックで SEQ + RANDOM。", tdOct: "オクターブ", tdRoll: "Acid を生成", tdRolled: "新しいアシッドライン", tdOctBtn: "オクターブ下 / 上", tdTime: "ノート / タイ / 休符",
+    emuConnect: "本体なし", emuStarting: "このページで FM-1 を起動しています …", emuLabel: "本体なし: このページで動く FM-1 のファームウェア (保存はこのブラウザに)",
+    kbdHelp: "キーボード: {keys} で演奏 ({range}) · {oct} オクターブ · {vel} ベロシティ {v}",
+    connect: "接続", disconnect: "切断", mock: "モック（実機なし）",
     sound: "音色", engine: "エンジン", presets: "プリセット", initSound: "音色を初期化",
     track: "トラック",
     saveFile: "ファイルに保存", loadFile: "ファイルを読み込む", projects: "プロジェクト",
@@ -2604,7 +2729,7 @@ const TEXT = {
     confirmSave: "スロット {n} に上書き保存しますか？", confirmLoad: "スロット {n} を読み込みますか？ 4 トラックすべての音色とシーケンスが置き換わります（元に戻せません）。",
     confirmClear: "シーケンスを全部消しますか？", confirmInit: "音色を初期化しますか？ シーケンスはそのままです（本体の SAVE 長押しで元に戻せます）。",
     samples: "サンプル", smpHelp: "ファイルを選択、または入力から録音。波形の両端でトリム、ホイールで拡大。1枠に16音、合計約7秒。",
-    zones: "ゾーン", smpName: "名前", chooseFiles: "ファイルを選ぶ", upload: "書き込む", erase: "消去", clearList: "リストを消す",
+    zones: "ゾーン", smpName: "名前", chooseFiles: "ファイルを選ぶ", slotFile: "スロットファイル", slotFileTip: "完成したスロットファイル (.slot、例: FLUTE、SAX) をそのまま書き込む", upload: "書き込む", erase: "消去", clearList: "リストを消す",
     file: "ファイル", root: "ルート", keys: "鍵盤", length: "長さ", remove: "外す",
     record: "録音", stopRec: "停止", recInput: "入力", recDenied: "録音できません", recFull: "スロットがいっぱいです", recSilent: "無音でした。入力を確かめてください",
     preview: "試聴", autoTrim: "自動トリム", trim: "切り取り",
@@ -2618,12 +2743,17 @@ const TEXT = {
     sortModified: "更新順", sortCreated: "作成順", sortName: "名前順", sortEngine: "エンジン順",
     name: "名前", tagsCol: "タグ", date: "更新",
     audition: "試聴", toSlot: "本体スロットへ", rename: "名前変更", tags: "タグ", duplicate: "複製", delete: "削除",
-    exportPatch: "書き出し", saveToLib: "今の音色をライブラリへ", import: "読み込み", exportLib: "ライブラリを書き出し",
+    exportPatch: "書き出し", saveToLib: "今の音色をライブラリへ", import: "読み込み", exportLib: "ライブラリを書き出し", exportPresets: "プリセットファイルを書き出し",
+    exportPresetsTip: "表示中の音色をプリセットファイルに (tools/import_presets.py が工場プリセットにする)",
     factoryToLib: "ライブラリへコピー", libEmpty: "ライブラリは空です。「今の音色をライブラリへ」やファクトリープリセットのコピー、本体スロットからの取り込み、ファイルの読み込みで追加できます。",
     noMatch: "該当なし", noLibDB: "（ブラウザに保存できません。再読み込みで消えます）",
     bank: "本体のユーザープリセット", bankLoad: "読込", bankStore: "今の音色を保存", bankGet: "ライブラリへ",
     exportBank: "バンクを書き出し", dndHelp: "ライブラリとスロットの間はドラッグでもコピーできます。",
-    confirmOverwrite: "スロット {n}（{name}）を上書きしますか？", confirmEraseSlot: "スロット {n}（{name}）を消去しますか？",
+    confirmOverwrite: "スロット {n}（{name}）を上書きしますか？",
+    dfTitle: "本体のプリセット", dfHelp: "ユーザープリセットのスロットをファイルとして: 1 つを書き出す、ファイルで置き換える (ボタン、または行にドロップ)、複数を書き込む (同じ名前のスロットは置き換え、その他は空きスロットへ)。PRESETS に工場プリセットと並んで表示されます。",
+    dfUpload: "ファイルを書き込む", dfAll: "すべて書き出し", dfGet: "書き出し", dfPut: "置き換え", dfGetTip: "このプリセットをファイルに",
+    dfPutTip: "このスロットをプリセットファイルで置き換え", dfNone: "このファームウェアの音色がありません", dfReplaces: "置き換え",
+    dfFull: "空きスロットがありません", dfConfirm: "これらのプリセットを本体に書き込みますか？", dfDone: "プリセットを書き込みました: ", confirmEraseSlot: "スロット {n}（{name}）を消去しますか？",
     confirmDelete: "「{name}」をライブラリから削除しますか？",
     promptName: "名前（本体では英数字 12 文字まで）", promptTags: "タグ（カンマ区切り）",
     promptNameAuto: "名前（英数字 12 文字まで。空なら本体が自動で付けます）",
@@ -2688,6 +2818,20 @@ const TEXT = {
     devicePending: "Applied. Settings will save when playback stops.",
 
     other: "日本語", connect: "Connect", disconnect: "Disconnect", mock: "Mock device (no hardware)",
+    mirFromDev: "Take the FM-1's presets", mirFromEmu: "Bring the No-device presets to the FM-1",
+    mirDevInfo: "This browser keeps the FM-1's {n} presets ({when})", mirEmuInfo: "No device has {n} presets ({when})",
+    mirDevNone: "No copy of the FM-1's presets yet: connect it once", mirEmuNone: "No device has no presets of its own yet",
+    mirMine: "this side's copy: {when}", mirDone: "Presets copied: ",
+    mirAskDev: "Replace these slots with the FM-1's {n} presets (its empty slots empty here too)?",
+    mirAskEmu: "Replace the FM-1's slots with the {n} presets of No device (their empty slots erased on the FM-1)?",
+    renamedSlot: "Renamed: ", pickSound: "This file holds {n} sounds. Which one?", loadedFile: "Loaded from the file (the sound; the steps stay): ",
+    rowPlay: "Audition", rowSave: "Save as a file", cancel: "Cancel", emuFile: "The page was opened as a file: start it with START-Mac.command (or START-Windows.bat) from the installer folder", emuNoCore: "The firmware for No device could not be loaded",
+    draftMode: "Edit the factory presets: keep my changes", draftRevert: "Back to factory", draftExport: "Export edited",
+    draftMine: "your version", draftFactory: "factory", draftPick: "pick a preset to edit it", draftCount: "{n} edited",
+    draftLoaded: "Your edited version: ", draftAskRevert: "Drop your version of {name} and go back to the factory sound?",
+    tdTitle: "TD-3 grid", tdHelp: "Each step as a TD-3 enters it: its note, octave down / up, note · tie · rest, accent, slide. Roll acid writes a new acid line in the track's scale (ROOT, SCL); on the device SEQ + RANDOM does it on an ACID track.", tdOct: "Octave", tdRoll: "Roll acid", tdRolled: "New acid line", tdOctBtn: "Octave down / up", tdTime: "Note / tie / rest",
+    emuConnect: "No device", emuStarting: "Starting the FM-1 in this page …", emuLabel: "No device: the FM-1's firmware in this page (its sound; saves stay in this browser)",
+    kbdHelp: "Keyboard: {keys} play ({range}) · {oct} octave · {vel} velocity {v}",
     sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Init sound",
     track: "Track",
     saveFile: "Save to file", loadFile: "Load file", projects: "Projects",
@@ -2707,7 +2851,7 @@ const TEXT = {
     confirmSave: "Overwrite slot {n}?", confirmLoad: "Load slot {n}? The sounds and sequences of all four tracks are replaced (no undo).",
     confirmClear: "Clear the whole sequence?", confirmInit: "Reset the sound to the engine defaults? The sequence stays (hold SAVE on the device to undo).",
     samples: "Samples", smpHelp: "Choose files or record an input. Drag waveform ends to trim; wheel to zoom. Up to 16 sounds and about 7 s per slot.",
-    zones: "zones", smpName: "Name", chooseFiles: "Choose files", upload: "Upload", erase: "Erase", clearList: "Clear list",
+    zones: "zones", smpName: "Name", chooseFiles: "Choose files", slotFile: "Slot file", slotFileTip: "Write a finished slot file (.slot, e.g. dist/samples/FLUTE.slot, SAX.slot) as it is", upload: "Upload", erase: "Erase", clearList: "Clear list",
     file: "File", root: "Root", keys: "Keys", length: "Length", remove: "Remove",
     record: "Record", stopRec: "Stop", recInput: "Input", recDenied: "Cannot record", recFull: "The slot is full", recSilent: "Silence: check the input",
     preview: "Play", autoTrim: "Auto trim", trim: "Trim",
@@ -2721,12 +2865,17 @@ const TEXT = {
     sortModified: "Recently changed", sortCreated: "Recently added", sortName: "Name", sortEngine: "Engine",
     name: "Name", tagsCol: "Tags", date: "Changed",
     audition: "Audition", toSlot: "To device slot", rename: "Rename", tags: "Tags", duplicate: "Duplicate", delete: "Delete",
-    exportPatch: "Export", saveToLib: "Save current sound", import: "Import", exportLib: "Export library",
+    exportPatch: "Export", saveToLib: "Save current sound", import: "Import", exportLib: "Export library", exportPresets: "Export presets",
+    exportPresetsTip: "The sounds shown, as a preset file (tools/import_presets.py turns them into factory presets)",
     factoryToLib: "Copy to library", libEmpty: "The library is empty. Add sounds with \"Save current sound\", by copying a factory preset or a device slot, or by importing a file.",
     noMatch: "No match", noLibDB: "(this browser cannot store it: it is gone after a reload)",
     bank: "User presets on the device", bankLoad: "Load", bankStore: "Store current sound", bankGet: "To library",
     exportBank: "Export bank", dndHelp: "You can also drag between the library and the slots.",
-    confirmOverwrite: "Overwrite slot {n} ({name})?", confirmEraseSlot: "Erase slot {n} ({name})?",
+    confirmOverwrite: "Overwrite slot {n} ({name})?",
+    dfTitle: "Presets on the device", dfHelp: "The user preset slots as files: download one, replace one with a file (its button, or drop the file on its row), or upload several (a sound named like a slot replaces it, the others go into empty slots). They show in PRESETS beside the factory presets. Send me a file to make it a factory preset. This browser also keeps a copy of the FM-1's presets: No device starts with them, to play and edit them without the FM-1, and brings them back.",
+    dfUpload: "Upload files", dfAll: "Download all", dfGet: "Download", dfPut: "Replace", dfGetTip: "This preset as a file",
+    dfPutTip: "Replace this slot with a preset file", dfNone: "no sound for this firmware in it", dfReplaces: "replaces",
+    dfFull: "No empty slot left for", dfConfirm: "Write these presets to the device?", dfDone: "Presets written: ", confirmEraseSlot: "Erase slot {n} ({name})?",
     confirmDelete: "Delete \"{name}\" from the library?",
     promptName: "Name (the device keeps 12 ASCII characters)", promptTags: "Tags (comma separated)",
     promptNameAuto: "Name (12 ASCII characters; empty: the device names it)",
@@ -2747,15 +2896,143 @@ const TEXT = {
     system: "System", firmware: "Firmware", sync: "Sync", tracksN: "Tracks", stepsN: "Steps", enginesL: "Engines",
     smpSlots: "Sample slots", userBank: "User presets", none: "none",
   },
+  de: {
+    tabFm6: "6-OP FM", fm6Help: "Das ganze Patch der FM6-Engine (sechs Operatoren) bearbeiten. Die Regler am Gerät sind Makros darüber. SysEx-Datei laden, eine Stimme wählen, bearbeiten und an eine Spur senden: sie spielt sofort. Eine Spur hat ein Patch: was du lädst, wird es (SLOT zeigt OWN).",
+    fm6Source: "Patches rein und raus", fm6ReadBtn: "Von Spur lesen", fm6SendBtn: "An Spur senden", fm6Live: "Beim Bearbeiten senden",
+    fm6Import: "SysEx laden", fm6Export: "SysEx speichern",
+    fm6Init: "Stimme zurücksetzen", fm6Voice: "Stimme", fm6Ops: "Operatoren", fm6Carriers: "Träger", fm6Feedback: "Rückkopplung",
+    fm6PitchEg: "Tonhöhen-EG", fm6Freq: "Frequenz",
+    fm6Legend: "R1..R4 / L1..L4: Raten und Pegel der Hüllkurve; BP LD RD LC RC: Pegelskalierung über die Tastatur; RS: Ratenskalierung; AMS: Amplitudenmodulation durch den LFO; KVS: Anschlag; OL: Ausgangspegel; MODE: Verhältnis / fest; FC FF: Frequenz grob / fein; DET: Verstimmung (7 = Mitte). ● = Träger.",
+    fm6Pick: "Stimmen der geladenen Datei (zum Bearbeiten anklicken):", fm6Picked: "In Bearbeitung:", fm6Sent: "An Spur gesendet", fm6Read: "Von Spur gelesen",
+    fm6Loaded: "Geladen", fm6BadSum: "eine Prüfsumme stimmte nicht",
+    fm6Keep: "Um eine Stimme zu behalten: an eine Spur senden, dann am Gerät ein User-Preset (SAVE) oder ein Projekt speichern.",
+    fm6Short: "einige Daten waren abgeschnitten", fm6Skipped: "{x} Blöcke ohne Stimmen übersprungen",
+    fm6NoVoice: "Keine 6-Operator-FM-Stimmen gefunden (erwartet eine Bank mit 32 Stimmen oder ein Einzelstimmen-SysEx)",
+    fm6NotSysex: "Keine SysEx-Datei (erwartet eine 6-Operator-FM-Bank mit 32 Stimmen oder ein Einzelstimmen-SysEx)",
+    fm6Is4op: "Das sind 4-Operator-FM-Stimmen: FM6 liest nur 6-Operator-Stimmen",
+    fm6OtherBlocks: "6-Operator-Dateiformat, aber keine Stimmen (nur Performance- oder Zusatzdaten)",
+    fm6OtherMaker: "SysEx eines anderen Herstellers", fm6Universal: "Universal-SysEx, keine Stimmdaten",
+    fm6Factories: "Werks-Patch",
+    fm6NeedDevice: "Verbinde das FM-1 (oder „Ohne Gerät“), um 6-OP-FM-Stimmen zu bearbeiten und an eine Spur zu senden.",
+    fm6NoFw: "Diese Firmware hat kein 6-OP FM (FM6). Aktualisiere auf Felucca 1.0 oder neuer.",
+    motion: "Automation", motionOn: "Automation abspielen", motionClear: "Automation löschen", motionConfirm: "Die Automation dieser Spur löschen?", chance: "Chance %", ratchet: "Ratchet", motionStep: "Step", motionParam: "Parameter", motionValue: "Wert",
+    backupTitle: "Komplettes Backup", backupExport: "Backup speichern", backupImport: "Backup wiederherstellen", backupHelp: "Die aktuelle Musik, A–D, die Sound-Bänke, User-Samples und Einstellungen auf diesem Computer speichern.", backupOld: "Komplette Backups brauchen eine Firmware mit Archiv-Unterstützung.", backupConfirm: "Dieses komplette Backup wiederherstellen? Aktuelle Musik, gespeicherte Daten und Samples werden ersetzt. USB verbunden lassen.", backupWorking: "Backup / Wiederherstellen ", backupDone: "Backup gespeichert", backupRestored: "Komplettes Backup wiederhergestellt",
+    deviceDisplay: "Gerätedisplay",
+    deviceDisplayHelp: "Änderungen gelten für den FM-1-Bildschirm und werden gespeichert. Während der Wiedergabe gemachte Änderungen werden nach STOP gespeichert.",
+    devicePresets: "Presets am Gerät",
+    deviceFavHelp: "Sterne und der Favoriten-Filter werden mit dem FM-1 abgeglichen. Sounds aus der Bibliothek erst auf einen User-Platz des Geräts speichern, dann mit Stern versehen.",
+    deviceList: "Zeigen",
+    deviceAll: "Alle Presets",
+    deviceFavorites: "Nur Favoriten",
+    deviceEmpty: "Noch keine Favoriten. Wähle „Alle Presets“, um welche hinzuzufügen.",
+    deviceTheme: "Farbschema",
+    deviceFont: "Schrift",
+    deviceMonitor: "MIDI-Monitor",
+    deviceRegular: "Normal",
+    deviceBold: "Fett",
+    deviceOff: "Aus",
+    deviceEvents: "Ereignisse",
+    deviceNotes: "Gehaltene Noten / Akkorde",
+    deviceStar: "Zu Favoriten",
+    deviceUnstar: "Aus Favoriten entfernen",
+    deviceUnsaved: "Übernommen, aber am Gerät nicht gespeichert. Bitte noch einmal versuchen.",
+    deviceRejected: "Das Gerät hat diese Einstellung abgelehnt.",
+    devicePending: "Übernommen. Die Einstellungen werden gespeichert, wenn die Wiedergabe stoppt.",
+
+    connect: "Verbinden", disconnect: "Trennen", mock: "Simuliertes Gerät (keine Hardware)",
+    mirFromDev: "Presets vom FM-1 übernehmen", mirFromEmu: "Presets von „Ohne Gerät“ aufs FM-1",
+    mirDevInfo: "Dieser Browser hat die {n} Presets des FM-1 ({when})", mirEmuInfo: "„Ohne Gerät“ hat {n} Presets ({when})",
+    mirDevNone: "Noch keine Kopie der Presets des FM-1: einmal verbinden", mirEmuNone: "„Ohne Gerät“ hat noch keine eigenen Presets",
+    mirMine: "Kopie dieser Seite: {when}", mirDone: "Presets kopiert: ",
+    mirAskDev: "Diese Plätze durch die {n} Presets des FM-1 ersetzen (seine leeren Plätze werden hier auch leer)?",
+    mirAskEmu: "Die Plätze des FM-1 durch die {n} Presets von „Ohne Gerät“ ersetzen (deren leere Plätze werden am FM-1 gelöscht)?",
+    renamedSlot: "Umbenannt: ", pickSound: "Diese Datei enthält {n} Sounds. Welchen?", loadedFile: "Aus der Datei geladen (der Sound; die Steps bleiben): ",
+    rowPlay: "Anhören", rowSave: "Als Datei speichern", cancel: "Abbrechen", emuFile: "Die Seite wurde als Datei geöffnet: bitte mit START-Mac.command (oder START-Windows.bat) aus dem Installer-Ordner starten", emuNoCore: "Die Firmware für „Ohne Gerät“ ließ sich nicht laden",
+    draftMode: "Werks-Presets bearbeiten: Änderungen merken", draftRevert: "Zurück zum Werkszustand", draftExport: "Bearbeitete exportieren",
+    draftMine: "deine Fassung", draftFactory: "Werkszustand", draftPick: "ein Preset wählen, um es zu bearbeiten", draftCount: "{n} bearbeitet",
+    draftLoaded: "Deine bearbeitete Fassung: ", draftAskRevert: "Deine Fassung von {name} verwerfen und zum Werks-Sound zurück?",
+    tdTitle: "TD-3-Raster", tdHelp: "Jeder Step wie bei der TD-3: Note, Oktave runter / hoch, Note · Tie · Pause, Accent, Slide. „Acid würfeln“ schreibt eine neue Acid-Linie in der Tonart der Spur (ROOT, SCL); am Gerät macht das SEQ + RANDOM auf einer ACID-Spur.", tdOct: "Oktave", tdRoll: "Acid würfeln", tdRolled: "Neue Acid-Linie", tdOctBtn: "Oktave runter / hoch", tdTime: "Note / Tie / Pause",
+    emuConnect: "Ohne Gerät", emuStarting: "Das FM-1 startet in dieser Seite …", emuLabel: "Ohne Gerät: die Firmware des FM-1 in dieser Seite (ihr Klang; Gespeichertes bleibt in diesem Browser)",
+    kbdHelp: "Tastatur: {keys} spielen ({range}) · {oct} Oktave · {vel} Anschlag {v}",
+    sound: "Sound", engine: "Engine", presets: "Presets", initSound: "Sound zurücksetzen",
+    track: "Spur",
+    saveFile: "Als Datei speichern", loadFile: "Datei laden", projects: "Projekte",
+    load: "Laden", save: "Speichern", used: "belegt", empty: "leer", unknown: "—",
+    steps: "Steps", reload: "Neu lesen", clearSeq: "Sequenz löschen",
+    notesHelp: "Noten wie C4 E4 G4 eingeben (bis zu 4, C4 = 60). Hits sind DRUM-Spuren: KICK >SNARE HATCL (> = Akzent).",
+    notes: "Noten", hits: "Hits", time: "Länge", acc: "Akzent", slide: "Slide", vel: "Anschlag",
+    foot: "Läuft in Chrome oder Edge.", iconsCredit: "Icons: Fukiai (MIT), Hügelton Instruments",
+    nomidi: "Dieser Browser kann kein MIDI. Öffne die Seite in Chrome oder Edge (oder nimm „Ohne Gerät“).",
+    denied: "MIDI-Zugriff (SysEx) wurde nicht erlaubt.",
+    nodevice: "Felucca nicht gefunden. Per USB anschließen und noch einmal auf Verbinden drücken.",
+    connecting: "Verbinde", reading: "Lese ", steploading: "Lese Steps ",
+    ready: "Verbunden", disconnected: "Getrennt", lost: "Felucca wurde abgesteckt",
+    noreply: "Keine Antwort vom Gerät", error: "Fehler: ", busy: "Beschäftigt",
+    applying: "Schreibe ", applied: "Geladen", badfile: "Datei nicht lesbar: ",
+    savedSlot: "Gespeichert in Platz ", loadedSlot: "Platz geladen ", emptySlot: "Leerer Platz: ",
+    confirmSave: "Platz {n} überschreiben?", confirmLoad: "Platz {n} laden? Sounds und Sequenzen aller vier Spuren werden ersetzt (kein Rückgängig).",
+    confirmClear: "Die ganze Sequenz löschen?", confirmInit: "Den Sound auf die Grundwerte der Engine zurücksetzen? Die Sequenz bleibt (SAVE am Gerät halten macht es rückgängig).",
+    samples: "Samples", smpHelp: "Dateien wählen oder einen Eingang aufnehmen. Die Enden der Wellenform ziehen zum Kürzen; Mausrad zoomt. Bis zu 16 Sounds und etwa 7 s pro Platz.",
+    zones: "Zonen", smpName: "Name", chooseFiles: "Dateien wählen", slotFile: "Slot-Datei", slotFileTip: "Eine fertige Slot-Datei (.slot, z. B. samples/FLUTE.slot, SAX.slot) unverändert schreiben", upload: "Hochladen", erase: "Löschen", clearList: "Liste leeren",
+    file: "Datei", root: "Grundton", keys: "Tasten", length: "Länge", remove: "Entfernen",
+    record: "Aufnehmen", stopRec: "Stopp", recInput: "Eingang", recDenied: "Aufnahme nicht möglich", recFull: "Der Platz ist voll", recSilent: "Stille: Eingang prüfen",
+    preview: "Abspielen", autoTrim: "Automatisch kürzen", trim: "Kürzen",
+    smpTooBig: "zu groß", smpDecodeFail: "Nicht lesbar: ", smpUploading: "Lade hoch USR", smpDone: "Hochgeladen USR",
+    smpFail: "Sample-Upload fehlgeschlagen: ", smpErased: "Gelöscht USR",
+    confirmErase: "USR{n} löschen?", confirmUpload: "In USR{n} schreiben? Der bisherige Inhalt wird ersetzt.",
+    layout: "(Die Firmware hat eine andere Parameterzahl; einfache Liste.)",
+    ctlHelp: "Regler: anklicken, dann mit Mausrad oder Pfeiltasten fein einstellen (Shift: Zehnerschritte); Doppelklick setzt zurück.",
+    live: "● Live", polling: "○ Abfrage (ältere Firmware)",
+    library: "Bibliothek", libSearch: "Name oder Tag suchen", allEngines: "Alle Engines", allTags: "Alle Tags",
+    sortModified: "Zuletzt geändert", sortCreated: "Zuletzt hinzugefügt", sortName: "Name", sortEngine: "Engine",
+    name: "Name", tagsCol: "Tags", date: "Geändert",
+    audition: "Anhören", toSlot: "Auf Geräteplatz", rename: "Umbenennen", tags: "Tags", duplicate: "Duplizieren", delete: "Löschen",
+    exportPatch: "Exportieren", saveToLib: "Aktuellen Sound speichern", import: "Importieren", exportLib: "Bibliothek exportieren", exportPresets: "Presets exportieren",
+    exportPresetsTip: "Die angezeigten Sounds als Preset-Datei (tools/import_presets.py macht daraus Werks-Presets)",
+    factoryToLib: "In die Bibliothek", libEmpty: "Die Bibliothek ist leer. Sounds hinzufügen mit „Aktuellen Sound speichern“, durch Kopieren eines Werks-Presets oder eines Geräteplatzes, oder durch Importieren einer Datei.",
+    noMatch: "Kein Treffer", noLibDB: "(dieser Browser kann sie nicht speichern: nach dem Neuladen ist sie weg)",
+    bank: "User-Presets am Gerät", bankLoad: "Laden", bankStore: "Aktuellen Sound ablegen", bankGet: "In die Bibliothek",
+    exportBank: "Bank exportieren", dndHelp: "Du kannst auch zwischen Bibliothek und Plätzen ziehen.",
+    confirmOverwrite: "Platz {n} ({name}) überschreiben?",
+    dfTitle: "Presets am Gerät", dfHelp: "Die User-Preset-Plätze als Dateien: eins herunterladen, eins durch eine Datei ersetzen (Button, oder die Datei auf die Zeile ziehen), oder mehrere hochladen (ein Sound mit dem Namen eines Platzes ersetzt ihn, die anderen kommen auf leere Plätze). Sie erscheinen in PRESETS neben den Werks-Presets. Schick mir eine Datei, um ein Werks-Preset daraus zu machen. Dieser Browser behält außerdem eine Kopie der Presets des FM-1: „Ohne Gerät“ startet mit ihnen, zum Spielen und Bearbeiten ohne FM-1, und bringt sie zurück.",
+    dfUpload: "Dateien hochladen", dfAll: "Alle herunterladen", dfGet: "Herunterladen", dfPut: "Ersetzen", dfGetTip: "Dieses Preset als Datei",
+    dfPutTip: "Diesen Platz durch eine Preset-Datei ersetzen", dfNone: "kein Sound für diese Firmware darin", dfReplaces: "ersetzt",
+    dfFull: "Kein leerer Platz mehr für", dfConfirm: "Diese Presets auf das Gerät schreiben?", dfDone: "Presets geschrieben: ", confirmEraseSlot: "Platz {n} ({name}) löschen?",
+    confirmDelete: "„{name}“ aus der Bibliothek löschen?",
+    promptName: "Name (das Gerät behält 12 ASCII-Zeichen)", promptTags: "Tags (durch Komma getrennt)",
+    promptNameAuto: "Name (12 ASCII-Zeichen; leer: das Gerät benennt ihn)",
+    auditioning: "Bereite Anhören vor ", auditioned: "Zum Anhören geladen (nur der Sound, die Sequenz bleibt; SAVE am Gerät halten macht es rückgängig): ",
+    savedLib: "In der Bibliothek gespeichert: ", copiedLib: "In die Bibliothek kopiert: ", imported: "Importiert: ",
+    skippedN: " ({n} nicht lesbar)", patchesN: " Sounds",
+    putDone: "Auf das Gerät geschrieben: Platz ", storedSlot: "Am Gerät abgelegt: Platz ", erasedSlot: "Platz gelöscht ",
+    loadedUser: "Sound geladen (die Sequenz bleibt; das Pattern liegt am Gerät unter SAVE > PHRASES; SAVE halten macht es rückgängig): ", reloaded: "Der Sound hat sich am Gerät geändert: neu gelesen", readingBank: "Lese die Plätze",
+    badEngine: "Diese Firmware hat diese Engine nicht: ", flashFail: "Schreiben fehlgeschlagen (rc {rc})",
+    installer: "Felucca-Installer",
+    tabSeq: "Sequencer", tabTracks: "Spuren", tabSettings: "Einstellungen",
+    needDevice: "Verbinde das FM-1 (oder nimm „Ohne Gerät“), um zu bearbeiten.", smpNone: "Diese Firmware hat keine User-Sample-Plätze.",
+    bankConnect: "Verbinde das FM-1, um auch seine User-Presets zu sehen.", bankNone: "Diese Firmware hat keine User-Presets.",
+    mixer: "Mixer", mixHelp: "Die vier Spuren der MIXER-Seite des Geräts. Der Fader ist der Pegel. Pan wird in jede Spur geschrieben, ohne die Auswahl zu ändern (Firmware 0.8: durch kurzes Auswählen). REC zeigt eine Spur, die am Gerät für die Live-Aufnahme scharf ist.",
+    level: "Pegel", pan: "Pan", mute: "Stumm", rec: "REC", selectTrack: "Wählen", selectedTrack: "Gewählt",
+    projHelp: "Ein Projekt enthält die Sounds und Patterns aller vier Spuren, die Song-Kette, die gewählte Spur und die globalen Einstellungen.",
+    slot: "Platz", songTitle: "Song", songHelp: "Patterns aus gespeicherten Plätzen anordnen und ihre Wiederholungen wählen. Die aktuellen Sounds bleiben. Oben ein Projekt speichern, um die Kette zu behalten. Die Zeilen wechseln am Ende von Spur 1; der Song stoppt am Ende.", songAdd: "Zeile hinzufügen", songRemove: "Letzte Zeile entfernen", songPlay: "Von vorn spielen", songStop: "Stopp", songReps: "Wiederholungen", songEmpty: "Erst eine Zeile hinzufügen", songBusy: "Vor dem Bearbeiten stoppen", songInvalid: "Plätze und Wiederholungen prüfen", songPlaying: "Spielt Zeile", songSaved: "Kette geändert. Ein Projekt speichern, um sie zu behalten.",
+    system: "System", firmware: "Firmware", sync: "Sync", tracksN: "Spuren", stepsN: "Steps", enginesL: "Engines",
+    smpSlots: "Sample-Plätze", userBank: "User-Presets", none: "keine",
+  },
 };
-let lang = (navigator.language || "en").toLowerCase().startsWith("ja") ? "ja" : "en";
-const t = (k) => TEXT[lang][k] ?? k;
+/* EN / DE (M-Vave-OP1) / 日本語: the choice kept (localStorage), else the browser's language; a string DE lacks: EN's */
+const LANG_KEY = "felucca-editor-lang";
+let lang = (() => {
+  try { const v = localStorage.getItem(LANG_KEY); if (TEXT[v]) return v; } catch (e) { /* no storage */ }
+  const b = (navigator.language || "en").toLowerCase();
+  return b.startsWith("ja") ? "ja" : b.startsWith("de") ? "de" : "en";
+})();
+const t = (k) => TEXT[lang][k] ?? TEXT.en[k] ?? k;
 let lastKey = null, lastArg = "";
 function sayK(k, arg = "") { lastKey = k; lastArg = arg; $("status").textContent = t(k) + arg; }
 function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((e) => setLabel(e, t(e.dataset.t)));
-  $("lang").textContent = t("other");
+  $("lang").value = lang;
   setLabel($("connect"), t(dev ? "disconnect" : "connect"));
   if (lastKey) $("status").textContent = t(lastKey) + lastArg;
   $("libq").placeholder = t("libSearch");
@@ -2766,7 +3043,11 @@ function applyLang() {
   renderPanels();
   if (dev) { renderSlots(); renderStepHead(); renderSamples(); renderTrackbar(); renderMixer(); renderSysinfo(); renderFm6(); }
 }
-$("lang").addEventListener("click", () => { lang = lang === "ja" ? "en" : "ja"; applyLang(); });
+$("lang").addEventListener("change", () => {
+  lang = TEXT[$("lang").value] ? $("lang").value : "en";
+  try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* no storage */ }
+  applyLang();
+});
 
 /* ---------------------------------------------------------------- tabs --- */
 /* one panel at a time; the last one is remembered (localStorage) and in the URL hash (#sound ...) */
@@ -2876,23 +3157,27 @@ const EXPECT = { pcount: 91, gcount: 27, pe0: 83 };
 /* the same layout without the chord keys (P_COUNT 89, P_E0 81), the FM operator ENVs too (69, 61) or the matrix
    (firmware 1.0: 57, 49) */
 const knownLayout = (info) => info.gcount === EXPECT.gcount &&
-  [[99, 91], [91, 83], [89, 81], [69, 61], [57, 49]].some(([c, e]) => info.pcount === c && info.pe0 === e);
+  [[111, 103], [104, 96], [99, 91], [91, 83], [89, 81], [69, 61], [57, 49]].some(([c, e]) => info.pcount === c && info.pe0 === e);
+/* 1.2 (104, 96): LFO 2's SYNC TRIG POL 91..93, QUANTIZE 94 (the steps'), SPREAD 95; 1.5 (111, 103): the INSERT 96..100,
+   ANALOG's filter TYPE 101, ENV SYNC 102. M-Vave-OP1: ANLG2's WAVE 2 (CUT2 RES2 LFO2 RATE2) at 61..64 */
 const P = { LEVEL: 0, SLEN: 29 };
 const LAYOUT = (pe0) => [
-  { t: "ENV", pages: [["ENV", 0, [1, 2, 3, 4]], ["ENV DEST", 0, [5, 6, 7, 8]]] },
-  { t: "LFO", pages: [["LFO", 0, [9, 10, 11, 12]], ["LFO DEST", 0, [13, 14, 15, 16]]] },
+  { t: "ENV", pages: [["ENV", 0, [1, 2, 3, 4, ...(pe0 >= 103 ? [102] : [])]], ["ENV DEST", 0, [5, 6, 7, 8]]] },
+  { t: "LFO", pages: [["LFO", 0, [9, 10, 11, 12]], ...(pe0 >= 96 ? [["LFO 2", 0, [91, 92, 93]]] : []), ["LFO DEST", 0, [13, 14, 15, 16]]] },
   ...(pe0 >= 61 ? [{ t: "MOD", mod: 49 }] : []),   /* the matrix: P_M1SRC 49 .. P_M4AMT 60, one row per slot */
   { t: "EDIT", engine: true, pages: [["EDIT 1", 0, [pe0, pe0 + 1, pe0 + 2, pe0 + 3]], ["EDIT 2", 0, [pe0 + 4, pe0 + 5, pe0 + 6, pe0 + 7]],
-    ...(pe0 >= 91 && engName() === "DRUM" ? [["LANES", 0, P_LANES.slice(0, 4)], ["LANES 2", 0, P_LANES.slice(4)]] : [])] },   /* lane levels 83..90 */
+    ...(pe0 >= 91 && engName() === "DRUM" ? [["LANES", 0, P_LANES.slice(0, 4)], ["LANES 2", 0, P_LANES.slice(4)]] : []),   /* lane levels 83..90 */
+    ...(pe0 >= 103 && engName() === "ANALOG" ? [["FILTER", 0, [101]]] : []),
+    ...(pe0 >= 103 && engName() === "ANLG2" ? [["WAVE 2", 0, [61, 62, 63, 64]]] : [])] },
   ...(pe0 >= 81 && engName() === "DIGITAL" ? [{ t: "OP ENV", pages: [   /* P_FM1_ATK 61: ATK DEC SUS REL LVL per operator (a
                                                     FELUCCA_FM4=1 firmware only: DIGITAL retired, its engine is "-") */
     ...[0, 1, 2, 3].map((k) => [`OP${k + 1}`, 0, [61 + 5 * k, 62 + 5 * k, 63 + 5 * k, 64 + 5 * k]]),
     ["OP LVL", 0, [65, 70, 75, 80]]] }] : []),
-  { t: "VOICE", pages: [["LEVEL", 0, [0]], ["VOICE", 0, [37, 38, 41, 42]], ["VOICE 2", 0, [43, 44, 39, 40]]] },
-  { t: "FX", pages: [["FX", 0, [33, 34, 35, 36]], ["SLICER", 0, [45, 46, 47, 48]], ["DLY", 1, [4, 5, 6, 7]], ["REVERB", 1, [24, 8, 9]], ["CHORUS", 1, [10, 11]]] },   /* G_RTYPE 24: ROOM / SPRING / HALL / SHIMMER */
+  { t: "VOICE", pages: [["LEVEL", 0, [0]], ["VOICE", 0, [37, 38, 41, 42]], ["VOICE 2", 0, [43, 44, 39, 40, ...(pe0 >= 96 ? [95] : [])]]] },
+  { t: "FX", pages: [["FX", 0, [33, 34, 35, 36]], ...(pe0 >= 103 ? [["INSERT", 0, [96, 97, 98, 99, 100]]] : []), ["SLICER", 0, [45, 46, 47, 48]], ["DLY", 1, [4, 5, 6, 7]], ["REVERB", 1, [24, 8, 9]], ["CHORUS", 1, [10, 11]]] },   /* G_RTYPE 24: ROOM / SPRING / HALL / SHIMMER */
   { t: "SCL", pages: [["SCL", 0, [25, 26, 27, 28]], ...(pe0 >= 83 ? [["CHORD", 0, P_CHORD]] : [])] },   /* CHRD VOIC 81, 82 */
   { t: "ARP", pages: [["ARP", 0, [17, 18, 19, 20]], ["ARP 2", 0, [21, 22, 23, 24]]] },
-  { t: "SEQ PATTERN", tab: "seqgroups", pages: [["PATTERN", 0, [29, 30, 31, 32]]] },
+  { t: "SEQ PATTERN", tab: "seqgroups", pages: [["PATTERN", 0, [29, 30, 31, 32, ...(pe0 >= 96 ? [94] : [])]]] },
   /* 1.2: as the device shows them: HOME > CLOCK (BPM SWG; CLK not here), MENU > AUDIO TUNE, MENU > MIDI > MIDI IN (G_ROUTE) */
   { t: "GLOBAL", tab: "setgroups", pages: [["CLOCK", 1, [0, 1, 2]], ["AUDIO", 1, [3]], ["MIDI", 1, [14]]] },
 ];
@@ -2906,14 +3191,272 @@ const pSlen = () => { const i = dev.pdesc.findIndex((d) => d && d.fmt === F.STEP
 const pById = (label, def) => { const i = dev.pdesc.findIndex((d, k) => d && k < dev.info.pe0 && d.label === label); return i >= 0 ? i : def; };
 const pPan = () => pById("PAN", 39), pMute = () => pById("MUTE", 40);
 
+/* confirm() and prompt() as the page's own dialog (M-Vave-OP1: inside a claude.ai Artifact the frame answers those false
+   and null at once) -> a promise: askOk true / false, askText the text / null */
+function askDialog(msg, value) {
+  return new Promise((resolve) => {
+    const inp = value == null ? null : el("input", { type: "text", value: String(value), spellcheck: "false", style: "width:100%" });
+    const ok = el("button", { type: "submit", value: "ok", text: "OK" });
+    const no = el("button", { type: "submit", value: "no", text: t("cancel"), formnovalidate: "" });
+    const form = el("form", { method: "dialog" }, el("p", { text: msg, style: "white-space:pre-line;max-width:60ch" }),
+      ...(inp ? [inp] : []), el("p", { class: "bar" }, ok, no));
+    const dlg = el("dialog", { class: "ask" }, form);
+    dlg.addEventListener("close", () => {
+      const yes = dlg.returnValue === "ok";
+      dlg.remove();
+      resolve(inp ? (yes ? inp.value : null) : yes);
+    });
+    document.body.append(dlg);
+    dlg.showModal();
+    (inp || ok).focus();
+    if (inp) inp.select();
+  });
+}
+/* a choice among labels -> its index, or null */
+function askPick(msg, labels) {
+  return new Promise((resolve) => {
+    const sel = el("select", { size: Math.min(10, labels.length), style: "width:100%" },
+      ...labels.map((l, i) => el("option", { value: i, selected: i === 0 }, l)));
+    const ok = el("button", { type: "submit", value: "ok", text: "OK" });
+    const no = el("button", { type: "submit", value: "no", text: t("cancel") });
+    const dlg = el("dialog", { class: "ask" }, el("form", { method: "dialog" }, el("p", { text: msg }), sel, el("p", { class: "bar" }, ok, no)));
+    sel.addEventListener("dblclick", () => dlg.close("ok"));
+    dlg.addEventListener("close", () => { const yes = dlg.returnValue === "ok"; dlg.remove(); resolve(yes ? +sel.value : null); });
+    document.body.append(dlg);
+    dlg.showModal();
+    sel.focus();
+  });
+}
+const askOk = (msg) => askDialog(msg, null);
+const askText = (msg, def) => askDialog(msg, def ?? "");
+
 /* -------------------------------------------------------------- MIDI --- */
 let connecting = false;
+
+/* M-Vave-OP1: NO DEVICE: the FM-1's firmware runs in this page (emu/felucca.wasm, web/emu: the same
+   sources as the device's, its sound, its flash kept in this browser) and the editor reaches it as a MIDI device: its
+   SysEx goes to the firmware's editor.c (felucca_web.c web_sysex_*), notes to its MIDI in. A MIDI keyboard on this
+   computer plays it too (emuMidiKeys) */
+const EMU_STORE = "mvave-op1-editor-flash";
+let emu = null;                                       /* {ctx, node, access, ext (the keyboards' MIDIAccess)} */
+function emuFlashLoad() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(EMU_STORE) || "{}"), out = {};
+    for (const [off, b64] of Object.entries(raw)) out[off] = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return out;
+  } catch { return {}; }
+}
+function emuFlashSave(sectors) {
+  const raw = {};
+  for (const [off, s] of Object.entries(sectors)) {
+    let t = "";
+    for (let i = 0; i < s.length; i += 1024) t += String.fromCharCode.apply(null, s.subarray(i, i + 1024));
+    raw[off] = btoa(t);
+  }
+  try { localStorage.setItem(EMU_STORE, JSON.stringify(raw)); } catch { /* the saves last until the page closes */ }
+}
+/* the replies, as they come (one or more whole frames F0 .. F7) -> one MIDI message each */
+function emuFrames(bytes, input) {
+  for (let i = 0; i < bytes.length;) {
+    if (bytes[i] !== 0xF0) { i++; continue; }
+    const e = bytes.indexOf(0xF7, i);
+    if (e < 0) break;
+    if (input.onmidimessage) input.onmidimessage({ data: bytes.slice(i, e + 1) });
+    i = e + 1;
+  }
+}
+/* the firmware: emu/felucca.wasm, or its JavaScript build (emu/felucca-js.mjs, wasm2js) where the page may not run
+   WebAssembly; it runs on this thread (as web/lab): a ScriptProcessor's callback drives its clock, 128 frames at a
+   time, and between them takes the editor's next frame and hands back its replies */
+async function emuCore(base) {
+  try {
+    const r = await fetch(new URL("felucca.wasm", base).href);
+    if (!r.ok) throw new Error("felucca.wasm: " + r.status);
+    return (await WebAssembly.instantiate(await r.arrayBuffer(), {})).instance.exports;
+  } catch (e) {
+    console.warn("M-Vave-OP1: felucca.wasm not fetched", e);
+  }
+  try {                                             /* the page opened as a file (file://: no fetch, no modules): the same
+                                                       firmware in a classic script, emu/felucca-wasm.js (base64) */
+    if (!window.FELUCCA_WASM_B64)
+      await new Promise((ok, no) => document.head.append(el("script", { src: new URL("felucca-wasm.js", base).href, onload: ok, onerror: no })));
+    const bin = atob(window.FELUCCA_WASM_B64), b = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+    return (await WebAssembly.instantiate(b, {})).instance.exports;
+  } catch (e) {
+    console.warn("M-Vave-OP1: no WebAssembly here, the JavaScript build", e);
+  }
+  try { return await import(new URL("felucca-js.mjs", base).href); }
+  catch (e) { throw new Error(t(location.protocol === "file:" ? "emuFile" : "emuNoCore") + " (" + e.message + ")"); }
+}
+async function emuStart() {
+  const base = new URL("emu/", location.href);
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let ctx;
+  try { ctx = new AC({ sampleRate: 44100, latencyHint: "interactive" }); } catch { ctx = new AC(); }
+  await ctx.resume();
+  const ex = await emuCore(base);
+  ex._initialize();
+  ex.web_nor_erase();
+  const nor = () => new Uint8Array(ex.memory.buffer, ex.web_nor(), ex.web_nor_size());
+  for (const [off, b] of Object.entries(emuFlashLoad()))
+    if (+off % 4096 === 0 && b.length === 4096 && +off + 4096 <= ex.web_nor_size()) nor().set(b, +off);
+  if (ex.web_seed) ex.web_seed((Math.random() * 4294967296) >>> 0);
+  ex.web_boot();
+  const input = { id: "emu-in", name: "Felucca (no device)", type: "input", state: "connected", onmidimessage: null };
+  const queue = [];
+  const output = { id: "emu-out", name: "Felucca (no device)", type: "output", state: "connected",
+    send(d) {
+      const a = Uint8Array.from(d);
+      if (a[0] === 0xF0) queue.push(a);
+      else if (a[0] >= 0x80 && a[0] < 0xF0) ex.web_midi(a[0], a[1] | 0, a[2] | 0);
+    } };
+  let writes = ex.web_flash_writes_count(), saveTm = 0;
+  const step = () => {                                /* between two quanta: the editor's frames in, replies out */
+    while (queue.length && !ex.web_sysex_busy()) {
+      const f = queue.shift(), n = Math.min(f.length, ex.web_sysex_in_size());
+      new Uint8Array(ex.memory.buffer, ex.web_sysex_in(), n).set(f.subarray(0, n));
+      ex.web_sysex_feed(n);
+    }
+    const n = ex.web_sysex_out_len();
+    if (n) {
+      const out = new Uint8Array(ex.memory.buffer, ex.web_sysex_out(), n).slice();
+      ex.web_sysex_take();
+      setTimeout(() => emuFrames(out, input), 0);
+    }
+    const w = ex.web_flash_writes_count();
+    if (w !== writes) {                               /* a save: kept in this browser, once it settles */
+      writes = w;
+      clearTimeout(saveTm);
+      saveTm = setTimeout(() => {
+        const out = {}, b = nor();
+        for (const [a, e] of [[0x97000, 0xE0000], [0xE5000, 0xE8000], [0xFC000, 0x100000]])
+          for (let off = a; off < e; off += 4096) {
+            const sct = b.subarray(off, off + 4096);
+            if (sct.some((v) => v !== 0xFF)) out[off] = sct.slice();
+          }
+        emuFlashSave(out);
+      }, 500);
+    }
+  };
+  const proc = ctx.createScriptProcessor(1024, 0, 2);
+  proc.onaudioprocess = (e) => {
+    const L = e.outputBuffer.getChannelData(0), R = e.outputBuffer.getChannelData(1);
+    for (let off = 0; off < L.length; off += 128) {
+      ex.web_render(128);
+      L.set(new Float32Array(ex.memory.buffer, ex.web_out_l(), 128), off);
+      R.set(new Float32Array(ex.memory.buffer, ex.web_out_r(), 128), off);
+      step();
+    }
+  };
+  proc.connect(ctx.destination);
+  await new Promise((resolve, reject) => {           /* past the splash: it answers */
+    const t0 = Date.now();
+    const poll = () => (ex.web_running() ? resolve() : Date.now() - t0 > 20000 ? reject(new Error("the firmware did not start"))
+      : setTimeout(poll, 50));
+    poll();
+  });
+  return { ctx, proc, access: { sysexEnabled: true, inputs: new Map([[input.id, input]]), outputs: new Map([[output.id, output]]),
+    onstatechange: null }, ext: null };
+}
+function emuStop() {
+  if (!emu) return;
+  if (emu.ext) for (const i of emu.ext.inputs.values()) i.onmidimessage = null;
+  emu.proc.onaudioprocess = null;
+  emu.ctx.close().catch(() => {});
+  emu = null;
+  access = null;
+  $("mock").hidden = !MOCK;
+}
+async function connectEmu() {
+  if (connecting) return;
+  if (dev) { wantConnected = false; disconnect(); }
+  if (access && !emu) { access.onstatechange = null; access = null; }
+  sayK("emuStarting");
+  $("emuconnect").disabled = true;
+  try {
+    emu = await emuStart();
+    access = emu.access;
+    $("mock").hidden = false;
+    $("mock").textContent = t("emuLabel");
+    await connect();
+    emuMidiKeys();
+  } catch (e) {
+    console.error(e);
+    emuStop();
+    sayK("error", e.message);
+  } finally { $("emuconnect").disabled = false; }
+}
+/* a MIDI keyboard on this computer plays the selected track of the page's FM-1 (its notes, bends, controllers on that
+   track's channel: MIDI CH1-4 as the device routes them) */
+async function emuMidiKeys() {
+  if (!emu || !navigator.requestMIDIAccess) return;
+  try { emu.ext = await navigator.requestMIDIAccess(); } catch { return; }
+  const hook = () => {
+    if (!emu || !emu.ext) return;
+    for (const i of emu.ext.inputs.values())
+      if (!/felucca|m-?vave|fm-?1/i.test(i.name || ""))
+        i.onmidimessage = (e) => {
+          const d = e.data, st = d[0] & 0xF0;
+          if (!emu || !dev || st < 0x80 || st === 0xF0) return;
+          emu.access.outputs.get("emu-out").send([st | ((dev.sel ?? 0) & 3), d[1] | 0, d[2] | 0]);
+        };
+  };
+  emu.ext.onstatechange = hook;
+  hook();
+}
+
+/* the computer keyboard as a keyboard (as Ableton's): A W S E D F T G Y H U J K O L P ; ' play from the octave's C,
+   Z / X the octave down / up, C / V the velocity; it plays the selected track (on its channel: MIDI CH1-4), on the
+   device or the page's FM-1. Keys in a text field, a select or with a modifier are the page's */
+const KBD_NOTES = { KeyA: 0, KeyW: 1, KeyS: 2, KeyE: 3, KeyD: 4, KeyF: 5, KeyT: 6, KeyG: 7, KeyY: 8, KeyH: 9, KeyU: 10, KeyJ: 11,
+  KeyK: 12, KeyO: 13, KeyL: 14, KeyP: 15, Semicolon: 16, Quote: 17 };
+const kbd = { oct: 4, vel: 100, held: new Map(), names: null };
+const kbdBase = () => 12 * (kbd.oct + 1);
+const kbdName = (code, fall) => (kbd.names && kbd.names.get(code) || fall).toUpperCase();
+function kbdSend(on, ch, note, vel) {
+  if (!dev) return;
+  try { dev.output.send(on ? [0x90 | ch, note, vel] : [0x80 | ch, note, 0]); } catch { /* the port went */ }
+}
+function kbdAllOff() { for (const [, [ch, n]] of kbd.held) kbdSend(false, ch, n); kbd.held.clear(); }
+function renderKbd() {
+  const bar = $("kbdbar");
+  bar.hidden = !dev;
+  if (bar.hidden) return;
+  const oct = ["C" + kbd.oct, "C" + (kbd.oct + 1)];
+  bar.textContent = t("kbdHelp").replace("{keys}", `${kbdName("KeyA", "a")} ${kbdName("KeyW", "w")} ${kbdName("KeyS", "s")} … ${kbdName("Quote", "'")}`)
+    .replace("{oct}", `${kbdName("KeyZ", "z")} / ${kbdName("KeyX", "x")}`).replace("{range}", `${oct[0]}–F${kbd.oct + 1}`)
+    .replace("{vel}", `${kbdName("KeyC", "c")} / ${kbdName("KeyV", "v")}`).replace("{v}", kbd.vel);
+}
+if (navigator.keyboard && navigator.keyboard.getLayoutMap)     /* the letters of this keyboard's layout (QWERTZ: Y, not Z) */
+  navigator.keyboard.getLayoutMap().then((m) => { kbd.names = m; renderKbd(); }).catch(() => {});
+addEventListener("keydown", (e) => {
+  if (!dev || e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.("input, textarea, select, [contenteditable], dialog")) return;
+  const n = KBD_NOTES[e.code];
+  if (n === undefined && !["KeyZ", "KeyX", "KeyC", "KeyV"].includes(e.code)) return;
+  e.preventDefault();
+  if (e.repeat) return;
+  if (n !== undefined) {
+    const ch = (dev.sel ?? 0) & 3, note = Math.min(127, kbdBase() + n);
+    kbd.held.set(e.code, [ch, note]);
+    kbdSend(true, ch, note, kbd.vel);
+    return;
+  }
+  if (e.code === "KeyZ" || e.code === "KeyX") { kbdAllOff(); kbd.oct = Math.max(-1, Math.min(8, kbd.oct + (e.code === "KeyX" ? 1 : -1))); }
+  else kbd.vel = Math.max(1, Math.min(127, kbd.vel + (e.code === "KeyV" ? 20 : -20)));
+  renderKbd();
+});
+addEventListener("keyup", (e) => {
+  const h = kbd.held.get(e.code);
+  if (h) { kbd.held.delete(e.code); kbdSend(false, h[0], h[1]); }
+});
+addEventListener("blur", kbdAllOff);
 async function connect() {
   if (connecting || dev) return;
   connecting = true;
   let connectedDevice = null;
   wantConnected = true;
-  if (!MOCK && !navigator.requestMIDIAccess) { connecting = false; sayK("nomidi"); return; }
+  if (!MOCK && !emu && !navigator.requestMIDIAccess) { connecting = false; sayK("nomidi"); return; }
   $("connect").disabled = true;
   sayK("connecting");
   try {
@@ -2943,6 +3486,8 @@ async function connect() {
     connectedDevice = dev;
     setLabel($("connect"), t("disconnect"));
     await load(connectedDevice);
+    renderKbd();
+    if (!emu || !(await mirrorFill())) mirrorSoon(connectedDevice, 300);
   } catch (e) {
     console.error(e);
     if (connectedDevice && connectedDevice === dev) { /* an old connection must not close a replacement */
@@ -2958,6 +3503,10 @@ async function connect() {
 
 function disconnect(reasonKey = "disconnected") {
   samplesLeave();                                   /* the Samples tab goes: so do the input and the preview */
+  kbdAllOff();
+  draftOrigin.clear();
+  clearTimeout(draftTm);
+  draftPending = false;
   if (dev) {
     dev.link.close();
     dev.input.onmidimessage = null;
@@ -2974,6 +3523,8 @@ function disconnect(reasonKey = "disconnected") {
   renderPreferences(true);
   $("version").textContent = "";
   setLabel($("connect"), t("connect"));
+  emuStop();
+  renderKbd();
   sayK(reasonKey);
 }
 
@@ -3102,6 +3653,7 @@ function renderTrackbar() {
 function selectTrack(i) {
   if (!dev || !hasTracks() || i === dev.sel) return;
   op(async () => {
+    await draftFlush();
     dev.sel = parse[CMD.TRACK](await rq(req.track(i))).sel;
     await afterSoundChange();
   });
@@ -3129,7 +3681,8 @@ function updateBrowser() {
   const ps = $("preset");
   const names = dev.names[e] || [];
   if (ps.dataset.engine !== String(e)) {
-    ps.replaceChildren(...names.map((n, i) => el("option", { value: i, text: n, hidden: aliasOf(names, i) !== i })));
+    const en = dev.info.engines[e], mark = (n) => (draftOn() && draftOf(en, n) ? "✎ " + n : n);
+    ps.replaceChildren(...names.map((n, i) => el("option", { value: i, text: mark(n), hidden: aliasOf(names, i) !== i })));
     ps.dataset.engine = String(e);
   }
   if (document.activeElement !== ps) ps.value = String(dev.dump.preset);
@@ -3151,10 +3704,13 @@ function buildGroups() {
   const { info } = dev;
   if (knownLayout(info)) {
     for (const g of LAYOUT(info.pe0)) {
-      const div = el("div", { class: "group" }, el("h2", { ic: HEAD_IC[g.t], text: g.engine ? `EDIT ${info.engines[dev.dump.engine] || ""}` : g.t }));
+      const div = el("div", { class: "group sec-" + (SEC_OF[g.t] || "glob") },
+        el("h2", { ic: HEAD_IC[g.t], text: g.engine ? `EDIT ${info.engines[dev.dump.engine] || ""}` : g.t }));
+      const viz = g.t === "ENV" ? "env" : g.t === "LFO" ? "lfo" : g.engine && filterIds() ? "filter" : null;
+      if (viz) div.append(vizCanvas(viz));
       if (g.mod != null) {                          /* MOD: slot number, SRC, DST, AMT in one row */
         for (let k = 0; k < 4; k++) {
-          const r = [0, 1, 2].map((j) => paramRow(0, g.mod + 3 * k + j));
+          const r = [0, 1, 2].map((j) => paramRow(0, g.mod + 3 * k + j, { slider: true }));
           if (r.some((x) => !x)) continue;
           const row = el("div", { class: "row modrow" }, el("span", { text: String(k + 1) }), r[0].children[1], r[1].children[1],
             r[2].children[1], r[2].children[2]);
@@ -3168,25 +3724,152 @@ function buildGroups() {
         const rows = ids.map((id) => paramRow(s, id)).filter(Boolean);
         if (!rows.length) continue;
         const tt = g.engine && (dev.titles[dev.dump.engine] || [])[g.pages.findIndex((x) => x[0] === title)];
-        if (g.pages.length > 1) div.append(el("h3", { ic: PAGE_IC[tt || title], text: tt || title }));
-        div.append(...rows);
+        if (g.pages.length > 1 && (tt || title) !== g.t) div.append(el("h3", { ic: PAGE_IC[tt || title], text: tt || title }));
+        div.append(el("div", { class: "cells" }, ...rows));
       }
       groups[g.tab || "groups"].push(div);
     }
   } else {
     /* unknown firmware layout: everything in id order */
-    const a = el("div", { class: "group" }, el("h2", { ic: HEAD_IC.INSTRUMENT, text: "INSTRUMENT" }), el("p", { class: "dim", text: t("layout") }));
-    const b = el("div", { class: "group" }, el("h2", { ic: HEAD_IC.EDIT, text: "EDIT" }));
-    const c = el("div", { class: "group" }, el("h2", { ic: HEAD_IC.GLOBAL, text: "GLOBAL" }));
-    for (let i = 0; i < info.pcount; i++) { const r = paramRow(0, i); if (r) (i >= info.pe0 ? b : a).append(r); }
-    for (let i = 0; i < info.gcount; i++) { const r = paramRow(1, i); if (r) c.append(r); }
+    const a = el("div", { class: "group sec-voice" }, el("h2", { ic: HEAD_IC.INSTRUMENT, text: "INSTRUMENT" }), el("p", { class: "dim", text: t("layout") }));
+    const b = el("div", { class: "group sec-edit" }, el("h2", { ic: HEAD_IC.EDIT, text: "EDIT" }));
+    const c = el("div", { class: "group sec-glob" }, el("h2", { ic: HEAD_IC.GLOBAL, text: "GLOBAL" }));
+    const ca = el("div", { class: "cells" }), cb = el("div", { class: "cells" }), cc = el("div", { class: "cells" });
+    a.append(ca); b.append(cb); c.append(cc);
+    for (let i = 0; i < info.pcount; i++) { const r = paramRow(0, i); if (r) (i >= info.pe0 ? cb : ca).append(r); }
+    for (let i = 0; i < info.gcount; i++) { const r = paramRow(1, i); if (r) cc.append(r); }
     groups.groups.push(a, b);
     groups.setgroups.push(c);
   }
   for (const [id, divs] of Object.entries(groups)) $(id).replaceChildren(...divs);
 }
 
-function paramRow(s, id) {
+/* M-Vave-OP1: the sections' colours, and the curves over ENV (its ATK DEC SUS REL), LFO (WAVE RATE PHS FADE, moving at
+   its rate) and the engine's filter (its CUT and RES: a two-pole response; ANALOG's TYPE LP / BP / HP), drawn from the
+   values as they are (dev.dump.p: a knob turned redraws them at once) */
+const SEC_OF = { ENV: "env", LFO: "lfo", MOD: "mod", EDIT: "edit", "OP ENV": "edit", VOICE: "voice", FX: "fx", SCL: "scl",
+  ARP: "arp", "SEQ PATTERN": "seq", GLOBAL: "glob" };
+let vizDirty = true, vizRaf = 0;
+const vizList = [];
+function vizCanvas(kind) {
+  const cv = el("canvas", { class: "viz", "aria-hidden": "true" });
+  vizList.push({ cv, kind });
+  if (!vizRaf) vizRaf = requestAnimationFrame(vizFrame);
+  return cv;
+}
+/* the engine's CUT and RES (EDIT 1 / 2 values by label) -> [cut id, res id] or null */
+function filterIds() {
+  if (!dev || !dev.info) return null;
+  const pe0 = dev.info.pe0, ids = (lbl) => [0, 1, 2, 3, 4, 5, 6, 7].map((i) => pe0 + i).find((i) => dev.pdesc[i] && dev.pdesc[i].label === lbl);
+  const c = ids("CUT"), r = ids("RES");
+  return c != null && dev.pdesc[c].fmt === F.CUTOFF ? [c, r] : null;
+}
+const pv = (id) => (dev && dev.dump && dev.dump.p[id] != null ? dev.dump.p[id] : 0);
+const msOf = (v) => Math.pow(10000, (v & 127) / 127);     /* F.TIME: 1 ms .. 10 s */
+function vizSetup(cv) {
+  const r = window.devicePixelRatio || 1, w = Math.max(10, cv.clientWidth), h = Math.max(10, cv.clientHeight);
+  if (cv.width !== Math.round(w * r) || cv.height !== Math.round(h * r)) { cv.width = Math.round(w * r); cv.height = Math.round(h * r); }
+  const g = cv.getContext("2d");
+  g.setTransform(r, 0, 0, r, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const cs = getComputedStyle(cv);
+  return { g, w, h, c: cs.getPropertyValue("--c").trim() || "#888", fg: cs.getPropertyValue("--fg").trim(), dim: cs.getPropertyValue("--dim").trim(),
+    line: cs.getPropertyValue("--line").trim() };
+}
+function vizFill(g, c, path) { g.save(); g.globalAlpha = 0.18; g.fillStyle = c; g.fill(path); g.restore(); }
+function vizText(g, col, txt, x, y, align = "left") { g.fillStyle = col; g.font = "10px -apple-system, BlinkMacSystemFont, sans-serif"; g.textAlign = align; g.fillText(txt, x, y); }
+function drawEnv(cv) {
+  const { g, w, h, c, dim } = vizSetup(cv);
+  const A = msOf(pv(1)), D = msOf(pv(2)), S = pv(3) / 127, Rl = msOf(pv(4));
+  const sq = (ms) => Math.sqrt(ms), tot = sq(A) + sq(D) + sq(Rl) + sq(400), sx = (w - 8) / tot;   /* time on a square-root scale */
+  const top = 8, bot = h - 14, y = (lv) => bot - (bot - top) * lv;
+  const xa = 4 + sq(A) * sx, xd = xa + sq(D) * sx, xs = xd + sq(400) * sx, xr = xs + sq(Rl) * sx;
+  const p = new Path2D();
+  p.moveTo(4, y(0));
+  for (let i = 1; i <= 24; i++) { const f = i / 24; p.lineTo(4 + (xa - 4) * f, y(1 - Math.pow(1 - f, 2.2))); }
+  for (let i = 1; i <= 24; i++) { const f = i / 24; p.lineTo(xa + (xd - xa) * f, y(S + (1 - S) * Math.exp(-4 * f))); }
+  p.lineTo(xs, y(S));
+  for (let i = 1; i <= 24; i++) { const f = i / 24; p.lineTo(xs + (xr - xs) * f, y(S * Math.exp(-4 * f) * (1 - f))); }
+  const fillp = new Path2D(p); fillp.lineTo(xr, y(0)); fillp.closePath();
+  vizFill(g, c, fillp);
+  g.strokeStyle = c; g.lineWidth = 2; g.lineJoin = "round"; g.stroke(p);
+  const lbl = (ms) => (ms < 10 ? ms.toFixed(1) + " ms" : ms < 1000 ? Math.round(ms) + " ms" : (ms / 1000).toFixed(2) + " s");
+  vizText(g, dim, "A " + lbl(A), 4, h - 2);
+  vizText(g, dim, "D " + lbl(D), Math.max(xa, 60), h - 2);
+  vizText(g, dim, "S " + Math.round(S * 100) + " %", Math.max(xd + 4, 120), y(S) - 4);
+  vizText(g, dim, "R " + lbl(Rl), w - 4, h - 2, "right");
+}
+function lfoAt(wave, ph, seed) {                    /* ph in cycles -> -1 .. 1 */
+  const f = ph - Math.floor(ph);
+  switch (wave) {
+    case 0: return Math.sin(2 * Math.PI * f);
+    case 1: return f < 0.25 ? 4 * f : f < 0.75 ? 2 - 4 * f : 4 * f - 4;
+    case 2: return 1 - 2 * f;
+    case 3: return f < 0.5 ? 1 : -1;
+    default: { const n = Math.floor(ph) + seed; const x = Math.sin(n * 12.9898) * 43758.5453; return 2 * (x - Math.floor(x)) - 1; }
+  }
+}
+function drawLfo(cv, now) {
+  const { g, w, h, c, dim, line } = vizSetup(cv);
+  const rate = 0.05 * Math.pow(800, (pv(9) & 127) / 127), wave = pv(10), ph0 = pv(11) / 128, fade = msOf(pv(12));
+  const cycles = 2, mid = (h - 12) / 2 + 2, amp = (h - 22) / 2;
+  g.strokeStyle = line; g.lineWidth = 1; g.beginPath(); g.moveTo(0, mid); g.lineTo(w, mid); g.stroke();
+  const dur = cycles / rate * 1000, fadeF = pv(12) ? Math.min(1, fade / dur) : 0;
+  const p = new Path2D();
+  for (let i = 0; i <= w; i += 1) {
+    const f = i / w, a = fadeF ? Math.min(1, f / fadeF) : 1;
+    const yv = mid - amp * a * lfoAt(wave, ph0 + f * cycles, 7);
+    if (i === 0) p.moveTo(i, yv); else p.lineTo(i, yv);
+  }
+  g.strokeStyle = c; g.lineWidth = 2; g.lineJoin = "round"; g.stroke(p);
+  const pos = ((now / 1000) * rate / cycles) % 1, x = pos * w;            /* the dot moves at the LFO's rate */
+  const a = fadeF ? Math.min(1, pos / fadeF) : 1, yd = mid - amp * a * lfoAt(wave, ph0 + pos * cycles, 7);
+  g.fillStyle = c; g.beginPath(); g.arc(x, yd, 4, 0, 2 * Math.PI); g.fill();
+  const names = (dev.pdesc[10] && dev.pdesc[10].names) || [];
+  vizText(g, dim, `${names[wave - (dev.pdesc[10] ? dev.pdesc[10].min : 0)] || ""} · ${rate < 10 ? rate.toFixed(2) : rate.toFixed(1)} Hz`, 4, h - 2);
+  if (pv(12)) vizText(g, dim, "FADE " + (fade < 1000 ? Math.round(fade) + " ms" : (fade / 1000).toFixed(2) + " s"), w - 4, h - 2, "right");
+}
+function drawFilter(cv) {
+  const ids = filterIds();
+  if (!ids) return;
+  const { g, w, h, c, dim, line } = vizSetup(cv);
+  const fc = 30 * Math.pow(16000 / 30, (pv(ids[0]) & 127) / 127), res = ids[1] != null ? pv(ids[1]) / 127 : 0.2;
+  const Q = 0.55 + 9 * res * res;
+  const tdesc = dev.pdesc[101], type = engName() === "ANALOG" && tdesc && tdesc.names ? tdesc.names[pv(101) - tdesc.min] || "LP" : "LP";
+  const f0 = 20, f1 = 20000, top = 6, bot = h - 14, dbTop = 18, dbBot = -36;
+  const X = (f) => (Math.log(f / f0) / Math.log(f1 / f0)) * w, Y = (db) => top + (bot - top) * (dbTop - Math.max(dbBot, Math.min(dbTop, db))) / (dbTop - dbBot);
+  g.strokeStyle = line; g.lineWidth = 1;
+  for (const f of [100, 1000, 10000]) { g.beginPath(); g.moveTo(X(f), top); g.lineTo(X(f), bot); g.stroke(); }
+  g.beginPath(); g.moveTo(0, Y(0)); g.lineTo(w, Y(0)); g.stroke();
+  const p = new Path2D();
+  for (let i = 0; i <= w; i++) {
+    const f = f0 * Math.pow(f1 / f0, i / w), x = f / fc, re = 1 - x * x, im = x / Q, den = Math.hypot(re, im);
+    const mag = type === "HP" ? (x * x) / den : type === "BP" ? (x / Q) / den : 1 / den;
+    const yv = Y(20 * Math.log10(Math.max(1e-6, mag)));
+    if (i === 0) p.moveTo(i, yv); else p.lineTo(i, yv);
+  }
+  const fillp = new Path2D(p); fillp.lineTo(w, bot); fillp.lineTo(0, bot); fillp.closePath();
+  vizFill(g, c, fillp);
+  g.strokeStyle = c; g.lineWidth = 2; g.stroke(p);
+  vizText(g, dim, `${type} · ${fc < 1000 ? Math.round(fc) + " Hz" : (fc / 1000).toFixed(1) + " kHz"}`, 4, h - 2);
+  vizText(g, dim, "100", X(100) + 2, top + 8); vizText(g, dim, "1k", X(1000) + 2, top + 8); vizText(g, dim, "10k", X(10000) + 2, top + 8);
+}
+function vizFrame(now) {
+  vizRaf = 0;
+  for (let i = vizList.length - 1; i >= 0; i--) if (!vizList[i].cv.isConnected) vizList.splice(i, 1);
+  if (!vizList.length) return;
+  const show = !document.hidden && dev && dev.dump;
+  for (const v of vizList) {
+    if (!show || !v.cv.offsetParent) continue;
+    if (v.kind === "lfo") drawLfo(v.cv, now);
+    else if (vizDirty || v.cv.width === 300) (v.kind === "env" ? drawEnv : drawFilter)(v.cv);
+  }
+  vizDirty = false;
+  vizRaf = requestAnimationFrame(vizFrame);
+}
+addEventListener("resize", () => { vizDirty = true; });
+
+function paramRow(s, id, opt = {}) {
   const d = s ? dev.gdesc[id] : dev.pdesc[id];
   if (!visible(d) || (s === 1 && G_SKIP.has(d.label))) return null;
   const k = key(s, id);
@@ -3231,10 +3914,79 @@ function paramRow(s, id) {
   }
   input.title = d.label;
   const out = el("span", { class: "v" });
-  const row = el("div", { class: "row" }, el("span", { text: d.label }), input, out);
-  ctl.set(k, { input, out, desc: d, scope: s, id, row });
+  if (opt.slider) {                                 /* (the MOD rows: a slider in its row) */
+    const row = el("div", { class: "row" }, el("span", { text: d.label }), input, out);
+    ctl.set(k, { input, out, desc: d, scope: s, id, row });
+    showValue(k, s ? dev.dump.g[id] : dev.dump.p[id], true);
+    return row;
+  }
+  const sel = input.tagName === "SELECT";
+  const knob = sel ? null : makeKnob(input, d, s, id, k);
+  const row = el("div", { class: "cell" + (sel ? " sel" : "") }, el("span", { class: "l", text: d.label }), sel ? input : knob.el, out);
+  ctl.set(k, { input, out, desc: d, scope: s, id, row, knob: knob && knob.draw });
   showValue(k, s ? dev.dump.g[id] : dev.dump.p[id], true);
   return row;
+}
+
+/* M-Vave-OP1: a knob over the slider's input (kept, out of sight: the keys, the editor's logic): drag up / down (Shift:
+   finer), the wheel over it, double-click resets; the arc from the start (or from the middle for a bipolar value) */
+function makeKnob(input, d, s, id, k) {
+  input.classList.add("sr");
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 46 46");
+  const mk = (cls, w) => { const p = document.createElementNS(NS, "path"); p.setAttribute("class", cls); p.setAttribute("fill", "none");
+    p.setAttribute("stroke-width", w); p.setAttribute("stroke-linecap", "round"); svg.append(p); return p; };
+  const tr = mk("tr", 4), va = mk("va", 4), pt = mk("pt", 2);
+  const A0 = -135, A1 = 135, R = 18, C = 23;
+  const xy = (a, r = R) => [C + r * Math.sin(a * Math.PI / 180), C - r * Math.cos(a * Math.PI / 180)];
+  const arc = (a, b) => {
+    if (Math.abs(b - a) < 0.5) return "";
+    const [x0, y0] = xy(Math.min(a, b)), [x1, y1] = xy(Math.max(a, b));
+    return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 ${Math.abs(b - a) > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  };
+  tr.setAttribute("d", arc(A0, A1));
+  const span = Math.max(1, d.max - d.min), mid = d.min < 0 && d.max > 0 ? A0 + (A1 - A0) * (-d.min / span) : A0;
+  const draw = (v) => {
+    const a = A0 + (A1 - A0) * ((Math.max(d.min, Math.min(d.max, v)) - d.min) / span);
+    va.setAttribute("d", arc(mid, a));
+    const [x0, y0] = xy(a, 7), [x1, y1] = xy(a, 14);
+    pt.setAttribute("d", `M${x0.toFixed(2)} ${y0.toFixed(2)}L${x1.toFixed(2)} ${y1.toFixed(2)}`);
+  };
+  const wrap = el("div", { class: "knob", title: d.label }, svg, input);
+  const setV = (v, final) => {
+    v = Math.max(d.min, Math.min(d.max, Math.round(v)));
+    if (v === +input.value && !final) return;
+    input.value = String(v);
+    draw(v);
+    userSet(s, id, v, final);
+  };
+  let drag = null;
+  wrap.addEventListener("pointerdown", (e) => {
+    if (e.button) return;
+    e.preventDefault();
+    input.focus({ preventScroll: true });
+    wrap.setPointerCapture(e.pointerId);
+    drag = { y: e.clientY, v: +input.value };
+    dragging = k;
+  });
+  wrap.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const per = span / (e.shiftKey ? 600 : 160);             /* 160 px for the whole range (Shift: 600) */
+    setV(drag.v + (drag.y - e.clientY) * per, false);
+  });
+  const end = () => { if (drag) { drag = null; dragging = null; userSet(s, id, +input.value, true); } };
+  wrap.addEventListener("pointerup", end);
+  wrap.addEventListener("pointercancel", end);
+  wrap.addEventListener("dblclick", () => setV(d.def, true));
+  let acc = 0;
+  wrap.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    acc += (e.deltaMode === 1 ? 33 : 1) * -e.deltaY;
+    const n = Math.trunc(acc / 40);
+    if (n) { acc -= n * 40; setV(+input.value + n * (e.shiftKey ? 10 : Math.max(1, Math.round(span / 127))), true); }
+  }, { passive: false });
+  input.addEventListener("input", () => draw(+input.value));
+  return { el: wrap, draw };
 }
 
 function showValue(k, v, force) {
@@ -3243,6 +3995,8 @@ function showValue(k, v, force) {
   const [txt0, unit] = fmtValue(c.desc, v), txt = modDst(c.desc, txt0);
   c.out.textContent = unit ? `${txt} ${unit}` : txt;
   if (force || !touched(k)) c.input.value = String(v);
+  if (c.knob) c.knob(+c.input.value);
+  vizDirty = true;
 }
 /* the user is working on this control: polling and pushes must not move it */
 function touched(k) {
@@ -3264,6 +4018,7 @@ function userSet(s, id, v, final) {
   (s ? dev.dump.g : dev.dump.p)[id] = v;
   showValue(k, v, false);
   mixFromDump();
+  if (!s) draftTouch();
   let st = sets.get(k);
   if (!st) sets.set(k, (st = { last: 0, sent: null }));
   st.last = performance.now();
@@ -3288,15 +4043,92 @@ async function sendSet(s, id, k) {
 /* engine / preset browser */
 $("engine").addEventListener("change", () => choosePreset(+$("engine").value, 0));
 $("preset").addEventListener("change", () => { if (dev) choosePreset(dev.dump.engine, +$("preset").value); });
-async function choosePreset(e, p) {
+async function choosePreset(e, p, factory = false) {
   if (!dev) return;
+  await draftFlush();
   const releaseBusy = beginBusy();
   try {
     selfLoad(true);
     parse[CMD.PRESET](await rq(req.preset(e, p)));
     await afterSoundChange();
-  } catch (err) { report(err); } finally { releaseBusy(); }
+    const o = { engine: dev.info.engines[dev.dump.engine], name: (dev.names[dev.dump.engine] || [])[dev.dump.preset] || "", e: dev.dump.engine, p: dev.dump.preset };
+    draftOrigin.set(dev.sel ?? 0, o);
+    const dr = !factory && draftOn() && draftOf(o.engine, o.name);
+    if (dr) {                                       /* this preset was edited: the edited version, not the factory one */
+      selfLoad(true);
+      await auditionPatch(rq, dev.info, { ...dr, p: fullParams(dr) }, { gEng: gEng(), track: dev.sel ?? 0 });
+      await afterSoundChange();
+      sayK("draftLoaded", o.name);
+    }
+  } catch (err) { report(err); } finally { releaseBusy(); renderDraft(); }
 }
+
+/* M-Vave-OP1: EDIT THE FACTORY PRESETS: a factory preset picked here and then changed in the editor is kept, as you
+   leave it, as an edited copy in the library (its name, tag "edited", the preset it came from); picked again, that
+   copy loads instead of the factory sound (marked in the list); REVERT drops it, EXPORT EDITED writes them all as one
+   preset file (tools/import_presets.py: the same names replace the factory presets). The origin is the preset picked
+   in the editor, per track; a change made on the device's own knobs is not followed */
+const DRAFT_KEY = "felucca-editor-drafts";
+const draftOrigin = new Map();                      /* track -> {engine (name), name, e, p} */
+let draftTm = 0, draftPending = false;
+const draftOn = () => $("draftmode").checked;
+const draftOf = (engine, name) => lib.find((x) => x.factory && x.factory.engine === engine && x.factory.name === name);
+function draftTouch() {
+  if (!dev || !draftOn() || !draftOrigin.get(dev.sel ?? 0)) return;
+  draftPending = true;
+  clearTimeout(draftTm);
+  draftTm = setTimeout(() => { draftSave(); }, 900);
+}
+async function draftFlush() { if (draftPending) { clearTimeout(draftTm); await draftSave(); } }
+async function draftSave() {
+  const d = dev, o = d && draftOrigin.get(d.sel ?? 0);
+  if (!o || !draftPending) return;
+  if (libBusy) { draftTm = setTimeout(() => { draftSave(); }, 400); return; }
+  draftPending = false;
+  await libOp(async (dd, rqf) => {
+    const { patch } = await capturePatch(rqf, dd.info, o.name);
+    if (patch.engineName !== o.engine) return;      /* (the engine changed meanwhile: not this preset any more) */
+    const old = draftOf(o.engine, o.name);
+    if (old) {
+      Object.assign(old, { p: patch.p, pattern: patch.pattern, grid: patch.grid, engine: patch.engine });
+      if (patch.fm6) old.fm6 = patch.fm6; else delete old.fm6;
+      await libUpdate(old);
+    } else await libAdd([{ ...patch, tags: ["edited"], factory: { engine: o.engine, name: o.name } }]);
+    $("preset").dataset.engine = "";               /* (the list's marks) */
+    updateBrowser();
+  });
+  renderDraft();
+}
+function renderDraft() {
+  const o = dev && draftOrigin.get(dev.sel ?? 0), dr = o && draftOf(o.engine, o.name), n = lib.filter((x) => x.factory).length;
+  $("draftrevert").disabled = !dr || !dev;
+  $("draftexport").disabled = !n;
+  $("draftinfo").textContent = !draftOn() ? "" : (o ? `${o.name}: ${t(dr ? "draftMine" : "draftFactory")}` : t("draftPick")) +
+    (n ? ` · ${t("draftCount").replace("{n}", n)}` : "");
+}
+try { $("draftmode").checked = localStorage.getItem(DRAFT_KEY) !== "0"; } catch { $("draftmode").checked = true; }
+$("draftmode").addEventListener("change", () => {
+  try { localStorage.setItem(DRAFT_KEY, draftOn() ? "1" : "0"); } catch { /* */ }
+  $("preset").dataset.engine = "";
+  if (dev) updateBrowser();
+  renderDraft();
+});
+$("draftrevert").addEventListener("click", async () => {
+  const o = dev && draftOrigin.get(dev.sel ?? 0), dr = o && draftOf(o.engine, o.name);
+  if (!dr || !(await askOk(t("draftAskRevert").replace("{name}", o.name)))) return;
+  clearTimeout(draftTm);
+  draftPending = false;
+  lib = lib.filter((x) => x !== dr);
+  try { await store.del(dr.id); } catch (e) { console.warn(e); }
+  renderLib();
+  $("preset").dataset.engine = "";
+  await choosePreset(o.e, o.p, true);
+});
+$("draftexport").addEventListener("click", async () => {
+  await draftFlush();
+  const all = lib.filter((x) => x.factory);
+  if (all.length) download(`m-vave-op1-edited-presets-${today()}.json`, libraryFile("presets", all, libCtx()));
+});
 async function afterSoundChange(msg = "ready", d = dev) {
   assertSession(d);
   needReload = false;                               /* this re-reads everything a RELOAD asks for */
@@ -3309,7 +4141,7 @@ async function afterSoundChange(msg = "ready", d = dev) {
   sayK(msg);
 }
 $("init").addEventListener("click", async () => {
-  if (!dev || !confirm(t("confirmInit"))) return;
+  if (!dev || !await askOk(t("confirmInit"))) return;
   const releaseBusy = beginBusy();
   try { selfLoad(true); await rq(req.set(1, gEng(), dev.dump.engine)); await afterSoundChange(); }
   catch (err) { report(err); } finally { releaseBusy(); }
@@ -3324,6 +4156,7 @@ function report(err) { if (err && err.message !== "closed") { console.warn(err);
 /* projects: the protocol cannot ask whether a slot is used without loading or saving it */
 function renderSlots() {
   renderSong();
+  renderDevFiles();
   renderBackup();
   const box = $("slots");
   box.replaceChildren();
@@ -3337,7 +4170,7 @@ function renderSlots() {
 }
 async function project(op, slot) {
   if (!dev) return;
-  if (!confirm(t(op ? "confirmSave" : "confirmLoad").replace("{n}", slot + 1))) return;
+  if (!await askOk(t(op ? "confirmSave" : "confirmLoad").replace("{n}", slot + 1))) return;
   const releaseBusy = beginBusy();
   try {
     /* save writes flash: a long timeout and no retry */
@@ -3421,7 +4254,7 @@ $("backup-file").addEventListener("change", () => {
     if (file.size > 600000) throw new Error("Backup file too large");
     const { readBackup, restoreBackup } = await backupModule();
     const archive = readBackup(await file.text()); assertSession(d);
-    if (!confirm(t("backupConfirm"))) return;
+    if (!await askOk(t("backupConfirm"))) return;
     await restoreBackup((r, o) => sessionRequest(d, r, o), archive, backupProgress);
     await load(d); sayK("backupRestored");
   });
@@ -3468,7 +4301,7 @@ $("motion-on").addEventListener("change", () => op(async () => {
 }));
 $("motion-clear").addEventListener("click", () => op(async () => {
   const d = dev;
-  if (!d?.info?.motionMax || !confirm(t("motionConfirm"))) return;
+  if (!d?.info?.motionMax || !await askOk(t("motionConfirm"))) return;
   const r = parse[CMD.MOTION](await sessionRequest(d, req.motion(d.sel ?? 0, 2)));
   if (r.rc) throw new Error("Automation edit refused"); d.motion = r; renderMotion();
 }));
@@ -3555,8 +4388,95 @@ function updateStepRows() {
   renderGrid();
 }
 /* the step grid: one cell per step up to LEN; a cell jumps to its row in the table */
+/* M-Vave-OP1: the TD-3 grid: a column a step (up to LEN): its note (C .. B), its octave (down / - / up from the octave
+   chosen above), NOTE / TIE / REST, ACCENT, SLIDE, as the TD-3's step entry has them; each change writes the step
+   (STEP_SET: the rest of the step as it was). ROLL ACID writes a new acid line (as the device's SEQ + RANDOM does on
+   an ACID track, ui_tools.c tl_random_acid) in the track's scale. Not on a kit track */
+const TD_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const TD_SCALES = [0xFFF, 0xAB5, 0x5AD, 0x6AD, 0x6B5, 0x295, 0x4A9, 0x9AD, 0x5AB, 0xAD5, 0x56B, 0xAAD, 0x4E9, 0x555, 0x6DB, 0xB6D];
+let tdOct = 2;
+try { const v = localStorage.getItem("felucca-editor-tdoct"); if (v !== null && +v >= 0 && +v <= 5) tdOct = +v; } catch { /* */ }
+function tdKit() { const n = engName(); return n === "DRUM" || n === "VDRUM"; }
+function renderTd() {
+  const box = $("tdpanel");
+  box.hidden = !dev || !dev.steps.length || tdKit();
+  if (box.hidden) return;
+  const o = $("tdoct");
+  if (!o.options.length) o.replaceChildren(...[0, 1, 2, 3, 4, 5].map((k) => el("option", { value: k, text: "C" + k })));
+  o.value = String(tdOct);
+  const base = 12 * (tdOct + 1), len = stepLen(), g = $("tdgrid");
+  if (g.contains(document.activeElement) && g.children.length === len) return;
+  g.replaceChildren(...Array.from({ length: len }, (_, i) => {
+    const st = dev.steps[i] || { n: 0, notes: [0, 0, 0, 0], time: 2, flags: 0 };
+    const on = st.time === 0 && st.n > 0, nt = on ? st.notes[0] : base, rel = Math.max(-1, Math.min(1, Math.floor(nt / 12) - (tdOct + 1)));
+    const sel = el("select", { "aria-label": `${t("notes")} ${i + 1}` }, ...TD_NAMES.map((n, k) => el("option", { value: k, text: n, selected: k === nt % 12 })));
+    sel.addEventListener("change", () => tdWrite(i, { note: base + 12 * rel + +sel.value, time: 0 }));
+    const btn = (txt, isOn, fn, title) => el("button", { type: "button", class: isOn ? "on" : null, title, onclick: fn }, txt);
+    return el("div", { class: "col" + (i % 4 === 0 ? " beat" : "") + (on || st.time === 1 ? "" : " off") },
+      el("div", { class: "n", text: String(i + 1) }), sel,
+      btn(rel > 0 ? "▲" : rel < 0 ? "▼" : "·", rel !== 0, () => tdWrite(i, { note: base + 12 * (rel === 0 ? 1 : rel > 0 ? -1 : 0) + nt % 12, time: 0 }), t("tdOctBtn")),
+      btn(st.time === 0 ? "♪" : st.time === 1 ? "—" : "·", st.time !== 2, () => tdWrite(i, { time: (st.time + 1) % 3, note: on ? nt : base + nt % 12 }), t("tdTime")),
+      btn("ACC", !!(st.flags & 1), () => tdWrite(i, { flags: st.flags ^ 1 }), t("acc")),
+      btn("SLD", !!(st.flags & 2), () => tdWrite(i, { flags: st.flags ^ 2 }), t("slide")));
+  }));
+  $("tdinfo").textContent = "";
+}
+async function tdWrite(i, ch) {
+  if (!dev) return;
+  const old = dev.steps[i] || { n: 0, notes: [0, 0, 0, 0], time: 2, flags: 0, vel: 0, hit: 0, acc: 0 };
+  const note = ch.note ?? (old.n ? old.notes[0] : 12 * (tdOct + 1));
+  const time = ch.time ?? old.time;
+  const s = { ...old, n: time === 2 ? old.n : 1, notes: [note & 0x7F, 0, 0, 0], time, flags: ch.flags ?? old.flags,
+    vel: old.vel || 100, hit: old.hit | 0, acc: old.acc | 0 };
+  if (time === 2) s.n = 0;
+  stepEdit.set(i, performance.now());
+  try {
+    dev.steps[i] = parse[CMD.STEP_SET](await rq(req.stepSet(i, s)));
+    renderSteps();
+  } catch (err) { report(err); }
+}
+/* an acid line (ui_tools.c tl_random_acid's rules) -> steps 0 .. len - 1 */
+function tdRollLine(len, root, mask) {
+  if (mask === 0xFFF) mask = TD_SCALES[2];
+  const deg = []; for (let k = 0; k < 12; k++) if ((mask >> k) & 1) deg.push(k);
+  const r = (n) => Math.floor(Math.random() * n), out = [];
+  let prev = 0;
+  for (let i = 0; i < len; i++) {
+    const x = r(100);
+    if (i && x < 14) { out.push({ n: 0, notes: [0, 0, 0, 0], time: 2, flags: 0, vel: 0 }); continue; }
+    if (i && prev && x < 20) { out.push({ n: 0, notes: [0, 0, 0, 0], time: 1, flags: 0, vel: 0 }); continue; }
+    let n = !i || r(100) < 45 ? root : root + deg[r(deg.length)];
+    const o = r(100);
+    n += !i ? 0 : o < 20 ? 12 : o < 28 && n >= 24 ? -12 : 0;
+    out.push({ n: 1, notes: [Math.max(12, Math.min(108, n)), 0, 0, 0], time: 0, flags: (!i || r(100) < 30 ? 1 : 0) | (r(100) < 22 ? 2 : 0), vel: 100 });
+    prev = 1;
+  }
+  return out;
+}
+$("tdoct").addEventListener("change", () => {
+  tdOct = +$("tdoct").value;
+  try { localStorage.setItem("felucca-editor-tdoct", String(tdOct)); } catch { /* */ }
+  $("tdgrid").replaceChildren();
+  renderTd();
+});
+$("tdroll").addEventListener("click", () => op(async () => {
+  const len = stepLen(), rootId = pById("ROOT", 25), sclId = pById("SCL", 26);
+  const root = 12 * (tdOct + 1) + ((dev.dump.p[rootId] | 0) % 12), mask = TD_SCALES[(dev.dump.p[sclId] | 0) % TD_SCALES.length];
+  const line = tdRollLine(len, root, mask);
+  for (let i = 0; i < len; i++) {
+    const old = dev.steps[i] || {};
+    const s = { ...old, ...line[i], hit: 0, acc: 0 };
+    if (i % 8 === 0) sayK("applying", `${i}/${len}`);
+    dev.steps[i] = parse[CMD.STEP_SET](await rq(req.stepSet(i, s)));
+  }
+  $("tdgrid").replaceChildren();
+  renderSteps();
+  sayK("tdRolled");
+}));
+
 function renderGrid() {
   const box = $("stepgrid");
+  renderTd();
   if (!dev || !dev.steps.length) { box.replaceChildren(); return; }
   const len = stepLen();
   if (box.children.length !== len) {
@@ -3607,7 +4527,7 @@ $("reloadsteps").addEventListener("click", async () => {
   try { await loadSteps(); sayK("ready"); } catch (err) { report(err); } finally { releaseBusy(); }
 });
 $("clearseq").addEventListener("click", async () => {
-  if (!dev || !confirm(t("confirmClear"))) return;
+  if (!dev || !await askOk(t("confirmClear"))) return;
   const releaseBusy = beginBusy();
   try {
     for (let i = 0; i < dev.info.nstep; i++) {
@@ -3948,6 +4868,16 @@ function renderSamples() {
     const bar = el("progress", { max: dev.smp.slotKiB, value: u.kib, title: `${u.kib} / ${dev.smp.slotKiB} KiB` });
     const file = el("input", { type: "file", accept: ".wav,audio/wav,audio/x-wav,audio/*", multiple: true, hidden: true });
     file.addEventListener("change", () => { addFiles(k, [...file.files]); file.value = ""; });
+    const slotf = el("input", { type: "file", accept: ".slot", hidden: true });
+    slotf.addEventListener("change", async () => {
+      const f = slotf.files[0];
+      slotf.value = "";
+      if (!f) return;
+      let built;
+      try { built = parseSlotFile(await f.arrayBuffer()); }
+      catch (e) { sayK("smpFail", `${f.name}: ${e.message}`); return; }
+      smpSend(k, built);
+    });
     const name = el("input", { type: "text", class: "name", maxlength: 8, value: d.name, spellcheck: "false", placeholder: "NAME" });
     name.addEventListener("input", () => {
       const v = name.value.toUpperCase().replace(/[^\x20-\x7E]/g, "").slice(0, 8);
@@ -3963,7 +4893,8 @@ function renderSamples() {
         el("button", { ic: "symbol_trash", disabled: smpBusy || !u.zones, onclick: () => smpErase(k) }, t("erase"))),
       el("div", { class: "head" }, el("span", { text: t("smpName") }), name,
         el("button", { ic: "symbol_folder_open", disabled: smpBusy || recActive(), onclick: () => file.click() }, t("chooseFiles")), file,
-        el("button", { ic: "symbol_upload", disabled: smpBusy || recActive() || !d.files.length || tooBig || !d.name, onclick: () => smpUpload(k, prog) }, t("upload")),
+        el("button", { ic: "symbol_upload", disabled: smpBusy || recActive() || !d.files.length || tooBig || !d.name, onclick: () => smpUpload(k) }, t("upload")),
+        el("button", { ic: "symbol_folder_open", title: t("slotFileTip"), disabled: smpBusy || recActive(), onclick: () => slotf.click() }, t("slotFile")), slotf,
         d.files.length ? el("button", { text: t("clearList"), disabled: smpBusy || recActive(), onclick: () => { d.files = []; renderSamples(); } }) : "",
         size, prog),
       recRow(k));
@@ -4008,18 +4939,23 @@ function renderSamples() {
 
 async function smpInfo(d = dev) { d.smp = parse[CMD.SMP_INFO](await sessionRequest(d, req.smpInfo())); }
 
-async function smpUpload(k, prog) {
+async function smpUpload(k) {
   const d = smpDraft[k];
   let built;
   try { built = buildSlot(d.name, d.files.map((f) => ({ s: f.s, root: f.root }))); }
   catch (e) { sayK("smpFail", e.message); return; }
-  if (!confirm(t("confirmUpload").replace("{n}", k + 1))) return;
+  return smpSend(k, built);
+}
+
+/* writes built ({hdr, data}: buildSlot's, or a slot file's) into USRk+1 */
+async function smpSend(k, built) {
+  if (!dev || !await askOk(t("confirmUpload").replace("{n}", k + 1))) return;
   const { hdr, data } = built;
   const session = dev;
   const releaseBusy = beginBusy();
   smpBusy = true;
   renderSamples();
-  prog = $("smpslots").querySelector(`[data-k="${k}"] progress[max="1"]`);
+  const prog = $("smpslots").querySelector(`[data-k="${k}"] progress[max="1"]`);
   prog.hidden = false;
   try {
     const t0 = performance.now();
@@ -4046,7 +4982,7 @@ async function smpUpload(k, prog) {
 }
 
 async function smpErase(k) {
-  if (!dev || !confirm(t("confirmErase").replace("{n}", k + 1))) return;
+  if (!dev || !await askOk(t("confirmErase").replace("{n}", k + 1))) return;
   const session = dev;
   const releaseBusy = beginBusy();
   smpBusy = true;
@@ -4472,16 +5408,40 @@ setInterval(() => {
 }, 1000);
 
 /* ------------------------------------------------------------ files --- */
-$("savefile").addEventListener("click", () => {
+/* M-Vave-OP1: SAVE TO FILE writes the selected track's sound as one preset file (the library's format, kind "patch":
+   its parameters by name, its first 16 steps, an FM6 track's patch), the file every other place reads too (LOAD FILE,
+   the library's IMPORT, a device slot's REPLACE, tools/import_presets.py) */
+$("savefile").addEventListener("click", async () => {
   if (!dev) return;
-  const engine = dev.dump.engine, preset = dev.dump.preset;
-  const data = { format: "felucca-patch", version: 1, firmware: dev.info.version,
-    engineName: dev.info.engines[engine], presetName: (dev.names[engine] || [])[preset],
-    engine, preset, p: dev.dump.p.slice(), g: dev.dump.g.slice(),
-    steps: dev.steps.map((s) => ({ n: s.n, notes: s.notes.slice(), time: s.time, flags: s.flags, vel: s.vel })) };
-  download(`felucca-${fileSlug(data.engineName || "patch")}-${fileSlug(data.presetName || preset)}.json`, data);
+  const def = upName((dev.names[dev.dump.engine] || [])[dev.dump.preset] || dev.info.engines[dev.dump.engine]);
+  const name = await askText(t("promptName"), def);
+  if (name == null) return;
+  libOp(async (d, rqf) => {
+    const { patch } = await capturePatch(rqf, d.info, name.trim() || def);
+    await download(`${fileSlug(patch.name)}.json`, libraryFile("patch", [patch], libCtx()));
+    sayK("ready");
+  });
 });
 $("loadfile").addEventListener("click", () => { $("file").value = ""; $("file").click(); });
+/* a preset file onto the selected track: its sound (the steps stay); a file of several sounds: one picked from them.
+   (A "felucca-patch" file of an older editor: its sound and its steps, as it always loaded) */
+async function loadPresetFile(obj, fname) {
+  const r = readLibraryFile(obj, libCtx()), ok = r.patches.filter((p) => engineOk(p));
+  if (!ok.length) throw new Error(`${fname}: ${t("dfNone")}`);
+  let p = ok[0];
+  if (ok.length > 1) {
+    const k = await askPick(t("pickSound").replace("{n}", ok.length), ok.map((x) => `${x.name} (${x.engineName})`));
+    if (k == null) return;
+    p = ok[k];
+  }
+  await libOp(async (d, rqf) => {
+    selfLoad(true);
+    await auditionPatch(rqf, d.info, { ...p, p: fullParams(p) }, { gEng: gEng(), track: d.sel ?? 0,
+      progress: (i, n) => { if (i % 8 === 0) sayK("applying", `${i}/${n}`); } });
+    await afterSoundChange("ready", d);
+    sayK("loadedFile", p.name);
+  });
+}
 $("file").addEventListener("change", async () => {
   const f = $("file").files[0];
   if (!f || !dev) return;
@@ -4490,6 +5450,10 @@ $("file").addEventListener("change", async () => {
   try {
     data = JSON.parse(await f.text());
     assertSession(session);
+    if (data && (data.format === "felucca-library" || (data.format === "felucca-patch" && !Number.isInteger(data.preset)))) {
+      await loadPresetFile(data, f.name);
+      return;
+    }
     if (!Number.isInteger(data.engine) || !Number.isInteger(data.preset) || !Array.isArray(data.p)) throw new Error("engine / preset / p");
     if (data.engine < 0 || data.engine >= dev.info.nengines) throw new Error("engine " + data.engine);
   } catch (e) { if (e.message !== "closed") sayK("badfile", e.message); return; }
@@ -4669,14 +5633,19 @@ function renderLib() {
   const box = $("liblist");
   if (!lib.length) box.replaceChildren(el("div", { class: "none", text: t("libEmpty") }));
   else {
-    const tb = el("table", {}, el("colgroup", {}, el("col"), el("col", { class: "e" }), el("col"), el("col", { class: "d" })),
-      el("tr", {}, el("th", { text: t("name") }), el("th", { text: t("engine") }), el("th", { text: t("tagsCol") }), el("th", { text: t("date") })));
+    const tb = el("table", {}, el("colgroup", {}, el("col"), el("col", { class: "e" }), el("col"), el("col", { class: "d" }), el("col")),
+      el("tr", {}, el("th", { text: t("name") }), el("th", { text: t("engine") }), el("th", { text: t("tagsCol") }), el("th", { text: t("date") }), el("th")));
     for (const p of v) {
       const tr = el("tr", { "data-id": p.id, class: p.id === libSel ? "sel" : null, draggable: "true", title: p.name },
         el("td", {}, p.pattern || p.grid ? icon("note_eight") : "", p.name),
         el("td", { text: p.engineName || String(p.engine) }),
         el("td", { text: p.tags.join(", ") }),
-        el("td", { text: new Date(p.modified).toLocaleDateString(lang) }));
+        el("td", { text: new Date(p.modified).toLocaleDateString(lang) }),
+        el("td", { class: "acts" },                 /* (M-Vave-OP1: one sound: play it, save it as a file) */
+          el("button", { ic: "symbol_audio", title: t("rowPlay"), "aria-label": t("rowPlay"), disabled: !dev || libBusy,
+            onclick: (e) => { e.stopPropagation(); libAudition(p.id); } }),
+          el("button", { ic: "symbol_download", title: t("rowSave"), "aria-label": t("rowSave"),
+            onclick: (e) => { e.stopPropagation(); download(`${fileSlug(p.name)}.json`, libraryFile("patch", [p], libCtx())); } })));
       tr.addEventListener("click", () => { libSel = p.id; renderLib(); });
       tr.addEventListener("dblclick", () => libAudition(p.id));
       tr.addEventListener("dragstart", (e) => { libSel = p.id; e.dataTransfer.setData("text/x-felucca-lib", p.id); e.dataTransfer.effectAllowed = "copy"; });
@@ -4691,10 +5660,14 @@ function renderLib() {
   $("libput").disabled = !sel || !dev || !dev.bank || bankSel == null || libBusy;
   $("libsave").disabled = !dev || libBusy;
   $("libexport").disabled = !lib.length;
+  $("libpresets").disabled = !v.length;
+  renderDraft();
+  $("libpresets").title = t("exportPresetsTip");
 }
 ["libq", "libeng", "libtag", "libsort"].forEach((id) => $(id).addEventListener(id === "libq" ? "input" : "change", renderLib));
 
 function renderBank() {
+  renderDevFiles();
   const pane = $("bankpane");
   $("bankhint").hidden = !!(dev && dev.bank);
   $("bankhint").textContent = t(!dev || !dev.dump ? "bankConnect" : "bankNone");
@@ -4729,6 +5702,7 @@ function renderBank() {
   $("bkstore").disabled = !s || !idle;
   $("bkget").disabled = !s || !s.used || !idle;
   $("bkerase").disabled = !s || !s.used || !idle;
+  $("bkren").disabled = !s || !s.used || !idle;
   $("bkrefresh").disabled = !idle;
   $("bkexport").disabled = !used || !idle;
 }
@@ -4755,6 +5729,7 @@ const checkRc = (rc) => { if (rc) throw new Error(t("flashFail").replace("{rc}",
 async function refreshSlot(slot, d = dev) {
   const r = parse[CMD.UP_LIST](await sessionRequest(d, req.upList(slot, 1)));
   if (d.bank && r.slots[0]) d.bank.slots[slot] = r.slots[0];
+  mirrorSoon(d);
 }
 
 function libAudition(id) {
@@ -4774,7 +5749,7 @@ $("libaud").addEventListener("click", () => libAudition(libSel));
 
 $("libsave").addEventListener("click", () => libOp(async (d, rqf) => {
   const def = upName((dev.names[dev.dump.engine] || [])[dev.dump.preset] || dev.info.engines[dev.dump.engine]);
-  const name = prompt(t("promptName"), def);
+  const name = await askText(t("promptName"), def);
   if (name == null) return;
   const { patch } = await capturePatch(rqf, dev.info, name.trim() || def);
   await libAdd([patch]);
@@ -4797,12 +5772,12 @@ $("factlib").addEventListener("click", () => libOp(async (d, rqf) => {
   sayK("copiedLib", `${dev.info.engines[e]} ${name}`);
 }));
 
-function libPut(id, slot) {
+async function libPut(id, slot) {
   const p = lib.find((x) => x.id === id);
   if (!p || !dev || !dev.bank || slot == null || libBusy) return;
   const s = dev.bank.slots[slot];
   if (!engineOk(p)) { sayK("badEngine", p.engineName || p.engine); return; }
-  if (s.used && !confirm(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  if (s.used && !await askOk(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
   libOp(async (d, rqf) => {
     const keep4 = p.fm4 && dev.info.engines[1] === "-" && p.fm4.length === dev.info.pcount;   /* a converted DIGITAL sound:
                                                      its DIGITAL values as engine 1 (the device converts them on load) */
@@ -4814,18 +5789,18 @@ function libPut(id, slot) {
 }
 $("libput").addEventListener("click", () => libPut(libSel, bankSel));
 
-$("libren").addEventListener("click", () => {
+$("libren").addEventListener("click", async () => {
   const p = lib.find((x) => x.id === libSel);
   if (!p) return;
-  const v = prompt(t("promptName"), p.name);
+  const v = await askText(t("promptName"), p.name);
   if (v == null || !v.trim()) return;
   p.name = v.trim().slice(0, 32);
   libUpdate(p);
 });
-$("libtags").addEventListener("click", () => {
+$("libtags").addEventListener("click", async () => {
   const p = lib.find((x) => x.id === libSel);
   if (!p) return;
-  const v = prompt(t("promptTags"), p.tags.join(", "));
+  const v = await askText(t("promptTags"), p.tags.join(", "));
   if (v == null) return;
   p.tags = [...new Set(v.split(",").map((x) => x.trim()).filter(Boolean))];
   libUpdate(p);
@@ -4836,21 +5811,32 @@ $("libdup").addEventListener("click", () => {
 });
 $("libdel").addEventListener("click", async () => {
   const p = lib.find((x) => x.id === libSel);
-  if (!p || !confirm(t("confirmDelete").replace("{name}", p.name))) return;
+  if (!p || !await askOk(t("confirmDelete").replace("{name}", p.name))) return;
   lib = lib.filter((x) => x !== p);
   libSel = null;
   try { await store.del(p.id); } catch (e) { console.warn(e); }
   renderLib();
 });
 
-function download(name, obj) {
-  const blob = new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" });
+/* a file for the viewer: the browser's download, or inside a claude.ai Artifact (M-Vave-OP1) the page's downloads
+   capability (it asks the viewer; a .syx is not among the types it saves) */
+let artDownloads = null;
+async function saveBlob(name, blob) {
+  if (typeof window.claude?.use === "function") {
+    artDownloads ??= window.claude.use("downloads");
+    const d = await artDownloads;
+    if (d) {
+      try { await d.save({ filename: name, data: blob }); } catch (e) { if (e?.code !== "declined") sayK("error", `${name}: ${e?.message || e?.code}`); }
+      return;
+    }
+  }
   const a = el("a", { href: URL.createObjectURL(blob), download: name });
   document.body.append(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+function download(name, obj) { return saveBlob(name, new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" })); }
 const fileSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "patch";
 const today = () => new Date().toISOString().slice(0, 10);
 $("libexp1").addEventListener("click", () => {
@@ -4858,6 +5844,10 @@ $("libexp1").addEventListener("click", () => {
   if (p) download(`felucca-patch-${fileSlug(p.name)}.json`, libraryFile("patch", [p], libCtx()));
 });
 $("libexport").addEventListener("click", () => download(`felucca-library-${today()}.json`, libraryFile("library", lib, libCtx())));
+/* M-Vave-OP1: the sounds shown (the engine, tag and search filters) as a preset file: a library file of kind "presets"
+   that tools/import_presets.py turns into factory presets (a name of the engine's replaces that preset, any other is
+   added; a tag BASS LEAD PAD PLUCK KEYS DRUM FX OTHER is its category). It reads back as any library file */
+$("libpresets").addEventListener("click", () => download(`m-vave-op1-presets-${today()}.json`, libraryFile("presets", libView(), libCtx())));
 $("libimport").addEventListener("click", () => { $("libfile").value = ""; $("libfile").click(); });
 $("libfile").addEventListener("change", async () => {
   let n = 0, skipped = 0;
@@ -4892,13 +5882,13 @@ function bankLoad(slot) {
   });
 }
 $("bkload").addEventListener("click", () => bankLoad(bankSel));
-$("bkstore").addEventListener("click", () => {
+$("bkstore").addEventListener("click", async () => {
   const slot = bankSel;
   if (!dev || !dev.bank || slot == null) return;
   const s = dev.bank.slots[slot];
-  const name = prompt(t("promptNameAuto"), s.used ? s.name : "");
+  const name = await askText(t("promptNameAuto"), s.used ? s.name : "");
   if (name == null) return;
-  if (s.used && !confirm(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  if (s.used && !await askOk(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
   libOp(async (d, rqf) => {
     checkRc(await bank.store(rqf, slot, name.trim()));
     await refreshSlot(slot, d);
@@ -4917,11 +5907,11 @@ function bankGet(slot) {
   });
 }
 $("bkget").addEventListener("click", () => bankGet(bankSel));
-$("bkerase").addEventListener("click", () => {
+$("bkerase").addEventListener("click", async () => {
   const slot = bankSel;
   if (!dev || !dev.bank || slot == null) return;
   const s = dev.bank.slots[slot];
-  if (!s.used || !confirm(t("confirmEraseSlot").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  if (!s.used || !await askOk(t("confirmEraseSlot").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
   libOp(async (d, rqf) => {
     checkRc(await bank.erase(rqf, slot));
     await refreshSlot(slot, d);
@@ -4933,7 +5923,7 @@ $("bkrefresh").addEventListener("click", () => libOp(async (d, rqf) => {
   dev.bank = await bank.list(rqf);
   sayK("ready");
 }));
-$("bkexport").addEventListener("click", () => libOp(async (d, rqf) => {
+const bankExport = () => libOp(async (d, rqf) => {
   const out = [];
   for (const x of dev.bank.slots) {
     if (!x.used) continue;
@@ -4944,7 +5934,207 @@ $("bkexport").addEventListener("click", () => libOp(async (d, rqf) => {
   }
   download(`felucca-bank-${today()}.json`, libraryFile("bank", out, libCtx()));
   sayK("ready");
-}));
+});
+$("bkexport").addEventListener("click", bankExport);
+
+/* M-Vave-OP1: PROJECTS > PRESETS ON THE DEVICE: the user preset slots (the bank) as files, beside the projects. A slot
+   downloads as a file (a library file of one sound: the editor's Library, tools/import_presets.py and this list read
+   it); a file onto a slot (its button or a drop) replaces that slot; UPLOAD takes several files: a sound named like a
+   slot's replaces it, any other goes into the next empty slot. The factory presets are the firmware's (a new
+   firmware changes them: tools/import_presets.py); a user preset shows in PRESETS beside them */
+function renderDevFiles() {
+  const box = $("devfiles");
+  box.hidden = !dev || !dev.bank;
+  if (box.hidden) return;
+  const b = dev.bank, used = b.slots.filter((x) => x.used).length, idle = !libBusy;
+  $("dfcount").textContent = `${used} / ${b.total} ${t("used")}`;
+  $("dfupload").disabled = !idle;
+  $("dfall").disabled = !used || !idle;
+  const tb = el("table", {}, el("colgroup", {}, el("col", { class: "n" }), el("col"), el("col", { class: "e" }), el("col")),
+    el("tr", {}, el("th", { text: "#" }), el("th", { text: t("name") }), el("th", { text: t("engine") }), el("th")));
+  for (const x of b.slots) {
+    const pick = el("input", { type: "file", accept: ".json,application/json", hidden: true });
+    pick.addEventListener("change", () => { const f = pick.files[0]; pick.value = ""; if (f) devFilePut(x.slot, f); });
+    const tr = el("tr", { class: x.used ? null : "empty" },
+      el("td", { text: slotName(x.slot) }), el("td", { text: x.used ? x.name : t("empty") }),
+      el("td", { text: x.used ? engineLabel(dev.info.engines, x.engine) : "" }),
+      el("td", {},
+        el("button", { ic: "symbol_download", disabled: !x.used || !idle, title: t("dfGetTip"), onclick: () => devFileGet(x.slot) }, t("dfGet")),
+        el("button", { ic: "symbol_upload", disabled: !idle, title: t("dfPutTip"), onclick: () => pick.click() }, t("dfPut")), pick,
+        el("button", { disabled: !x.used || !idle, onclick: () => slotRename(x.slot) }, t("rename")),
+        el("button", { ic: "symbol_trash", disabled: !x.used || !idle, onclick: () => devFileErase(x.slot) }, t("erase"))));
+    tr.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); tr.classList.add("over"); } });
+    tr.addEventListener("dragleave", () => tr.classList.remove("over"));
+    tr.addEventListener("drop", (e) => {
+      e.preventDefault();
+      tr.classList.remove("over");
+      if (e.dataTransfer.files.length) devFilePut(x.slot, e.dataTransfer.files[0]);
+    });
+    tb.append(tr);
+  }
+  $("dflist").replaceChildren(tb);
+  renderMirror();
+}
+/* the sounds of a file (any library file) for this device; throws when it holds none it can play */
+async function devFileSounds(f) {
+  const r = readLibraryFile(JSON.parse(await f.text()), libCtx());
+  const ok = r.patches.filter((p) => engineOk(p));
+  if (!ok.length) throw new Error(`${f.name}: ${t("dfNone")}`);
+  return ok;
+}
+function devFileGet(slot) {
+  libOp(async (d, rqf) => {
+    const u = await bank.get(rqf, dev.info, slot);
+    if (!u.used) throw new Error(t("empty"));
+    const pt = { name: u.name, engine: u.engine, engineName: dev.info.engines[u.engine], p: u.p, pattern: u.pattern, grid: u.grid,
+      fm6: u.fm6, slot, tags: [] };
+    download(`preset-${slotName(slot)}-${fileSlug(u.name)}.json`, libraryFile("patch", [pt], libCtx()));
+    sayK("ready");
+  });
+}
+async function devFilePut(slot, f) {
+  if (!dev || !dev.bank || libBusy) return;
+  let p;
+  try { [p] = await devFileSounds(f); } catch (err) { report(err); return; }
+  const s = dev.bank.slots[slot];
+  if (s.used && !await askOk(t("confirmOverwrite").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  libOp(async (d, rqf) => {
+    checkRc(await bank.put(rqf, slot, { ...p, name: upName(p.name), p: fullParams(p) }, dev.info));
+    await refreshSlot(slot, d);
+    sayK("putDone", `${slotName(slot)} ${upName(p.name)}`);
+  });
+}
+/* M-Vave-OP1: a user preset slot renamed: its record read and written back under the new name (sound, steps and FM6
+   patch as they were) */
+async function slotRename(slot) {
+  const s = dev && dev.bank && dev.bank.slots[slot];
+  if (!s || !s.used || libBusy) return;
+  const v = await askText(t("promptName"), s.name);
+  if (v == null || !upName(v) || upName(v) === s.name) return;
+  libOp(async (d, rqf) => {
+    const u = await bank.get(rqf, d.info, slot);
+    if (!u.used) throw new Error(t("empty"));
+    checkRc(await bank.put(rqf, slot, { ...u, name: upName(v), p: fullParams(u) }, d.info));
+    await refreshSlot(slot, d);
+    sayK("renamedSlot", `${slotName(slot)} ${upName(v)}`);
+  });
+}
+$("bkren").addEventListener("click", () => slotRename(bankSel));
+
+async function devFileErase(slot) {
+  const s = dev && dev.bank && dev.bank.slots[slot];
+  if (!s || !s.used || libBusy || !await askOk(t("confirmEraseSlot").replace("{n}", slotName(slot)).replace("{name}", s.name))) return;
+  libOp(async (d, rqf) => {
+    checkRc(await bank.erase(rqf, slot));
+    await refreshSlot(slot, d);
+    sayK("ready");
+  });
+}
+/* files -> slots: a sound named like a used slot replaces it, any other takes the next empty slot (none left: not
+   written) -> [[slot, sound]], the sounds left over */
+function devFilePlan(slots, sounds) {
+  const taken = new Set(), plan = [], left = [];
+  for (const p of sounds) {
+    const nm = upName(p.name);
+    let x = slots.find((s) => s.used && s.name === nm && !taken.has(s.slot));
+    if (!x) x = slots.find((s) => !s.used && !taken.has(s.slot));
+    if (!x) { left.push(p); continue; }
+    taken.add(x.slot);
+    plan.push([x.slot, p]);
+  }
+  return { plan, left };
+}
+$("dfall").addEventListener("click", bankExport);
+
+/* M-Vave-OP1: the user presets kept in this browser, both ways. Connected to the FM-1, the editor keeps a copy of its
+   slots (MIRROR_DEV, again after every change); NO DEVICE starts with them when its own slots are empty, and its
+   button copies them over again (the page's FM-1 plays them: the firmware's own sound). NO DEVICE keeps its slots the
+   same way (MIRROR_EMU), and on the FM-1 the button brings them back. A copy holds every used slot (its sound, steps,
+   FM6 patch) and the parameter keys, so another firmware maps them by name as library files are */
+const MIRROR_DEV = "mvave-op1-presets-device", MIRROR_EMU = "mvave-op1-presets-nodevice";
+function mirrorGet(key) {
+  try { const m = JSON.parse(localStorage.getItem(key) || "null"); return m && Array.isArray(m.slots) ? m : null; } catch { return null; }
+}
+let mirrorTm = 0, mirroring = false;
+function mirrorSoon(d = dev, ms = 1500) {
+  clearTimeout(mirrorTm);
+  mirrorTm = setTimeout(() => mirrorSave(d), ms);
+}
+async function mirrorSave(d) {
+  if (!d || d !== dev || !d.bank || mirroring) return;
+  if (libBusy || busy) { mirrorSoon(d); return; }
+  mirroring = true;
+  try {
+    const rqf = (r, o) => sessionRequest(d, r, { ...o, quiet: true }), slots = [];
+    for (const x of d.bank.slots) {
+      if (!x.used) continue;
+      const u = await bank.get(rqf, d.info, x.slot);
+      if (u.used) slots.push({ slot: x.slot, name: u.name, engine: u.engine, engineName: d.info.engines[u.engine], p: u.p,
+        pattern: u.pattern, grid: u.grid, fm6: u.fm6, cat: u.cat });
+    }
+    const m = { firmware: d.info.version, keys: d.keys, pe0: d.info.pe0, saved: new Date().toISOString(), slots };
+    try { localStorage.setItem(emu ? MIRROR_EMU : MIRROR_DEV, JSON.stringify(m)); } catch (e) { console.warn("mirror", e); }
+  } catch (e) { if (e.message !== "closed") console.warn("mirror", e); } finally { mirroring = false; renderMirror(); }
+}
+/* the other side's copy -> this device's slots, slot for slot (its empty slots erased here too) */
+function mirrorCopy(m) {
+  return libOp(async (d, rqf) => {
+    for (const x of d.bank.slots) {
+      const src = m.slots.find((y) => y.slot === x.slot);
+      if (src) {
+        const p = { ...src, engine: d.info.engines.indexOf(src.engineName), p: remapParams(src.p, m.keys, d.keys, d.info.pe0) };
+        if (p.engine < 0 || !engineOk(p)) continue;
+        sayK("putDone", `${slotName(x.slot)} ${upName(p.name)}`);
+        checkRc(await bank.put(rqf, x.slot, { ...p, name: upName(p.name), p: fullParams(p) }, d.info));
+      } else if (x.used) checkRc(await bank.erase(rqf, x.slot));
+      else continue;
+      await refreshSlot(x.slot, d);
+    }
+    sayK("mirDone", String(m.slots.length));
+  });
+}
+/* NO DEVICE started with empty slots and the FM-1's copy is there: take it (-> 1 when it did) */
+async function mirrorFill() {
+  const m = mirrorGet(MIRROR_DEV);
+  if (!emu || !dev || !dev.bank || !m || !m.slots.length || dev.bank.slots.some((x) => x.used)) return 0;
+  await mirrorCopy(m);
+  return 1;
+}
+function renderMirror() {
+  const b = $("mircopy"), info = $("mirinfo");
+  if (!b) return;
+  const m = mirrorGet(emu ? MIRROR_DEV : MIRROR_EMU), mine = mirrorGet(emu ? MIRROR_EMU : MIRROR_DEV);
+  const when = (x) => new Date(x.saved).toLocaleString(lang);
+  setLabel(b, t(emu ? "mirFromDev" : "mirFromEmu"));
+  b.disabled = !dev || !dev.bank || !m || libBusy;
+  info.textContent = [m ? t(emu ? "mirDevInfo" : "mirEmuInfo").replace("{n}", m.slots.length).replace("{when}", when(m)) : t(emu ? "mirDevNone" : "mirEmuNone"),
+    mine ? t("mirMine").replace("{when}", when(mine)) : ""].filter(Boolean).join(" · ");
+}
+$("mircopy").addEventListener("click", async () => {
+  const m = mirrorGet(emu ? MIRROR_DEV : MIRROR_EMU);
+  if (!dev || !dev.bank || !m) return;
+  if (!(await askOk(t(emu ? "mirAskDev" : "mirAskEmu").replace("{n}", m.slots.length) + "\n\n" +
+    m.slots.map((x) => `${slotName(x.slot)}  ${x.name}  (${x.engineName})`).join("\n")))) return;
+  mirrorCopy(m);
+});
+$("dfupload").addEventListener("click", () => { $("dffile").value = ""; $("dffile").click(); });
+$("dffile").addEventListener("change", async () => {
+  if (!dev || !dev.bank || libBusy) return;
+  const sounds = [];
+  try { for (const f of [...$("dffile").files]) sounds.push(...await devFileSounds(f)); } catch (err) { report(err); return; }
+  const { plan, left } = devFilePlan(dev.bank.slots, sounds);
+  const lines = plan.map(([k, p]) => `${slotName(k)}  ${upName(p.name)}${dev.bank.slots[k].used ? "  (" + t("dfReplaces") + ")" : ""}`);
+  if (left.length) lines.push(`${t("dfFull")}: ${left.map((p) => upName(p.name)).join(", ")}`);
+  if (!plan.length || !await askOk(t("dfConfirm") + "\n\n" + lines.join("\n"))) return;
+  libOp(async (d, rqf) => {
+    for (const [k, p] of plan) {
+      sayK("putDone", `${slotName(k)} ${upName(p.name)}`);
+      checkRc(await bank.put(rqf, k, { ...p, name: upName(p.name), p: fullParams(p) }, dev.info));
+      await refreshSlot(k, d);
+    }
+    sayK("dfDone", String(plan.length));
+  });
+});
 
 /* ------------------------------------------------------------------ FM6 --- */
 /* The 6-OP FM tab (firmware with FM6: INFO's fm6 tag): the whole patch of an FM6 track, which the device
@@ -5080,18 +6270,13 @@ function fm6Why(r) {
   if (r.kinds.includes("universal")) return ["fm6Universal", ""];
   return [r.sysex ? "fm6NoVoice" : "fm6NotSysex", ""];
 }
-function downloadBytes(name, bytes) {
-  const a = el("a", { href: URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" })), download: name });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
+function downloadBytes(name, bytes) { return saveBlob(name, new Blob([bytes], { type: "application/octet-stream" })); }
 $("fm6export").addEventListener("click", () => downloadBytes(`${fileSlug(FM6.name(fm6v))}.syx`, FM6.singleSysex(fm6v)));
 
 $("connect").addEventListener("click", () => {
   if (dev) { wantConnected = false; disconnect(); } else connect();
 });
+$("emuconnect").addEventListener("click", () => connectEmu());
 applyLang();
 showTab(tab);
 libInit();

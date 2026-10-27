@@ -37,6 +37,10 @@
 #define T_ASF 1
 #endif
 #define FELUCCA_UAC_AS_FIRST T_ASF
+#ifndef T_DISK
+#define T_DISK 0
+#endif
+#define FELUCCA_DISK T_DISK                              /* (M-Vave-OP1: MENU > USB DISK's device besides) */
 static void fm1_delay_ms(uint32_t ms) { (void)ms; }
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"   /* SIE register macros (never touched here) */
 #include "../firmware/src/usb.c"
@@ -389,6 +393,32 @@ int main(void)
                  CDC_SHOWN ? "presented" : "not presented");
         check(name, ok);
     }
+#if T_DISK
+    /* ---- M-Vave-OP1, USB DISK (usb_disk_switch): another device while it is on; off, the one above (checked with
+     * FELUCCA_DISK built in: nothing of it changed) ---- */
+    {
+        const uint8_t *dd, *cd, *sd;
+        uint16_t dl, cl, sl;
+        int ok;
+        usb_disk_on = 1;
+        ok = get_desc(0x0100, &dd, &dl) && get_desc(0x0200, &cd, &cl) && dl == 18u && dd[0] == 18u && dd[1] == 1u;
+        ok &= dd[4] == 0 && dd[5] == 0 && dd[6] == 0 && le16(dd + 8) == 0x1209u && le16(dd + 10) == FELUCCA_DISK_PID &&
+              le16(dd + 10) != FELUCCA_USB_PID && dd[16] == 3u && dd[15] == 4u && dd[17] == 1u;
+        check("USB DISK: device class 0 (per interface), its own PID, a serial number string", ok);
+        ok = cl == 32u && le16(cd + 2) == cl && cd[4] == 1u && cd[9 + 1] == 4u && cd[9 + 4] == 2u && cd[9 + 5] == 0x08u &&
+             cd[9 + 6] == 0x06u && cd[9 + 7] == 0x50u && cd[18 + 2] == 0x81u && cd[18 + 3] == 2u && le16(cd + 18 + 4) == 64u &&
+             cd[25 + 2] == 0x01u && cd[25 + 3] == 2u && le16(cd + 25 + 4) == 64u;
+        check("USB DISK: one interface, mass storage SCSI bulk-only, EP1 IN / OUT bulk 64", ok);
+        ok = get_desc(0x0303, &sd, &sl) && sl == sd[0] && sd[1] == 3u && sl >= 2u + 2u * 12u;
+        for (i = 2; ok && i < sl; i += 2)
+            ok = ((sd[i] >= '0' && sd[i] <= '9') || (sd[i] >= 'A' && sd[i] <= 'Z')) && sd[i + 1] == 0;
+        ok &= get_desc(0x0304, &sd, &sl) && sd[1] == 3u && get_desc(0x0301, &sd, &sl) && get_desc(0x0300, &sd, &sl);
+        check("USB DISK: the serial 12+ characters, 0-9 A-Z (BOT); the product string; 0 and 1 as the MIDI device's", ok);
+        usb_disk_on = 0;
+        ok = get_desc(0x0100, &dd, &dl) && le16(dd + 10) == FELUCCA_USB_PID && !get_desc(0x0303, &sd, &sl);
+        check("USB DISK off: the MIDI + audio device's descriptors again", ok);
+    }
+#endif
     printf(fails ? "USB DESCRIPTOR TEST FAILED (%d)\n" : "usb_desc: all ok\n", fails);
     return fails != 0;
 }

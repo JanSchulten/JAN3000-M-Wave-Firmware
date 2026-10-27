@@ -170,6 +170,16 @@ bars, each a root; while ON and running, the melodic tracks' sequenced notes and
 their own scale (Am F C G over a pattern in C major: A minor, F, C, G), the nearer way round; live keys and kits stay
 as they are. A key sets the cursor bar's root. Kept in the project extras (`XTRA_V4`). `tests/key_test.c`.
 
+### M7: 128 steps a track (done, then rolled back)
+
+LEN 1..128 (64 before) on every track and on the FX TRACKS, everything a step has on steps 65..128 too (chords,
+ratchets, chance, nudges, LEGATO, automation, locks). Felucca's project format holds steps 1..64: the rest goes into
+the project's extras (`XTRA_V7`, the tail after `proj_xtra_t`, read from the flash when a project or a song needs it);
+scenes past step 64 pack wide (`SCN_F_WIDE`); the song chain's four sources moved to the pool (RAM 56 KB, pool 376 KB).
+Firmware of 64 steps loads such a project as its first 64 steps.
+Rolled back to 64 (core.h `NSTEP`) when the SHIMMER bus and SAVE's grouped undo joined: together they did not fit the
+SRAM (15 KB over). The formats' room for steps 65..128 stays and stays empty; `tests/steps128_test.c` went with it.
+
 ### M4: OP-1 look
 
 A palette in the OP-1's spirit, a playful screen per engine (the FM6 algorithm as a moving diagram, the drum

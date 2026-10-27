@@ -26,13 +26,28 @@ AL-255/FM-1-RE (reverse engineering of the stock firmware), measurements from bu
 | --- | --- | --- | --- |
 | RAMTEXT | 0x01C00000 | 24 KB | code that runs while the flash is busy (flash driver) |
 | (debug) | 0x01C06000 | 8 KB | kept free for RAM-run debugging |
-| RAM | 0x01C08000 | 72 KB | `.data` + `.bss`: what the ISRs touch, small variables |
-| POOL | 0x01C1A000 | 360 KB | `.pool`: big zero-initialised buffers (FX lines, canvases, engine memory) |
+| RAM | 0x01C08000 | 50 KB | `.data` + `.bss`: what the ISRs touch, small variables |
+| POOL | 0x01C14800 | 382 KB | `.pool`: big zero-initialised buffers (FX lines, canvases, engine memory, the song's sources) |
 | stacks | 0x01C74000 .. 0x01C7C000 | 32 KB | user and system stacks with 256-byte guard bands |
 | NOINIT | 0x01C7C000 | ~15 KB | survives resets and boot-mode entry (panel calibration, boot guard) |
 | reserved | 0x01C7FD50 .. | | boot_info, boot-state mailbox, vector table |
 
-The RAM / POOL split is only a budget line in the linker script; both are the same SRAM.
+The RAM / POOL split is only a budget line in the linker script; both are the same SRAM. It moved twice: Felucca 1.5
+96 / 336 KB -> 72 / 360 KB; M-Vave-OP1's 128 steps 72 / 360 -> 56 / 376 KB (the song chain's four sources, 25 KB,
+went to the pool); back to 64 steps with the SHIMMER bus and the grouped undo: 50 / 382 KB.
+
+### Budgets (64 steps, SHIMMER bus, grouped undo, PUMPER; 2026-10-27)
+
+| | Used | Limit | Note |
+| --- | --- | --- | --- |
+| RAM `.data`+`.bss` | 41 912 B | 51 200 B | build.py demands >= 4 096 B free |
+| Pool | 377 836 B | 391 168 B | build.py demands >= 8 192 B free |
+| App image (XIP) | 531 436 B | 581 564 B | |
+| Audio ISR static cost `fm1_alnk0_irq` | 40 412 | 41 252 | 37 502 + 10 % |
+
+What the 128 steps cost while they were in (27 KB in all): `trk[]` 2 528 B a track (+768), the song chain's sources (`chain`, pool) 25 992 B (~6.5 KB a
+pattern), the project's work copy `proj_scratch` 7.7 KB, the extras' staging `xtra_buf` 3 KB; the extras' tail
+(steps 65..128, opstore.c `xtra_hi_t`) is read from the flash when needed, not kept with `xtra_slot`.
 
 ### Budgets (measured 2026-10, after M-Vave-OP1's step 4; toolchain 20260730)
 
@@ -45,7 +60,7 @@ The RAM / POOL split is only a budget line in the linker script; both are the sa
 | Key-scan ISR `fm1_timer5_irq` | 33 887 | 36 725 | |
 
 What things cost (measured with `nm` on the target build): a synth track ~23 KB (its `trk[]` entry 1 824 B, engine
-memory 12 888 B, SLICER buffer 8 KB), an FX TRACK lane 66 B, a song pattern in RAM (`chain_pattern_t`) ~3.4 KB, the
+memory 12 888 B, SLICER buffer 8 KB), an FX TRACK lane 66 B (130 B with 128 steps), a song pattern in RAM (`chain_pattern_t`) ~3.4 KB, the
 scene bank (15 scenes packed, scene.c `scb`) 7.9 KB of pool.
 
 Run `scripts/budget_report.sh` to get the current numbers.
@@ -59,7 +74,7 @@ Run `scripts/budget_report.sh` to get the current numbers.
 | 0x9F000 | FM6 patches of the user presets, copy A |
 | 0xA0000 .. 0xB3FFF | user sample slot USR1 (80 KB, ADPCM, ~7 s at 22.05 kHz) |
 | 0xB4000 .. 0xC7FFF | M-Vave-OP1 (opstore.c): the scenes, set A..D + autosave, two 8 KB copies each (commit record `OBJ_SCENES`) |
-| 0xC8000 .. 0xCFFFF | M-Vave-OP1 (opstore.c): the projects' extras A/B (`OBJ_XPROJ0 + slot`: the FX TRACKS) |
+| 0xC8000 .. 0xCFFFF | M-Vave-OP1 (opstore.c): the projects' extras A/B (`OBJ_XPROJ0 + slot`: the FX TRACKS, steps 65..128) |
 | 0xD0000 .. 0xD1FFF | the autosave's extras A/B (`OBJ_XAUTO`) |
 | 0xD2000 .. 0xDBFFF | free since M6 (the dropped TAPE kept its copies A/B here) |
 | 0xDC000 .. 0xDFFFF | user preset banks |

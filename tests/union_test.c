@@ -12,7 +12,9 @@
  * sequences that play SAMPLE's PIANO (SAMPLE presets 0 / 1, GRAIN's FROZEN / SHIMMER) were rewritten in 1.5, when
  * PIANO went back to the full piano of 1.1.5; the other 340 are 1.4's. M-Vave-OP1 rewrote all 720 when ROOM (the
  * reverb of these renders) began to round towards zero (fx.c rev_room: no hum, an exact end): with ROOM's old
- * rounding every one of them still matched the file before, so the switches sound as they did.
+ * rounding every one of them still matched the file before, so the switches sound as they did. M-Vave-OP1 rewrote
+ * the 424 that play GRAIN's CLOUD PAD or GLITCH (part 3 plays them alongside) when FLUTE and SAX left the firmware:
+ * their SRC is PIANO now.
  * env: GOLDEN_UPDATE=1 rewrites GOLDEN_FILE (only with a reason: a switch is to sound as it did). */
 #define main hostsim_main
 #include "hostsim.c"

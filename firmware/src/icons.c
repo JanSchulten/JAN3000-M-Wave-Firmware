@@ -247,6 +247,7 @@ static uint32_t engine_icon(const char *name)
         {"PRTCL", ICON_PROB},                /* (M-Vave-OP1: random particles) */
         {"WTABLE", ICON_WAVE},               /* (M-Vave-OP1: the wavetables) */
         {"SWARM", ICON_W_SAW},               /* (M-Vave-OP1: a swarm of saws) */
+        {"ACID", ICON_W_SQR},                /* (M-Vave-OP1: the 303's square and saw; a glyph of its own wanted) */
     };
     uint32_t i;
     for (i = 0; i < sizeof M / sizeof M[0]; i++)

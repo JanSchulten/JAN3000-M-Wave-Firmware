@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 M-Vave-OP1 contributors
+# The static site Vercel serves (vercel.json: outputDirectory "site", no build there: Vercel has no Emscripten), made
+# here and committed:
+#   site/index.html   the front page (web/site/index.html)
+#   site/bounce/      the offline bounce (web/bounce/build.sh)
+#   site/emu/         the browser emulator (web/emu/build.sh)
+# Run after ./build.sh, with Emscripten (emcc) on the PATH; then commit site/.
+set -e
+cd "$(dirname "$0")/.."
+sh web/bounce/build.sh
+sh web/emu/build.sh
+VERSION=$(sed -n 's/^#define FELUCCA_VERSION "\([^"]*\)".*/\1/p' firmware/src/felucca.c)
+JAN=$(sed -n 's/^#define JAN_VERSION "\([^"]*\)".*/\1/p' firmware/src/ui_draw.c)
+rm -rf site
+mkdir -p site
+cp -R build/bounce site/bounce
+cp -R build/emu site/emu
+sed -e "s/@VERSION@/$VERSION/g" -e "s/@JAN@/$JAN/g" web/site/index.html > site/index.html
+echo "site: $(find site -type f | wc -l | tr -d ' ') files, $(du -sk site | cut -f1) KiB (JAN3000 $JAN, Felucca $VERSION)"

@@ -35,7 +35,7 @@ const FW_ROOT = process.env.FELUCCA_ROOT || join(HERE, "..");
 const html = readFileSync(join(HERE, "editor.html"), "utf8");
 const proto = html.slice(html.indexOf("/*PROTO-BEGIN*/"), html.indexOf("/*PROTO-END*/"));
 const E = vm.runInNewContext(proto + `
-;({ frame, unframe, parse, req, Link, parseWav, resample, normalize, takeSample, autoTrim, zoomView, rootFromName, buildSlot, makeMockDevice, CMD, SMP,
+;({ frame, unframe, parse, req, Link, parseWav, resample, normalize, takeSample, autoTrim, zoomView, rootFromName, buildSlot, parseSlotFile, makeMockDevice, CMD, SMP,
    UP, bank, capturePatch, auditionPatch, startWatch, libraryFile, readLibraryFile, paramKeys, patternFromSteps, stepsFromPattern, upName,
    mixer, parseNotes, parseHits, hitsText, gridFromSteps, LANE_NOTE, LANE_OF, readDevicePreferences, devicePresetRows, engineOrder, ENGINE_ORDER, aliasOf, fmtValue, FM6, enumShown, F,
    FM4, fromDigital, fromPerc, DRUM_KIT_E,
@@ -53,8 +53,8 @@ async function editorMock() {
   inp.onmidimessage = (e) => link.receive(e.data);
   const rq = async (r, o) => link.request(r, o);
   const info = E.parse[E.CMD.INFO](await rq(E.req.info()));
-  ok(info.nengines === 22 && info.engines[17] === "WSHAPE" && info.engines[18] === "HRMNC" && info.engines[19] === "PRTCL" &&
-     info.engines[20] === "WTABLE" && info.engines[21] === "SWARM" && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANLG2" && info.engines[15] === "VDRUM" && info.engines[16] === "-"
+  ok(info.nengines === 23 && info.engines[17] === "WSHAPE" && info.engines[18] === "HRMNC" && info.engines[19] === "PRTCL" &&
+     info.engines[20] === "WTABLE" && info.engines[21] === "SWARM" && info.engines[22] === "ACID" && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANLG2" && info.engines[15] === "VDRUM" && info.engines[16] === "-"
  && info.engines[2] === "-" && info.engines[5] === "-" && info.engines[6] === "-" && info.engines[7] === "WHEEL" && info.engines[8] === "GRAIN" && info.engines[9] === "PHYS" && info.engines[10] === "DRUM" && info.engines[11] === "NOISE" && info.pcount === 112 && info.pe0 === 104 && info.engines[4] === "SAMPLE",
     "editor: INFO");
   let descs = 0;
@@ -65,7 +65,7 @@ async function editorMock() {
        track's: a factory preset keeps it, as ui.c apply_preset_to does (param_kept) */
     const sd = [];
     for (let i = 45; i < 49; i++) sd.push(E.parse[E.CMD.DESC](await rq(E.req.desc(0, i))));
-    ok(sd.map((d) => d.label).join() === "SLCR,PAT,RATE,DEPTH" && sd[0].names.join() === "OFF,GATE,STUT",
+    ok(sd.map((d) => d.label).join() === "SLCR,PAT,RATE,DEPTH" && sd[0].names.join() === "OFF,GATE,STUT,PUMP,GT END,PM END",
       "editor: SLICER parameters 45..48 over DESC");
     await rq(E.req.set(0, 45, 2));
     await rq(E.req.set(0, 46, 7));
@@ -160,7 +160,7 @@ async function editorMock() {
   {   /* the lists in the device's order (engines.c ENGINE_ORDER): ANALOG2 second, FM6 third, WSHAPE fourth, DRUM, VDRUM last, "-"
        * (DIGITAL, M-Vave-OP1's retired five) never; the numbers stay */
     const shown = E.engineOrder(info.engines).map((i) => info.engines[i]);
-    ok(shown.join() === "ANALOG,ANLG2,FM6,WSHAPE,HRMNC,PRTCL,WTABLE,SWARM,LOFI,SAMPLE,WHEEL,GRAIN,PHYS,NOISE,DRUM,VDRUM" &&
+    ok(shown.join() === "ANALOG,ANLG2,FM6,WSHAPE,HRMNC,PRTCL,WTABLE,SWARM,LOFI,SAMPLE,WHEEL,GRAIN,PHYS,NOISE,DRUM,VDRUM,ACID" &&
        E.engineOrder(info.engines)[1] === 14 && E.engineOrder(info.engines)[2] === 12 && E.engineOrder(info.engines)[3] === 17 &&
        E.engineOrder(info.engines)[4] === 18 && E.engineOrder(info.engines)[5] === 19 && E.engineOrder(info.engines)[6] === 20 &&
        E.engineOrder(info.engines)[7] === 21 && E.engineOrder(info.engines)[14] === 10 && E.engineOrder(info.engines)[15] === 15,
@@ -170,7 +170,7 @@ async function editorMock() {
     await rq(E.req.uiSet(3, 0));
     prefs = await E.readDevicePreferences(rq, info, names, prefs);
     const rows = E.devicePresetRows(info, names, prefs).filter((r) => !r.user), eng = [...new Set(rows.map((r) => r.engine))];
-    ok(eng[0] === 0 && eng[1] === 14 && eng[2] === 12 && eng[eng.length - 2] === 10 && eng[eng.length - 1] === 15,
+    ok(eng[0] === 0 && eng[1] === 14 && eng[2] === 12 && eng[eng.length - 3] === 10 && eng[eng.length - 2] === 15 && eng[eng.length - 1] === 22,
        "editor: device presets in the device's engine order");
   }
   const none = await E.readDevicePreferences(() => { throw new Error("unexpected request"); }, { uiCaps: 0 }, []);
@@ -314,10 +314,10 @@ async function editorSamplePresets() {
   const names = E.parse[C.NAMES](await rq(E.req.names(4)));
   await rq(E.req.preset(4, 0));
   const set = E.parse[C.DESC](await rq(E.req.desc(0, info.pe0)));
-  ok(eq(names.names, ["PIANO", "PIANO", "FLUTE", "SAX"]) && eq(set.names.slice(0, 4), ["PIANO", "PIANO", "FLUTE", "SAX"])
+  ok(eq(names.names, ["PIANO", "PIANO", "PIANO", "PIANO"]) && eq(set.names.slice(0, 4), ["PIANO", "PIANO", "PIANO", "PIANO"])
     && set.names[4] === "PIANO" && eq(set.names.slice(5), ["USR1", "USR2", "USR3"]),
-    "SAMPLE: TRANH and PERC removed, SET 1 and 4 kept as PIANO aliases, indices unchanged");
-  ok(E.aliasOf(names.names, 1) === 0 && E.aliasOf(names.names, 2) === 2 && E.aliasOf(set.names, 5) === 5 &&
+    "SAMPLE: TRANH, FLUTE, SAX and PERC removed, SET 1 .. 4 kept as PIANO aliases, indices unchanged");
+  ok(E.aliasOf(names.names, 1) === 0 && E.aliasOf(names.names, 2) === 0 && E.aliasOf(names.names, 3) === 0 && E.aliasOf(set.names, 5) === 5 &&
      E.aliasOf(set.names, 4) === 0, "SAMPLE: an entry named like an earlier one is an alias of it");
   const alias = E.parse[C.PRESET](await rq(E.req.preset(4, 1)));
   const setAlias = E.parse[C.SET](await rq(E.req.set(0, info.pe0, 1)));
@@ -440,7 +440,7 @@ function mockTables() {
   ok(fw.SHOWN && fw.SHOWN.length > 20 && !sd.length, `editor: enum lists in the device's knob order (${fw.SHOWN ? fw.SHOWN.length : 0} lists)`);
   const div = T.TP.find((d) => d.label === "DIV"), slr = T.TP.filter((d) => d.label === "RATE" && d.fmt === E.F.ENUM);
   ok(shown(div).join() === "4BAR,2BAR,1/1,1/2,1/4,1/8,8T,1/16,16T,1/32" &&
-     slr.some((d) => shown(d).join() === "1/8,8T,1/16,16T,1/32,32T") && div.names[2] === "1/16",
+     slr.some((d) => shown(d).join() === "1/4,1/8,8T,1/16,16T,1/32,32T") && div.names[2] === "1/16",
      "editor: #48 DIV / RATE / TIME longest first (values unchanged: 2 is still 1/16)");
   const tim = T.GP.filter((d) => d.label === "TIME");
   ok(tim.length === 1 && shown(tim[0]).join() === "4BAR,2BAR,1/1,1/2,1/4D,1/4,1/8D,1/8,1/16D,8T,1/16,16T,1/32" &&
@@ -702,7 +702,7 @@ async function editorLibrarian() {
   ok(file.format === "felucca-library" && file.version === 1 && file.pCount === 112 && file.paramLabels.length === 112 && file.paramLabels[81] === "CHRD" && file.paramLabels[82] === "VOIC" &&
     file.paramLabels[83] === "KICK" && file.paramLabels[90] === "BELL" && file.paramLabels.slice(91, 96).join() === "SYNC,TRIG,POL,QNTZ,SPRD" &&
     file.paramLabels.slice(96, 103).join() === "INSRT,INS A,INS B,INS C,MIX,TYPE,ESYNC" &&
-    file.paramLabels[103] === "SHIM" && file.engines.length === 22,
+    file.paramLabels[103] === "SHIM" && file.engines.length === 23,
     "library file: versioned, with P_COUNT, labels and engines");
   const back = E.readLibraryFile(file, ctx);
   ok(back.patches.length === 2 && !back.skipped && eq(back.patches[0].p, cap.p) && eq(back.patches[1].p, bass.p)
@@ -719,6 +719,10 @@ async function editorLibrarian() {
   ok(lost.patches.length === 0 && lost.skipped === 1, "library file: a patch for an unknown engine is skipped");
   const bankFile = E.libraryFile("bank", [{ ...g, engineName: "ANALOG", slot: 10 }], ctx);
   ok(bankFile.kind === "bank" && bankFile.patches[0].slot === 10 && E.readLibraryFile(bankFile, ctx).patches[0].slot === 10, "library file: bank export keeps slot numbers");
+  const presetFile = JSON.parse(JSON.stringify(E.libraryFile("presets", pts, ctx)));   /* M-Vave-OP1: "Export presets" */
+  ok(presetFile.kind === "presets" && presetFile.paramLabels.length === 112 && presetFile.patches[1].engineName === "ANLG2" &&
+    eq(presetFile.patches[1].tags, ["bass", "device"]) && E.readLibraryFile(presetFile, ctx).patches.length === 2,
+    "library file: a preset file (tools/import_presets.py's input): labels, engine names, tags; it reads back as a library");
   {   /* files from the 69-parameter firmware (P_E0 61): the engine's 8 land on E0..E7 (104..111), FM op ENV, the
          chord keys and the lane levels stay unset */
     const p69 = [...cap.p.slice(0, 61), ...cap.p.slice(info.pe0, info.pcount)];
@@ -1574,6 +1578,21 @@ function samplesMatch() {
     const pyHdr = readFileSync(join(dir, "slot.hdr")), pyData = readFileSync(join(dir, "slot.bin"));
     ok(eq(js.hdr, pyHdr) && eq(js.data, pyData), `samples: editor == sampleio.py (${files.length} WAV formats, ${js.data.length} B)`);
   } else console.log("samples: editor == sampleio.py (no FELUCCA_TOOLS)                skip");
+  {   /* M-Vave-OP1: a slot file (FLUTE / SAX, once built in: dist/samples) loads as it is; a damaged one is refused */
+    const sf = join(TOOLS, "..", "dist", "samples", "FLUTE.slot");
+    if (existsSync(sf)) {
+      const raw = readFileSync(sf), r = E.parseSlotFile(raw);
+      const bad = Uint8Array.from(raw); bad[E.SMP.DATA_OFF + 100] ^= 1;
+      const trunc = raw.subarray(0, raw.length - 10);
+      let e1 = "", e2 = "", e3 = "";
+      try { E.parseSlotFile(bad); } catch (e) { e1 = e.message; }
+      try { E.parseSlotFile(trunc); } catch (e) { e2 = e.message; }
+      try { E.parseSlotFile(new Uint8Array(600)); } catch (e) { e3 = e.message; }
+      ok(r.name === "FLUTE" && r.zones === 3 && eq(r.hdr, raw.subarray(0, E.SMP.HDR_LEN)) && eq(r.data, raw.subarray(E.SMP.DATA_OFF)) &&
+        r.hdr[32 + 27] === 1 && /CRC/.test(e1) && /damaged/.test(e2) && /not a slot/.test(e3),
+        "samples: slot file FLUTE: header and data as stored, looped zones; a changed byte, a short file, no magic refused");
+    } else console.log("samples: slot file (no dist/samples/FLUTE.slot)                skip");
+  }
   /* recording / trimming: takeSample (a cut of the raw input, faded at the cuts, normalised), autoTrim */
   const R = E.SMP.RATE, raw = new Float64Array(R);       /* 1 s: silence, a tone from 0.25 to 0.6 s, silence */
   for (let i = Math.round(R * 0.25); i < Math.round(R * 0.6); i++) raw[i] = Math.sin(i * 0.2) * 0.3;

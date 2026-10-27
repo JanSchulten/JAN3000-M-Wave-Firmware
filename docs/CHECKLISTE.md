@@ -83,23 +83,80 @@ des Sounds bleiben):
 - [ ] **Presets nach Gehör:** Die 40 neuen Presets habe ich nach den Parametern gebaut, nicht nach Gehör. Was nicht
       gut klingt, sag mir, oder speichere es als User-Preset und nenn mir die Werte.
 - [ ] **J-6 Chord Mode (SCL > CSET):** ist wieder drin (siehe unten); auf dem Gerät durchprobieren.
-- [ ] **Flash:** nur noch 5,9 KB frei (nach SCL > CSET). Für neue Funktionen wird es eng; die Sample-Sets (104 KB) wären der große
-      Brocken, falls einmal Platz gebraucht wird.
+- [x] **Flash:** FLUTE und SAX sind raus (63 KB frei, siehe Abschnitt 9).
 
-## 7. Akkorde: SCL > CSET (J-6)
+## 7. Akkorde: SCL > CHORD mit den Sets des J-6
 
 SCL > CSET (aus dem Branch `claude/cset-chords`, jetzt zusammengeführt) **ersetzt SCL > ORCHID**: die 100 Chord Sets
 des Roland J-6, jede Taste ein Akkord des gewählten Sets. Ein Projekt mit ORCHID an lädt mit CSET aus.
 
-- [ ] SCL dreimal: die Seite heißt CSET. KNOB 1 ON, KNOB 2 das Set (1 .. 100), KNOB 3 springt nach Stilrichtung.
+- [ ] SCL, mit SELECT zu CHORD: KNOB 1 läuft OFF .. POW und weiter SET 1 .. 100, KNOB 3 springt nach Stilrichtung
+      (vor SET 1 zurück zu POW). Eine eigene CSET-Seite gibt es nicht mehr (Phase 2).
 - [ ] F3 .. E4 spielen die Akkorde des Sets in der Lage der J-6-Liste; Oktavtasten und TRN verschieben sie.
-- [ ] Die Seite zeigt den zuletzt gespielten Akkord. ON macht die Spur POLY, OFF gibt die vorige VOICE zurück.
+- [ ] Die Seite zeigt den zuletzt gespielten Akkord. Ein Set macht die Spur POLY, eine Akkordform gibt die vorige
+      VOICE zurück. SCL halten, KNOB 3: dieselbe Liste; SAVE halten nimmt den Wechsel zurück.
 - [ ] STEP und Live-Aufnahme schreiben die Akkorde; MIDI-Noten spielen ebenfalls den Akkord ihrer Taste.
 - [ ] Projekt speichern und laden: ON und Set bleiben pro Spur.
 
 Außerdem gibt es weiterhin **SCL > CHORD** (CHRD, VOIC: eine Taste ein Akkord der Tonart oder ein fester Typ) und
 **GLO > KEY** (eine Akkordfolge über die Patterns, wie beim OP-Z). Mit dem Merge kamen auch die **Legato-Aufnahme**
 (gebundene Töne bleiben beim Live-Aufnehmen gebunden) und der **VDRUM-Kick ohne Rauschen** im Ausklingen zurück.
+
+## 9. FLUTE und SAX als Dateien, Presets als Datei
+
+- [ ] SAMPLE zeigt ab Werk nur noch PIANO; GRAIN CLOUD PAD und GLITCH nehmen jetzt PIANO als Quelle.
+- [ ] Web-Editor > Samples > USR1 > **Slot file**: `samples/FLUTE.slot` (im Installer-ZIP) laden, SAMPLE SET USR1: klingt
+      wie früher FLUTE (gehaltene Töne halten durch die Schleife). Dasselbe mit `SAX.slot`. USR1 hält eins von beiden.
+- [ ] Web-Editor > Library: Sounds speichern, mit Tags (BASS, LEAD, PAD, ...) versehen, **Export presets**: die Datei
+      schickst du mir, ich mache daraus Werks-Presets (`tools/import_presets.py`; gleicher Name ersetzt, neuer Name kommt
+      dazu). Ein Werks-Preset hält: E0..E7, ATK DEC SUS REL, ENV>FLT, MONO; LFO, Matrix u. a. gehen dabei verloren.
+
+- [ ] Web-Editor > **Projects > Presets on the device**: die User-Preset-Plätze U01 .. U32 wie Dateien. **Download**
+      lädt eins als Datei, **Replace** (oder die Datei auf die Zeile ziehen) ersetzt einen Platz, **Upload files**
+      schreibt mehrere (gleicher Name ersetzt, sonst ein leerer Platz), **Download all** alle in eine Datei. Danach am
+      Gerät in PRESETS nachsehen: die neuen stehen neben den Werks-Presets.
+
+## 10. Editor ohne Gerät
+
+- [ ] Editor öffnen (Installer-Seite > Editor, oder der Link), oben **Ohne Gerät** klicken: nach ein paar Sekunden
+      „Verbunden“, darunter die Tastatur-Zeile. Sprache oben rechts: Deutsch.
+- [ ] Tastatur: A W S E D … spielt, Z / X Oktave, C / V Anschlag. Spur 1–4 oben wählen: die Tasten spielen diese Spur.
+- [ ] Sound-Tab: Engine und Preset wählen, Regler drehen, man hört es sofort.
+- [ ] Bibliothek: „Aktuellen Sound speichern“, mit Tags versehen, „Presets exportieren“ (die Datei an mich).
+- [ ] Ein MIDI-Keyboard am Mac spielt den Sound mit (Chrome fragt nach MIDI-Zugriff).
+- [ ] Am echten Gerät (Verbinden statt Ohne Gerät): die Tastatur spielt auch dort.
+- [ ] FM-1 einmal **Verbinden**: unter Projekte > Presets am Gerät steht „Kopie dieser Seite: <Datum>“ (die User-Presets
+      liegen jetzt im Browser). Trennen, **Ohne Gerät**: dieselben Presets sind da und klingen wie am FM-1 (Sound-Tab
+      oder Bibliothek > User-Presets > Laden). Bearbeiten, mit SAVE am virtuellen Gerät bzw. im Editor ablegen.
+- [ ] Wieder **Verbinden**: Button „Presets von „Ohne Gerät“ aufs FM-1“ bringt sie zurück (fragt vorher, Liste).
+
+## 11. Werks-Presets der Reihe nach überarbeiten
+
+- [ ] Sound-Tab: „Werks-Presets bearbeiten: Änderungen merken“ ist an (Standard).
+- [ ] Ein Werks-Preset in der Liste wählen, Regler drehen: rechts steht „<NAME>: deine Fassung“. Das nächste Preset
+      wählen, wieder drehen, … Zurück zum ersten: deine Fassung kommt wieder (in der Liste mit ✎ markiert).
+- [ ] „Zurück zum Werkszustand“ verwirft die eigene Fassung des gewählten Presets.
+- [ ] Am Ende „Bearbeitete exportieren“: eine Datei mit allen bearbeiteten Presets, die schickst du mir (sie ersetzen
+      die Werks-Presets gleichen Namens). Die Fassungen liegen auch in der Bibliothek (Tag „edited“).
+
+## 12. ACID (TB-303-Bassline)
+
+Noch nicht auf dem Gerät gelaufen. Engine 22, in PRESETS ganz am Ende.
+
+- [ ] EDIT gehalten + **D#5** (schwarze Taste über den weißen): lädt ACID, die LED leuchtet, solange ACID gewählt ist.
+- [ ] Presets durchhören: ACID LINE, SQUELCH, SQR ACID, RUBBER, DIST 303, DEEP SUB, SCREAM, SOFT BASS. Jedes lädt
+      sein Pattern mit (ACID 2 .. 5 bzw. ACID): PLAY drücken, es läuft eine Acid-Linie.
+- [ ] HOME KNOB 1..4 = CUT RES ENV DEC; auf der ACID-Seite auch WAVE TUNE ACC DIST. RES hoch: quietscht, pfeift aber
+      nicht dauerhaft; DIST hoch: verzerrt, ohne Brummen.
+- [ ] Accent (Schritt mit ACCENT, Velocity 127): lauter, kürzer, heller; mehrere Accents hintereinander öffnen den
+      Filter immer weiter („Wow“).
+- [ ] Slide (Schritt mit SLIDE): der Ton gleitet in den nächsten, ohne neuen Anschlag.
+- [ ] SEQ + **RANDOM** (D#4) auf einer ACID-Spur: „RANDOM ACID“, eine neue Linie in der Tonleiter der Spur (CHR = Moll),
+      Schritt 1 Grundton mit Accent. **COOK** schaltet auch Slides um.
+- [ ] Web-Editor, Sequencer-Tab mit einer ACID-Spur: das orange **TD-3-Raster** (Note, Oktave ▲/▼, Zeit ♪/—/·, ACC,
+      SLD) schreibt sofort in die Schritte; „Acid würfeln“ würfelt eine Linie.
+- [ ] CPU: 4 Spuren ACID gleichzeitig laufen lassen, MENU > SYSTEM > INFO > CPU notieren (auf dem Host kostet ACID
+      etwa ein Drittel von ANALOG).
 
 ## 8. Erledigt in diesem Durchgang
 

@@ -10,8 +10,9 @@
  *   KEYS     through the real key input (keyboard_block): every key its chord (a black key under QNT WHITE too), the
  *            octave buttons, a release ends exactly its notes; CSET off and a kit: the keys as ever; the ARP holds the
  *            chord's notes; a MIDI note plays the chord of its key and its release ends it.
- *   PAGE     SCL > CHORD > CSET: KNOB 1 ON makes the track POLY (LEG kept), OFF gives LEG back; a mono sound loaded
- *            while on plays POLY (OFF: its LEG); VOICE set by hand stays; KNOB 2 SET 1 .. 100, KNOB 3 the genres;
+ *   PAGE     SCL > CHORD, one page: KNOB 1 OFF .. POW, then SET 1 .. 100 (a set makes the track POLY, LEG kept; back
+ *            to a shape gives LEG back); a mono sound loaded while on plays POLY (OFF: its LEG); VOICE set by hand
+ *            stays; KNOB 3 the genres, before SET 1 back to POW; SCL held: KNOB 3 the same list, one SAVE undo;
  *            STEP entry and live recording write the chord; ON, SET and the VOICE kept with the project (the extras),
  *            older extras: off.
  *   With a directory: the CSET page's screens.
@@ -203,7 +204,7 @@ static void test_page(const char *dir)
 {
     static const uint8_t F3[] = {41, 57, 64, 67};
     uint32_t i;
-    int ok;
+    int ok, ok2;
     ui_power_on();
     stop_transport();
     song.sel = 0;
@@ -211,18 +212,22 @@ static void test_page(const char *dir)
     apply_preset_to(TSEL, 0);                     /* (SAW LEAD: a mono sound, LEG) */
     frames(400);
     ok = TSEL->p[P_VOICE] == V_LEGATO;
+    for (i = 0, ok2 = 1; i < NPAGES; i++)
+        ok2 &= !str_eq(PAGES[i].title, "CSET");
     go_title("CHORD");
     frames(500);
-    press(B_SCL);                                 /* (SCL after CHORD: CSET) */
-    frames(400);
-    ok &= str_eq(cur_page()->title, "CSET") && cur_page()->fam == FAM_SCL && !cset_on(TSEL);
+    ok &= ok2 && cur_page()->fam == FAM_SCL && !cset_on(TSEL) && TSEL->p[P_CHRD] == CH_OFF;
     if (dir)
-        screen_save(dir, "cset_off");
-    turn(EN_K1, 1);
-    ok &= cset_on(TSEL) && TSEL->p[P_VOICE] == V_POLY && cset_voice[0] == V_LEGATO;
+        screen_save(dir, "chord_off");
+    for (i = 0; i < 9u; i++)
+        turn(EN_K1, 1);
+    ok &= TSEL->p[P_CHRD] == CH_POW && !cset_on(TSEL);
+    turn(EN_K1, 1);                               /* (past POW: SET 1) */
+    ok &= cset_on(TSEL) && cset_set[0] == 0u && TSEL->p[P_CHRD] == CH_POW && TSEL->p[P_VOICE] == V_POLY &&
+          cset_voice[0] == V_LEGATO;
     turn(EN_K1, -1);
-    ok &= !cset_on(TSEL) && TSEL->p[P_VOICE] == V_LEGATO;
-    ck("PAGE: SCL > CHORD > CSET; KNOB 1 ON: the LEG track POLY, OFF: LEG again", ok);
+    ok &= !cset_on(TSEL) && TSEL->p[P_CHRD] == CH_POW && TSEL->p[P_VOICE] == V_LEGATO;
+    ck("PAGE: one CHORD page (no CSET page); KNOB 1 OFF .. POW, then SET 1 (POLY, LEG kept), back: POW, LEG", ok);
     turn(EN_K1, 1);
     apply_preset_to(TSEL, 0);                     /* (a mono sound loaded while on: POLY, its LEG kept) */
     ok = TSEL->p[P_VOICE] == V_POLY && cset_voice[0] == V_LEGATO;
@@ -235,23 +240,58 @@ static void test_page(const char *dir)
     TSEL->p[P_VOICE] = V_LEGATO;
     ck("  a mono sound loaded while on plays POLY (OFF: its LEG); VOICE set by hand stays", ok);
     turn(EN_K1, 1);
-    turn(EN_K2, 1);
+    turn(EN_K1, 1);
     ok = cset_set[0] == 1u;
     for (i = 0; i < 120u; i++)
-        turn(EN_K2, 1);
-    ok &= cset_set[0] == 99u;
-    for (i = 0; i < 120u; i++)
-        turn(EN_K2, -1);
-    ok &= cset_set[0] == 0u;
+        turn(EN_K1, 1);
+    ok &= cset_set[0] == 99u && cset_on(TSEL);
+    for (i = 0; i < 99u; i++)
+        turn(EN_K1, -1);
+    ok &= cset_set[0] == 0u && cset_on(TSEL);
     turn(EN_K3, 1);
     ok &= cset_set[0] == 2u;
     turn(EN_K3, 1);
     ok &= cset_set[0] == 5u;
     turn(EN_K3, -1);
     ok &= cset_set[0] == 2u;
+    turn(EN_K3, -1);
+    ok &= cset_set[0] == 0u && cset_on(TSEL);
+    turn(EN_K3, -1);                              /* (before SET 1: the chord shapes again, POW) */
+    ok &= !cset_on(TSEL) && TSEL->p[P_CHRD] == CH_POW;
+    turn(EN_K3, -1);
+    ok &= !cset_on(TSEL) && TSEL->p[P_CHRD] == CH_POW;
+    turn(EN_K3, 1);                               /* (from a shape: SET 1) */
+    ok &= cset_on(TSEL) && cset_set[0] == 0u;
     frame();
-    ok &= help_page() && str_eq(help_page(), "[K1]ON[K2]SET[K3]GENRE");
-    ck("  KNOB 2 SET 1 .. 100 (stops at the ends), KNOB 3 the genres (POP, JAZZ 3, BLUES 6, back); its help line", ok);
+    ok &= help_page() && str_eq(help_page(), "[K1]CHORD[K3]GENRE");
+    ck("  KNOB 1 SET 1 .. 100 (stops at the end), KNOB 3 the genres (POP, JAZZ 3, BLUES 6, back, POW); its help line", ok);
+    {                                             /* the SCL layer's CHRD: the same list, one SAVE undo */
+        go_page(GR_ROLL);
+        frames(400);
+        cset_switch(TSEL, 0);
+        TSEL->p[P_CHRD] = CH_MAJ;
+        TSEL->p[P_VOICE] = V_LEGATO;
+        frames(400);
+        btn_down(B_SCL);
+        frames(500);
+        for (i = 0; i < 8u; i++)
+            turn(EN_K3, 1);                       /* (MAJ .. POW, then SET 1, SET 2) */
+        ok = cset_on(TSEL) && cset_set[0] == 1u && TSEL->p[P_VOICE] == V_POLY;
+        btn_up(B_SCL);
+        frame();
+        hold(B_SAVE);
+        ok &= !cset_on(TSEL) && TSEL->p[P_CHRD] == CH_MAJ && TSEL->p[P_VOICE] == V_LEGATO;
+        hold(B_SAVE);
+        ok &= cset_on(TSEL) && cset_set[0] == 1u && TSEL->p[P_VOICE] == V_POLY;
+        ck("  SCL held, KNOB 3: the same list into the sets; SAVE held undoes the set and its POLY, again redoes", ok);
+        cset_switch(TSEL, 0);
+        TSEL->p[P_VOICE] = V_LEGATO;
+        cset_set[0] = 0;
+        TSEL->p[P_CHRD] = CH_POW;
+        go_title("CHORD");
+        frames(400);
+        turn(EN_K1, 1);                           /* (SET 1, for the screens and the entry below) */
+    }
     if (dir) {
         cset_set[0] = 0;
         frame();

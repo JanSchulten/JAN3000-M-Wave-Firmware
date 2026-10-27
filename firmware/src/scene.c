@@ -12,12 +12,14 @@
  * (scn_encode: a track's timing; a step only where it differs from an empty one (SCN_REST), and of it only the bytes
  * that do; the automation's records; the lanes' used steps). An empty scene takes no byte, and takes the timing of the
  * one it is reached from. SCN_CAP bytes in all: a scene of four 16-step parts takes ~250 .. 500 B, the densest
- * possible ~3.9 KB.
+ * possible of 64 steps ~3.9 KB, of 128 (SCN_F_WIDE) ~8 KB: more than the bank holds, so a pick says SCENE MEMORY FULL.
  * A pick (scene_queue): the main loop unpacks the scene into the buffer (SCN_BUF: the SONG chain's first source, free
  * while no song plays; songs and scene picks exclude each other) and then, stopped, swaps it in at once (with the
  * interrupts off); playing, the ISR swaps it where the pattern ends (SCN_END): at the end of a loop of the scene's
  * longest track that holds a note or a hit (scene_clock; none: track 1), as a SONG section ends on its clock track
- * (song_chain.c chain_tick), the sample's remainder carried so the grid does not drift. A swap first measures the scene
+ * (song_chain.c chain_tick), the sample's remainder carried so the grid does not drift. With MENU > CONTROL > SCENE CHANGE
+ * NEXT BAR (scn_bar) it swaps at the next bar line of the transport instead (the click's 4/4 bar of 1/16s, seq.c
+ * clk_bar_end), whatever the tracks' lengths: the scene it brings starts from step 1 there. A swap first measures the scene
  * that leaves (scn_encode, no output): if it does not fit what the bank has for it (scn.room) the pick is dropped
  * (scn.full: "SCENE MEMORY FULL") and nothing is lost. Then the sequenced notes are released and the automated values
  * go back (as at a SONG section), the buffer and the tracks trade places (steps, timing, automation, lanes), and every
@@ -28,6 +30,32 @@
                                                   * the bank's header (opstore.c scb_hdr_t, 52 B), 4-aligned */
 #define SCN_BUF (&chain.source[0])                /* the scene waiting, after a swap the one left (no song plays) */
 enum { SCN_IDLE, SCN_END };
+static uint8_t scn_bar;                           /* main (ui.c rp_apply, MENU > SCENE CHANGE): 1 NEXT BAR, 0 AT END */
+/* M-Vave-OP1, SEQ > SCENE SONG: the project's scenes one after another, each `repeat` times (a pass: the loop of its
+ * longest track, as a pick waits for: scene_clock), then the next; at the end the first again (SSG_LOOP) or STOP. Kept
+ * with the project (opstore.c XTRA_V8). Playing it is picking scenes: the main loop unpacks the next row's scene into
+ * the buffer while the last pass of a row plays (ssong_poll: scene_queue), and the ISR counts the passes and swaps at
+ * the last one's end (ssong_tick: scene_swap, the remainder carried); always at the scene's end (MENU > SCENE CHANGE
+ * NEXT BAR is for picks). A row on the scene playing (the same one twice) needs no swap. Not unpacked in time (a pass
+ * shorter than the main loop's turn) or the scene leaving too big for the bank: the scene plays its pass again and
+ * the row waits. Editing and live recording go on in the scene playing; a pick by hand (SEQ + a key, OCT+ / OCT-, a
+ * copy) ends the song there, as does STOP. A GLO > SONG chain and the scene song exclude each other */
+#define SSG_ROWS 16u
+#define SSG_LOOP 1u
+typedef struct {                                  /* (stored: XTRA_V8) */
+    uint8_t count, flags;                         /* rows in use; SSG_LOOP */
+    uint8_t rsv[2];
+    uint8_t scene[SSG_ROWS];                      /* a row's scene, 0..15 */
+    uint8_t repeat[SSG_ROWS];                     /* .. its passes, 1..16 */
+} ssong_t;
+_Static_assert(sizeof(ssong_t) == 36u, "scene song layout (stored)");
+static ssong_t ssong;                             /* main: the page edits it; the ISR reads it row by row */
+static volatile struct {
+    uint8_t on;                                   /* main: 1 plays (ssong_start); ISR: 0 at the song's end */
+    uint8_t row;                                  /* ISR: the row playing */
+    uint8_t left;                                 /* ISR: its passes still to come, this one included */
+} ssp;
+static uint32_t clk_bar_end(uint32_t n);          /* (seq.c: the bar ends in the next n samples: past it + 1, else 0) */
 /* the bank: main loop only (the ISR never reads it) */
 static struct {
     uint16_t len[SCN_N];                         /* each scene's bytes in data, in scene order (0: empty; the one
@@ -61,6 +89,12 @@ typedef struct {                                 /* a scene where it is: the tra
 #define SCN_F_KEY 0x40u                          /* .. its KEY (18 bytes, key.c keyt; firmware before refuses a bank
                                                   * holding one, as any other bank it cannot read: one is written only
                                                   * for a KEY of its own or one in use, scn_encode) */
+#define SCN_F_WIDE 0x80u                         /* .. M-Vave-OP1's 128 steps: its step and lane masks are 16 bytes (8:
+                                                  * steps 1..64) and an automation record's place two (track << 7 | step,
+                                                  * low byte first; one: track << 6 | step). Written only for a scene that
+                                                  * holds something past step 64 (scn_wide): firmware of 64 steps refuses
+                                                  * such a bank, every other one it reads as before */
+#define SCN_MASK(w) ((w) ? NSTEP / 8u : NSTEP_FMT / 8u)   /* the bytes of a mask */
 
 /* Scenes predate parameter counts on their wire: keep the original 103 common ids and eight engine ids
  * fixed. New common values use 111 upward, so an old scene's engine automation never turns into a new send. */
@@ -130,13 +164,34 @@ static int scn_key_none(const uint8_t *k)
     return !k[0] && k[1] == 4u;
 }
 _Static_assert(sizeof(((chain_pattern_t *)0)->key) == sizeof keyt, "a scene's KEY bytes are key.c keyt's");
+/* scene v holds something past step 64 (a step that is not SCN_REST, a lane's step or LEN, an automation record):
+ * it packs in the wide form (SCN_F_WIDE) */
+static int scn_wide(const scn_view_t *v)
+{
+    uint32_t k, i, l;
+    for (k = 0; k < NTRK; k++)
+        for (i = NSTEP_FMT; i < NSTEP; i++)
+            if (memcmp(&v->st[k][i], &SCN_REST, sizeof SCN_REST))
+                return 1;
+    for (l = 0; l < FXT_N; l++) {
+        if (v->fx[l].len > NSTEP_FMT)
+            return 1;
+        for (i = NSTEP_FMT; i < NSTEP; i++)
+            if (v->fx[l].step[i])
+                return 1;
+    }
+    for (i = 0; i < v->mo->count && i < MOTION_MAX; i++)
+        if (MO_STEP(&v->mo->event[i]) >= NSTEP_FMT)
+            return 1;
+    return 0;
+}
 /* scene v packed into out (cap bytes; out 0: only measured): its bytes, 0 for an empty scene (no step that differs from
  * SCN_REST, no automation, empty lanes, no KEY of its own). A scene that holds something keeps the KEY it plays with
  * (none written when no KEY is in use: it takes the KEY playing, which is none then too).
  * noinline: the ISR measures with it once a switch (scene_due) */
 static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_t *out, uint32_t cap)
 {
-    uint32_t n = 1, k, i, j, l, fl = 0;
+    uint32_t n = 1, k, i, j, l, fl = 0, w, nm;
 #define SCN_PUT(b) do { if (out && n < cap) out[n] = (uint8_t)(b); n++; } while (0)
     for (k = 0; k < NTRK; k++)                   /* (which tracks have steps, first: the flags) */
         for (i = 0; i < NSTEP; i++)
@@ -154,6 +209,9 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
         fl |= SCN_F_KEY;
     if (!fl)
         return 0;
+    w = scn_wide(v);
+    nm = SCN_MASK(w);
+    fl |= w ? SCN_F_WIDE : 0u;
     if (out && cap)
         out[0] = (uint8_t)fl;
     for (k = 0; k < NTRK; k++) {
@@ -162,22 +220,16 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
         if (!((fl >> k) & 1u))
             continue;
         {
-            uint32_t m0 = 0, m1 = 0;              /* the steps that differ, a bit each (64) */
-            for (i = 0; i < NSTEP; i++)
-                if (memcmp(&v->st[k][i], &SCN_REST, sizeof SCN_REST)) {
-                    if (i < 32u)
-                        m0 |= 1u << i;
-                    else
-                        m1 |= 1u << (i - 32u);
-                }
-            for (j = 0; j < 4u; j++)
-                SCN_PUT(m0 >> (8u * j));
-            for (j = 0; j < 4u; j++)
-                SCN_PUT(m1 >> (8u * j));
-            for (i = 0; i < NSTEP; i++) {
+            uint8_t m[NSTEP / 8u] = {0};          /* the steps that differ, a bit each (64; wide: 128) */
+            for (i = 0; i < nm * 8u; i++)
+                if (memcmp(&v->st[k][i], &SCN_REST, sizeof SCN_REST))
+                    m[i / 8u] |= (uint8_t)(1u << (i % 8u));
+            for (j = 0; j < nm; j++)
+                SCN_PUT(m[j]);
+            for (i = 0; i < nm * 8u; i++) {
                 const uint8_t *s = (const uint8_t *)&v->st[k][i], *r = (const uint8_t *)&SCN_REST;
                 uint32_t bm = 0;
-                if (!((i < 32u ? m0 >> i : m1 >> (i - 32u)) & 1u))
+                if (!((m[i / 8u] >> (i % 8u)) & 1u))
                     continue;
                 for (j = 0; j < sizeof(step_t); j++)
                     bm |= (uint32_t)(s[j] != r[j]) << j;
@@ -193,27 +245,27 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
         SCN_PUT(v->mo->count);
         SCN_PUT(v->mo->on);
         for (i = 0; i < v->mo->count && i < MOTION_MAX; i++) {
-            SCN_PUT(v->mo->event[i].place);
-            SCN_PUT(scn_param_put(v->mo->event[i].param));
+            const motion_event_t *e = &v->mo->event[i];
+            if (w) {
+                SCN_PUT(e->place);
+                SCN_PUT(e->place >> 8);
+            } else {
+                SCN_PUT(MO_TRK(e) << 6 | MO_STEP(e));
+            }
+            SCN_PUT(scn_param_put(e->param));
             SCN_PUT((uint8_t)v->mo->event[i].value);
         }
     }
     if (fl & SCN_F_FX)
         for (l = 0; l < FXT_N; l++) {
-            uint32_t m0 = 0, m1 = 0;
+            uint8_t m[NSTEP / 8u] = {0};
             SCN_PUT(v->fx[l].len);
-            for (i = 0; i < NSTEP; i++)
-                if (v->fx[l].step[i]) {
-                    if (i < 32u)
-                        m0 |= 1u << i;
-                    else
-                        m1 |= 1u << (i - 32u);
-                }
-            for (j = 0; j < 4u; j++)
-                SCN_PUT(m0 >> (8u * j));
-            for (j = 0; j < 4u; j++)
-                SCN_PUT(m1 >> (8u * j));
-            for (i = 0; i < NSTEP; i++)
+            for (i = 0; i < nm * 8u; i++)
+                if (v->fx[l].step[i])
+                    m[i / 8u] |= (uint8_t)(1u << (i % 8u));
+            for (j = 0; j < nm; j++)
+                SCN_PUT(m[j]);
+            for (i = 0; i < nm * 8u; i++)
                 if (v->fx[l].step[i])
                     SCN_PUT(v->fx[l].step[i]);
         }
@@ -236,7 +288,7 @@ static int16_t scn_tm(uint32_t j, uint32_t v)
  * from flash: never trusted) */
 static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const uint8_t tm0[NTRK][5])
 {
-    uint32_t pos = 1, fl, k, i, j, l;
+    uint32_t pos = 1, fl, k, i, j, l, w, nm;
 #define SCN_GET(x) do { if (pos >= n) return 0; (x) = in[pos++]; } while (0)
     memset(b, 0, sizeof *b);
     for (k = 0; k < NTRK; k++)
@@ -251,10 +303,11 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
         return 1;
     }
     fl = in[0];
-    if (fl & ~0x7Fu)
-        return 0;
+    w = (fl & SCN_F_WIDE) != 0u;
+    nm = SCN_MASK(w);
     for (k = 0; k < NTRK; k++) {
-        uint32_t m[2] = {0, 0}, x;
+        uint8_t m[NSTEP / 8u] = {0};
+        uint32_t x;
         for (j = 0; j < 5u; j++) {
             SCN_GET(x);
             if (j < 4u)
@@ -264,15 +317,13 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
         }
         if (!((fl >> k) & 1u))
             continue;
-        for (j = 0; j < 8u; j++) {
-            SCN_GET(x);
-            m[j >> 2] |= x << (8u * (j & 3u));
-        }
-        for (i = 0; i < NSTEP; i++) {
+        for (j = 0; j < nm; j++)
+            SCN_GET(m[j]);
+        for (i = 0; i < nm * 8u; i++) {
             uint8_t *s = (uint8_t *)&b->step[k][i];
             const step_t *st = &b->step[k][i];
             uint32_t bm, lo, hi;
-            if (!((m[i >> 5] >> (i & 31u)) & 1u))
+            if (!((m[i / 8u] >> (i % 8u)) & 1u))
                 continue;
             SCN_GET(lo);
             SCN_GET(hi);
@@ -296,7 +347,13 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
         b->motion.count = (uint8_t)c;
         b->motion.on = (uint8_t)on;
         for (i = 0; i < c; i++) {
-            SCN_GET(b->motion.event[i].place);
+            SCN_GET(j);
+            if (w) {
+                SCN_GET(l);
+                b->motion.event[i].place = (uint16_t)(j | l << 8);
+            } else {
+                b->motion.event[i].place = (uint16_t)MO_PLACE(j >> 6, j & 63u);
+            }
             SCN_GET(j);
             b->motion.event[i].param = (uint8_t)scn_param_get(j);
             SCN_GET(j);
@@ -307,17 +364,16 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
     }
     if (fl & SCN_F_FX)
         for (l = 0; l < FXT_N; l++) {
-            uint32_t m[2] = {0, 0}, x;
+            uint8_t m[NSTEP / 8u] = {0};
+            uint32_t x;
             SCN_GET(x);
             if (x > NSTEP)
                 return 0;
             b->fx[l].len = (uint8_t)x;
-            for (j = 0; j < 8u; j++) {
-                SCN_GET(x);
-                m[j >> 2] |= x << (8u * (j & 3u));
-            }
-            for (i = 0; i < NSTEP; i++)
-                if ((m[i >> 5] >> (i & 31u)) & 1u) {
+            for (j = 0; j < nm; j++)
+                SCN_GET(m[j]);
+            for (i = 0; i < nm * 8u; i++)
+                if ((m[i / 8u] >> (i % 8u)) & 1u) {
                     SCN_GET(b->fx[l].step[i]);
                     if (!b->fx[l].step[i])
                         return 0;
@@ -488,12 +544,55 @@ static __attribute__((noinline)) void scene_due(uint32_t n)
 {
     const track_t *t = &trk[scn.clk % NTRK];
     uint32_t length;
-    if (!song.playing || chain.running || t->seq_pos >= 0x7FFFFFFFu || t->seq_idx + 1u != (uint32_t)t->p[P_SLEN])
+    if (!song.playing || chain.running)
+        return;
+    if (scn_bar) {                                /* NEXT BAR: at the transport's bar line */
+        if ((length = clk_bar_end(n)) != 0u)
+            scene_swap(length - 1u);
+        return;
+    }
+    if (t->seq_pos >= 0x7FFFFFFFu || t->seq_idx + 1u != (uint32_t)t->p[P_SLEN])
         return;
     length = step_samples(t, div_samples((uint32_t)t->p[P_SDIV]), t->seq_idx);
     if (t->seq_pos + n < length)
         return;
     scene_swap(t->seq_pos + n - length);
+}
+
+/* the scene song's row after r (count rows): r + 1, at the end the first (SSG_LOOP) or count (STOP) */
+static uint32_t ssong_next(uint32_t r)
+{
+    return r + 1u < ssong.count ? r + 1u : (ssong.flags & SSG_LOOP) ? 0u : ssong.count;
+}
+/* events_block (ISR), while the scene song plays, before the tracks: a pass of the scene playing ends in this block
+ * (its clock track's last step runs out): one pass less, or the next row (its scene swapped in, waiting in the buffer:
+ * ssong_poll), or the end (STOP). noinline: once a block only while it plays */
+static __attribute__((noinline)) void ssong_tick(uint32_t n)
+{
+    const track_t *t = &trk[scn.clk % NTRK];
+    uint32_t length, nx, sc;
+    if (!song.playing || chain.running || t->seq_pos >= 0x7FFFFFFFu || t->seq_idx + 1u != (uint32_t)t->p[P_SLEN])
+        return;
+    length = step_samples(t, div_samples((uint32_t)t->p[P_SDIV]), t->seq_idx);
+    if (t->seq_pos + n < length)
+        return;
+    if (ssp.left > 1u) {
+        ssp.left--;
+        return;
+    }
+    nx = ssong_next(ssp.row);
+    if (nx >= ssong.count) {                      /* the end (STOP): as the PLAY button */
+        ssp.on = 0;
+        transport_req = 2;
+        return;
+    }
+    sc = ssong.scene[nx] % SCN_N;
+    if (sc != scn.cur) {
+        if (scn.req != SCN_END || scn.next != sc || scene_swap(t->seq_pos + n - length))
+            return;                               /* (not there yet, or too big: this scene's pass again) */
+    }
+    ssp.row = (uint8_t)nx;
+    ssp.left = (uint8_t)(ssong.repeat[nx] ? ssong.repeat[nx] : 1u);
 }
 
 /* main loop: a swap done -> the scene left packed into the bank (it fits: scene_swap measured it), the one now playing
@@ -632,9 +731,88 @@ static uint32_t scene_copy(void)
  * scene waits; one waiting when the transport stopped: at once. Returns SP_SWITCHED when the tracks changed,
  * SP_FULL when a pick was dropped (the scene leaving grew past what the bank had for it) */
 enum { SP_SWITCHED = 1, SP_FULL = 2 };
+/* ---------------------------------------------------- the scene song --- */
+static uint8_t ssg_tried = 0xFFu;                 /* main: the row whose next scene could not be unpacked (said once) */
+static uint8_t ssg_seen = 0xFFu;                  /* main: the row ssong_poll saw last (a new one: try again) */
+/* a song as stored (opstore.c) holds rows the page could have made: 0 not */
+static int ssong_ok(const ssong_t *g)
+{
+    uint32_t i;
+    if (g->count > SSG_ROWS || (g->flags & ~SSG_LOOP))
+        return 0;
+    for (i = 0; i < g->count; i++)
+        if (g->scene[i] >= SCN_N || !g->repeat[i] || g->repeat[i] > 16u)
+            return 0;
+    return 1;
+}
+static void ssong_clear(void)                     /* (a new project, one without a song) */
+{
+    memset(&ssong, 0, sizeof ssong);
+    ssp.on = 0;
+}
+/* the song ends where it is (STOP, a pick by hand, a GLO > SONG chain); the scene it had waiting taken back */
+static void ssong_off(void)
+{
+    if (!ssp.on)
+        return;
+    ssp.on = 0;
+    scn_irq_off();
+    scn.req = SCN_IDLE;                           /* (the buffer the ISR's no more; scene_queue would do the same) */
+    scn_irq_on();
+}
+/* SCENE SONG's PLAY (main loop, stopped): from row r, its scene swapped in now. SQ_NOW started; SQ_BAD no rows; else
+ * scene_queue's refusal (SQ_FULL, SQ_SONG) */
+static uint32_t ssong_start(uint32_t r)
+{
+    uint32_t q = SQ_NOW, sc;
+    if (chain.running || chain.armed)
+        return SQ_SONG;
+    if (!ssong.count)
+        return SQ_BAD;
+    r = r < ssong.count ? r : 0u;
+    sc = ssong.scene[r] % SCN_N;
+    if (sc != scn.cur && (q = scene_queue(sc)) != SQ_NOW)
+        return q;
+    ssp.row = (uint8_t)r;
+    ssp.left = (uint8_t)ssong.repeat[r];
+    scn.clk = (uint8_t)scene_clock();
+    ssg_tried = 0xFFu;
+    ssp.on = 1;
+    transport_req = 1;
+    return SQ_NOW;
+}
+/* every main loop pass while it plays: the clock track of the scene playing; in a row's last pass the next row's scene
+ * unpacked into the buffer (scene_queue: the ISR swaps it at the pass's end); stopped: the song is over. SP_FULL when
+ * the next scene could not be unpacked (said once a row) */
+static uint32_t ssong_poll(void)
+{
+    uint32_t nx, sc, q;
+    if (!ssp.on)
+        return 0;
+    if ((!song.playing && transport_req != 1u) || chain.running || chain.armed) {
+        ssong_off();
+        return 0;
+    }
+    scn.clk = (uint8_t)scene_clock();             /* (the tracks may change: recording, editing) */
+    if (ssp.row != ssg_seen) {
+        ssg_seen = ssp.row;
+        ssg_tried = 0xFFu;
+    }
+    if (ssp.left != 1u || scn.req == SCN_END || ssg_tried == ssp.row)
+        return 0;
+    nx = ssong_next(ssp.row);
+    if (nx >= ssong.count || (sc = ssong.scene[nx] % SCN_N) == scn.cur)
+        return 0;
+    q = scene_queue(sc);
+    if (q == SQ_END)
+        return 0;
+    ssg_tried = ssp.row;                          /* (not every pass: an unpack is ~1 ms) */
+    return q == SQ_FULL ? SP_FULL : 0u;
+}
+
 static uint32_t scene_poll(void)
 {
-    uint32_t r = scene_done() ? SP_SWITCHED : 0u;
+    uint32_t r = ssong_poll() | (scene_done() ? SP_SWITCHED : 0u);
     if (scn.req == SCN_END) {
         if (!song.playing && transport_req != 1u && !chain.running && !chain.armed) {
             scn_irq_off();

@@ -794,9 +794,9 @@ static __attribute__((noinline)) void rev_side_mix(int32_t *l, int32_t *r, uint3
  * as before (nothing runs). MIX glides (2.9 ms, SL_SLOPE); a TYPE change fades the old one out, clears the state,
  * fades the new one in; so does a start from MIX 0 (no stale line or filter). With SPREAD (mix_spread) the insert
  * takes the mono sum b, as DIST does; the side passes it by.
- * Order: DIST -> INSERT -> SLICER: the insert colours the sound as DIST does; the SLICER's gate (and its STUT
- * recordings) comes after, so its edges stay sharp (no flanger feedback or phaser ringing smears them) and a STUT
- * repeats the processed sound. State in the pool, per track (ins[], 580 B each); noinline, its own loops: the audio
+ * Order (M-Vave-OP1): SLICER -> DIST -> INSERT: the SLICER at the START chops the sound first (DIST and the INSERT
+ * colour the gated sound, a flanger's feedback or a phaser's ringing may soften its edges; a STUT repeats the sound
+ * before them); a SLICER at the END gates the whole mix (slicer_end). State in the pool, per track (ins[], 580 B each); noinline, its own loops: the audio
  * ISR's inlined path gains one test per part (track_t ins_run) */
 enum { IT_OFF, IT_SOFT, IT_HARD, IT_FOLD, IT_FUZZ, IT_CRUSH, IT_PHASER, IT_FLANGER, IT_CHORUS, IT_N };
 #define IL_LEN 256u                     /* FLANG / CHOR: the line, samples (a power of 2: masked) */
@@ -967,7 +967,7 @@ static __attribute__((noinline)) void track_insert(track_t *t, int32_t *b, uint3
 }
 
 /* one block of the whole mix (shared with hostsim.c): events -> each part (with its modulation matrix)
- * -> dist -> INSERT -> SLICER -> level / pan / sends -> buses -> master; out: stereo Q15 */
+ * -> SLICER (START) -> dist -> INSERT -> level / pan / sends -> buses -> SLICER (END) -> master; out: stereo Q15 */
 static void events_block(uint32_t n);                    /* seq.c */
 static int32_t send_c[CTL], send_d[CTL], send_r[CTL], send_sh[CTL], wet[CTL], mix_l[CTL], mix_r[CTL];
 
@@ -1044,10 +1044,10 @@ static __attribute__((noinline)) void mix_spread(track_t *t, int32_t *b, uint32_
     xmax = 0x7FFFFFFF / ((xmax > r ? xmax : r) | 1);
     for (i = 0; i < n; i++)
         d[i] = (d[i] << 1) - b[i];                      /* left - right */
+    slicer_track_sd(t, b, d, n);                        /* (M-Vave-OP1: the SLICER first, then DIST and the INSERT) */
     track_dist(t, b, n);
     if (t->p[P_ITYPE] | t->ins_run)
         track_insert(t, b, n);                          /* (the mono sum, as DIST) */
-    slicer_track_sd(t, b, d, n);
     if ((pf.mute >> (t - trk)) & 1u)
         perf_mute_sd((uint32_t)(t - trk), b, d, n);
     for (i = 0; i < n; i++) {
@@ -1089,10 +1089,10 @@ static void mix_part(track_t *t, uint32_t n)
     if (spread_on)
         mix_spread(t, b, n);
     else {
+        slicer_track(t, b, n);                          /* slicer.c at the START (M-Vave-OP1: first, before DIST) */
         track_dist(t, b, n);
         if (t->p[P_ITYPE] | t->ins_run)
             track_insert(t, b, n);                      /* the INSERT (1.5): off, nothing */
-        slicer_track(t, b, n);                          /* slicer.c: before the level, pan and sends */
         if ((pf.mute >> (t - trk)) & 1u)
             perf_mute((uint32_t)(t - trk), b, n);       /* perform.c: a black key in the FX layer */
     }
@@ -1160,6 +1160,29 @@ static __attribute__((noinline)) void perf_master(int32_t *out, uint32_t n)
     }
 }
 
+/* M-Vave-OP1: the SLICER at the END (slicer.c): the whole stereo sum after the reverb (dry + wet, HALL's and the CLOUD's
+ * side in it) through the closure the driving track gave the block (sle.g); before MASTER and the FX layer's punch-ins.
+ * No track on END any more: the closure opens on its own (SL_SLOPE a sample, as the gate's) */
+static __attribute__((noinline)) void slicer_end(int32_t *l, int32_t *r, int32_t *w, uint32_t n)
+{
+    uint32_t i;
+    if (!sle.k) {
+        int32_t gc = sle.gc;
+        for (i = 0; i < n; i++) {
+            gc -= gc < SL_SLOPE ? gc : SL_SLOPE;
+            sle.g[i] = gc;
+        }
+        sle.gc = gc;
+    }
+    for (i = 0; i < n; i++) {
+        uint32_t k = (uint32_t)(32768 - sle.g[i]) << 1;   /* the gain, Q16 */
+        l[i] = mulq16(l[i] + w[i], k);
+        r[i] = mulq16(r[i] + w[i], k);
+        w[i] = 0;                                       /* (in l and r now) */
+    }
+    sle.k = 0;
+}
+
 static void mix_block(int32_t *out, uint32_t n)
 {
     uint32_t i;
@@ -1169,8 +1192,12 @@ static void mix_block(int32_t *out, uint32_t n)
         send_c[i] = send_d[i] = send_r[i] = send_sh[i] = shim_wet[i] = mix_l[i] = mix_r[i] = 0;
     events_block(n);
     perf = perf_begin(n);                               /* the FX hold layer at work (perform.c) */
-    for (i = 0; i < NPART; i++)
+    for (i = 0; i < NPART; i++) {
         mix_part(&trk[i], n);
+#ifdef FX_PART_TAP
+        FX_PART_TAP(i, n);                              /* (M-Vave-OP1, web/bounce: each part's share of mix_l / mix_r) */
+#endif
+    }
     if (perf)
         perf_pre(mix_l, mix_r, send_d, send_r, n);
     shimmer_bus(shim_wet, n);
@@ -1179,10 +1206,16 @@ static void mix_block(int32_t *out, uint32_t n)
     if (hl.side)
         rev_side_mix(mix_l, mix_r, n);                  /* HALL: stereo */
     if (shim_live) shimmer_return(n);
+    if (sle.k | sle.gc)
+        slicer_end(mix_l, mix_r, wet, n);               /* M-Vave-OP1: the SLICER at the END */
     if (scope_mix)
         scope_take_mix(n);
     if (perf) {
         perf_master(out, n);
+#ifdef FX_MIX_TAP
+        FX_MIX_TAP(out, n, 1);                          /* (web/bounce: the master as USB audio has it; mix_l / mix_r
+                                                         * what went into master_out, the buses and the layer in it) */
+#endif
         return;
     }
     for (i = 0; i < n; i++) {
@@ -1192,4 +1225,7 @@ static void mix_block(int32_t *out, uint32_t n)
         out[2u * i] = l;
         out[2u * i + 1u] = r;
     }
+#ifdef FX_MIX_TAP
+    FX_MIX_TAP(out, n, 0);                              /* (mix_l / mix_r the parts', the HALL's side; wet the buses') */
+#endif
 }

@@ -53,7 +53,7 @@ static int motion_capacity(void)
     saved = motion; motion_store_t invalid = motion; invalid.count = MOTION_MAX + 1;
     bad += check("invalid restore leaves the pool intact", motion_replace_track(&trk[0], &invalid) != 0 && !memcmp(&motion, &saved, sizeof saved));
     motion_clear(&trk[0]);
-    bad += check("track clear keeps every other track's events", motion.count == 1u && motion.event[0].place >> 6 == 1u);
+    bad += check("track clear keeps every other track's events", motion.count == 1u && MO_TRK(&motion.event[0]) == 1u);
     return bad;
 }
 static int probability_playback(void)
@@ -95,7 +95,7 @@ static int compact_project(void)
         for (uint32_t j = 0; j < 61u; j++) old.t[k].p[j] = before.t[k].p[j];
         for (uint32_t j = 0; j < 8u; j++) old.t[k].p[61u + j] = before.t[k].p[P_E0 + j];
         old.t[k].engine = before.t[k].engine; old.t[k].preset = before.t[k].preset;
-        for (uint32_t j = 0; j < NSTEP; j++) memcpy(&old.t[k].step[j], &before.t[k].step[j], sizeof(step10_t));
+        for (uint32_t j = 0; j < NSTEP_FMT; j++) memcpy(&old.t[k].step[j], &before.t[k].step[j], sizeof(step10_t));
     }
     old.chain.count = before.chain.count;              /* (the rows of FUN6: one slot each) */
     for (uint32_t r = 0; r < CHAIN_ROWS; r++) {
@@ -123,7 +123,7 @@ static void pack_fun7_89(project_store_t *out, const project_t *q, const motion_
     for (t = 0; t < NTRK; t++) {
         for (i = 0; i < 89u; i++) b[pos++] = (uint8_t)(q->t[t].p[i < 81u ? i : P_E0 + i - 81u] + 64);
         b[pos++] = q->t[t].engine; b[pos++] = q->t[t].preset;
-        for (i = 0; i < NSTEP; i++) {
+        for (i = 0; i < NSTEP_FMT; i++) {
             const step_t *s = &q->t[t].step[i];
             memcpy(b + pos, s->note, 4); pos += 4;
             b[pos++] = (uint8_t)(s->n | s->time << 3 | s->flags << 5);
@@ -131,7 +131,11 @@ static void pack_fun7_89(project_store_t *out, const project_t *q, const motion_
         }
     }
     memcpy(b + pos, &q->chain, sizeof q->chain); pos += sizeof q->chain;
-    memcpy(b + pos, m, sizeof *m);
+    {   /* (as FUN10 stores them: motion_disk_t) */
+        motion_disk_t md;
+        motion_to_disk(&md, m, 0);
+        memcpy(b + pos, &md, sizeof md);
+    }
     sum = proj_hash(b, PROJ_STORE_SIZE - 4u); memcpy(b + PROJ_STORE_SIZE - 4u, &sum, 4);
 }
 static int fun7_89(void)
@@ -458,7 +462,7 @@ static int lock_playback(void)
     ok = !motion_set_lock(t, 2, P_REV, 100) && !motion_set_event(t, 4, P_REV, 60) && !motion_set_lock(t, 6, P_REV, 90);
     bad += check("a lock is one of the shared 64 records, bit 7 of its id (MOTION_LOCK)", ok && motion.count == 3u &&
         motion.event[0].param == (P_REV | MOTION_LOCK) && motion.event[1].param == P_REV && motion_lock_count(t) == 2u &&
-        motion_count(t) == 3u && motion_lock_steps(0) == ((1u << 2) | (1u << 6)));
+        motion_count(t) == 3u && ss64(motion_lock_steps(0)) == ((1u << 2) | (1u << 6)));
     bad += check("lock: its value on its step only, back after it (the sound's own, or the automation held)",
         lock_passes(t, want));
     lock_next(t); lock_next(t); lock_next(t);
@@ -620,7 +624,7 @@ static int lock_ui(void)
     bad += check("the grid on SEQ > STEP; the locks' knobs: HOME's (DRUM: E2..E5)", grid_on() && lock_id(0) == P_E1 &&
         lock_id(3) == P_E4);
     lk_down(k4);
-    bad += check("a step key down: its step held (an empty one gets its hit at once)", lock_held() == (1u << 4) &&
+    bad += check("a step key down: its step held (an empty one gets its hit at once)", ss64(lock_held()) == (1u << 4) &&
         (t->step[4].hit & 1u));
     turn(EN_K1, 3);
     ok = motion_lock_get(t, 4, P_E1, &v) && v == motion_base_value(t, P_E1) + 3;
@@ -629,7 +633,7 @@ static int lock_ui(void)
         motion_lock_get(t, 4, P_E1, &v) && v == motion_base_value(t, P_E1) + 5 && t->p[P_E1] == motion_base_value(t, P_E1));
     lk_up(k4);
     bad += check("  let go: the hit stays, the lock is there, the sound unchanged", (t->step[4].hit & 1u) &&
-        motion_lock_count(t) == 1u && !lock_held());
+        motion_lock_count(t) == 1u && !ss64(lock_held()));
     lk_down(k0);
     turn(EN_K2, -4);
     lk_up(k0);
@@ -649,7 +653,7 @@ static int lock_ui(void)
     bad += check("a step held + [EDIT]: its locks go, the step and the others' locks stay", motion_lock_count(t) == 2u &&
         !motion_lock_get(t, 4, P_E1, &v) && motion_lock_get(t, 0, P_E4, &v) && (t->step[4].hit & 1u) &&
         str_eq(ui.msg, "LOCKS CLEARED"));
-    bad += check("the steps with a lock (the grid marks them): step 1", motion_lock_steps(3) == 1u);
+    bad += check("the steps with a lock (the grid marks them): step 1", ss64(motion_lock_steps(3)) == 1u);
     fam_next(FAM_FX);                                 /* the lock's knobs: the sound page shown last */
     fam_next(FAM_SEQ);
     frame();
@@ -669,20 +673,20 @@ static int lock_ui(void)
     for (kn = 0; kn < 27u && kb_map(t, kn) > 127u; kn++)
         ;
     lk_down(kn);                                         /* (1.2, #133: not armed, a key only plays: no step held) */
-    ok = !ui.entry_open && !lock_held() && !t->step[0].n;
+    ok = !ui.entry_open && !ss64(lock_held()) && !t->step[0].n;
     turn(EN_K3, 4);
     lk_up(kn);
     bad += check("the roll, not armed: a key held writes no step and holds none; KNOB 3 locks nothing",
                  ok && !motion_lock_count(t) && !t->step[0].n && ui.cursor == 0u);
     song.rec = 1;                                        /* armed, stopped: step recording */
     lk_down(kn);
-    ok = ui.entry_open && lock_held() == 1u && t->step[0].n == 1u;
+    ok = ui.entry_open && ss64(lock_held()) == 1u && t->step[0].n == 1u;
     turn(EN_K3, 4);                                      /* ANALOG's HOME: E5 E6 ATK REL */
     bad += check("the roll, armed (step recording): a note key held (the entry) is the step held; KNOB 3 locks ATK, TIME untouched", ok &&
         motion_lock_get(t, 0, P_ATK, &v) && v == t->p[P_ATK] + 4 && t->step[0].time == ST_NOTE);
     lk_up(kn);
     bad += check("  let go: the note and the lock on step 1, the cursor on", ui.cursor == 1u && t->step[0].n == 1u &&
-        motion_lock_count(t) == 1u && motion_lock_steps(0) == 1u);
+        motion_lock_count(t) == 1u && ss64(motion_lock_steps(0)) == 1u);
     cursor_set(0);
     press(B_EDIT);
     ok = t->step[0].n == 1u && motion_lock_count(t) == 1u && cur_page()->fam == FAM_EDIT;
@@ -796,7 +800,7 @@ static int auto_list(void)
     press(B_OCTUP);
     bad += check("  OCT+: a second lock on step 3, first in the list (by step)", motion_count(t) == 2u &&
         motion_lock_get(t, 2, ui.ev_id, &v) && rows_n() == 5u && ui.ev_row == 2u &&
-        (motion.event[row_at(2) & 0xFFu].place & 63u) == 2u);
+        MO_STEP(&motion.event[row_at(2) & 0xFFu]) == 2u);
     turn(EN_K1, 5);
     press(B_OCTUP);
     bad += check("  OCT+ on + ADD LOCK where one is: ALREADY LISTED, that row selected", motion_count(t) == 2u &&

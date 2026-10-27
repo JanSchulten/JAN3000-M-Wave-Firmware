@@ -6,6 +6,9 @@
  * every element remembers what it last drew and is redrawn only on change. */
 static int project_save(uint32_t slot);
 static void panel_setup(void);
+#if FELUCCA_DISK
+static void usb_disk_run(void);                         /* M-Vave-OP1: MENU > USB DISK (usbdisk.c) */
+#endif
 static void project_load(uint32_t slot);
 static void project_new(uint32_t slot);         /* (M-Vave-OP1: SAVE > PROJECT > NEW; slot 0..3, else none) */
 static int project_used(uint32_t slot);
@@ -43,10 +46,10 @@ static uint32_t up_gen;                      /* bumped on every user bank change
 _Static_assert(NENGINES <= 14u + sizeof FAV_HOST, "favorites.c: an engine from 14 on needs a row's upper half (FAV_HOST)");
 _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u && NELEM(WSHAPE_PRESETS) <= 128u &&
                NELEM(HARMON_PRESETS) <= 128u && NELEM(PRTCL_PRESETS) <= 128u &&
-               NELEM(WTABLE_PRESETS) <= 128u && NELEM(SWARM_PRESETS) <= 128u &&
+               NELEM(WTABLE_PRESETS) <= 128u && NELEM(SWARM_PRESETS) <= 128u && NELEM(ACID_PRESETS) <= 128u &&
                /* (PHASE's row: retired, none of */
                NELEM(ANALOG_PRESETS) <= 128u && NELEM(LOFI_PRESETS) <= 128u && NELEM(WHEEL_PRESETS) <= 128u &&
-               NELEM(GRAIN_PRESETS) <= 128u,   /* its own; LOFI's holds DBOX's, retired) */
+               NELEM(GRAIN_PRESETS) <= 128u && NELEM(DRUM_PRESETS) <= 128u,   /* its own; LOFI's holds DBOX's, retired) */
                "favorites.c: an engine from 14 on and its host share a row of 256 presets");
 #include "category.c"                   /* sound categories (Discussion #90): PRESETS > LIST */
 /* MENU's two-valued settings (ui_menu.c MENU_FLAGS), a bit each in a byte no engine uses (as ui_layer.c layer_seen):
@@ -76,7 +79,8 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 /* 1.2: three more two-valued MENU settings, bits of another byte no engine uses, saved with the settings; 0 in older
  * settings = today's behaviour (append-only, as ui_prefs): bit 0 DISPLAY > SCOPE MIX (Discussion #165, fx.c scope_mix),
  * bit 1 CONTROL > STEP PREVIEW ON (Discussion #169, ui_input.c step_preview), bit 2 CONTROL > CHORD ENTRY ADD (#155,
- * ui_input.c seq_entry). 1.5: bit 3 SYSTEM > HELP ON (Discussion #156, ui_help.c). Bits 4-7 free */
+ * ui_input.c seq_entry). 1.5: bit 3 SYSTEM > HELP ON (Discussion #156, ui_help.c). M-Vave-OP1: bits 4, 5 SYNC OUT (below),
+ * bit 6 CONTROL > SCENE CHANGE NEXT BAR (scene.c scene_due). Bit 7 free */
 #define ui_prefs2 (favorites.factory[15][24])
 #define PREF_X 0xFF0000u                       /* (menu_items.c MENU_FLAGS: a bit of ui_prefs2, << 16) */
 #define PREF_SCOPE_MIX (0x01u << 16)
@@ -85,6 +89,8 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 #define PREF_HELP (0x08u << 16)
 #define PREF_SYNC_OUT (0x10u << 16)            /* M-Vave-OP1: bit 4, MENU > AUDIO > SYNC OUT PO (click.c po_sync) */
 #define PREF_SYNC_INV (0x20u << 16)            /* .. bit 5, with it: PO INV (the pulses upside down) */
+#define PREF_SCENE_BAR (0x40u << 16)           /* M-Vave-OP1: bit 6, a scene picked while playing switches at the next
+                                                * bar (0: AT END, at the end of the scene playing) */
 /* 1.3 (Discussions #112, #134): MENU > DISPLAY > HOME, what the HOME page shows under its four cards: 0 SCOPE (the
  * oscilloscope, as before), 1 TRACKS (the four tracks as rows: ui_graph.c draw_home_tracks), 2 LEVELS (1.5, #134: the
  * rows of TRACKS, and KNOB 1..4 the LEVEL of T1..T4 in place of the engine's four: home_param). A byte of its own no
@@ -111,6 +117,7 @@ static void rp_apply(void)                             /* the settings into clic
     cin_bars = (uint8_t)rp_get(RP_COUNTIN);
     po_sync = !(ui_prefs2 & (PREF_SYNC_OUT >> 16)) ? 0u : (ui_prefs2 & (PREF_SYNC_INV >> 16)) ? 2u : 1u;   /* (M-Vave-OP1:
                                                      * SYNC OUT OFF / PO / PO INV, click.c) */
+    scn_bar = (ui_prefs2 & (PREF_SCENE_BAR >> 16)) != 0u;   /* (M-Vave-OP1: SCENE CHANGE NEXT BAR, scene.c scene_due) */
 }
 static void rp_put(uint32_t f, uint32_t v)
 {
@@ -159,7 +166,7 @@ static struct {
     uint8_t plk_src;             /* parameter locks (ui_input.c lock_*): the sound page whose KNOB 1..4 a step held
                                   * locks, PAGES index + 1; 0 = HOME's four */
     uint8_t plk_lane, plk_trk;   /* .. the grid: the lane and the track of the hits plk_rm takes away */
-    uint64_t plk_rm, plk_acc;    /* .. the grid's step keys pressed on a hit (bit = step): it goes when the key is let
+    stepset_t plk_rm, plk_acc;   /* .. the grid's step keys pressed on a hit (bit = step): it goes when the key is let
                                   * go, unless the key was held for a lock (its accent: plk_acc) */
     uint8_t hot_col, hot_t;      /* column whose knob was just turned (drawn white) */
     uint8_t menu;                /* 0 off, 1 list, 2 about + credits, 3 info (1.2) (HOME held) */
@@ -179,6 +186,8 @@ static struct {
     uint8_t uslot;               /* SAVE > USER: the selected user preset slot */
     uint8_t ppick;               /* SAVE > PHRASES: the pattern picked (pat_count list index) */
     uint8_t song_row;            /* SONG: the section selected, count selects + ADD */
+    uint8_t ssg_row;             /* M-Vave-OP1, SEQ held > SONG: the cell selected, ssong.count selects + ADD */
+    uint8_t seq_lv;              /* .. SEQ held: 0 SCENES, 1 SONG (SELECT turns them; kept between holds) */
     uint8_t song_trk;            /* SONG: the lane (track) selected, 0..NTRK-1 */
     uint8_t fxt_sel, fxt_cur;    /* FX TRACKS (M-Vave-OP1, fxtrack.c): the lane selected (FX1, FX2), its step KNOB 3 sets */
     uint8_t song_rec, song_new;  /* SONG (M-Vave-OP1): REC types a chain with A..D (on); the next key starts a new one */
@@ -221,9 +230,11 @@ static struct {
 
 enum { CF_NONE, CF_CLEAR_SEQ, CF_CLEAR_TRK, CF_OVR_PROJ, CF_OVR_USER, CF_LOAD_PAT,
        CF_DEL_ROW, CF_CLEAR_SONG, CF_INIT_SOUND, CF_CLEAR_MOTION, CF_ERASE_USER,
-       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ, CF_LOAD_PROJ, CF_ERASE_PROJ, CF_LOAD_USER };   /* ui.confirm: TOOLS' clears;
+       CF_FXT_LANE, CF_FXT_ALL, CF_NEW_PROJ, CF_LOAD_PROJ, CF_ERASE_PROJ, CF_LOAD_USER,
+       CF_CLEAR_SSONG };   /* ui.confirm: TOOLS' clears;
                                    * SAVE over a used slot; a pattern over the user's steps;
-                                   * USER ERASE; FX TRACKS 2's CLEAR (a lane, both); PROJECT's NEW */
+                                   * USER ERASE; FX TRACKS 2's CLEAR (a lane, both); PROJECT's NEW;
+                                   * M-Vave-OP1: SEQ held > SONG's F#3 CLEAR (the scene song) */
 
 /* MENU > DISPLAY > SCREEN OFF (1.1.5): after a while with no input on the panel the screen goes dark (the backlight
  * stays on: lcd.c lcd_power)
@@ -824,6 +835,7 @@ typedef struct {
     uint32_t t_ms;               /* time of the last load (the editor's SETs after it belong to it) */
     uint8_t undone;              /* M-Vave-OP1: the copy is swapped in (undo_swap once more: redo; REC + OCT- / OCT+) */
     int16_t mix[9];
+    uint8_t cs_on, cs_set, cs_voice;   /* M-Vave-OP1: the track's chord set (cset.c), with UNDO_SCALE: SCL > CHORD */
     uint8_t mute[NPART], rec_pref;
     uint8_t fav[14][32], fxmap[20], fxbank;
     uint32_t fav_user;
@@ -857,14 +869,14 @@ static uint32_t track_sig(const track_t *t)      /* the sound (an FM6 track's pa
     h = fnv(h, fm6_patch[k], sizeof fm6_patch[k]); /* (a patch the editor sent between two loads) */
     h = fnv(h, vd_own[k], VK_SIZE);                /* (VDRUM's own kit: its part pages) */
     for (uint32_t j = 0; j < motion.count; j++)
-        if ((motion.event[j].place >> 6) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
+        if (MO_TRK(&motion.event[j]) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
     return h ^ ((motion.on >> k) & 1u);
 }
 static uint32_t motion_sig(const track_t *t)     /* the track's motion only (the sound moves while it plays) */
 {
     uint32_t h = 2166136261u, k = trk_index(t);
     for (uint32_t j = 0; j < motion.count; j++)
-        if ((motion.event[j].place >> 6) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
+        if (MO_TRK(&motion.event[j]) == k) h = fnv(h, &motion.event[j], sizeof motion.event[j]);
     return h ^ ((motion.on >> k) & 1u);
 }
 /* the track's pattern as a song plays it from a slot: the steps, LEN DIV SWING GATE, QUANTIZE, the automation (the
@@ -1030,6 +1042,7 @@ static void undo_capture(undo_t *u, track_t *t, uint32_t what)
     memcpy(u->fav, favorites.factory, sizeof u->fav); u->fav_user = favorites.user;
     memcpy(u->fxmap, favorites.factory[15], 10); memcpy(u->fxmap + 10, favorites.factory[15] + 14, 10);
     u->fxbank = perf_bank;
+    u->cs_on = (uint8_t)((cset_en >> i) & 1u); u->cs_set = cset_set[i]; u->cs_voice = cset_voice[i];
     motion_unguard(guard);
 }
 static uint32_t undo_domain_sig(track_t *t, uint32_t what)
@@ -1056,7 +1069,11 @@ static uint32_t undo_domain_sig(track_t *t, uint32_t what)
         }
         return fnv(h, &song.g[G_BPM], sizeof(int16_t));
     }
-    if (what == UNDO_SCALE) return fnv(fnv(h, &t->p[P_ROOT], 4u * sizeof(int16_t)), &t->p[P_CHRD], 2u * sizeof(int16_t));
+    if (what == UNDO_SCALE) {                    /* (M-Vave-OP1: CHRD's chord sets too, and the POLY a set brings) */
+        uint8_t cs[] = {(uint8_t)((cset_en >> trk_index(t)) & 1u), cset_set[trk_index(t)], (uint8_t)t->p[P_VOICE]};
+        h = fnv(fnv(h, &t->p[P_ROOT], 4u * sizeof(int16_t)), &t->p[P_CHRD], 2u * sizeof(int16_t));
+        return fnv(h, cs, sizeof cs);
+    }
     if (what == UNDO_PREF) return ui_rec_prefs;
     if (what == UNDO_FAV) return fnv(h, favorites.factory, 14u * 32u) ^ favorites.user;
     if (what == UNDO_FXMAP) return fnv(fnv(h, favorites.factory[15], 10), favorites.factory[15] + 14, 10) ^ perf_bank;
@@ -1312,8 +1329,18 @@ static void undo_swap(void)
         undo_bytes(&song.g[G_BPM], &undo.mix[8], sizeof(int16_t));
     }
     if (undo.what & UNDO_SCALE) {
+        uint32_t k = trk_index(t);
+        uint8_t on = (uint8_t)((cset_en >> k) & 1u);
         undo_bytes(&t->p[P_ROOT], &undo.p[P_ROOT], 4u * sizeof(int16_t));
         undo_bytes(&t->p[P_CHRD], &undo.p[P_CHRD], 2u * sizeof(int16_t));
+        if (on != undo.cs_on) {                   /* M-Vave-OP1: a chord set on / off, its POLY and the VOICE before */
+            cset_en = (uint8_t)((cset_en & ~(1u << k)) | ((uint32_t)undo.cs_on << k));
+            undo.cs_on = on;
+            undo_bytes(&t->p[P_VOICE], &undo.p[P_VOICE], sizeof(int16_t));
+            panic_req |= (uint8_t)(1u << k);
+        }
+        undo_bytes(&cset_set[k], &undo.cs_set, 1u);
+        undo_bytes(&cset_voice[k], &undo.cs_voice, 1u);
     }
     if (undo.what & UNDO_PREF) undo_bytes(&ui_rec_prefs, &undo.rec_pref, 1u);
     if (undo.what & UNDO_DRUM) undo_bytes(drum_mute, undo.mute, sizeof drum_mute);

@@ -271,12 +271,18 @@ def to_int16(x):
 
 
 def user_slot(name, zones):
-    """zones: [(int16 samples at SLOT_RATE, root, lo or None, hi or None)] -> (header bytes, ADPCM data).
-    Zones without lo/hi split the keyboard between their roots."""
+    """zones: [(int16 samples at SLOT_RATE, root, lo or None, hi or None[, loop (ls, le) or None])] -> (header bytes,
+    ADPCM data). Zones without lo/hi split the keyboard between their roots. A zone with a loop (M-Vave-OP1: FLUTE and
+    SAX, once built in) sustains it, its ADPCM state at the loop's start stored as the built-in sets store theirs."""
     zs, data = [], bytearray()
-    for s, root, lo, hi in zones:
-        adp, st = ima_encode(s, 0)
-        zs.append(dict(off=len(data), n=len(s), ls=0, le=len(s) - 1, root=root, lo=lo, hi=hi, pred=st[0], idx=st[1]))
+    for z in zones:
+        s, root, lo, hi = z[:4]
+        loop = z[4] if len(z) > 4 else None
+        adp, st = ima_encode(s, loop[0] if loop else 0)
+        ls, le = loop if loop else (0, len(s) - 1)
+        data += b"\0" * (len(data) & 1)                # (a zone's data starts on a byte: as the built-in blob)
+        zs.append(dict(off=len(data), n=len(s), ls=ls, le=le, root=root, lo=lo, hi=hi, pred=st[0], idx=st[1],
+                       looped=1 if loop else 0))
         data += adp
     if len(data) > SLOT_MAX_DATA:
         raise ValueError(f"too long: {len(data)} B of ADPCM, a slot holds {SLOT_MAX_DATA} B "
@@ -289,7 +295,7 @@ def user_slot(name, zones):
             z["lo"], z["hi"] = lo, hi
     rate = int(round(SLOT_RATE / 44100 * 65536))
     zb = b"".join(struct.pack("<5I2h4B", z["off"], z["n"], z["ls"], z["le"], rate, z["root"] * 16, z["pred"],
-                              z["idx"], z["lo"], z["hi"], 0) for z in zs)
+                              z["idx"], z["lo"], z["hi"], z["looped"]) for z in zs)
     nm = re.sub(r"[^\x20-\x7E]", "", name.upper())[:8].encode().ljust(8, b"\0")
     hdr = struct.pack("<IHBB8sII8x", 0x504D5346, 1, len(zs), 0, nm, len(data), zlib.crc32(data)) + zb
     return hdr.ljust(SLOT_HDR_LEN, b"\0"), bytes(data)

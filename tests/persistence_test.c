@@ -659,7 +659,8 @@ int main(void)
         for (i = 0; i < P_COUNT; i++) {
             uint32_t e;
             for (e = 0; e < NENGINES; e++)
-                if (param_desc_of(e, i)->min < -64 || param_desc_of(e, i)->max > 127) {
+                if (i == P_SLEN ? param_desc_of(e, i)->max != (int16_t)NSTEP : /* (LEN 1..128: the byte holds at most */
+                    param_desc_of(e, i)->min < -64 || param_desc_of(e, i)->max > 127) {   /* 64, the rest the extras) */
                     printf("param %u engine %u: range %d..%d does not fit FUN7's byte\n", i, e,
                            param_desc_of(e, i)->min, param_desc_of(e, i)->max);
                     bad++;

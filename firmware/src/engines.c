@@ -59,6 +59,7 @@ static const engine_t ENG_GONE = {
 #include "eng_part.c"           /* PRTCL: Plaits' particles and diffuser (plaits_part.c, MIT), filter, ADSR (M-Vave-OP1) */
 #include "eng_wtable.c"         /* WTABLE: Plaits' wavetables (plaits_wt.c, MIT; 8-bit tables), filter, ADSR (M-Vave-OP1) */
 #include "eng_swarm.c"          /* SWARM: Plaits' swarm of saws (plaits_swarm.c, MIT), filter, ADSR (M-Vave-OP1) */
+#include "eng_acid.c"           /* ACID: a TB-303 bass line, diode ladder, accent, slide (M-Vave-OP1) */
 #include "kitlane.c"            /* the kits' grid lanes: DRUM, VDRUM (M-Vave-OP1) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
@@ -89,6 +90,7 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_PRTCL,                  /* 19 (ENGI_PRTCL, M-Vave-OP1) */
     &ENG_WTABLE,                 /* 20 (ENGI_WTABLE, M-Vave-OP1: VOICE's successor) */
     &ENG_SWARM,                  /* 21 (ENGI_SWARM, M-Vave-OP1: SLICE's successor) */
+    &ENG_ACID,                   /* 22 (ENGI_ACID, M-Vave-OP1) */
 };
 
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
@@ -147,6 +149,8 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     11,                          /* NOISE */
     10,                          /* DRUM */
     15,                          /* VDRUM */
+    22,                          /* ACID (M-Vave-OP1: last, so the 16 before it keep their white keys; the EDIT layer
+                                  * has it on D#5) */
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4; never a retired one), in ENGINE_ORDER: eng_ok(e), the n-th
@@ -209,6 +213,15 @@ static const struct {
      * now that the arpeggiator is the track's and a preset no longer switches it on */
     {"ARP", {48, 51, 55, 60, 63, 67, 72, 75, 48, 51, 55, 60, 63, 67, 72, 75},       /* 13 */
      {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}},
+    /* M-Vave-OP1: acid lines for ACID (eng_acid.c): accents (1) and slides (2) where a TB-303 line has them */
+    {"ACID 2", {36, 36, 48, 36, 0, 39, 36, 46, 36, 0, 43, 36, 48, 36, 39, 34},     /* 14 C minor, the octave */
+     {1, 0, 2, 0, 0, 1, 0, 2, 1, 0, 0, 0, 1, 2, 0, 0}},
+    {"ACID 3", {40, 40, 41, 40, 52, 40, 43, 40, 40, 47, 40, 52, 41, 40, 38, 40},   /* 15 E phrygian */
+     {1, 0, 2, 0, 1, 0, 0, 2, 1, 0, 2, 0, 1, 0, 2, 0}},
+    {"ACID 4", {33, 45, 33, 45, 33, 0, 45, 33, 36, 48, 36, 0, 31, 43, 31, 43},     /* 16 octave jumps */
+     {1, 2, 0, 2, 1, 0, 0, 2, 1, 2, 0, 0, 1, 2, 0, 2}},
+    {"ACID 5", {36, 0, 0, 39, 41, 0, 36, 43, 0, 36, 46, 0, 0, 48, 0, 36},          /* 17 held and slid */
+     {1, T_, 0, 2, 0, 0, 1, 0, 0, 2, 1, T_, 0, 2, 0, 1}},
 };
 #undef T_
 #define NPATTERNS (sizeof PATTERNS / sizeof PATTERNS[0])

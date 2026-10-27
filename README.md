@@ -6,8 +6,8 @@ This project is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo 
 (Hügelton Instruments). It keeps Felucca's hardware layer, USB, update loader, web installer,
 storage, engines and tests, and builds an OP-1 / OP-Z-style workflow on top: a KEY track that moves the patterns
 through a chord progression, and from the OP-Z two FX tracks with recordable punch-in effects, the OP-Z's punch-ins on a second key map, 16 scenes a project
-switched while they play, pattern chains, a switchable FX1 with a granular CLOUD and the Roland J-6's 100 chord
-sets as SCL > CSET. What is planned next is in the [roadmap](docs/ROADMAP.md).
+switched while they play, pattern chains, a switchable FX1 with a granular CLOUD, the Roland J-6's 100 chord
+sets on SCL > CHORD and patterns of up to 64 steps. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
 > **Status:** early development, running on a real FM-1 since the first flash (JAN3000 v0.8: the name on its splash).
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
@@ -49,7 +49,7 @@ scale's own chords. The keys you play live stay as they are, so you can play alo
 ## FX TRACKS
 
 Two lanes of effects next to the four instrument tracks, after the OP-Z's FX tracks. Two more synth tracks do not
-fit the FM-1's RAM; an effect lane costs 66 bytes. The lanes play the FX layer's effects on the master (REPEAT
+fit the FM-1's RAM; an effect lane costs 130 bytes. The lanes play the FX layer's effects on the master (REPEAT
 1/8 1/16 1/32, REVERSE, LPF, HPF, TAPE STOP, FREEZE, OCT UP, OCT DN, FLANGER, PHASER, REV THROW, ECHO THROW, CLOUD
 FREEZE, the OP-Z punch-ins below, and the mutes of tracks 1 to 4).
 
@@ -133,40 +133,60 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   NOTHING TO COPY (the scene is empty), NO FREE SCENE or SCENE MEMORY FULL. The footer: [OCT-/+] PREV NEXT,
   [OCT+] HOLD: COPY.
 - Stopped, a scene comes at once. **Playing, it comes at the end of the pattern**: the end of the loop of the longest
-  track that plays something, on the grid, as a SONG section ends. The scene playing picked again takes the pick
-  back (SCENE n STAYS). STOP with one waiting: it comes at once.
+  track that plays something, on the grid, as a SONG section ends. **MENU > CONTROL > SCENE CHANGE**: AT END (that,
+  the default) or **NEXT BAR**: the scene comes at the next bar line (4/4, the metronome's), whatever the tracks'
+  lengths, and starts from its step 1 there. The scene playing picked again takes the pick back (SCENE n STAYS). STOP
+  with one waiting: it comes at once.
 - An empty scene starts with the LEN DIV SWING GATE of the scene it is reached from. The cells: the scene playing
   filled (its key lit), one waiting ringed (its key breathing), one that holds something raised, an empty one
   dimmed.
 - The **tools are on the black keys** from G#3: REVERSE, SHIFT < >, RANDOM, COOK, on a DRUM track BEAT and the
   lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane). F#3 is unassigned. Hold **SAVE** to undo all
-  edits in that opening, hold it again to redo. KNOB 1..4 are LEN DIV SWING GATE.
+  edits in that opening, hold it again to redo. KNOB 1..4 are LEN DIV SWING GATE. **SELECT** switches to SONG, the
+  scene song (see below).
 - **As on the KO-II:** a punch-in stays on while its key is held, also after FX is let go. Hold SEQ meanwhile and
   pick the next scene; let go of the key and the effect stops.
 - The 15 scenes not playing wait packed in 7.7 KB (a scene of four 16-step parts takes about 250 to 900 bytes, the
   densest possible 3.9 KB). A pick that would not fit says **SCENE MEMORY FULL** and nothing changes.
+- **The scene song: SEQ held + SELECT** turns the layer to its second level, **[SEQ] SONG** (SELECT back: SCENES; the
+  next hold opens where it was left). The song is a chain of cells, 4 a row and on into the next: each cell a scene and
+  its passes (x1..x16; a pass is the scene's loop, its longest track), the one playing filled, the one selected ringed,
+  a cell on an empty scene dimmed. The **white keys add their scene** to the chain's end (the last cell's scene again:
+  one pass more), **KNOB 1** the cell, **KNOB 2** its scene, **KNOB 3** its REPS, **KNOB 4** END (LOOP: the first cell
+  again, STOP); **OCT- / OCT+** the cell before / after, **EDIT** deletes the cell, **F#3** CLEAR (after OCT+). **PLAY**
+  plays the song from the cell selected (PLAY again: STOP). It always changes at a scene's end (MENU > SCENE CHANGE is
+  for picks by hand); a cell on the scene playing just plays it on. While it plays, every page edits and records into
+  the scene playing, the cells too (a REPS turned on the one playing counts at once). A pick by hand (SEQ + a key on
+  SCENES, OCT+ / OCT-, the copy) or STOP ends the song where it is. Kept with the project (its extras: firmware before
+  this reads the project without its song). The SEQ pages stay the step pages: STEP, DETAIL, AUTOMATION.
 - Kept with the project (SAVE > PROJECT, the one playing too) and with the autosave. A project of Felucca's or of an
   older M-Vave-OP1 loads as scene 1. While a song plays (GLO > SONG) scenes are not picked (STOP THE SONG FIRST); a
   song plays each slot as it was saved.
 
-## SCL > CSET: chord sets after the Roland J-6
+## SCL > CHORD: chord shapes and chord sets after the Roland J-6
 
-SCL's third page (SCL, CHORD, **CSET**) plays the 100 chord sets of the Roland J-6 (the owner's manual's Chord Set
-List, version 1.02: POP, JAZZ, BLUES, the UTILITY sets, SYNTHWAVE, HOUSE, EDM, NEO SOUL, BOSSA NOVA, CLASSICAL and
-more; the note data in `firmware/src/cset_data.h`, made by `tools/gen_cset.py`). It replaces SCL > ORCHID.
+SCL > CHORD is the one place for chords. **KNOB 1 CHRD** runs through the chord shapes, OFF, DIA3, DIA7 (the triad
+and seventh of the track's scale), MAJ, MIN, DOM7, MAJ7, MIN7, SUS4, POW, and goes on into the 100 chord sets of the
+Roland J-6, **SET 1 .. 100** (the owner's manual's Chord Set List, version 1.02: POP, JAZZ, BLUES, the UTILITY sets,
+SYNTHWAVE, HOUSE, EDM, NEO SOUL, BOSSA NOVA, CLASSICAL and more; the note data in `firmware/src/cset_data.h`, made by
+`tools/gen_cset.py`). **KNOB 2 VOIC** voices the shapes (a set voices its own chords: dimmed), **KNOB 3 GENRE** jumps
+to the first set of the next or previous genre, and from a shape to SET 1; before SET 1 it goes back to POW. SCL held,
+KNOB 3 is the same list. There is no separate CSET page any more; it replaces SCL > ORCHID.
 
-- **KNOB 1 ON / OFF** for the selected track (each track its own, before the track's CHRD and QNT). ON makes the
-  track POLY (a chord needs the voices), OFF gives the VOICE it had back. A sound loaded while it is on plays POLY too
-  (OFF then gives that sound's VOICE). A track set to MONO / LEG / UNI by hand plays the chord's lowest note.
+- Each track has its own choice. A set comes before the track's QNT. Choosing a set makes the track POLY (a chord
+  needs the voices); going back to a shape gives the VOICE it had back. A sound loaded while a set plays plays POLY
+  too (a shape then gives that sound's VOICE). A track set to MONO / LEG / UNI by hand plays the chord's lowest note.
+- SAVE held undoes a chord change made in the SCL layer, the set and its POLY included.
+- Nothing new is stored: a set is kept as before (the project's extras), so a project saved with CSET on loads
+  showing and playing its set; the track's chord shape is kept underneath.
 - **Every key is a chord:** the key's note C .. B plays that chord of the set, voiced as the list voices it. The keys
   F3 .. E4 play it where the list has it (its basses F2 .. E3, so the twelve chords lie together as on the J-6);
   each octave above or below plays it an octave higher or lower, the octave buttons too. TRN moves the chords. A MIDI
   note plays the chord of its key the same way.
-- **KNOB 2 SET** 1 .. 100, **KNOB 3 GENRE**: the first set of the next or previous genre (the list's order).
 - The page shows the set's number and genre, its twelve chords by name in the keys' order (C C# D / D# E F / ...;
   the black keys' framed), the chord played last lit and its notes by name.
-- Live recording and STEP entry write the chord (up to four notes a step); the ARP arpeggiates it. ON, each track's
-  SET and the VOICE before ON are kept with the project. A project saved with ORCHID on loads with CSET off.
+- Live recording and STEP entry write the chord (up to four notes a step); the ARP arpeggiates it. Each track's set
+  and the VOICE before it are kept with the project. A project saved with ORCHID on loads with no set.
 
 ## ANALOG2: two oscillators, a filter and an LFO each
 
@@ -299,6 +319,26 @@ BURST PLUCK, BEE HIVE, CHORUS BASS.
 All five Plaits engines play at Plaits' own relative levels (its `voice.cc`: WSHAPE 0.7, HRMNC 0.8, WTABLE 0.6, PRTCL
 and SWARM into Plaits' limiter).
 
+## ACID: a TB-303 bass line
+
+Engine 22, shown **ACID**, last in the list (EDIT held + D#5): a bass line after Roland's TB-303 as Behringer's TD-3
+plays it. One oscillator (SAW or SQR) into a four-pole diode-ladder low-pass, its own envelope on the cutoff, the
+accent and the slide as the 303 makes them. The controls are the TD-3's: WAVE TUNE CUT RES ENV DEC ACC DIST (HOME
+KNOB 1..4: CUT RES ENV DEC). An accented note (a step's ACCENT, or velocity 110 and up) is louder, its envelope deeper
+and shorter, and it charges the accent sweep: accents in a row open the filter further. A step's SLIDE glides into the
+next note without restarting the envelopes. The voice's level is the engine's own (the track's ADSR does nothing).
+Presets (all MONO, each with a pattern): ACID LINE, SQUELCH, SQR ACID, RUBBER, DIST 303, DEEP SUB, SCREAM, SOFT BASS.
+
+- **Patterns:** ACID 2 .. ACID 5 (patterns 14..17) are 303 lines with accents and slides; the presets load them.
+- **SEQ + RANDOM** on an ACID track rolls a new acid line (RANDOM ACID): 16ths in the track's scale (CHR plays minor)
+  from the root in octave 2, rests and ties, about 30 % accents and 22 % slides, step 1 the root, accented. **COOK**
+  also turns slides on and off.
+- **The web editor's TD-3 grid** (Sequencer tab, an ACID track): 16 columns of note, octave up / down, time (note,
+  tie, rest), ACC and SLD, written to the track's steps as you click; "Roll acid" rolls a line as RANDOM does.
+
+The filter follows Open303's structure of the 303's diode ladder (four coupled one-pole stages, the feedback from the
+last; no code taken), with its own coefficients: the resonant peak at the cutoff, RES up to 97 % of self-oscillation.
+
 ## Retired: PHASE, VOICE, TRIO, SLICE and DBOX
 
 Five engines made room for engines after Mutable Instruments' Plaits (the module Behringer's Grind builds on; the plan:
@@ -331,6 +371,9 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   rest; a fast turn stops at the end first, a chord keeps its shape); from OFF a turn brings in the note played last.
   SAVE held undoes it. EDIT no longer clears the step on STEP (nor on the drum grid): a tap opens EDIT as on every
   page, with a step held it still clears that step's locks.
+- **64 steps a track, again.** M-Vave-OP1 had 128 steps a track for a while; with the SHIMMER bus and SAVE's grouped
+  undo they did not fit the FM-1's SRAM any more, so LEN is 1 to 64 again (four pages of 16). Projects and scenes saved
+  with 128 steps are not supported.
 - **REC arms, PLAY starts.** A REC tap only arms the recording (the pattern's, GLO > KEY's, an FX TRACK's): REC ARMED:
   PRESS PLAY. PLAY then starts it, with the count-in first when REC layer COUNT-IN is set (Felucca's REC
   started the transport at once).
@@ -401,11 +444,81 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   PO does not follow on PO, try PO INV. USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is
   the way out for a clock.
 
+## USB DISK: the projects as files
+
+**MENU > SYSTEM > USB DISK** (OCT+) turns the FM-1 into a USB drive for as long as its screen is up: plugged into a
+phone (the Files app) or a computer it shows up as **FM-1**, read-only, with
+
+- `README.TXT`: what is on it, the slots and their projects' names, the firmware,
+- `CURRENT.FM1`: the music as it is now (saved into the autosave first, as a power-on with RESTORE LAST would bring
+  it back),
+- `PROJ_A.FM1` .. `PROJ_D.FM1`: the project slots that hold a project.
+
+Copy them wherever you like. Any button or key ends it, and USB is MIDI + audio again (the host sees the FM-1 unplugged
+and plugged in again). A `.FM1` file holds the project exactly as the FM-1 keeps it in its flash: the project, its
+extras (FX TRACKS, KEY, the scene song ..), its scenes, the settings, the user sample USR1 and FM6's voice
+bank, each with its flash offset and CRC (format FM1X, described in `firmware/src/usbdisk.c`). Nothing is converted, so
+a reader can put the bytes back where they were: the browser emulator runs the same firmware, which is the way to an
+offline bounce without the FM-1. Copying files onto the FM-1 is not there yet (the drive is write-protected).
+
+The drive is made up as it is read (a FAT16 of 8 MiB, nothing of it stored). The transport stops and the screen stays
+on USB DISK while it is up; MIDI, USB audio, the editor and the console are off for that time. Built with
+`FELUCCA_DISK` (on in the firmware). Tested on the host (`tests/vdisk_test.c` reads the whole drive the way a host
+does and checks it with a FAT reader of its own, `tests/vdisk_check.py`); a phone or a computer has not seen it yet.
+
+## Bounce: the projects as WAV, without the FM-1
+
+`web/bounce` is a page that takes a `.FM1` file (USB DISK, above) and renders it with the FM-1's own firmware as
+WebAssembly, offline: no FM-1 needed, about 30 to 100 times faster than real time. Out come `NAME_MIX.wav` (16-bit,
+the master exactly as USB audio sends it: USB LEVEL FIXED, SPEAKER EQ FLAT, no click) and, if wanted, the stems
+`NAME_T1.wav` .. `NAME_T4.wav` and `NAME_FX.wav` (32-bit float, before the master's limiter: each track's share of the
+mix, and the FX buses' returns with the FX layer's punch-ins; together they make the master up to its limiter), one by
+one or as a ZIP, or shared into the Files app on a phone. What it plays: the scene (so many bars), the scene song to
+its end, or the SONG chain. Each bounce boots a fresh FM-1: the same file gives the same samples every time (chance and
+RANDOM fall the same way each time, not as a particular run on the device did).
+
+The site (front page, bounce, emulator) is static: `sh tools/make_vercel_site.sh` (after `./build.sh`, with the
+emsdk) builds it into `site/`, which is committed; `vercel.json` serves `site/` as it is (no build on Vercel, which has
+no Emscripten). On Vercel: import the repository, keep the defaults (vercel.json sets them), deploy.
+
 ## Try it in the browser
 
 `web/lab` is an emulator page with guided workflows (in German): the whole firmware as WebAssembly, with a
 JavaScript fallback. Build it with `sh web/lab/build.sh` (after `./build.sh`, with the emsdk), then
 `cd build/lab && python3 -m http.server 8000` and open `http://localhost:8000/local.html`.
+
+## FLUTE and SAX: sample files, no longer built in
+
+SAMPLE's FLUTE and SAX left the firmware (62 KB of flash, room for what comes next): SAMPLE's factory sound is PIANO,
+GRAIN's CLOUD PAD and GLITCH grain PIANO now. Both come as slot files, `dist/samples/FLUTE.slot` and `SAX.slot`
+(`python3 tools/gen_samples.py --user-slot FLUTE FLUTE dist/samples/FLUTE` builds them: the same zones, roots and
+sustain loops as when they were built in). The web editor's Samples tab writes one into USR1 (**Slot file**); SAMPLE's
+SET USR1 (or GRAIN's SRC USR1) plays it. A sound saved with SET FLUTE or SAX plays PIANO.
+
+## The editor without a device
+
+The web editor's **No device** button (beside Connect) starts the FM-1's firmware in the page (`web/emu`, the same
+sources as the device's): the editor talks to it as to a device, so the Sound tab's parameter list, the engines and
+their presets, the 6-OP FM tab, the library and the user presets all work, with the firmware's own sound. Saves stay
+in that browser. The computer keyboard plays the selected track as Ableton's does (A W S E D F T G Y H U J K O L P ; '
+from the octave's C, Z / X octave, C / V velocity), on the device too; a MIDI keyboard on the computer plays the
+page's FM-1. Connected to the FM-1, the editor keeps a copy of its user presets in the browser (again after every
+change); No device starts with them, so they play with the firmware's own sound and can be edited without the FM-1,
+and a button in Projects > Presets on the device brings them back to it. The editor speaks English, German and Japanese. `python3 web/make_editor_artifact.py` builds it as a
+claude.ai Artifact page (there without Web MIDI: No device only; files are saved through the page's downloads
+capability).
+
+## Presets as files
+
+- **Projects > Presets on the device** (web editor): the user preset slots (U01 .. U32) as files beside the projects:
+  download one, replace one with a file (its button, or drop the file on its row), upload several (a sound named
+  like a slot replaces it, the others go into empty slots), download all. They show in PRESETS beside the factory
+  presets.
+- **Library > Export presets**: the sounds shown as a preset file. `python3 tools/import_presets.py FILE.json` makes
+  them factory presets (a name of the engine's replaces that preset, any other is added; a tag BASS LEAD PAD PLUCK
+  KEYS DRUM FX OTHER is its category). A factory preset keeps E0..E7, ATK DEC SUS REL, ENV > FILTER, MONO, the
+  sends and a pattern hint; the script lists what else a sound had (the LFO, the matrix, ..), which a preset load
+  sets to its defaults.
 
 ## Flash: two sample slots less
 

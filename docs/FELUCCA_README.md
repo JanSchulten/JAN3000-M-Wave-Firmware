@@ -323,7 +323,7 @@ In the order the device lists them:
   operator at a time on the algorithm chart; macros on top; SLOT picks a factory patch (F1–F8), the track's own (OWN) or a voice of the bank the web editor sent (B1–B32)
 - **PHASE**: phase distortion (ported from CrispyZebra)
 - **LOFI**: chiptune; pulse, triangle, saw, noise and a 4-bit wave RAM, stepped envelope, sweep, arpeggio
-- **SAMPLE**: multisampled instruments (PIANO, FLUTE, SAX) and 3 user sample slots
+- **SAMPLE**: multisampled instruments (PIANO; FLUTE and SAX left the firmware in M-Vave-OP1: slot files) and 3 user sample slots
 - **VOICE**: formant oscillator, sung vowels
 - **TRIO**: 3 oscillators with ring modulation and sync, multimode filter
 - **WHEEL**: tonewheel-style organ; drawbar registrations, percussion, key click, drive, rotary speaker

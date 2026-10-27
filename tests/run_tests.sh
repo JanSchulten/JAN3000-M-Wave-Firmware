@@ -86,16 +86,19 @@
 #                   SEQ layer (white keys scenes, OCT+ / OCT- next / before, black keys the tools, EDIT put back, PRESETS
 #                   the lane, LEDs, no song), the KO-II flow (a punch-in held while SEQ picks); screens into
 #                   build/scene_shots.
-# SCL > CSET (tests/cset_test.c, M-Vave-OP1): the chord sets after the Roland J-6's (cset.c, cset_data.h): the
+# SCL > CHORD's sets (tests/cset_test.c, M-Vave-OP1): the chord sets after the Roland J-6's (cset.c, cset_data.h): the
 #                   hundred sets (set 1's C, the names, 1..4 notes up), the genres KNOB 3 steps; the chords (F3 .. E4 as
 #                   listed, octaves away, TRN, one voice: the lowest); through the real key input (every key a chord, a
 #                   black key under WHITE, OCT, a release ends its notes; off and a kit as before; the ARP); MIDI IN;
-#                   the page (KNOB 1 ON: POLY, OFF: the VOICE back; a sound loaded while on; KNOB 2 SET, 3 GENRE),
-#                   STEP entry, live recording, kept with the project; screens into build/cset_shots.
+#                   the page (one CHORD page: KNOB 1 OFF .. POW, then SET 1 .. 100: POLY, back the VOICE; a sound
+#                   loaded while on; KNOB 3 GENRE; SCL held KNOB 3 and its SAVE undo), STEP entry, live recording, kept with the project; screens into build/cset_shots.
 # CLOUD (tests/cloud_test.c, M-Vave-OP1): FX1's TYPE (fx1.c): the DELAY untouched, a change fades, clears, starts empty;
 #                   CLOUD's grains always inside what was written (30 s of random settings), DENS, PITCH +-12 / +7, the
 #                   level, FDBK bounded and dying away, CLOUD FREEZE; the FX1 / CLOUD pages, F5, kept with the project;
 #                   screens into build/cloud_shots, WAV demos into build/cloud_demo.
+# SLICER POSITION (tests/fxchain_test.c, M-Vave-OP1): the SLICER at the START before DIST, at the END on the whole
+#                   sum after the reverb (the lowest END track drives it). PUMP: the drop at each step, the four curves and
+#                   their lengths, no clicks, RATE 1/4, PUMP END, the page.
 # PUNCH-INS (tests/punch_test.c, M-Vave-OP1 E2): the OP-Z's punch-ins on the FX layer (perform.c): DUCK's curve on the
 #                   beat (also stopped), STEREO's pan a 1/16 a side with the power kept, PITCH 5TH UP / 4TH DN's pitch
 #                   with no live part, RAMP UP from standing to in time, GLITCH's slices (from the next 1/16, their
@@ -108,6 +111,13 @@
 #                   TIEs, LEN and two lengths, step for step with a 1/16 track, a REPEAT on its step, mutes, STOP / PLAY;
 #                   recording only armed and playing, early / late presses, TIEs, overdub, a punch inside a take, FX LATCH,
 #                   the black keys; FX's pages, KNOB 1..4, REC arming, FX held + a key end to end, CLEAR.
+# USB DISK (tests/vdisk_test.c, M-Vave-OP1): MENU > USB DISK's mass storage (msc.c) driven as a host drives a drive:
+#                   TEST UNIT READY, INQUIRY, the capacities, MODE SENSE write-protected, a write refused, an unknown
+#                   command, sense, eject; the whole made-up FAT16 (vdisk.c) read and read back by tests/vdisk_check.py,
+#                   a reader of its own; README.TXT, CURRENT.FM1 and the slots' PROJ_x.FM1 the flash's own bytes.
+# SCENE SONG (tests/ssong_test.c, M-Vave-OP1): SEQ > SCENE SONG's rows (+ ADD, SCENE, REPS, END, EDIT deletes), the
+#                   scenes one after another at each one's end (passes counted, the switch on its block), LOOP / STOP,
+#                   a row on the scene playing, NEXT BAR ignored, live edits, a pick by hand or STOP ends it, kept.
 # RATCH (tests/ratchet_test.c): a step's ratchet (x1..x4): its parts in the sequencer (equal, gated, chords and drum
 #                   hits whole, one chance roll, swing, no slide or tie out, STOP), FUN8 round trip and older projects x1,
 #                   user preset patterns, SEQ > AUTOMATION's RATCH rows and the roll / grid drawing.
@@ -183,6 +193,10 @@
 # web (web/test_web.mjs): the editor protocol against its mock device, whose tables must equal the
 #                   firmware's (tests/descdump.c -> build/host/desc.json; the MENU settings: tests/editor_test.c -> build/host/menu.json),
 #                   the package builder, the updater.
+# Offline bounce (web/bounce, M-Vave-OP1, when emcc is there): the emulator's firmware with taps on the mixer (fx.c
+#                   FX_PART_TAP / FX_MIX_TAP); tests/vdisk_test.c's .FM1 files checked (a byte changed, cut short: refused),
+#                   loaded (a slot, the autosave), bounced for 2 bars: the master and T1 sound, the empty tracks silent,
+#                   the stems add up to the master below its limiter, twice the same samples; the WAVs and the ZIP.
 # Browser emulator (web/emu, when emcc is there): the firmware in WebAssembly (build/emu) boots, plays keys and MIDI,
 #                   draws, lights its LEDs, keeps a save across instances, plays a song bit for bit as the same file
 #                   built with cc (web/emu/native_check.c); the cost of 1 s of a heavy song against real time.
@@ -299,6 +313,17 @@ EOF
         tests/usb_desc_test.c
     run "USB descriptors: CDC $t_cdc (presented $t_on), UAC $t_uac (48 kHz $t_48), layout $t_lay" "$OUT/usb_desc_test"
 done
+# M-Vave-OP1, MENU > USB DISK (FELUCCA_DISK, the firmware's default): its mass storage device besides, the MIDI + audio
+# device's descriptors unchanged with it built in
+for v in 1.1.0.1.1 1.1.0.0.1; do
+    IFS=. read -r t_cdc t_uac t_lay t_on t_48 <<EOF
+$v
+EOF
+    $CC -DT_CDC="$t_cdc" -DT_UAC="$t_uac" -DT_LAYOUT="$t_lay" -DT_ON="$t_on" -DT_48K="$t_48" -DT_DISK=1 \
+        -o "$OUT/usb_desc_test" tests/usb_desc_test.c
+    run "USB descriptors with USB DISK: CDC $t_cdc (presented $t_on), UAC $t_uac (48 kHz $t_48), the disk's own" \
+        "$OUT/usb_desc_test"
+done
 # FELUCCA_UAC_AS_FIRST=0 (#67): the AC collection of 1.0 .. 1.5 (MIDI first), 1.0's bytes; the parser model of the
 # kernel AppleUSBAudio (macOS <= 15) stops before the audio streaming interface there
 for v in 1.1.0.1.1 1.1.0.0.1 1.1.0.1.0 1.1.0.0.0 0.1.0.1.1; do
@@ -352,6 +377,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     mkdir -p build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
     run "FX1 CLOUD: granular in the delay's line (TYPE change, grains inside the line, DENS, PITCH, level, FDBK, FREEZE), pages, F5, kept" "$OUT/cloud_test" build/cloud_shots build/cloud_demo
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fxchain_test" tests/fxchain_test.c -lm
+    mkdir -p build/fxchain_shots
+    run "SLICER at the START / END of the chain, PUMP" "$OUT/fxchain_test" build/fxchain_shots
     mkdir -p build/punch_shots build/punch_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/punch_test" tests/punch_test.c -lm
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo
@@ -360,11 +388,14 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT+ held copy, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
     mkdir -p build/cset_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cset_test" tests/cset_test.c -lm
-    run "SCL > CSET (chord sets after the J-6's): the data, the chords, the key input, MIDI IN, the page, STEP entry, recording, kept" "$OUT/cset_test" build/cset_shots
+    run "SCL > CHORD's sets (after the J-6's): the data, the chords, the key input, MIDI IN, the page, STEP entry, recording, kept" "$OUT/cset_test" build/cset_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/songchain_test" tests/songchain_test.c -lm
     run "SONG as OP-Z pattern chains: typed with REC + A..D, LOOP / STOP, new chains and edits while it plays" "$OUT/songchain_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fxtrack_test" tests/fxtrack_test.c -lm
     run "FX TRACKS: lanes of punch-in effects (play, LEN, no drift, REPEAT on its step), recording (early / late, TIEs, overdub, punch, LATCH, mutes), pages" "$OUT/fxtrack_test"
+    mkdir -p build/ssong_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ssong_test" tests/ssong_test.c -lm
+    run "SCENE SONG: the scenes one after another (passes, LOOP / STOP), the page, live edits, picks by hand, kept" "$OUT/ssong_test" build/ssong_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/step15_test" tests/step15_test.c -lm
     run "1.5 STEP: a note's LEN (TIEs on KNOB 3), a step's VEL (playback, AUTOMATION's VEL rows)" "$OUT/step15_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/detail_test" tests/detail_test.c -lm
@@ -415,6 +446,11 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "retriggers without a click (ANLG2, LOFI), bit-crushers without DC (SAMPLE, LOFI, NOISE, FX CRUSH)" "$OUT/retrig_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/persistence_test" tests/persistence_test.c -lm
     run "persistence: deferred settings (until STOP and quiet), retry and failed-save rollback" "$OUT/persistence_test"
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/vdisk_test" tests/vdisk_test.c -lm
+    run "USB DISK: SCSI over bulk-only, the made-up FAT16 read whole and read back (vdisk_check.py), the .FM1 files" \
+        "$OUT/vdisk_test" build/vdisk
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/vdisk_screen_test" tests/vdisk_screen_test.c -lm
+    run "USB DISK's screen: title, files and names, status, hint; fits, both palettes" "$OUT/vdisk_screen_test" build/vdisk
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/opstore_test" tests/opstore_test.c -lm
     run "M-Vave-OP1 stores in USR3 / USR2: FX TRACKS, the KEY and scenes with projects and the autosave, USR2 / USR3 empty" "$OUT/opstore_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/backup_test" tests/backup_test.c -lm
@@ -464,6 +500,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/descdump" tests/descdump.c -lm
     echo "== parameter and engine tables as JSON (for the editor mock test)"
     "$OUT/descdump" > "$OUT/desc.json" || fail=1
+    if command -v node >/dev/null 2>&1; then
+        run "M-Vave-OP1: the editor's preset file -> factory presets (tools/import_presets.py on a copy of the tree)" \
+            python3 tests/import_presets_test.py "${CC%% *}"
+    fi
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/phys_test" tests/phys_test.c -lm
     mkdir -p build/phys_demo
     run "PHYS: stability C-1..G9 over the parameter corners, worst-case cost against PHASE WIRE, demos" "$OUT/phys_test" build/phys_demo
@@ -508,6 +548,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/swarm_test" tests/swarm_test.c -lm
     mkdir -p build/swarm_demo
     run "SWARM: presets and corners bounded, no DC, in tune, a note's burst, Plaits' level, switches, demos" "$OUT/swarm_test" build/swarm_demo
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/acid_test" tests/acid_test.c -lm
+    mkdir -p build/acid_demo
+    run "ACID: presets bounded, no DC, in tune, corners silent after release, accent, sweep, slide, ENV and RES, demos" \
+        "$OUT/acid_test" build/acid_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fpu_probe_test" tests/fpu_probe_test.c -lm
     mkdir -p build/fpu_shots
     run "FPU PROBE: exact checks, the waveshaper's hash, bounded; INFO's OCT+ after the boot guard, its rows, a screen" "$OUT/fpu_probe_test" build/fpu_shots
@@ -587,6 +631,10 @@ else
     run "browser emulator: the same song from the native build" "$OUT/emu_native" "$OUT/emu_native.f32"
     run "browser emulator: boot, keys, MIDI, screen, LEDs, PLAY, a save kept across instances, = native, cost" \
         node web/emu/emu_test.mjs build/emu/felucca.wasm "$OUT/emu_native.f32"
+    run "offline bounce: the firmware with the mixer's taps to WebAssembly (web/bounce/build.sh -> build/bounce)" \
+        sh web/bounce/build.sh
+    run "offline bounce: USB DISK's .FM1 files read, loaded, bounced (master + stems, = twice), WAV and ZIP" \
+        node web/bounce/bounce_test.mjs build/bounce/felucca_bounce.wasm build/vdisk/files
 fi
 
 [ $fail -eq 0 ] && echo "ALL HOST TESTS PASSED" || { echo "HOST TESTS FAILED"; exit 1; }

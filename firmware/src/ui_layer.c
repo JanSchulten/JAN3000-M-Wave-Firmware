@@ -12,11 +12,13 @@
  *        KNOB 1 engine, 2 sound, 3 favorite.
  *   SEQ  white keys: scenes; OCT- / OCT+: previous / next, OCT+ held: copy. Black keys from G#3: sequence tools
  *        (ui_tools.c), PRESETS: drum lane. KNOB 1..4: LEN DIV SWING GATE. F#3 is unassigned.
+ *        SELECT: SONG (ui.seq_lv), the scene song (scene.c ssong): white keys append their scene, KNOB 1..4 CELL
+ *        SCENE REPS END, OCT- / OCT+ the cell before / after, EDIT deletes the cell, PLAY plays from it, F#3 CLEAR.
  *   REC  white F3: clear notes and automation; G3 A3 B3 and KNOB 1..3: CLICK COUNT-IN LEVEL.
  * SAVE held is the sole undo/redo, including while a layer stays open. A layer's persistent edits form one
  * transaction; temporary punch-ins stay performance state. OCT shifts octave outside the SEQ scene layer.
- * A page button's second tap returns HOME. REC alone still supports its double-tap lock: its arming is restored
- * to before the first tap, the map stays open, and another REC tap closes it. */
+ * A page button's second tap returns HOME. No layer locks on a double tap (M-Vave-OP1: REC's taps always arm and
+ * disarm; its lock made REC seem stuck). */
 #include "ui_tools.c"                                   /* SEQ TOOLS' actions */
 enum { LK_HOLD, LK_SET };
 typedef struct {
@@ -50,7 +52,10 @@ static const page_t *ly_page(uint32_t l) { return l == LAYER_SCL ? &LY_SCL : l =
  * (place 10), past the engine's quick actions (EQA: up to 10) */
 #define LY_NENG ((uint32_t)(NENG_SHOWN < 16 ? NENG_SHOWN : 16))
 #define LY_INIT_B 10u
-typedef char ly_eng_fits[NENG_SHOWN <= 16 || FELUCCA_FM4 ? 1 : -1];   /* (a white key each: F3 .. G5) */
+#define LY_ENG17_B 9u                  /* M-Vave-OP1: a 17th engine (ACID) on the black key D#5, past every engine's quick
+                                        * actions (DRUM's 8: F#3 .. A#4) and before INIT */
+typedef char ly_eng_fits[NENG_SHOWN <= 17 || FELUCCA_FM4 ? 1 : -1];   /* (a white key each: F3 .. G5; the 17th D#5) */
+#define LY_HAS17 (NENG_SHOWN > 16 && !FELUCCA_FM4)
 #define layer_seen (favorites.factory[15][31])   /* bit l: layer l opened once (a byte no engine uses) */
 static const khint_t FX_LATCH_FOOT[3] = {{KC_KEYS, "ON / OFF"}, {KC_K14, "MACROS"}, {KC_FX, "DONE"}};
 static const khint_t FX_KEY_FOOT[3] = {{KC_PRESETS, "ASSIGN"}, {KC_EDIT, "DEFAULT"}, {KC_K14, "MACROS"}};   /* (a key held) */
@@ -60,6 +65,10 @@ static const khint_t GLO_LOCK_FOOT[3] = {{KC_SAVE, "HOLD: UNDO"}, {0, 0}, {0, 0}
 #define fx_keys (&favorites.factory[15][14])
 #define fx_keys_b (&favorites.factory[15][0])  /* M-Vave-OP1 E2: MAP B's, the same 16 x 5 bits (0: its default) */
 /* E2: the footer names the map ALGORITHM turns to (three hints do not fit: the knob cards above name the macros) */
+/* M-Vave-OP1, SEQ held: SCENES' footer (SELECT to the SONG, OCT+ held the copy; OCT- / OCT+ step the scenes: the help
+ * row) and SONG's (SELECT back, PLAY the song) */
+static const khint_t SEQ_FOOT[2][3] = {{{KC_SELECT, "SONG"}, {KC_OCTUP, "HOLD: COPY"}, {0, 0}},
+                                       {{KC_SELECT, "SCENES"}, {KC_PLAY, "SONG"}, {0, 0}}};
 static const khint_t FX_FOOT[2][3] = {{{KC_KEYS, "EFFECTS"}, {KC_ALGO, "MAP B"}, {0, 0}},
                                       {{KC_KEYS, "EFFECTS"}, {KC_ALGO, "MAP A"}, {0, 0}}};
 
@@ -101,6 +110,8 @@ static const char *layer_head(void)
 {
     if (ui.layer == LAYER_FX)                           /* (E2: MAP B says so) */
         return perf_latch_on ? perf_bank ? "[FX] LATCH B" : "[FX] LATCH" : perf_bank ? "[FX] HOLD B" : LAYERS[LAYER_FX].head;
+    if (ui.layer == LAYER_SEQ && ui.seq_lv)             /* (M-Vave-OP1: the scene song, SELECT's second level) */
+        return "[SEQ] SONG";
     return LAYERS[ui.layer % LAYER_N].head;
 }
 static uint32_t layer_open(void) { return ui.ly && (ui.ly_t0 & LY_OPEN) && ly_down(ui.ly) && layer_allowed() ? ui.ly : 0u; }
@@ -280,9 +291,12 @@ static void layer_tap(uint32_t l)
     lys.nv.seq = song.seq_mode;
     memcpy(lys.nv.fam, ui.fam_last, sizeof lys.nv.fam);
     lys.nv.rec = song.rec;
-    if (l == LAYER_REC) {                               /* REC: arms / disarms (no page); said nothing: no double tap */
+    if (l == LAYER_REC) {                               /* REC: arms / disarms (no page), and arms no double tap */
         uint32_t idle = !song.playing && !seq_counting() && transport_req != 1u;
-        acted = !rec_tap();
+        rec_tap();                                      /* (M-Vave-OP1: two quick taps arm and disarm; the second locked
+                                                         * the layer and put the arming back, so a third tap only closed
+                                                         * the lock: REC seemed stuck. Its layer opens held) */
+        acted = 1;
         lys.nv.go = (uint8_t)(idle && transport_req == 1u);
     } else {
         acted = page_tap(LAYERS[l].btn);
@@ -391,12 +405,42 @@ static void scene_switched_ui(void)
         layer_snap();
     ui.force = 1;
 }
+/* M-Vave-OP1, SEQ held > SONG: white key p adds scene p + 1 to the scene song's end (the last cell's scene again: one
+ * pass more, up to x16); the cell selected follows */
+static void ssong_key(uint32_t p)
+{
+    char b[24], n[4];
+    uint32_t c = ssong.count;
+    p %= SCN_N;
+    if (c && ssong.scene[c - 1u] == p && ssong.repeat[c - 1u] < 16u) {
+        ssong.repeat[c - 1u]++;
+    } else if (c < SSG_ROWS) {
+        ssong.scene[c] = (uint8_t)p;
+        ssong.repeat[c] = 1;
+        RING_PUBLISH();                                 /* (the row whole before the ISR may count it) */
+        ssong.count++;
+    } else {
+        ui_message("SONG FULL");
+        return;
+    }
+    ui.ssg_row = (uint8_t)(ssong.count - 1u);
+    str_cpy(b, "SCENE ", sizeof b);
+    fmt_int(n, (int32_t)p + 1);
+    str_cpy(b + str_len(b), n, sizeof b - str_len(b));
+    str_cpy(b + str_len(b), " X", sizeof b - str_len(b));
+    fmt_int(n, ssong.repeat[ssong.count - 1u]);
+    str_cpy(b + str_len(b), n, sizeof b - str_len(b));
+    ui_message(b);
+    ui.force = 1;
+}
 /* SEQ + white key p: scene p + 1 (stopped now, playing at the pattern's end; the one playing again: the pick waiting
  * taken back) */
 static void scene_key(uint32_t p)
 {
     char b[24], n[4];
-    uint32_t r = scene_queue(p);
+    uint32_t r;
+    ssong_off();                                        /* (a pick by hand: the scene song ends here) */
+    r = scene_queue(p);
     if (scn.moved)
         scene_switched_ui();
     fmt_int(n, (int32_t)(p % SCN_N) + 1);
@@ -421,7 +465,9 @@ static void seq_lane(int32_t s)
 /* SEQ + OCT+ / OCT-: the scene after / before the one picked last (waiting, else playing); none past 16 or before 1 */
 static void scene_step(int32_t d)
 {
-    int32_t t = (int32_t)scene_target() + d;
+    int32_t t;
+    ssong_off();                                        /* (by hand: the scene song ends, its scene waiting taken back) */
+    t = (int32_t)scene_target() + d;
     if (t < 0 || t >= (int32_t)SCN_N) {
         ui_message(t < 0 ? "SCENE 1 IS THE FIRST" : "SCENE 16 IS THE LAST");
         return;
@@ -433,7 +479,9 @@ static void scene_step(int32_t d)
 static void scene_copy_key(void)
 {
     char n[4];
-    uint32_t r = scene_copy();
+    uint32_t r;
+    ssong_off();                                        /* (the copy plays from here on: the scene song ends) */
+    r = scene_copy();
     if (scn.moved)
         scene_switched_ui();
     fmt_int(n, (int32_t)scn.cur + 1);
@@ -684,6 +732,8 @@ static void layer_key(uint32_t l, uint32_t k)
     } else if (l == LAYER_EDIT && !key_black(k)) {
         if (p < LY_NENG)
             edit_load(eng_vis(p), 0);
+    } else if (l == LAYER_EDIT && LY_HAS17 && p == LY_ENG17_B) {   /* D#5: the 17th engine (ACID) */
+        edit_load(eng_vis(16), 0);
     } else if (l == LAYER_EDIT && p == LY_INIT_B) {     /* F#5: INIT */
         if (chain_busy())
             ui_message("STOP TO EDIT");
@@ -694,6 +744,13 @@ static void layer_key(uint32_t l, uint32_t k)
     } else if (l == LAYER_REC) {
         if (!key_black(k) && p < 4u)
             rec_key(p);
+    } else if (l == LAYER_SEQ && ui.seq_lv) {         /* M-Vave-OP1, SONG: a white key adds its scene, F#3 CLEAR */
+        if (!key_black(k))
+            ssong_key(p);
+        else if (p == 0u && ssong.count)
+            confirm_open(CF_CLEAR_SSONG, 0);            /* (the dialog closes the layer) */
+        else if (p == 0u)
+            ui_message("THE SONG IS EMPTY");
     } else if (l == LAYER_SEQ) {
         if (!key_black(k))
             scene_key(p);                               /* (M-Vave-OP1: the white keys pick scenes 1..16, scene.c) */
@@ -739,6 +796,8 @@ static void layer_knob(uint32_t k, int32_t s)
             edit_load(NENGINES, s);
         else if (k == 2u)
             preset_mark(s > 0);
+    } else if (l == LAYER_SEQ && ui.seq_lv) {           /* M-Vave-OP1, SONG: the cell, its SCENE, REPS, the END */
+        ssong_knob(k, s);
     } else if (l == LAYER_REC) {                        /* CLICK, COUNT-IN, LEVEL (KNOB 4: none) */
         if (k < 3u)
             rec_set(k, (uint32_t)clamp((int32_t)rp_get(RL_F[k]) + s, 0, 2));
@@ -758,6 +817,13 @@ static void layer_knob(uint32_t k, int32_t s)
  * held: PLAY starts and stops there as in every layer (#183: locked, PLAY restarted and never stopped) */
 static int layer_play(void)
 {
+    if (layer_open() == LAYER_SEQ && ui.seq_lv) {      /* M-Vave-OP1, SEQ held > SONG: PLAY plays the scene song */
+        if (song.playing || chain_busy() || seq_counting())
+            transport_req = 2;
+        else
+            ssong_play_ui();
+        return 1;
+    }
     if (layer_open() != LAYER_GLO || !(fm1_in.buttons & ly_bit(LAYER_GLO)) || chain_busy())
         return 0;
     if (song.g[G_CLOCK] && song.playing) {
@@ -787,6 +853,14 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
     uint32_t dn = panel.btn[B_OCTDN], up = panel.btn[B_OCTUP], mine;
     if (layer_set_open())
         lys.oct |= (uint8_t)(((pressed >> dn) & 1u) | ((pressed >> up) & 1u) << 1);
+    if (lys.l == LAYER_SEQ && ui.seq_lv && layer_set_open()) {   /* M-Vave-OP1, SONG: OCT- / OCT+ the cell before / */
+        mine = oct & lys.oct;                           /* after (no copy, nothing put back) */
+        if (mine & 3u)
+            ui.ssg_row = (uint8_t)clamp((int32_t)ui.ssg_row + ((mine & 1u) ? -1 : 1), 0,
+                                        ssong.count < SSG_ROWS ? (int32_t)ssong.count : (int32_t)SSG_ROWS - 1);
+        lys.oct &= (uint8_t)(((fm1_in.buttons >> dn) & 1u) | ((fm1_in.buttons >> up) & 1u) << 1);
+        return oct & ~mine;
+    }
     if (lys.l == LAYER_SEQ && layer_set_open()) {      /* M-Vave-OP1: SEQ + OCT+ held SEQ_COPY_MS (alone): the copy, */
         if ((pressed >> up) & 1u) {                     /* once; its release then steps no scene */
             lys.up_ms = fm1_ms;
@@ -810,6 +884,8 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
 }
 
 /* --------------------------------------------------------- the LEDs --- */
+#define SEQ_BLINK_MS 250u                               /* M-Vave-OP1: the SEQ layer's scene playing: 250 ms lit, 250 dark
+                                                         * (asked for: a blink, where the other layers breathe, #119) */
 /* lit = in effect now (held, the value, a track sounding), breathing = can be pressed (*br: dark .. ~60 % and
  * back, ~1.1 s, hal/fm1_input.h fm1_led_breath; was a hard 250 ms blink, #119), dark = nothing there */
 static int glo_sounding(uint32_t t) { return !trk[t].p[P_MUTE] && (!perf_solo || ((perf_solo >> t) & 1u)); }
@@ -835,13 +911,21 @@ static uint32_t layer_leds(uint32_t *br)
         } else if (l == LAYER_EDIT && !b) {             /* the engine lit, the others breathe */
             on = p < LY_NENG && eng_vis(p) == TSEL->eng_req % NENGINES;
             can = p < LY_NENG;
+        } else if (l == LAYER_EDIT && LY_HAS17 && p == LY_ENG17_B) {   /* D#5: the 17th engine, as the white keys' */
+            on = eng_vis(16) == TSEL->eng_req % NENGINES;
+            can = 1;
         } else if (l == LAYER_EDIT && p == LY_INIT_B) { /* F#5 INIT breathes */
             can = !chain_busy();
         } else if (l == LAYER_EDIT && (a = eqa_of(TSEL, p)) != 0) {   /* the quick actions: on lit (DRUM: sounding), */
             on = a->on(TSEL, a->arg) != 0u;             /* a HOLD one off breathes, none dark */
             can = a->kind == LK_HOLD;
-        } else if (l == LAYER_SEQ) {                    /* M-Vave-OP1: the scene playing lit, one waiting breathes; */
-            on = !b && p == scn.cur;                    /* the black keys' tools breathe (not while a song plays) */
+        } else if (l == LAYER_SEQ && ui.seq_lv && b) {  /* M-Vave-OP1, SONG: F#3 CLEAR breathes with cells to clear; */
+            can = p == 0u && ssong.count != 0u;         /* the white keys as on SCENES (below) */
+        } else if (l == LAYER_SEQ) {                    /* M-Vave-OP1: the scene playing blinks (2 Hz, SEQ_BLINK_MS), the
+                                                         * others that hold something lit, one waiting breathes; the
+                                                         * black keys' tools breathe (not while a song plays) */
+            on = !b && (p == scn.cur ? (fm1_ms / SEQ_BLINK_MS) & 1u
+                                     : p < SCN_N && !(scn.req == SCN_END && p == scn.next) && scene_used(p));
             can = b ? p < SEQ_NTOOL && tl_cell(TSEL, SEQ_TOOL[p]) && !chain_busy()
                     : scn.req == SCN_END && p == scn.next && p != scn.cur;
         } else if (l == LAYER_REC && !b && p < 4u) {    /* a setting on (LEVEL: the click on) lit, the rest breathe; */
@@ -1040,7 +1124,12 @@ static void layer_edit(void)                            /* the engines from F3, 
     if (na)                                             /* the black keys' quick actions in the sound's place (KNOB 2 */
         eqa_row(na, (uint32_t)LC_X(3) - 4u);            /* still shows its number) */
     else
-        engine_sound_row(104, LC_X(3) - 4);
+        engine_sound_row(104, LC_X(LY_HAS17 ? 2 : 3) - 4);
+    if (LY_HAS17 && !na) {                              /* (D#5: the 17th engine, beside INIT; under a kit's lanes its key
+                                                         * still loads it, the row shows the lanes) */
+        const engine_t *en = ENGINES[eng_vis(16) % NENGINES];
+        lcell(LC_X(2), 100, 18, 0, 0, 0, eng_abbr(en->name), eng_vis(16) == TSEL->eng_req % NENGINES ? LS_SEL : LS_OFF, 0);
+    }
     lcell(LC_X(3), 100, 18, 0, 0, 0, "INIT", chain_busy() ? LS_DIM : LS_OFF, 0);   /* (F#5, the last cell's column) */
 }
 
@@ -1054,8 +1143,45 @@ static const char *const TL_NAME[TL_N] = {"CLEAR", "REVERSE", "SHIFT <", "SHIFT 
 #define LS_SC_W 25                                       /* a scene's cell: 25 px, 4 px apart, 8 a row (x 6 .. 234) */
 #define LS_SC_H 18
 #define LS_TL_Y 50                                       /* the tools' rows: from y 50, 18 px, 4 apart (.. 112) */
+/* M-Vave-OP1, SEQ held > SONG: the scene song as a chain, 4 cells a row (the cells' columns: LC_X), on into the row
+ * under it: a cell its scene and passes ("3  x2"), the one playing filled, the one selected ringed, one on an empty
+ * scene dimmed; then "+" (adds: the white keys, or KNOB 2 / 3 there); under the chain the END */
+#define LS_CH_H 22                                       /* a chain cell: 22 px, 4 apart, 4 rows from y 4 (.. 100) */
+static void layer_ssong(void)
+{
+    uint32_t n = ssong.count, cells = n < SSG_ROWS ? n + 1u : n, k;
+    for (k = 0; k < cells; k++) {
+        int32_t x = LC_X(k % 4u), y = 4 + (LS_CH_H + 4) * (int32_t)(k / 4u);
+        uint32_t st = k == n ? LS_DIM : ssp.on && ssp.row == k ? LS_SEL : scene_used(ssong.scene[k]) ? LS_OFF : LS_DIM;
+        uint16_t ink, fill = lc_box(x, y, LC_W, LS_CH_H, lc_fill(st, &ink));
+        char b[8];
+        if (k == ui.ssg_row % (n < SSG_ROWS ? n + 1u : n)) {   /* the cell selected: a ring (as a scene waiting) */
+            cv_rrect(x, y, LC_W, LS_CH_H, 4, T_THEME, T_SURF);
+            cv_rrect(x + 2, y + 2, LC_W - 4, LS_CH_H - 4, 2, fill, T_THEME);
+            ink = st == LS_SEL ? ink : T_THEME;
+        }
+        if (k == n) {
+            GFX_HOOK_ALIGN(x, y, x + LC_W, y + LS_CH_H, AL_HV, "seq layer song cell centred");
+            cv_text_in(x, y + CAP_IN(S, LS_CH_H), LC_W, &AF_S, "+", ink, fill);
+            continue;
+        }
+        fmt_int(b, (int32_t)ssong.scene[k] + 1);
+        GFX_HOOK_ALIGN(0, y, 0, y + LS_CH_H, AL_V, "seq layer song cell text centred up/down");
+        cv_text_on(x + 7, y + CAP_IN(S, LS_CH_H), &AF_S, b, ink, fill);
+        b[0] = 'x';
+        fmt_int(b + 1, ssong.repeat[k]);
+        GFX_HOOK_ALIGN(0, y, 0, y + LS_CH_H, AL_V, "seq layer song cell text centred up/down");
+        cv_text_r(x + LC_W - 7, y + CAP_IN(S, LS_CH_H), &AF_S, b, ink, fill);
+    }
+    GFX_HOOK_ALIGN(0, 104, 0, 118, AL_V, "seq layer song end centred up/down");
+    cv_text_r(234, 104 + CAP_IN(S, 14), &AF_S, ssong.flags & SSG_LOOP ? "END: LOOP" : "END: STOP", T_MID, T_SURF);
+}
 static void layer_seq(void)
 {
+    if (ui.seq_lv) {
+        layer_ssong();
+        return;
+    }
     uint32_t p, st = chain_busy() ? LS_DIM : LS_OFF, c = 0;
     char n[4] = {0, 0, 0, 0}, nm[12];
     for (p = 0; p < SCN_N; p++) {                       /* the scenes 1..16 */
@@ -1152,6 +1278,27 @@ static void layer_cards(uint32_t l)
             draw_column(c, "LEVEL", val, unit, glo_sounding(c) ? VAL(c) : T_DIM, RATIO(&TP[P_LEVEL], trk[c].p[P_LEVEL]),
                         trk_icon(c, 1));
         }
+    } else if (l == LAYER_SEQ && ui.seq_lv) {           /* M-Vave-OP1, SONG: the CELL, its SCENE and REPS, the END */
+        uint32_t r = ui.ssg_row;
+        int used = r < ssong.count;
+        if (used)
+            fmt_int(val, (int32_t)r + 1);
+        else
+            str_cpy(val, "+", sizeof val);
+        draw_column(0, "CELL", val, "", VAL(0u), -1, ICON_X_SONG);
+        if (used)
+            fmt_int(val, (int32_t)ssong.scene[r] + 1);
+        else
+            str_cpy(val, "--", sizeof val);
+        draw_column(1, "SCENE", val, "", used ? VAL(1u) : T_DIM, -1, ICON_X_PATTERN);
+        if (used) {
+            val[0] = 'x';
+            fmt_int(val + 1, ssong.repeat[r]);
+        } else {
+            str_cpy(val, "--", sizeof val);
+        }
+        draw_column(2, "REPS", val, "", used ? VAL(2u) : T_DIM, -1, ICON_AUTO);
+        draw_column(3, "END", ssong.flags & SSG_LOOP ? "LOOP" : "STOP", "", VAL(3u), -1, ICON_LOOP);
     } else if (l == LAYER_EDIT) {
         engine_columns();
     } else if (l == LAYER_REC) {                        /* CLICK COUNT-IN LEVEL, an empty card */
@@ -1200,6 +1347,9 @@ static void draw_layer(void)
         uint32_t p;
         sig += kit_track(TSEL) * 31u + ui.lane * 5u + (uint32_t)chain_busy() * 3u + (uint32_t)TSEL->p[P_E0] * 131u + song.sel * 977u;
         sig += scn.cur * 7919u + (scn.req == SCN_END ? scn.next + 1u : 0u) * 104729u + scb.gen * 13u;   /* (M-Vave-OP1) */
+        sig += ui.seq_lv * 15485863u + ui.ssg_row * 611953u + (ssp.on ? ssp.row + 1u : 0u) * 2654435761u;   /* (SONG) */
+        for (p = 0; p < sizeof ssong; p++)
+            sig = sig * 31u + ((const uint8_t *)&ssong)[p];
         for (p = 0; p < SCN_N; p++)
             sig = sig * 3u + (uint32_t)scene_used(p);
     }
@@ -1229,8 +1379,10 @@ static void draw_layer(void)
         cv_begin(240, H_FOOT, T_BG);
         const khint_t *ft = l == LAYER_FX && fx_key_held() ? FX_KEY_FOOT : l == LAYER_FX && perf_latch_on ? FX_LATCH_FOOT :
                             l == LAYER_FX ? FX_FOOT[perf_bank & 1u] :
-                            l == LAYER_GLO && ui.lock == LAYER_GLO ? GLO_LOCK_FOOT : LAYERS[l].foot;
-        int h = help_on() && help_row(HELP_LAYER[l], 21);   /* 1.5, HELP ON: a second row, what this one does not say */
+                            l == LAYER_GLO && ui.lock == LAYER_GLO ? GLO_LOCK_FOOT : l == LAYER_SEQ ? SEQ_FOOT[ui.seq_lv & 1u] :
+                            LAYERS[l].foot;
+        int h = help_on() && help_row(l == LAYER_SEQ && ui.seq_lv ? HELP_SSONG : HELP_LAYER[l], 21);   /* 1.5, HELP ON: a
+                                                     * second row, what this one does not say */
         cv_key_row(8, 232, h ? 2 : 9, ft, ft[2].act ? 3u : 2u, 7u, T_BG);
         cv_blit(0, Y_FOOT);
         ui.foot_sig = 0;

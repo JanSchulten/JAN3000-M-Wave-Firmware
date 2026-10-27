@@ -25,7 +25,7 @@
 #define FELUCCA_CDC 1                    /* as src/felucca.c: MENU > USB SERIAL is there (nothing behind it) */
 #endif
 #define FELUCCA_FLASH 1
-#define FELUCCA_OTA 0
+#define FELUCCA_OTA 1                    /* M-Vave-OP1: the editor's SysEx (editor.c, below), not the updates (ota.c) */
 #define FELUCCA_UAC 0
 #define FELUCCA_UART 0
 #ifndef FELUCCA_VERSION
@@ -206,6 +206,33 @@ static void fl_plain_window_init(void) {}
 #include "../../firmware/src/upreset.c"
 #include "../../firmware/src/project.c"
 
+/* -------------------------------------- the web editor (M-Vave-OP1) --- */
+/* The editor talks to the browser's FM-1 as to a device: its SysEx frames go in byte by byte (web_sysex_feed:
+ * usb.c sysex_byte, as USB delivers them), editor.c answers (ed_service, every millisecond as main.c's loop
+ * calls it) into usb.c's SysEx ring, which web_sx_drain empties into web_sx_out for the page (web_sysex_out*).
+ * The user sample slots write to the NOR image (fl_*). No updates (ota.c): its hooks are empty. */
+static uint8_t web_sx_out[65536];
+static uint32_t web_sx_out_n;
+static void web_sx_drain(void)
+{
+    while (so_r != so_w) {
+        uint32_t p = sx_out_q[so_r++ % SXQ], cin = p & 15u, i;
+        uint32_t n = cin == 4u || cin == 7u ? 3u : cin == 6u ? 2u : 1u;
+        for (i = 0; i < n && web_sx_out_n < sizeof web_sx_out; i++)
+            web_sx_out[web_sx_out_n++] = (uint8_t)(p >> (8u * (i + 1u)));
+    }
+}
+static uint32_t ota_now_ms(void) { return fm1_ms; }
+static void ota_idle(void) { web_sx_drain(); }
+static void ota_boot_cleanup(void) {}
+static void ota_service(void) {}
+static void ota_session(void) {}
+static void audio_silence(void) {}                    /* (the NOR image: an erase takes no time here) */
+static void fl_inval(uint32_t off, uint32_t n) { (void)off; (void)n; }
+static int fl_erase4k(uint32_t off, uint32_t *took) { *took = 0; return st_erase(off) ? -1 : 0; }
+static int fl_write(uint32_t off, const void *src, uint32_t n) { return st_prog(off, src, n) ? -1 : 0; }
+#include "../../firmware/src/editor.c"
+
 /* ------------------------------------------------- main.c and its HAL --- */
 typedef struct { uint32_t magic, count, vec, pc, emu, dbg, rets; } fm1_crash_t;
 #define FM1_CRASH_MAGIC 0x43525348u
@@ -332,6 +359,8 @@ static void web_ms(void)
     } else {
         ui_input();                                       /* main.c's wait loop */
     }
+    ed_service();                                         /* main.c: the editor's SysEx (M-Vave-OP1) */
+    web_sx_drain();
 }
 
 #define EXPORT __attribute__((used, visibility("default")))
@@ -394,6 +423,23 @@ EXPORT void web_enc(uint32_t role, int32_t n)
     if (role < NE)
         web_enc_steps[panel.enc[role] % 7u] += n * panel.dir[role];
 }
+/* the editor's SysEx (M-Vave-OP1): a frame F0 .. F7 of n bytes at web_sysex_in(), fed when web_sysex_busy() is 0
+ * (one frame at a time, as usb.c takes them); the replies collect at web_sysex_out() until web_sysex_take() */
+static uint8_t web_sx_in[16384];
+EXPORT uint8_t *web_sysex_in(void) { return web_sx_in; }
+EXPORT uint32_t web_sysex_in_size(void) { return sizeof web_sx_in; }
+EXPORT uint32_t web_sysex_busy(void) { return sx_ready; }
+EXPORT uint32_t web_running(void) { return web_booted && !web_boot_ms && fm1_ms > 0u; }   /* past the splash: it answers */
+EXPORT void web_sysex_feed(uint32_t n)
+{
+    uint32_t i;
+    usb.config = 1;
+    for (i = 0; i < n && i < sizeof web_sx_in; i++)
+        sysex_byte(web_sx_in[i]);
+}
+EXPORT uint8_t *web_sysex_out(void) { web_sx_drain(); return web_sx_out; }
+EXPORT uint32_t web_sysex_out_len(void) { web_sx_drain(); return web_sx_out_n; }
+EXPORT void web_sysex_take(void) { web_sx_out_n = 0; }
 EXPORT void web_master(uint32_t v) { web_master_adc = v > 1023u ? 1023u : v; }
 /* a channel message from Web MIDI, as a USB-MIDI packet arrives (usb.c midi_enqueue): 0 = the ring was full */
 EXPORT uint32_t web_midi(uint32_t status, uint32_t d1, uint32_t d2)

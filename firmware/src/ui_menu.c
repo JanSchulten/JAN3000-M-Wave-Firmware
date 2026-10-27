@@ -110,12 +110,13 @@ static int32_t menu_text(const char *s, int32_t y, uint16_t col, int draw)
 static int32_t menu_document(int32_t y, int draw)
 {
     uint32_t i;
-    if (draw) {
-        cv_text(6, y + 2, &AF_L, "FELUCCA", T_THEME);
-        cv_text(6, y + 38, &AF_S, "Multi-engine synthesizer", T_TEXT);
-        cv_text(6, y + 58, &AF_M, FELUCCA_VERSION, T_THEME);
+    if (draw) {                                       /* M-Vave-OP1: JAN3000 (the splash's name), based on Felucca,
+                                                       * whose notice, licence and home (the QR code) follow */
+        cv_text(6, y + 2, &AF_L, JAN_NAME, T_THEME);
+        cv_text(6, y + 38, &AF_S, "based on Felucca " FELUCCA_VERSION, T_TEXT);
+        cv_text(6, y + 58, &AF_M, JAN_VERSION, T_THEME);
         cv_text_r(232, y + 61, &AF_S, __DATE__, T_MID, T_BG);
-        cv_text(6, y + 82, &AF_S, "(C) 2026 Leo Kuroshita", T_TEXT);
+        cv_text(6, y + 82, &AF_S, "Felucca (C) 2026 Leo Kuroshita", T_TEXT);
         cv_text(6, y + 100, &AF_S, "H\xFCgelton Instruments", T_TEXT);
         cv_text(6, y + 118, &AF_S, "GPL-3.0-only", T_TEXT);
         cv_text(6, y + 138, &AF_S, "hugelton.github.io", T_MID);
@@ -138,6 +139,8 @@ static int32_t menu_document(int32_t y, int draw)
     y = menu_text("Fonts and icons: their licences travel with the source and the release files.", y, T_TEXT, draw);
     y = menu_text("NO WARRANTY", y, T_TEXT, draw);
     y = menu_text("Full notices in source:", y + 8, T_TEXT, draw);
+    y = menu_text("github.com/JanSchulten/M-Vave-OP1", y, T_MID, draw);
+    y = menu_text("Felucca, the original:", y + 8, T_TEXT, draw);
     y = menu_text("github.com/hugelton/Felucca", y, T_MID, draw);
     return y + 4;
 }
@@ -591,6 +594,13 @@ static void menu_input(uint32_t oct)                  /* oct: ui_input.c oct_tap
             panel_setup();
             scrn.idle = fm1_ms;                         /* (SCREEN OFF: its own loop had the input) */
             ui.force = 1;
+        } else if (ui.menu_sel == MI_DISK) {           /* M-Vave-OP1: USB DISK, its own loop until a button (usbdisk.c) */
+#if FELUCCA_DISK
+            usb_disk_run();
+            scrn.idle = fm1_ms;
+#else
+            ui_message("NOT IN THIS BUILD");
+#endif
         } else if (ui.menu_sel == MI_INFO) {
             ui.menu = 3;
             info.t = fm1_ms - INFO_CPU_MS;              /* (the CPU load read at once) */

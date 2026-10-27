@@ -229,7 +229,7 @@ int main(void)
         o.np = P_COUNT - 2u;                                /* an older layout: E0 at np - 8 */
         for (k = 0; k < 8u; k++) {
             up_set_value(&d, P_E0 + k, (int16_t)(k ? 30 + k : SMP_SET_PERC));
-            up_set_value(&m, P_E0 + k, (int16_t)(k ? 30 + k : 2));   /* FLUTE: stays SAMPLE */
+            up_set_value(&m, P_E0 + k, (int16_t)(k ? 30 + k : 2));   /* SET 2 (once FLUTE): stays SAMPLE */
             up_set_value(&o, o.np - 8u + k, (int16_t)(k ? 30 + k : SMP_SET_PERC));
         }
         *up_rec(19) = d;
@@ -245,7 +245,7 @@ int main(void)
             ok &= up_value(up_rec(19), P_E0 + k) == KIT[k] && up_value(up_rec(21), o.np - 8u + k) == KIT[k];
         for (k = 0; k < P_E0; k++)
             ok &= up_value(up_rec(19), k) == up_value(&d, k);
-        bad += check("bank load: SAMPLE PERC -> DRUM kit, FLUTE kept", ok);
+        bad += check("bank load: SAMPLE PERC -> DRUM kit, SET 2 (once FLUTE) kept", ok);
         before = *up_rec(19);
         up_migrate(up_rec(19));
         bad += check("  migrated again: as it is", !memcmp(up_rec(19), &before, sizeof before));

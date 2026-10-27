@@ -9,6 +9,8 @@
  *            and locks, FX TRACKS); an empty scene takes the timing; playing: at the end of the pattern (the loop of the
  *            longest track that plays something), not before, every track and lane from step 1 there, the grid kept
  *            (carry); a pick taken back by the scene playing; the transport stopped with one waiting: at once.
+ *            M-Vave-OP1, MENU > CONTROL > SCENE CHANGE NEXT BAR: at the transport's next bar line instead (the click's
+ *            16 1/16s), the remainder carried; AT END (the default) waits for the pattern's end as before.
  *   MEMORY   picks are refused when the scene leaving would not fit, and one that grew past its room at the pattern's end
  *            is dropped there (SCENE MEMORY FULL): the music as it was, nothing lost.
  *   KEPT     a project saved and loaded brings its scenes and the one playing; another project's bank never applies.
@@ -27,7 +29,8 @@
  *   LAYER    SEQ held: the white keys pick scenes 1..16, OCT+ / OCT- the next / the one before (none past 16 or before 1,
  *            their LEDs lit where there is one), OCT+ held the copy (once, while held; its release steps none),
  *            the black keys are the tools (CLEAR .. lane RANDOM), EDIT puts the track back, PRESETS picks a DRUM lane; the
- *            LEDs (the scene playing lit, one waiting breathing); a song playing: no scenes. The KO-II flow: a punch-in
+ *            LEDs (the scene playing blinking, the ones that hold something lit, one waiting breathing); a song
+ *            playing: no scenes. The KO-II flow: a punch-in
  *            held after FX is let go keeps sounding while SEQ picks the next scene; let go, it stops.
  *   With a directory: the SEQ layer's screens.
  * Built and run by tests/run_tests.sh. */
@@ -92,12 +95,12 @@ static void rnd_pattern(chain_pattern_t *p, uint32_t density)
         do {
             id = rnd(P_COUNT);
         } while (!motion_param(id));
-        place = rnd(NTRK) << 6 | rnd(NSTEP);
+        place = MO_PLACE(rnd(NTRK), rnd(NSTEP));
         for (dup = 0, j = 0; j < p->motion.count; j++)
             dup |= p->motion.event[j].place == place && MOTION_ID(&p->motion.event[j]) == id;
         if (dup)
             continue;
-        e->place = (uint8_t)place;
+        e->place = (uint16_t)place;
         e->param = (uint8_t)(id | (rnd(2) ? MOTION_LOCK : 0u));
         e->value = (int8_t)((int32_t)rnd(192) - 64);
         p->motion.count++;
@@ -331,12 +334,54 @@ static void test_switch(void)
     ck("  the transport stopped with a scene waiting: it switches at once", ok);
 }
 
+/* M-Vave-OP1, MENU > SCENE CHANGE: NEXT BAR switches at the transport's next bar line, AT END at the pattern's end */
+static void test_bar(void)
+{
+    uint32_t ok, b, want, left, p16 = div_samples(2);
+    scene_setup();
+    ok = !menu_get(MI_SCENE) && str_eq(MI_NAME[MI_SCENE], "SCENE CHANGE") && str_eq(menu_vname(MI_SCENE, 0), "AT END") &&
+         str_eq(menu_vname(MI_SCENE, 1), "NEXT BAR") && MI_TAB[MI_SCENE] == MTAB_CONTROL;
+    ck("SCENE CHANGE: a row of MENU > CONTROL, AT END by default, NEXT BAR", ok);
+    melody(&trk[0], 60, 64);                           /* scene 1: T1 4 bars of 1/16 */
+    trk[0].p[P_SDIV] = 2;
+    seq_pick(1);
+    melody(&trk[0], 72, 64);                           /* scene 2: 4 bars too */
+    trk[0].p[P_SDIV] = 2;
+    menu_put(MI_SCENE, 1);
+    frame();                                           /* (ui.c rp_apply: scene.c scn_bar) */
+    transport_req = 1;
+    for (b = 0; b < 300u; b++)                         /* (into the first bar's third beat) */
+        blk();
+    seq_pick(0);
+    left = (15u - clk_step) * p16 + (p16 - clk_pos);   /* (the bar's samples left) */
+    want = (left + CTL - 1u) / CTL - 1u;
+    ok = scn_bar && scn.req == SCN_END && clk_step < 15u;
+    b = blocks_to_switch(20000, 0);
+    printf("  switch: %u blocks after the pick (the bar ends in block %u), step 1 %u samples in\n", b, want, trk[0].seq_pos);
+    ok &= scn.cur == 0u && b == want && trk[0].seq_idx == 0u && trk[0].seq_pos == (b + 1u) * CTL - left &&
+          clk_step == 0u && trk[0].step[0].note[0] == 60u;
+    ck("  NEXT BAR: the pick switches at the next bar line, not at the 4-bar pattern's end; step 1 there", ok);
+    menu_put(MI_SCENE, 0);
+    frame();
+    for (b = 0; b < 300u; b++)
+        blk();
+    seq_pick(1);
+    left = (15u - clk_step) * p16 + (p16 - clk_pos);
+    ok = !scn_bar && blocks_to_switch((left + CTL - 1u) / CTL + 8u, 1) > (left + CTL - 1u) / CTL + 7u && scn.cur == 0u;
+    b = blocks_to_switch(80000, 1);
+    ok &= scn.cur == 1u && trk[0].seq_idx == 0u;
+    ck("  AT END: no switch at the bar, at the pattern's end", ok);
+    transport_req = 2;
+    blk();
+}
+
 /* ------------------------------------------------------------ MEMORY --- */
-static void dense_scene(void)
+static void dense_scene(void)                          /* (every byte of steps 1..64: ~3.9 KB packed; of 128 steps
+                                                        * one would not fit the bank at all: ~8 KB, SCN_F_WIDE) */
 {
     uint32_t k, i;
     for (k = 0; k < NTRK; k++)
-        for (i = 0; i < NSTEP; i++) {
+        for (i = 0; i < NSTEP_FMT; i++) {
             uint8_t n[4] = {(uint8_t)(40 + i), (uint8_t)(52 + k), (uint8_t)(64 + i % 7u), 90};
             put_step(&trk[k], i, 4, n, ST_NOTE, 1);
             trk[k].step[i].probability = (uint8_t)(1 + i);
@@ -744,8 +789,12 @@ static void test_seq_layer(const char *dir)
         frame();
         ck("  DRUM: SEQ + PRESETS picks the lane, its FILL on D#5 fills that lane", ok);
     }
-    /* the LEDs: the scene playing lit, one waiting breathes; a song playing: no scenes */
+    /* the LEDs (M-Vave-OP1): the scene playing blinks, the ones that hold something lit, one waiting breathes, an empty
+     * one dark; a song playing: no scenes */
     scene_setup();
+    seq_pick(2);                                       /* (scene 3: something in it) */
+    melody(&trk[0], 64, 8);
+    seq_pick(0);
     transport_req = 1;
     blk();
     btn_down(B_SEQ);
@@ -754,13 +803,18 @@ static void test_seq_layer(const char *dir)
     frame();
     key_up(white(6));
     frame();
+    fm1_ms = 3u * SEQ_BLINK_MS;                        /* (the blink's lit half) */
     m = layer_leds(&br);
-    ok = ((m >> white(0)) & 1u) && ((br >> white(6)) & 1u) && !((m >> white(6)) & 1u) && ((br >> black(1)) & 1u) && !(((m | br) >> black(0)) & 1u);
+    ok = ((m >> white(0)) & 1u) && ((m >> white(2)) & 1u) && ((br >> white(6)) & 1u) && !((m >> white(6)) & 1u) &&
+         !((m >> white(4)) & 1u) && !((br >> white(4)) & 1u) && ((br >> black(1)) & 1u) && !(((m | br) >> black(0)) & 1u);
+    fm1_ms = 4u * SEQ_BLINK_MS;                        /* (its dark half: the scene playing dark, scene 3 still lit) */
+    m = layer_leds(&br);
+    ok &= !((m >> white(0)) & 1u) && ((m >> white(2)) & 1u) && ((br >> white(6)) & 1u);
     if (dir)
         screen_save(dir, "seq_scenes_waiting");
     btn_up(B_SEQ);
     frame();
-    ck("  LEDs: the scene playing lit (F3), the one waiting breathes (E4), the tools breathe", ok);
+    ck("  LEDs: the scene playing blinks (F3), a used one lit (G3), the one waiting breathes (E4), an empty one dark, the tools breathe", ok);
     stop_transport();
     scene_setup();
     chain.armed = 1;
@@ -989,6 +1043,7 @@ int main(int argc, char **argv)
 {
     test_codec();
     test_switch();
+    test_bar();
     test_memory();
     test_kept();
     test_key();

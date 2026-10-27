@@ -11,7 +11,8 @@
  * free text (names) is ellipsised at its size. */
 static void draw_menu(void);
 static int name_on(void);                              /* NAME (ui_name.c) */
-static uint64_t lock_held(void);                       /* parameter locks: the steps held on STEP (ui_input.c) */
+static stepset_t lock_held(void);                      /* parameter locks: the steps held on STEP (ui_input.c) */
+static int lock_any(void);                              /* .. any */
 static void name_draw(void);
 #include "ui_help.c"                                   /* 1.5: HELP's hints (draw_foot, ui_layer.c draw_layer) */
 
@@ -1088,15 +1089,6 @@ static void draw_columns(void)
         draw_column(3, "LEN", val, "", VAL(3u), (int32_t)(len * 1000u / NSTEP), ICON_LENGTH);
         return;
     }
-    if (cur_page()->graph == GR_CSET) {               /* M-Vave-OP1, SCL > CSET: ON, SET, GENRE (cset.c; ui_input.c */
-        uint32_t s = cset_set[song.sel % NTRK] % CSET_N, on = (cset_en >> song.sel) & 1u;   /* cset_knob) */
-        draw_column(0, "CSET", on ? "ON" : "OFF", "", on ? VAL(0u) : T_DIM, on ? 1000 : 0, ICON_SCALE);
-        fmt_int(val, (int32_t)s + 1);
-        draw_column(1, "SET", val, "", VAL(1u), (int32_t)(s * 1000u / (CSET_N - 1u)), ICON_VOICE);
-        draw_column(2, "GENRE", CSET_GENRE_S[CSET_GENRE_OF[s] % CSET_NG], "", VAL(2u), -1, ICON_SCALE);
-        draw_column(3, "", "", "", T_THEME, -1, ICON_NONE);
-        return;
-    }
     if (cur_page()->graph == GR_FXT2) {               /* CLEAR the lane, CLEAR both; the steps each holds */
         uint32_t l = ui.fxt_sel % FXT_N, n0 = fxt_used(0), n1 = fxt_used(1);
         draw_act_column(0, l ? "FX2" : "FX1", (l ? n1 : n0) ? T_THEME : T_DIM, ICON_CLEAR);
@@ -1237,10 +1229,10 @@ static void draw_columns(void)
         }
         return;
     }
-    if (cur_page()->graph == GR_ROLL && lock_held()) {   /* a step held: what KNOB 1..4 lock (ui_input.c lock_turn) */
-        uint64_t held = lock_held();
+    if (cur_page()->graph == GR_ROLL && lock_any()) {   /* a step held: what KNOB 1..4 lock (ui_input.c lock_turn) */
+        stepset_t held = lock_held();
         uint32_t st = 0;
-        while (!((held >> st) & 1u))
+        while (st < NSTEP - 1u && !ss_has(&held, st))
             st++;                                       /* (the first step held: its values) */
         for (c = 0; c < 4u; c++) {
             uint32_t id = lock_id(c);
@@ -1337,8 +1329,20 @@ static void draw_columns(void)
             draw_column(c, l, K[c - 1u], "", T_THEME, -1, ICON_AUTO);   /* (an empty slot: OCT- makes a new one) */
             continue;
         }
+        if (cur_page()->graph == GR_CHORD && c == 2u) {  /* M-Vave-OP1, SCL > CHORD: KNOB 3 the set's GENRE */
+            uint32_t s = cset_set[song.sel % NTRK] % CSET_N, on = cset_on(TSEL);
+            draw_column(c, "GENRE", on ? CSET_GENRE_S[CSET_GENRE_OF[s] % CSET_NG] : "--", "", on ? VAL(c) : T_DIM, -1,
+                        ICON_SCALE);
+            continue;
+        }
         if (!d || !d->label || d->label[0] == '-') {
             draw_column(c, "", "", "", T_THEME, -1, ICON_AUTO);
+            continue;
+        }
+        if (vp == &TSEL->p[P_CHRD] && cset_on(TSEL)) {     /* M-Vave-OP1: CHRD on a chord set: SET n (cset.c) */
+            uint32_t s = cset_set[song.sel % NTRK] % CSET_N;
+            fmt_int(val, (int32_t)s + 1);
+            draw_column(c, "SET", val, "", VAL(c), (int32_t)(s * 1000u / (CSET_N - 1u)), ICON_VOICE);
             continue;
         }
         if ((act_cols() >> c) & 1u) {
@@ -1347,7 +1351,8 @@ static void draw_columns(void)
         }
         param_format(d, *vp, val, &unit);
         card_mot_of(vp);                                /* (a global: never) */
-        if (vp == &TSEL->p[P_LRATE] && TSEL->p[P_LSYNC]) {   /* LFO 2 SYNC on: RATE does nothing, DIM (1.2) */
+        if ((vp == &TSEL->p[P_LRATE] && TSEL->p[P_LSYNC]) ||   /* LFO 2 SYNC on: RATE does nothing, DIM (1.2); */
+            (vp == &TSEL->p[P_VOIC] && cset_on(TSEL))) {         /* M-Vave-OP1: a chord set voices its own chords */
             draw_column(c, d->label, val, unit, T_DIM, RATIO(d, *vp), param_icon(d, *vp));
             continue;
         }
@@ -1612,6 +1617,9 @@ static void confirm_text(char *a, char *b)
         break;
     case CF_CLEAR_SONG:
         str_cpy(a, "CLEAR SONG ORDER?", 24);
+        break;
+    case CF_CLEAR_SSONG:
+        str_cpy(a, "CLEAR THE SCENE SONG?", 24);
         break;
     case CF_INIT_SOUND:
         str_cpy(a, "INITIALIZE SOUND?", 24);

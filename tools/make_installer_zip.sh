@@ -10,6 +10,12 @@ OUT=${1:-dist/M-Vave-OP1-Installer.zip}
 VER=$(git describe --always --dirty 2>/dev/null || echo dev)
 TMP=$(mktemp -d)
 SITE="$TMP/M-Vave-OP1-Installer"
+# the editor's NO DEVICE: the firmware for the browser (web/emu/build.sh, Emscripten; ~/emsdk when it is there)
+# (sourced from its own folder: under sh it cannot find that itself)
+if [ -f "$HOME/emsdk/emsdk_env.sh" ] && ! command -v emcc >/dev/null 2>&1; then
+    here=$(pwd); cd "$HOME/emsdk" && . ./emsdk_env.sh >/dev/null 2>&1; cd "$here"
+fi
+if command -v emcc >/dev/null 2>&1; then sh web/emu/build.sh; else echo "installer zip: no emcc: the editor without NO DEVICE"; fi
 python3 web/make_site.py build/felucca.fwsc "op1-$VER" "$SITE"
 # serve.py: a free port of its own each start (an older installer's server still running on another port, or the
 # browser's cache of an earlier start, can never hand out an older firmware), nothing cached, only this computer
@@ -47,6 +53,11 @@ py -3 serve.py || python serve.py
 pause
 EOS
 chmod +x "$SITE/START-Mac.command"
+# FLUTE and SAX, once built in: slot files for the editor's Samples tab (Slot file -> USR1)
+if ls dist/samples/*.slot >/dev/null 2>&1; then
+    mkdir -p "$SITE/samples"
+    cp dist/samples/*.slot "$SITE/samples/"
+fi
 mkdir -p "$(dirname "$OUT")"
 rm -f "$OUT"
 (cd "$TMP" && zip -qr - M-Vave-OP1-Installer) > "$OUT"

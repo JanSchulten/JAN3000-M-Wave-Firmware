@@ -757,7 +757,8 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_LEARN_WAIT, S_LEARN_PICK, S_LEARN_SET, S_LEARN_LONG, S_GLO_LEARN, S_MENU_LCLEAR, S_MENU_LCLEAR_NONE,
        S_DLY_DOT, S_DLY_DOT16, S_FX_THROW,
        S_DETAIL, S_DETAIL_PLAYING, S_DETAIL_REST, S_DETAIL_DRUM, S_ROLL_MARKS, S_DRUM_MARKS, S_HELP_DETAIL,
-       S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_KEY, S_KEY_PLAY, S_KEY_LIVE, S_KEY_REC, S_SHIM, S_INS_EXTRA, S_COUNT };
+       S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_KEY, S_KEY_PLAY, S_KEY_LIVE, S_KEY_REC,
+       S_STEP128, S_AUTO128, S_FXT128, S_HOME_TRACKS128, S_SEQ128, S_SSONG, S_SHIM, S_INS_EXTRA, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
@@ -787,7 +788,8 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "learn_wait", "learn_pick", "learn_set", "learn_long", "layer_glo_learn", "menu_learn_clear", "menu_learn_clear_none",
     "dly_dotted", "dly_dotted_16", "perform_throw",
     "detail", "detail_playing", "detail_rest", "detail_drum", "roll_marks", "drum_marks", "help_detail",
-    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec", "shimmer_send", "insert_extra"};
+    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec",
+    "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song", "shimmer_send", "insert_extra"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -964,6 +966,8 @@ static void setup(int s)
     memset(kb_chn, 0, sizeof kb_chn);               /* no key held (roll_playing holds one) */
     state();
     memset(drum_mute, 0, sizeof drum_mute);          /* (1.4.1: no DRUM lane muted) */
+    memset(fxt_lane, 0, sizeof fxt_lane);            /* (M-Vave-OP1: the FX TRACKS empty; S_FXT128 fills them) */
+    ssong_clear();                                   /* (.. no scene song; S_SSONG makes one) */
     key_defaults();                                  /* (M-Vave-OP1: no KEY run) */
     key_cur = 0;
     key_bar = 0;
@@ -1143,12 +1147,49 @@ static void setup(int s)
         if (s == S_KEY_LIVE) key_live = 2;                /* (D played live: Dm) */
         if (s == S_KEY_REC) { key_arm = 1; key_live = 4; }   /* (recording, E played: Em) */
         go_title("KEY"); break;
+    /* M-Vave-OP1's 128 steps: STEP on step 128 (bank 8) playing step 127; AUTOMATION with rows of steps 100 and 128 (the
+     * three digits); FX TRACKS of LEN 128 (the overview two steps a cell) on step 121; HOME > TRACKS with T1 of LEN 128
+     * on its eighth page (eight pips by its name); the SEQ layer's LEN 128 */
+    case S_STEP128: case S_AUTO128: case S_FXT128: case S_HOME_TRACKS128: case S_SEQ128: {
+        uint32_t i;
+        song.playing = s != S_FXT128;
+        TSEL->p[P_SLEN] = 128;
+        for (i = 96; i < 128u; i += 3u) {
+            uint8_t n = (uint8_t)(48 + i % 24u);
+            step_put(&TSEL->step[i], ST_NOTE, i % 12u == 0u ? SF_ACCENT : 0u, 1, &n);
+        }
+        TSEL->seq_idx = 126;
+        ui.cursor = 127; ui.bank = 7;
+        if (s == S_STEP128) go_page(GR_ROLL);
+        if (s == S_AUTO128) {
+            song.playing = 0;
+            motion_set_event(TSEL, 99, P_REV, 40); motion_set_lock(TSEL, 127, P_REV, 100); go_auto_top(); ui.ev_row = 3;
+        }
+        if (s == S_FXT128) {
+            fxt_lane[0].len = 128; fxt_lane[0].step[120] = fxt_code(PF_LPF); fxt_lane[0].step[121] = FXT_TIE;
+            fxt_lane[1].len = 100; fxt_lane[1].step[70] = fxt_code(PF_REV);
+            go_title("FX TRACKS"); ui.fxt_cur = 120;
+        }
+        if (s == S_HOME_TRACKS128) { go_home(); ui_home_view = HV_TRACKS; }
+        if (s == S_SEQ128) { go_page(GR_ROLL); ui.layer = LAYER_SEQ; }   /* (the SEQ layer: LEN 128 on its card) */
+        break;
+    }
+    case S_SSONG:                                    /* (M-Vave-OP1) SEQ held > SONG: a chain of 9 cells, 6 playing, 7
+                                                      * selected, scene 12 empty (DIM), END LOOP */
+        song.playing = 1; ssong_clear();
+        for (ssong.count = 0; ssong.count < 9u; ssong.count++) {
+            ssong.scene[ssong.count] = (uint8_t)(ssong.count == 4u ? 11u : ssong.count % 3u);
+            ssong.repeat[ssong.count] = (uint8_t)(1u + ssong.count * 3u % 16u);
+        }
+        ssong.flags = SSG_LOOP; ssp.on = 1; ssp.row = 5; ssp.left = 2;
+        go_page(GR_ROLL); ui.layer = LAYER_SEQ; ui.seq_lv = 1; ui.ssg_row = 6;
+        break;
     case S_ARP_PLAY: case S_ARP2_PLAY:                 /* (M-Vave-OP1: ARP's one screen, C E G held, OCT 2, E4 sounding) */
         TSEL->p[P_AMODE] = 1; TSEL->p[P_AOCT] = 2;
         memset(held_key[song.sel], 0, sizeof held_key[0]);
         TSEL->held[0] = 60; TSEL->held[1] = 64; TSEL->held[2] = 67; TSEL->nheld = 3; TSEL->arp_note = 64;
         go_title(s == S_ARP_PLAY ? "ARP" : "ARP 2"); break;
-    /* M-Vave-OP1, SCL > CSET (cset.c): set 74 (NEO SOUL, the longest names), its A# chord played (A#M9/#11); set 1
+    /* M-Vave-OP1, SCL > CHORD on a chord set (cset.c): set 74 (NEO SOUL, the longest names), its A# chord played (A#M9/#11); set 1
      * nothing played yet; a one-voice part (LOWEST NOTE) on set 27's G */
     case S_CSET:
     case S_CSET_IDLE:
@@ -1159,7 +1200,7 @@ static void setup(int s)
         cset_set[song.sel] = s == S_CSET ? 73u : s == S_CSET_MONO ? 26u : 0u;
         if (s != S_CSET_IDLE)
             cset_build(TSEL, s == S_CSET ? 58u : 55u, 0, out);
-        go_title("CSET");
+        go_title("CHORD");
         break;
     }
     case S_VOICE: go_title("VOICE"); break;

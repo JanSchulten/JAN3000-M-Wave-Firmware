@@ -12,6 +12,9 @@
  *            bytes are no scenes: not taken; a project written by the editor since or another slot's: none; a rename
  *            keeps them; the autosave's (set 5) with it; only USR2's sectors written, each set its own.
  *   USR2/3   read as empty sample slots whatever their flash holds.
+ *   128      M-Vave-OP1's steps 65..128 (the extras' tail, XTRA_V7): saved with the project, read back from the flash
+ *            after a power-on (LEN, LEGATO, automation and locks, the lanes); a rename keeps them; extras of before (no
+ *            tail): none, LEN 64; the autosave's; a song's slot from the flash; the scene song with them (XTRA_V8).
  * Built and run by tests/run_tests.sh. */
 static unsigned char nor[0x100000];
 #define SMP_USER_XIP(k) (nor + 0xA0000u + (k) * 0x14000u)
@@ -484,6 +487,28 @@ static int test_usr3(void)
     return check("USR2, USR3: empty sample slots whatever their flash holds (they hold M-Vave-OP1's stores)", ok);
 }
 
+/* SEQ > SCENE SONG (scene.c ssong) rides in the extras' tail (xtra_hi_t, XTRA_V8): saved with its project, back after
+ * a power-on and a rename */
+static int test_ssong_store(void)
+{
+    int bad = 0, ok;
+    st_hdr_t h;
+    reset();
+    ssong.count = 2; ssong.scene[0] = 0; ssong.repeat[0] = 2; ssong.scene[1] = 0; ssong.repeat[1] = 1;
+    ssong.flags = SSG_LOOP;
+    ok = project_save(1) == 0 && st_current(OBJ_XPROJ0 + 1, &h) >= 0 && h.len == XTRA_V8;
+    bad += check("scene song: SAVE to B, its extras one object of XTRA_V8", ok);
+    power_on();
+    ssong_clear();
+    project_load(1);
+    bad += check("  .. power-on, LOAD B: the scene song back", ssong.count == 2u && ssong.repeat[0] == 2u && (ssong.flags & SSG_LOOP));
+    project_rename(1, "SONG");
+    power_on();
+    ssong_clear();
+    project_load(1);
+    bad += check("  .. a RENAME: it stays the project's", ssong.count == 2u && str_eq(proj_name, "SONG"));
+    return bad;
+}
 static int test_project_erase(void)
 {
     uint32_t cut, writes;
@@ -517,6 +542,7 @@ int main(void)
     bad += test_autosave();
     bad += test_scenes();
     bad += test_usr3();
+    bad += test_ssong_store();
     if (bad) {
         printf("opstore: %d FAILED\n", bad);
         return 1;

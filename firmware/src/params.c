@@ -54,8 +54,10 @@ static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", 
 static const char *const N_DASH[] = {"--"};
 static const char *const N_RTYPE[] = {"ROOM", "SPRING", "HALL", "SHIMMER"};   /* G_RTYPE: the reverb bus's model (fx.c) */
 static const char *const N_GO[] = {"--", "GO"};
-static const char *const N_SLCR[] = {"OFF", "GATE", "STUT"};             /* SL_OFF .. SL_STUT (slicer.c) */
-static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T"};   /* SL_DEN */
+static const char *const N_SLCR[] = {"OFF", "GATE", "STUT", "PUMP", "GT END", "PM END"};   /* SL_OFF .. SL_PEND
+                                                  * (slicer.c; stored, append-only): GATE END, PUMP END on the cards */
+static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T", "1/4"};   /* SL_DEN (1/4: M-Vave-OP1,
+                                                                                         * appended, the PUMP's) */
 /* the INSERT's types (1.5, fx.c IT_*; append-only: stored). Its three values A B C mean what the type says (ins_desc) */
 static const char *const N_ITYPE[] = {"OFF", "SOFT", "HARD", "FOLD", "FUZZ", "CRUSH", "PHASR", "FLANG", "CHOR"};
 /* CRUSH: BITS 1..16 and RATE (the held sample's rate, fx.c INS_HOLD) over the range in 16 even parts (0-terminated) */
@@ -70,7 +72,8 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "VIB", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "DEPTH"};
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "-", "LOFI", "SAMPLE", "-", "-", "WHEEL", "GRAIN", "PHYS",
                                              "DRUM", "NOISE", "FM6", "-", "ANLG2",
-                                             "VDRUM", "-", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM"};   /* (M-Vave-OP1: 14 .. 21; "-" a retired engine:
+                                             "VDRUM", "-", "WSHAPE", "HRMNC", "PRTCL", "WTABLE", "SWARM",
+                                             "ACID"};   /* (M-Vave-OP1: 14 .. 21; "-" a retired engine:
                                                                        * engines.c ENG_GONE) */
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0, 0}
@@ -293,7 +296,7 @@ static int32_t enum_step(const param_desc_t *d, int32_t from, int32_t v)
  * knobs and the gauges; the stored values (N_DIV, N_SLDIV indices: projects, presets, the editor protocol) stay.
  * -> the shown order of d's values (index: position, entry: value), 0 = the values' own order */
 static const uint8_t DIV_ORDER[10] = {9, 8, 7, 6, 0, 1, 4, 2, 5, 3};   /* 4BAR 2BAR 1/1 1/2 1/4 1/8 8T 1/16 16T 1/32 */
-static const uint8_t SLDIV_ORDER[6] = {0, 3, 1, 4, 2, 5};              /* 1/8 8T 1/16 16T 1/32 32T */
+static const uint8_t SLDIV_ORDER[7] = {6, 0, 3, 1, 4, 2, 5};           /* 1/4 1/8 8T 1/16 16T 1/32 32T */
 static const uint8_t DTIME_ORDER[13] = {9, 8, 7, 6, 12, 0, 10, 1, 11, 4, 2, 5, 3};   /* 4BAR 2BAR 1/1 1/2 1/4D 1/4 1/8D
                                                                                       * 1/8 1/16D 8T 1/16 16T 1/32 */
 static const uint8_t *enum_order(const param_desc_t *d)
@@ -415,7 +418,7 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         break;
     case F_STEPS:
         fmt_int(val, v);
-        *unit = "STEP";
+        *unit = v < 100 ? "STEP" : "";               /* (M-Vave-OP1: LEN 100..128 fills a card on its own) */
         break;
     default:
         if (d->names) {                               /* F_INT with a 0-terminated name list: the range */
@@ -442,7 +445,7 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_KEY,                                  /* M-Vave-OP1: GLO > KEY (key.c, ui_graph.c graph_key) */
        GR_FXT, GR_FXT2,                         /* .. FX > FX TRACKS, FX TRACKS 2 (fxtrack.c, ui_graph.c graph_fxt) */
        GR_FX1, GR_CLOUD,                        /* .. FX > FX1 (the delay bus's TYPE), CLOUD (fx1.c, ui_graph.c graph_fx1) */
-       GR_CSET,                                 /* .. SCL > CSET (cset.c, ui_graph.c graph_cset) */
+       GR_CSET,                                 /* .. (retired: SCL > CSET, now SCL > CHORD's sets) */
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
        GR_DLANE,                                /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
        GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2, GR_SHIM };   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
@@ -483,10 +486,10 @@ static const page_t PAGES[] = {
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},   /* (hidden: all the DELAY's) */
     {"CLOUD", FAM_FX, SC_GLOBAL, GR_CLOUD, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (hidden: all the CLOUD's) */
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_TRANS}},
-    {"CHORD", FAM_SCL, SC_TRACK, GR_CHORD, {P_CHRD, P_VOIC, 0xFF, 0xFF}},   /* SCL again: the chord keys (chord.c) */
-    /* M-Vave-OP1: SCL's third page the chord sets after the Roland J-6's (cset.c): KNOB 1 ON / OFF (the track's, before
-     * CHRD), 2 SET, 3 GENRE (ui_input.c cset_knob, ui_draw.c); the set and the chord played (ui_graph.c graph_cset) */
-    {"CSET", FAM_SCL, SC_TRACK, GR_CSET, {0xFF, 0xFF, 0xFF, 0xFF}},
+    /* SCL again: the chord keys (chord.c). M-Vave-OP1: KNOB 1 CHRD goes on past POW into the chord sets after the Roland
+     * J-6's, SET 1 .. 100 (cset.c; ui_input.c chrd_turn), KNOB 3 GENRE steps through them (chrd_genre); the panel the
+     * shape or the set and the chord played (ui_graph.c graph_chord, graph_cset) */
+    {"CHORD", FAM_SCL, SC_TRACK, GR_CHORD, {P_CHRD, P_VOIC, 0xFF, 0xFF}},
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E7}},   /* ANALOG only (1.5, #104): TYPE CUT RES KTR */
