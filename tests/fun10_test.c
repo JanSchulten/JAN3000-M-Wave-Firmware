@@ -392,61 +392,28 @@ static int nudge(void)
         press(B_OCTUP); press(B_EDIT);
         ok &= t->p[P_SQNT] == 1 && msg_is("NOTHING TO DELETE") && !act_ready() && str_eq(act_name(4), "--");
         bad += check("AUTOMATION's QUANTIZE row (the second): KNOB 4 OFF / ON; OCT+ and EDIT nothing", ok);
-        memcpy(ref, t->step, sizeof ref);
-        go_auto_add(EV_NUDGE, 3); frame();
-        n = ev_list(rw);
-        press(B_OCTUP);
-        ok = step_nudge(&t->step[3]) == 4 && auto_cur() == EVC(EVK_NUDGE, 3) && msg_is("QUANTIZE IS ON") &&
-             ev_list(rw) == n + 1u && !memcmp(&t->step[4], &ref[4], sizeof ref[4] * (NSTEP - 4u));
-        turn(EN_K4, 1); turn(EN_K4, 1); turn(EN_K4, 1); turn(EN_K4, 1);
-        ok &= step_nudge(&t->step[3]) == 7 && msg_is("QUANTIZE IS ON");
-        for (i = 0; i < 20u; i++) turn(EN_K4, -1);
-        ok &= step_nudge(&t->step[3]) == -8;
-        bad += check("AUTOMATION + ADD NUDGE: step 4 +4/16 (QUANTIZE ON: says so), KNOB 4 -8..+7", ok);
-        frame();
-        t->p[P_SQNT] = 0;
-        ui.msg_t = 0;
-        for (i = 0; i < 11u; i++) turn(EN_K4, 1);
-        bad += check("  QUANTIZE OFF: no message", step_nudge(&t->step[3]) == 3 && !msg_is("QUANTIZE IS ON"));
-        frames(2000);                                   /* (the next turn its own undo) */
-        turn(EN_K2, 1);                                 /* to step 5: step 4 back to 0 */
-        ok = step_nudge(&t->step[3]) == 0 && step_nudge(&t->step[4]) == 3 && auto_cur() == EVC(EVK_NUDGE, 4);
-        hold(B_SAVE);
-        ok &= step_nudge(&t->step[3]) == 3 && step_nudge(&t->step[4]) == 0;
-        hold(B_SAVE);
-        ok &= step_nudge(&t->step[4]) == 3;
-        bad += check("  KNOB 2 moves it to the next step; SAVE held undoes the move, held again redoes it", ok);
-        press(B_EDIT);
-        ok = step_nudge(&t->step[4]) == 0 && msg_is("DELETED");
-        bad += check("  EDIT: back to 0 (the row goes)", ok && ev_list(rw) == n);
-        t->p[P_SQNT] = 1;
+        go_title("DETAIL"); cursor_set(3); frame();
+        turn(EN_K3, 4);
+        ok = step_nudge(&t->step[3]) == 4 && step_nudge(&t->step[4]) == 0;
+        turn(EN_K3, 20); ok &= step_nudge(&t->step[3]) == 7;
+        turn(EN_K3, -30); ok &= step_nudge(&t->step[3]) == -8;
+        bad += check("DETAIL KNOB 3 edits only its step's NUDGE, bounded -8..+7", ok);
+        frames(2000);
+        turn(EN_K3, 2); hold(B_SAVE);
+        ok = step_nudge(&t->step[3]) == -8;
+        hold(B_SAVE); ok &= step_nudge(&t->step[3]) == -6;
+        bad += check("  SAVE held undoes the nudge gesture, held again redoes it", ok);
     }
-    {   /* the DRUM grid on STEP: a step key held + the PRESETS knob; let go: the hit stays */
-        uint32_t k4;
-        song.sel = 3;
-        t = &trk[3];
-        track_defaults_steps(t);
-        t->p[P_SLEN] = 16;
-        t->p[P_SQNT] = 0;
-        go_home();
-        fam_next(FAM_SEQ);
-        frame();
-        grid_hit(t, 4, 0, 1);
-        k4 = key_at(0, 4);
-        uint32_t cur;
-        fm1_in.notes |= 1u << k4; host_notes |= 1u << k4; frame();
-        cur = ui.cursor;
-        turn(EN_PRESET, -1); turn(EN_PRESET, -1);
-        ok = step_nudge(&t->step[4]) == -2 && msg_is("NUDGE -2") && ui.cursor == cur;
-        fm1_in.notes &= ~(1u << k4); frame();
-        ok &= (t->step[4].hit & 1u) != 0u;
-        turn(EN_PRESET, 1);
-        ok &= ui.cursor == cur + 1u && step_nudge(&t->step[4]) == -2;
-        bad += check("STEP (the grid): a step held + PRESETS: its NUDGE (-2); let go, the hit stays; alone, the cursor", ok);
-        hold(B_SAVE);
-        bad += check("  SAVE held: that turn undone (one undo), the hit kept", step_nudge(&t->step[4]) == 0 &&
-                     (t->step[4].hit & 1u) != 0u);
-    }
+    /* PRESETS on STEP always moves its cursor; a held step cannot turn it into a second nudge editor. */
+    ui_power_on(); song.sel = 3; t = TSEL; t->p[P_SQNT] = 0;
+    go_page(GR_ROLL); frame();
+    grid_hit(t, 4, 0, 1);
+    key_down(key_at(0, 4)); frame();
+    uint32_t cur = ui.cursor;
+    turn(EN_PRESET, 1); frame();
+    ok = ui.cursor == cur + 1u && step_nudge(&t->step[4]) == 0;
+    key_up(key_at(0, 4)); frame();
+    bad += check("STEP with a step held: PRESETS moves the cursor without writing NUDGE", ok);
     return bad;
 }
 

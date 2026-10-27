@@ -209,47 +209,17 @@ static int vel(void)
     t->step[8].flags = SF_ACCENT;
     t->step[20] = (step_t){{70}, 1, ST_NOTE, 0, 30};                     /* past LEN */
     memcpy(ref, t->step, sizeof ref);
-    go_auto_top(); frame();
-    ok = ev_list(rw) == 3u;
-    go_auto_add(EV_VEL, 4); frame();
-    ok &= str_eq(act_name(4), "SHOW");
-    press(B_OCTUP);
-    n = ev_list(rw);
-    ok &= msg_is("VEL SHOWN") && n == 7u && rw[2] == EVC(EVK_VEL, 0) && rw[3] == EVC(EVK_VEL, 4) &&
-          rw[5] == EVC(EVK_VEL, 12) && auto_cur() == EVC(EVK_VEL, 4) && !memcmp(t->step, ref, sizeof ref);
-    bad += check("AUTOMATION: no VEL rows; + ADD VEL OCT+ (SHOW): one per note step inside LEN, nothing changed", ok);
+    go_title("DETAIL"); cursor_set(4); frame();
     turn(EN_K4, -10);
     ok = t->step[4].vel == 90u && same_but(t, ref, 4, 4);
     frames(2000);
-    turn(EN_K4, 100);
-    ok &= t->step[4].vel == 127u;
-    turn(EN_K2, 1);
-    ok &= t->step[4].vel == 127u && t->step[5].vel == 0u && auto_cur() == EVC(EVK_VEL, 4);
-    hold(B_SAVE);
-    ok &= t->step[4].vel == 90u;
-    bad += check("  KNOB 4 the step's velocity (1..127), KNOB 2 nothing; SAVE held: the turn undone", ok);
-    press(B_EDIT);
-    ok = t->step[4].vel == 0u && msg_is("VEL 96") && auto_cur() == EVC(EVK_VEL, 4) && ev_list(rw) == n;
-    for (n = 0; n < 20u; n++)
-        turn(EN_K4, -1);
-    ok &= t->step[4].vel == 76u;
-    bad += check("  EDIT: back to 96 (stored 0), the row stays", ok);
-    {   /* drawn: DIM where it does not play (the ACC step) */
-        ok = auto_pick(EVC(EVK_VEL, 8)) && !ev_vel_plays(&t->step[8]) && ev_vel_plays(&t->step[4]);
-        bad += check("  an ACC step's VEL does not play (DIM)", ok);
-    }
-    ui.ev_row = 0xFFFFu;                              /* + ADD, on the page (go_auto_add enters it again) */
-    ui.ev_id = EV_VEL;
-    frame();
-    ok = str_eq(act_name(4), "HIDE");
-    press(B_OCTUP);
-    ok &= msg_is("VEL HIDDEN") && ev_list(rw) == 3u;
-    press(B_OCTUP);
-    ok &= ev_list(rw) > 3u;
-    go_home(); frame();
-    go_auto_top(); frame();
-    ok &= ev_list(rw) == 3u;
-    bad += check("  HIDE hides them; leaving the page too", ok);
+    turn(EN_K4, 100); ok &= t->step[4].vel == 127u;
+    hold(B_SAVE); ok &= t->step[4].vel == 90u;
+    hold(B_SAVE); ok &= t->step[4].vel == 127u;
+    bad += check("DETAIL KNOB 4 edits VEL, bounded at 127; SAVE hold undo / redo", ok);
+    go_auto_top(); frame(); ui.ev_vel = 1;
+    ok = ev_list(rw) == 3u && !ev_id_ok(t, EV_VEL) && t->step[4].vel == 127u;
+    bad += check("AUTOMATION has no VEL rows or ADD VEL; stored velocities stay unchanged", ok);
     return bad;
 }
 

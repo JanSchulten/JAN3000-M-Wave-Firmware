@@ -193,7 +193,7 @@ static __attribute__((noinline)) void fx1_block(const int32_t *cho_in, const int
     cho_k_t ck;
     cho_setup(&ck);
     for (i = 0; i < n; i++)                      /* the chorus (fx_buses' own) */
-        wet[i] = cho_tick(&ck, cho_in[i]);
+        cho_wet[i] = wet[i] = cho_tick(&ck, cho_in[i]);
     if (pf.ew1 && cfb < THR_FB)
         cfb += mulq16(THR_FB - cfb, (uint32_t)pf.ew1 << 1);   /* ECHO THROW: into the cloud, and round again */
     if (cld.busy) {                              /* clearing: FX1 silent */

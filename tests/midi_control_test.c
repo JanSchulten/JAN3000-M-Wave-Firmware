@@ -562,7 +562,7 @@ static int learn_test(void)
 
     /* the stored codes with 1.5's parameters (the INSERT 96..100, TYPE 101, ESYNC 102, P_E0 103): a common parameter
      * id + 1, below ML_E0; an engine one ML_E0 + k whatever P_E0 is; every id back as it went in */
-    ok = P_E0 == 103u && P_COUNT == 111u && P_E0 < ML_E0;
+    ok = P_SHIM == 103u && P_E0 == 104u && P_COUNT == 112u && P_E0 < ML_E0;
     for (i = 0; i < P_COUNT; i++)
         ok &= ml_id(ml_code(i)) == i && (i < P_E0 ? ml_code(i) == i + 1u && ml_code(i) < ML_E0 : ml_code(i) == ML_E0 + i - P_E0);
     ok &= ml_id(0) == P_COUNT && ml_id(P_E0 + 1u) == P_COUNT && ml_id(ML_E0 - 1u) == P_COUNT;   /* (no such parameter) */
@@ -574,7 +574,7 @@ static int learn_test(void)
     queued(0xB0, 31, 127, 1);
     queued(0xB0, 33, 127, 1);
     ok &= trk[1].p[P_IMIX] == 0 && trk[2].p[P_ESYNC] == 1 && trk[3].p[P_E0 + 3u] == param_desc_of(eng_idx(trk[3].eng_req), P_E0 + 3u)->max;
-    bad += check("MIDI LEARN codes with 1.5's P_E0 103: common ids + 1 (INSERT MIX, ESYNC), engine ML_E0 + k; all ids round trip", ok);
+    bad += check("MIDI LEARN codes with SHIM 103 / P_E0 104: common ids + 1 (INSERT MIX, ESYNC), engine ML_E0 + k; all ids round trip", ok);
     memset(favorites.factory[14], 0, 32);
     return bad;
 }

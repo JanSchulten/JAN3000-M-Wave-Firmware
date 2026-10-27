@@ -518,7 +518,7 @@ static void draw_menu(void)
             cv_rrect(4, MP_Y, 232, mr_y(n) - mr_gap() + MP_PAD - MP_Y, 8, T_SURF, T_BG);
         for (k = 0; k < n; k++)
             if (mr_y(k) + mr_h() > top_y && mr_y(k) - 1 < top_y + (int32_t)cv_h)
-                menu_row(k, first + k);
+                menu_row(k, mtab_nth(menu_tab(), k));
         if (pass)
             cv_key_row(8, 232, MK_Y, KEYS[ui.menu_sel == MI_LCLEAR ? 2 : !menu_valued(ui.menu_sel)], 3, 7u, T_BG);
         cv_oy = 0;
@@ -547,17 +547,17 @@ static void menu_close(void)
  * (ui_input.c) */
 static void menu_move(int32_t s)                       /* PRESETS: the next / previous row of the tab */
 {
-    uint32_t t = menu_tab(), f = mtab_first(t), n = mtab_rows(t), k = (ui.menu_sel - f + (s > 0 ? 1u : n - 1u)) % n;
-    ui.menu_sel = (uint8_t)(f + k);
+    uint32_t t = menu_tab(), n = mtab_rows(t), k = (mtab_rank(ui.menu_sel) + (s > 0 ? 1u : n - 1u)) % n;
+    ui.menu_sel = (uint8_t)mtab_nth(t, k);
     ui.menu_row[t] = (uint8_t)k;
 }
 static void menu_tab_go(int32_t s)                     /* ALGORITHM: the next / previous tab, at its last row */
 {
     uint32_t t = menu_tab(), k;
-    ui.menu_row[t] = (uint8_t)(ui.menu_sel - mtab_first(t));
+    ui.menu_row[t] = (uint8_t)mtab_rank(ui.menu_sel);
     t = (t + (s > 0 ? 1u : MTAB_COUNT - 1u)) % MTAB_COUNT;
     k = ui.menu_row[t] < mtab_rows(t) ? ui.menu_row[t] : 0u;
-    ui.menu_sel = (uint8_t)(mtab_first(t) + k);
+    ui.menu_sel = (uint8_t)mtab_nth(t, k);
 }
 static void menu_input(uint32_t oct)                  /* oct: ui_input.c oct_taps */
 {

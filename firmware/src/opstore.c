@@ -29,17 +29,18 @@ typedef struct {
     int8_t rsv_orc[NTRK];                        /* (SCL > ORCHID's VOICE, before SCL > CSET: written 0, not read) */
     uint8_t rsv_orc_en;                          /* (.. ORCHID ON: written 0, an older firmware's ORCHID off) */
     uint8_t cho[2];                              /* the CHORUS's TYPE and FDBK (fx.c chos; 0 0 before: Felucca's) */
-    uint8_t rsv;
+    uint8_t shim_size;                           /* (M-Vave-OP1, 0x80 | SHIMMER SIZE; 0 before: none, see xtra_misc) */
     uint8_t key_on, key_len;                     /* (XTRA_V4) GLO > KEY (key.c keyt): ON, LEN */
     uint8_t key_root[16];                        /* .. each bar's root (KEY_NONE: none) */
     uint8_t key_own;                             /* (M-Vave-OP1, 0x80 | key.c key_own; written 0 before: not known) */
-    uint8_t rsv2;
+    uint8_t shim_damp;                           /* (.. 0x80 | DAMP) */
     uint8_t leg[NTRK][NSTEP_FMT / 8u];           /* (XTRA_V5) the LEGATO steps (core.h STEP_LEG): step i, bit i % 8 of
                                                   * byte i / 8 (Felucca's step format has no bit left for it) */
-    uint8_t cset_en, rsv3;                       /* (XTRA_V6) SCL > CSET ON, bit k track k (cset.c) */
+    uint8_t cset_en, shim_pitch;                 /* (XTRA_V6) SCL > CSET ON, bit k track k (cset.c); 0x80 | SHIMMER PITCH + 12 */
     uint8_t cset_set[NTRK];                      /* .. each track's set (0 .. 99) */
     uint8_t cset_voice[NTRK];                    /* .. the VOICE before ON (0xFF: none) */
-    uint8_t rsv4[2];                             /* (to the word: 0) */
+    uint8_t shim_fdbk, fx_serial;                /* 0x80 | SHIMMER FDBK, 0x80 | the serial aux chain (fx.c; were the
+                                                  * word's padding, written 0: 0 is an older one's, parallel) */
 } proj_xtra_t;
 /* (XTRA_V7) M-Vave-OP1's 128 steps: the object goes on after proj_xtra_t with these (size XTRA_V7). Not kept in RAM with
  * the slots' extras (xtra_slot: 2.8 KiB a slot): read from the flash when a project or a song needs them (xtra_hi_of) */
@@ -125,6 +126,11 @@ static void xtra_capture(proj_xtra_t *x, xtra_hi_t *h, uint32_t proj)
     memcpy(x->cset_voice, cset_voice, sizeof x->cset_voice);
     x->cho[0] = chos.type;
     x->cho[1] = chos.fdbk;
+    x->shim_size = (uint8_t)(0x80u | shim_p[0]);
+    x->shim_damp = (uint8_t)(0x80u | shim_p[1]);
+    x->shim_pitch = (uint8_t)(0x80u | (shim_p[2] + 12));
+    x->shim_fdbk = (uint8_t)(0x80u | shim_p[3]);
+    x->fx_serial = (uint8_t)(0x80u | (fx_serial & 1u));
     x->key_on = keyt.on;
     x->key_len = keyt.len;
     memcpy(x->key_root, (const void *)keyt.root, sizeof x->key_root);
@@ -216,7 +222,7 @@ static void xtra_fx1(const proj_xtra_t *x, uint32_t proj)
  * one's ORCHID (gone): nothing */
 static void xtra_misc(const proj_xtra_t *x, uint32_t proj)
 {
-    uint32_t k, ok = xtra_ok(x, proj) && x->size >= XTRA_V3, ok4 = ok && x->size >= XTRA_V4, ok6 = ok && x->size >= XTRA_V6;
+    uint32_t k, ok = xtra_ok(x, proj) && x->size >= XTRA_V3, ok4 = ok && x->size >= XTRA_V4, ok6 = ok && x->size >= XTRA_V6, sh;
     cset_en = ok6 ? (uint8_t)(x->cset_en & ((1u << NTRK) - 1u)) : 0u;
     for (k = 0; k < NTRK; k++) {
         cset_set[k] = ok6 && x->cset_set[k] < CSET_N ? x->cset_set[k] : 0u;
@@ -224,6 +230,12 @@ static void xtra_misc(const proj_xtra_t *x, uint32_t proj)
     }
     chos.type = ok && x->cho[0] < CHO_NTYPE ? x->cho[0] : CHO_CHORUS;   /* (the CHORUS's: fx.c) */
     chos.fdbk = ok && x->cho[1] <= 100u ? x->cho[1] : 0u;
+    sh = ok6 && (x->fx_serial & 0x80u);             /* (the SHIMMER page's and the chain's; extras of before: the */
+    shim_p[0] = sh ? (int16_t)(x->shim_size & 0x7Fu) : 90;      /* defaults, the parallel aux sends) */
+    shim_p[1] = sh ? (int16_t)(x->shim_damp & 0x7Fu) : 60;
+    shim_p[2] = sh ? (int16_t)clamp((int32_t)(x->shim_pitch & 0x7Fu) - 12, -12, 24) : 12;
+    shim_p[3] = sh ? (int16_t)(x->shim_fdbk & 0x7Fu) : 127;
+    fx_serial = sh ? x->fx_serial & 1u : 0;
     key_defaults();                                 /* GLO > KEY's run (key.c); an older one: none */
     if (ok4) {
         keyt.on = x->key_on & 1u;

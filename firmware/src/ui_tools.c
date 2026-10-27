@@ -19,9 +19,6 @@
 enum { TL_CLEAR, TL_REV, TL_LEFT, TL_RIGHT, TL_RANDOM, TL_COOK, TL_BEAT, TL_GAP, TL_LCLR, TL_LREV, TL_LFILL, TL_LRND,
        TL_N };
 
-/* the track as the layer opened (SEQ + EDIT): in the pool (RAM's .bss is tight), taken by layer_opened */
-static struct { step_t step[NSTEP]; motion_store_t mo; } tl_open __attribute__((section(".pool")));
-
 static uint32_t tl_len(const track_t *t) { return (uint32_t)clamp(t->p[P_SLEN], 1, NSTEP); }
 static uint32_t tl_rnd(uint32_t n) { return n ? rng() % n : 0u; }
 static int tl_gate(const step_t *s) { return s->time == ST_NOTE && s->n; }
@@ -33,6 +30,7 @@ static int tl_cell(const track_t *t, uint32_t p) { return p < TL_N && p != TL_GA
 static void tl_undo_take(track_t *t)
 {
     uint32_t i = trk_index(t);
+    if (undo_group.open && undo_group.dirty) undo_group.wrote = 1;
     undo.trk = (uint8_t)(i + 1u);
     undo.what = UNDO_PAT;
     undo.keep = 0;                                      /* (the next load or action takes its own copy) */

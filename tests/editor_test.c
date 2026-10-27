@@ -45,6 +45,7 @@ static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint1
 #include "../firmware/src/menu_items.c"
 static void panel_setup(void) {}
 #include "../firmware/src/upreset.c"
+static uint32_t fm1_ticks(void) { return 0; }   /* deterministic NEW PROJECT seed in this host harness */
 #include "../firmware/src/project.c"
 
 static uint32_t flash_ok = 1;
@@ -893,7 +894,7 @@ static int menu_protocol(void)
         {"SCREEN OFF", "NEVER,5 MIN,15 MIN,30 MIN,60 MIN"},
         {"SCOPE", "OUT,MIX"}, {"STEP PREVIEW", "OFF,ON"}, {"CHORD ENTRY", "HOLD,ADD"},                  /* (1.2) */
         {"MIDI IN", "CH1-4,SEL,CH5-8,CH9-12,CH13-16"}, {"TUNE", 0},   /* (1.2: the project's ROUT and TUNE; TUNE a number) */
-        {"HOME", "TRACKS,LEVELS,SCOPE"},  /* (M-Vave-OP1: TRACKS first) */                                                       /* (1.3; 1.5: LEVELS) */
+        {"HOME", "TRACKS,TRACKS,SCOPE"},  /* (M-Vave-OP1: TRACKS first) */                                                       /* (1.3; 1.5: LEVELS) */
         {"HELP", "OFF,ON"}};                                                                         /* (1.5) */
     static const int32_t DEF[25] = {-1, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};   /* (COLOR: the default palette) */
     static const uint8_t TAB[25] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 4, 2, 2, 2, 4, 1, 0, 0, 1, 1, 3, 2, 0, 4};   /* DISPLAY CONTROL AUDIO
@@ -981,10 +982,10 @@ static int menu_protocol(void)
     ok &= menu_set(19, 1) == 3 && ui_prefs2 == 3u && menu_set(20, 1) == 3 && ui_prefs2 == 7u;
     ok &= menu_set(21, 2) == 0 && song.g[G_ROUTE] == 2 && menu_set(22, -13) == 0 && song.g[G_TUNE] == -13;   /* (1.2: the
                                                          * project's, rc 0: in the music, no settings record) */
-    ok &= menu_set(23, 1) == 3 && ui_home_view == HV_LEVELS && ui_prefs2 == 7u && ui_scr == 1u;   /* (1.3: its own byte; M-Vave-OP1: 1 = LEVELS) */
+    ok &= menu_set(23, 1) == 3 && ui_home_view == HV_TRACKS && ui_prefs2 == 7u && ui_scr == 1u;   /* (1.3: its own byte; M-Vave-OP1: 1 = LEVELS) */
     ok &= menu_set(24, 1) == 3 && ui_prefs2 == 15u && help_on();                                  /* (1.5: HELP, bit 3) */
     for (i = 0; i < 25u; i++) {                         /* MENU_DESC reads them back */
-        static const int32_t SET[25] = {2, 1, 1, 1, 1, 3, 1, 1, 1, 2, 1, 0, 2, 0, 2, 1, 1, 2, 1, 1, 1, 2, -13, 1, 1};
+        static const int32_t SET[25] = {2, 1, 1, 1, 1, 3, 1, 1, 1, 2, 1, 0, 2, 0, 2, 1, 1, 2, 1, 1, 1, 2, -13, 0, 1};
         menu_desc(i, &it);
         ok &= it.value == SET[i];
     }

@@ -758,7 +758,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_DLY_DOT, S_DLY_DOT16, S_FX_THROW,
        S_DETAIL, S_DETAIL_PLAYING, S_DETAIL_REST, S_DETAIL_DRUM, S_ROLL_MARKS, S_DRUM_MARKS, S_HELP_DETAIL,
        S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_KEY, S_KEY_PLAY, S_KEY_LIVE, S_KEY_REC,
-       S_STEP128, S_AUTO128, S_FXT128, S_HOME_TRACKS128, S_SEQ128, S_SSONG, S_COUNT };
+       S_STEP128, S_AUTO128, S_FXT128, S_HOME_TRACKS128, S_SEQ128, S_SSONG, S_SHIM, S_INS_EXTRA, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
@@ -789,7 +789,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "dly_dotted", "dly_dotted_16", "perform_throw",
     "detail", "detail_playing", "detail_rest", "detail_drum", "roll_marks", "drum_marks", "help_detail",
     "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec",
-    "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song"};
+    "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song", "shimmer_send", "insert_extra"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -987,7 +987,7 @@ static void setup(int s)
     case S_USER: song.playing = 0; up_store(3, "MY LONG BASS NAME"); up_store(4, "PAD"); ui.uslot = 3; go_page(GR_USER); break;
     case S_PHRASES: go_page(GR_PATS); break;
     case S_PROJECT: song.playing = 0; project_save(1); song.g[G_SLOT] = 2; go_page(GR_SLOTS); ui.act = 4; break;
-    case S_TOOLS: go_page(GR_TOOLS); ui.act = 1; break;
+    case S_TOOLS: go_page(GR_SONG); confirm_open(CF_CLEAR_SONG, 0); break;
     case S_SONG_EMPTY: song.playing = 0; go_page(GR_SONG); break;
     case S_SONG:
         song.playing = 0; project_save(0); project_save(1);
@@ -1001,9 +1001,9 @@ static void setup(int s)
     case S_AUTO_STEPS:
         step_set_chance(&TSEL->step[0], 65); step_set_chance(&TSEL->step[4], 25); step_set_ratchet(&TSEL->step[4], 3);
         step_set_ratchet(&TSEL->step[8], 2); motion_set_event(TSEL, 2, P_LRATE, 70); motion_set_lock(TSEL, 4, P_REV, 100);
-        go_page(GR_EVENTS); (void)auto_pick(EVC(EVK_CHANCE, 4)); ui.hot_col = 3; ui.hot_t = 30;
+        go_page(GR_EVENTS); (void)auto_pick(EVC(EVK_REC, (uint32_t)motion_find(TSEL, 4, P_REV))); ui.hot_col = 3; ui.hot_t = 30;
         break;
-    case S_AUTO_ADD_CHANCE: go_auto_add(EV_CHANCE, 3); break;
+    case S_AUTO_ADD_CHANCE: go_title("DETAIL"); cursor_set(3); break;
     case S_MOTION:
         motion_set_event(TSEL, 1, P_REV, 40); motion_set_lock(TSEL, 2, P_REV, 100); step_set_chance(&TSEL->step[3], 50);
         go_auto_top();
@@ -1020,7 +1020,7 @@ static void setup(int s)
      * first beat (STEP under it); the MENU's AUDIO tab with CLICK REC selected, COUNT-IN 1 BAR */
     case S_COUNTIN: song.playing = 0; song.rec = 1; cin_total = 4; cin_left = 3; go_home(); break;
     case S_COUNTIN2: song.playing = 0; song.rec = 1; cin_total = 8; cin_left = 8; go_page(GR_ROLL); break;
-    case S_MENU_AUDIO: ui.menu = 1; ui.menu_sel = MI_CLICK; rp_put(RP_CLICK, 1u); rp_put(RP_COUNTIN, 1u); break;
+    case S_MENU_AUDIO: ui.menu = 1; ui.menu_sel = MI_LOWCUT; rp_put(RP_CLICK, 1u); rp_put(RP_COUNTIN, 1u); break;
     /* 1.2: the header's three slots (ui_draw.c draw_head): playing with the selected track armed; another track armed;
      * the BPM being turned (the accent's); BPM LOCK ON (the lock right of the BPM), and its message after a turn;
      * GLO with the tempo turned and BPM LOCK ON (the label right of the lock); the metronome on the bar's 1st beat
@@ -1110,7 +1110,7 @@ static void setup(int s)
         TSEL->p[P_M2DST] = 14; TSEL->p[P_M2AMT] = -64; mod_ui_slot = 1; go_title("MOD"); break;
     case S_FX: go_title("FX"); break;
     case S_FX_SEND_HOT:                                /* (M-Vave-OP1: SEND's faders, CHO turned) */
-        TSEL->p[P_DIST] = 40; TSEL->p[P_CHOR] = 90; TSEL->p[P_DLY] = 127; TSEL->p[P_REV] = 64;
+        TSEL->p[P_SHIM] = 40; TSEL->p[P_CHOR] = 90; TSEL->p[P_DLY] = 127; TSEL->p[P_REV] = 64;
         go_title("FX"); ui.hot_col = 1; ui.hot_t = 30; break;
     case S_CHO: case S_CHO_FLANGER: case S_CHO_VIBRATO:   /* .. CHORUS by TYPE, FDBK turned on FLANGER */
         chos.type = (uint8_t)(s == S_CHO_FLANGER ? CHO_FLANGER : s == S_CHO_VIBRATO ? CHO_VIBRATO : CHO_CHORUS);
@@ -1123,6 +1123,8 @@ static void setup(int s)
         song.g[G_RTYPE] = (int16_t)(s == S_REV_ROOM ? 0 : s == S_REV_HALL ? 2 : 3);
         TSEL->p[P_REV] = 80;
         go_title("REVERB"); break;
+    case S_SHIM: TSEL->p[P_SHIM] = 80; go_title("SHIMMER"); break;
+    case S_INS_EXTRA: TSEL->p[P_DIST] = 80; go_title("INSERT 2"); break;
     case S_SLICER: TSEL->p[P_SLCR] = 1; go_title("SLICER"); break;
     case S_DLY: go_title("DELAY"); break;   /* (M-Vave-OP1: FX's DELAY card) */
     case S_SCL: TSEL->p[P_SCALE] = 2; go_title("SCL"); break;
@@ -1608,10 +1610,10 @@ static void setup(int s)
         if (s == S_AUTO_QNT) {
             ui.ev_row = 1;
         } else {
-            (void)auto_pick(EVC(EVK_NUDGE, 6)); ui.hot_col = 3; ui.hot_t = 30;
+            go_title("DETAIL"); cursor_set(6); ui.hot_col = 3; ui.hot_t = 30;
         }
         break;
-    case S_AUTO_ADD_NUDGE: TSEL->p[P_SQNT] = 0; go_auto_add(EV_NUDGE, 3); break;
+    case S_AUTO_ADD_NUDGE: TSEL->p[P_SQNT] = 0; go_title("DETAIL"); cursor_set(3); break;
     /* 1.5 (#173): AUTOMATION's VEL rows shown (+ ADD VEL's SHOW): every note step's velocity, step 5's just turned, the
      * ACC step 9's dimmed (it plays 127), among a CHANCE and a lock; + ADD VEL (SHOW) */
     case S_AUTO_VEL: {
@@ -1625,10 +1627,10 @@ static void setup(int s)
             TSEL->step[i].vel = VEL[i / 2u];
         }
         step_set_chance(&TSEL->step[2], 70); motion_set_lock(TSEL, 4, P_REV, 100);
-        go_page(GR_EVENTS); ui.ev_vel = 1; (void)auto_pick(EVC(EVK_VEL, 4)); ui.hot_col = 3; ui.hot_t = 30;
+        go_page(GR_EVENTS); ui.ev_vel = 1; go_title("DETAIL"); cursor_set(4); ui.hot_col = 3; ui.hot_t = 30;
         break;
     }
-    case S_AUTO_ADD_VEL: go_auto_add(EV_VEL, 3); break;
+    case S_AUTO_ADD_VEL: go_title("DETAIL"); cursor_set(3); break;
     case S_LFO2: TSEL->p[P_LSYNC] = 6; TSEL->p[P_LTRIG] = 1; TSEL->p[P_LPOL] = 1; go_title("LFO 2"); break;
     case S_USER_FOOT: song.playing = 0; up_store(3, "MY BASS"); ui.uslot = 3; go_page(GR_USER); break;   /* EDIT NAME lit */
     default: break;
@@ -1811,7 +1813,7 @@ static void sweep_columns(void)
 #define FS_GAP 2u                                 /* px between frames, before the zoom */
 static void roll_turns(int32_t s)                 /* one UI frame with SELECT and KNOB 4 turned by s */
 {
-    host_enc[panel.enc[EN_SELECT]] += s * panel.dir[EN_SELECT];
+    host_enc[panel.enc[EN_K1]] += s * panel.dir[EN_K1];
     host_enc[panel.enc[EN_K4]] += s * panel.dir[EN_K4];
     host_ticks += 16000u; fm1_ms += 16u;
     ui_input();

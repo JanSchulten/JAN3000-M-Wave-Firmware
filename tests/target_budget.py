@@ -38,9 +38,10 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "perf_flanger", "perf_phaser",                     # .. FLANGER, PHASER (1.2), while held or fading
          "perf_throw",                                      # .. REV / ECHO THROW (1.5.1): per part, while held or gliding
          "perf_duck", "perf_stereo",                        # .. DUCK, STEREO (M-Vave-OP1 E2), while held or fading
-         "rev_room", "rev_spring", "rev_hall", "rev_side_mix",   # the reverb bus (fx.c): REVERB TYPE ROOM / SPRING / HALL (and its stereo)
+         "rev_room", "rev_spring", "hall_block", "rev_side_mix",   # the reverb bus (fx.c): REVERB TYPE ROOM / SPRING / HALL (and its stereo)
          "dly_glide",                                       # .. M-Vave-OP1: the delay's taps crossfading after a TIME change
          "aud_fade_half",                                   # .. M-Vave-OP1 (audio.c): the DAC faded around a flash erase
+         "shimmer_pitch", "shimmer_send", "shimmer_bus", "serial_delay", "serial_reverb", "shimmer_return",
          "hall_shimmer",                                    # .. M-Vave-OP1: SHIMMER's octave (fx.c), after rev_hall
          "track_insert", "ins_drive", "ins_swept",           # the per-track INSERT (fx.c, 1.5), while a TYPE plays
          "cloud_render", "cl_spawn", "fx1_block", "cloud_side"]   # M-Vave-OP1: FX1's CLOUD (fx1.c), while it is the TYPE
