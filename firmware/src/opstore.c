@@ -69,7 +69,7 @@ typedef struct {
 #define XTRA_V8 (XTRA_V7 + (uint32_t)sizeof(ssong_t))   /* .. the scene song */
 _Static_assert(XTRA_V6 == 224u && sizeof(proj_xtra_t) == XTRA_V6 && sizeof(xtra_hi_t) == XTRA_V8 - XTRA_V6 &&
                XTRA_V8 <= PROJ_STORE_SIZE && KEY_BARS == 16u &&
-               NSTEP % 8u == 0u && NSTEP == 2u * NSTEP_FMT, "project extras layout (stored, append-only)");
+               NSTEP % 8u == 0u && NSTEP >= NSTEP_FMT, "project extras layout (stored, append-only)");
 static proj_xtra_t xtra_slot[4] __attribute__((section(".pool")));   /* each project slot's (magic 0: none) */
 static uint8_t xtra_buf[XTRA_V8] __attribute__((aligned(4), section(".pool")));   /* an object as written (main loop) */
 #if !FELUCCA_FLASH

@@ -940,7 +940,8 @@ F7` (rc 0, 16 entries, the first CC74 on T4 id 98).
 
 ## 128 steps (M-Vave-OP1, INFO `58 01 lo hi`)
 
-A track has 128 steps (LEN 1..128). INFO's NSTEP byte stays 64 (it is a 7-bit byte; an editor that knows no more
+(Rolled back: a track has 64 steps again, LEN 1..64; the block `58 01 lo hi` says 64. What follows describes the
+128-step firmware.) A track had 128 steps (LEN 1..128). INFO's NSTEP byte stays 64 (it is a 7-bit byte; an editor that knows no more
 reads and writes the first 64 steps, as before); the block `58 01 lo hi` (the last of INFO's) says 128. `STEP_GET`,
 `STEP_SET`, `TRACK_STEP` and `STEP_CHANGED` take and name steps 0..127; `MOTION`'s records name steps 0..127 (op 6 with
 step 127 still clears every step's locks: step 128's alone go with op 4). LEN's descriptor (`DESC`) has max 128.

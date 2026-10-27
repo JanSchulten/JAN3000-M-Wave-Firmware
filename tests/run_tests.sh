@@ -111,10 +111,6 @@
 #                   TIEs, LEN and two lengths, step for step with a 1/16 track, a REPEAT on its step, mutes, STOP / PLAY;
 #                   recording only armed and playing, early / late presses, TIEs, overdub, a punch inside a take, FX LATCH,
 #                   the black keys; FX's pages, KNOB 1..4, REC arming, FX held + a key end to end, CLEAR.
-# 128 STEPS (tests/steps128_test.c, M-Vave-OP1): LEN 128 plays steps 65..128 (automation, a lock, an FX TRACK of
-#                   128), LEN 64 as before; SAVE / LOAD keep them (the extras' tail, XTRA_V7), what firmware of 64 steps
-#                   reads of the slot, extras of before; a song's slot; scenes of 64 steps pack as before, wider ones
-#                   wide (SCN_F_WIDE); STEP's bank 8, AUTOMATION's rows past 64 (the flash's: opstore_test.c).
 # USB DISK (tests/vdisk_test.c, M-Vave-OP1): MENU > USB DISK's mass storage (msc.c) driven as a host drives a drive:
 #                   TEST UNIT READY, INQUIRY, the capacities, MODE SENSE write-protected, a write refused, an unknown
 #                   command, sense, eject; the whole made-up FAT16 (vdisk.c) read and read back by tests/vdisk_check.py,
@@ -397,9 +393,6 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "SONG as OP-Z pattern chains: typed with REC + A..D, LOOP / STOP, new chains and edits while it plays" "$OUT/songchain_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fxtrack_test" tests/fxtrack_test.c -lm
     run "FX TRACKS: lanes of punch-in effects (play, LEN, no drift, REPEAT on its step), recording (early / late, TIEs, overdub, punch, LATCH, mutes), pages" "$OUT/fxtrack_test"
-    mkdir -p build/steps128_shots
-    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/steps128_test" tests/steps128_test.c -lm
-    run "128 STEPS: play past 64, SAVE / LOAD (the extras' tail), firmware of 64 steps, songs, wide scenes, STEP bank 8" "$OUT/steps128_test" build/steps128_shots
     mkdir -p build/ssong_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ssong_test" tests/ssong_test.c -lm
     run "SCENE SONG: the scenes one after another (passes, LOOP / STOP), the page, live edits, picks by hand, kept" "$OUT/ssong_test" build/ssong_shots

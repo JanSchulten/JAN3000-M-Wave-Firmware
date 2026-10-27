@@ -292,9 +292,9 @@ static void test_ui(const char *dir)
     ok = fxt_lane[0].len == 8u && ui.fxt_cur == 7u;
     turn(EN_K4, 200);
     ok &= fxt_lane[0].len == NSTEP;
-    turn(EN_K4, -112);
+    turn(EN_K4, -(int)(NSTEP - 16u));
     ok &= fxt_lane[0].len == 16u;
-    bad += check("KNOB 4: LEN 1..128 (the step follows it down)", ok);
+    bad += check("KNOB 4: LEN 1..NSTEP (the step follows it down)", ok);
     turn(EN_K1, 1);
     press(B_REC);
     ok = fxt.arm == 2u && song.rec == 0u && transport_req == 0u && msg_is("FX2 ARMED: HOLD [FX]");

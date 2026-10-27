@@ -11,7 +11,8 @@
 #define NVOICE 8                 /* voices per part, and the budget shared by all parts */
 #define NPART 4                  /* synth parts: tracks 1..4 */
 #define NTRK NPART               /* tracks (the formats and the protocol count these): every track is a part */
-#define NSTEP 128                /* M-Vave-OP1: steps a track (64 before; LEN 1..128) */
+#define NSTEP 64                 /* steps a track (LEN 1..64; M-Vave-OP1 had 128 for a while: the pool could not hold them
+                                  * with the SHIMMER bus and the grouped undo, so its formats' extra room stays empty) */
 #define NSTEP_FMT 64u            /* the steps every stored format of before holds (projects, user presets' sources,
                                   * the extras' first lanes, the editor's INFO): steps 65..128 are kept in the project's
                                   * extras (opstore.c XTRA_V7), a scene's in its wide form (scene.c SCN_F_WIDE) */

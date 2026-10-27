@@ -162,7 +162,7 @@ static int check(const char *what, int ok)
     return ok ? 0 : 1;
 }
 /* a step set (core.h stepset_t) as a mask of steps 1..64; one holding a step past 64 matches no mask (all ones) */
-static uint64_t ss64(stepset_t m) { return m.w[1] ? ~(uint64_t)0 : m.w[0]; }
+static uint64_t ss64(stepset_t m) { uint64_t hi = 0; for (uint32_t i = 1; i < NSTEP / 64u; i++) hi |= m.w[i]; return hi ? ~(uint64_t)0 : m.w[0]; }
 
 /* main.c felucca_init */
 static void ui_power_on(void)

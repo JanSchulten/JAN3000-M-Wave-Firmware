@@ -449,7 +449,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
             else if (a[1] == 3u) rc = motion_set_event(t, a[2], a[3], (int16_t)ed_rv(a + 4));
             else if (a[1] == 4u && a[2] < NSTEP && motion_param(a[3])) motion_delete_event(t, a[2], a[3]);
             else if (a[1] == 5u) rc = motion_set_lock(t, a[2], a[3], (int16_t)ed_rv(a + 4));
-            else if (a[1] == 6u && a[2] < NSTEP)        /* (127: every step's, as before 128 steps; step 128's alone: op 4) */
+            else if (a[1] == 6u && (a[2] < NSTEP || a[2] == 127u))   /* (127: every step's) */
                 (void)motion_clear_locks(t, a[2] == 127u ? NSTEP : a[2]);
             else rc = 1;
             ui.force = 1;

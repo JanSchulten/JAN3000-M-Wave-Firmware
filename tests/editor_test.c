@@ -132,10 +132,8 @@ static int motion_locks(void)
     a[1] = 7; n = request(ED_MOTION, a, 2);
     bad += check("MOTION op 7: the query with the kinds", n == 5u + 5u + 2u * 4u + 2u + 1u && host_wire[19] == 1);
     a[1] = 5; a[2] = 100; n = request(ED_MOTION, a, 6);
-    bad += check("MOTION op 5 on step 101 (M-Vave-OP1's 128 steps): rc 0, a third record", host_wire[6] == 0 &&
-        host_wire[8] == 3);
-    a[1] = 4; request(ED_MOTION, a, 4);
-    bad += check("  op 4 takes it out again", host_wire[6] == 0 && host_wire[8] == 2);
+    bad += check("MOTION op 5 on step 101 (past the 64 steps): refused, still two records", host_wire[6] != 0 &&
+        host_wire[8] == 2);
     a[1] = 6; a[2] = 2; request(ED_MOTION, a, 3);
     bad += check("MOTION op 6 on step 2: its automation event stays", host_wire[6] == 0 && host_wire[8] == 2);
     a[2] = 127; request(ED_MOTION, a, 3);
@@ -179,7 +177,7 @@ static int preferences(void)
         host_wire[n - 51] == CHAIN_ROWS && host_wire[n - 50] == 0x55 &&
         host_wire[n - 49] == 1 && host_wire[n - 48] == 9 &&
         host_wire[n - 47] == 0x4d && host_wire[n - 46] == 1 &&
-        host_wire[n - 45] == 64u && host_wire[n - 44] == 1 &&   /* (64 kept: 41 01 says 128) */
+        host_wire[n - 45] == 64u && host_wire[n - 44] == 1 &&
         host_wire[n - 43] == 0x42 && host_wire[n - 42] == 1 && host_wire[n - 41] == 3 &&
         host_wire[n - 40] == 0x46 && host_wire[n - 39] == 1 && host_wire[n - 38] == FM6_NFACTORY &&
         host_wire[n - 37] == 0 &&                        /* (no bank since 1.0.3) */
@@ -193,7 +191,7 @@ static int preferences(void)
         host_wire[n - 14] == 0x57 && host_wire[n - 13] == 1 && host_wire[n - 12] == NTRK &&   /* 1.2: SONG lanes */
         host_wire[n - 11] == 0x56 && host_wire[n - 10] == 1 && host_wire[n - 9] == 32 &&   /* 1.4.1: FM6 voice bank */
         host_wire[n - 8] == 0x43 && host_wire[n - 7] == 1 && host_wire[n - 6] == ML_N &&   /* 1.5: MIDI LEARN */
-        host_wire[n - 5] == 0x58 && host_wire[n - 4] == 1 && host_wire[n - 3] == 0 && host_wire[n - 2] == 1);   /* 128 steps */
+        host_wire[n - 5] == 0x58 && host_wire[n - 4] == 1 && host_wire[n - 3] == NSTEP % 128u && host_wire[n - 2] == NSTEP / 128u);   /* the steps a track */
     request(ED_UI_SET, a, 2);
     bad += check("UI_SET updates the actual palette and reports RAM-only saving",
         host_wire[5] == 3 && settings.palette == 7 && T_BG == UI_PALETTES[7].bg);

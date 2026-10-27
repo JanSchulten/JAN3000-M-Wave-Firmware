@@ -38,7 +38,7 @@ And from the OP-Z (M2b):
 
 | OP-Z | M-Vave-OP1 | Status |
 | --- | --- | --- |
-| FX1 / FX2 tracks | **FX TRACKS**: two lanes of the FX layer's effects, 128 steps of a 1/16 (64 until the 128 steps), own lengths | **done (M2b)** |
+| FX1 / FX2 tracks | **FX TRACKS**: two lanes of the FX layer's effects, 64 steps of a 1/16, own lengths | **done (M2b)** |
 | Punch-in FX, recorded with REC | REC arms a lane, FX held + keys record (quantised, held on, overdub, punch) | **done (M2b)** |
 | Pattern chains, cue the next pattern | SONG: REC + A..D types a chain, LOOP, changes while it plays | **done (M2b)** |
 | 16 patterns a project, switched with a key | **SCENES**: 16 a project, SEQ + a white key (OCT+ / OCT- the next / the one before; OCT+ held copies the scene into the next free one), at the pattern's end while playing | **done (M2c)** |
@@ -83,7 +83,7 @@ sample slot (USR3, 0xC8000..0xDBFFF, 80 KiB):
 
 ### M2b: OP-Z: FX TRACKS, punch-ins, pattern chains (done)
 
-- `firmware/src/fxtrack.c`: two lanes of 128 steps of a 1/16, each step an effect of the FX layer (or a track's mute)
+- `firmware/src/fxtrack.c`: two lanes of 64 steps of a 1/16, each step an effect of the FX layer (or a track's mute)
   or a TIE. Six equal tracks would need ~52 KiB more RAM than there is; a lane costs 66 bytes. The lanes count steps
   as a 1/16 track does (no drift), a lane's REPEAT starts on its step. FX > FX TRACKS, FX TRACKS 2.
 - Recording: REC arms a lane, the FX layer's presses go onto it (early in a step onto it, late onto the next, held
@@ -170,13 +170,15 @@ bars, each a root; while ON and running, the melodic tracks' sequenced notes and
 their own scale (Am F C G over a pattern in C major: A minor, F, C, G), the nearer way round; live keys and kits stay
 as they are. A key sets the cursor bar's root. Kept in the project extras (`XTRA_V4`). `tests/key_test.c`.
 
-### M7: 128 steps a track (done)
+### M7: 128 steps a track (done, then rolled back)
 
 LEN 1..128 (64 before) on every track and on the FX TRACKS, everything a step has on steps 65..128 too (chords,
 ratchets, chance, nudges, LEGATO, automation, locks). Felucca's project format holds steps 1..64: the rest goes into
 the project's extras (`XTRA_V7`, the tail after `proj_xtra_t`, read from the flash when a project or a song needs it);
 scenes past step 64 pack wide (`SCN_F_WIDE`); the song chain's four sources moved to the pool (RAM 56 KB, pool 376 KB).
-Firmware of 64 steps loads such a project as its first 64 steps. `tests/steps128_test.c`, `tests/opstore_test.c`.
+Firmware of 64 steps loads such a project as its first 64 steps.
+Rolled back to 64 (core.h `NSTEP`) when the SHIMMER bus and SAVE's grouped undo joined: together they did not fit the
+SRAM (15 KB over). The formats' room for steps 65..128 stays and stays empty; `tests/steps128_test.c` went with it.
 
 ### M4: OP-1 look
 
