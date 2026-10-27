@@ -40,6 +40,7 @@ static void bus(const int32_t *in)
 }
 static void bus_reset(void)
 {
+    fx_serial = 0;                              /* isolate FX1 from downstream reverb; chain tested in shimmer_send_test */
     memset(dly_buf, 0, sizeof dly_buf);
     memset(rev_comb, 0, sizeof rev_comb);
     memset(&rev_u, 0, sizeof rev_u);
@@ -381,9 +382,9 @@ static void test_ui(const char *dir)
     char pages[400];
     int ok;
     cloud_power_on();
-    fx_pages(pages, 8);
-    ck("FX's seven cards: FX, INSERT, CHORUS, DELAY, REVERB, SLICER, FX TRACKS (M-Vave-OP1)",
-       strstr(pages, "FX|INSERT|CHORUS|DELAY|REVERB|SLICER|FX TRACKS|FX|") != 0);
+    fx_pages(pages, 10);
+    ck("FX's nine cards: SEND, DIST, INSERT, CHORUS, SHIMMER, DELAY, REVERB, SLICER, FX TRACKS (M-Vave-OP1)",
+       strstr(pages, "FX|DIST|INSERT|CHORUS|SHIMMER|DELAY|REVERB|SLICER|FX TRACKS|FX|") != 0);
     go_title("DELAY");
     song.g[G_DFDBK] = 60;
     song.g[G_DMIX] = 90;

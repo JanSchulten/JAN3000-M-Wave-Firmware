@@ -45,6 +45,7 @@ static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint1
 #include "../firmware/src/menu_items.c"
 static void panel_setup(void) {}
 #include "../firmware/src/upreset.c"
+static uint32_t fm1_ticks(void) { return 0; }   /* deterministic NEW PROJECT seed in this host harness */
 #include "../firmware/src/project.c"
 
 static uint32_t flash_ok = 1;

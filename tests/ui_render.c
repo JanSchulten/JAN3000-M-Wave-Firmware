@@ -757,7 +757,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_LEARN_WAIT, S_LEARN_PICK, S_LEARN_SET, S_LEARN_LONG, S_GLO_LEARN, S_MENU_LCLEAR, S_MENU_LCLEAR_NONE,
        S_DLY_DOT, S_DLY_DOT16, S_FX_THROW,
        S_DETAIL, S_DETAIL_PLAYING, S_DETAIL_REST, S_DETAIL_DRUM, S_ROLL_MARKS, S_DRUM_MARKS, S_HELP_DETAIL,
-       S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_KEY, S_KEY_PLAY, S_KEY_LIVE, S_KEY_REC, S_COUNT };
+       S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_KEY, S_KEY_PLAY, S_KEY_LIVE, S_KEY_REC, S_SHIM, S_INS_EXTRA, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
@@ -787,7 +787,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "learn_wait", "learn_pick", "learn_set", "learn_long", "layer_glo_learn", "menu_learn_clear", "menu_learn_clear_none",
     "dly_dotted", "dly_dotted_16", "perform_throw",
     "detail", "detail_playing", "detail_rest", "detail_drum", "roll_marks", "drum_marks", "help_detail",
-    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec"};
+    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec", "shimmer_send", "insert_extra"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -1106,7 +1106,7 @@ static void setup(int s)
         TSEL->p[P_M2DST] = 14; TSEL->p[P_M2AMT] = -64; mod_ui_slot = 1; go_title("MOD"); break;
     case S_FX: go_title("FX"); break;
     case S_FX_SEND_HOT:                                /* (M-Vave-OP1: SEND's faders, CHO turned) */
-        TSEL->p[P_DIST] = 40; TSEL->p[P_CHOR] = 90; TSEL->p[P_DLY] = 127; TSEL->p[P_REV] = 64;
+        TSEL->p[P_SHIM] = 40; TSEL->p[P_CHOR] = 90; TSEL->p[P_DLY] = 127; TSEL->p[P_REV] = 64;
         go_title("FX"); ui.hot_col = 1; ui.hot_t = 30; break;
     case S_CHO: case S_CHO_FLANGER: case S_CHO_VIBRATO:   /* .. CHORUS by TYPE, FDBK turned on FLANGER */
         chos.type = (uint8_t)(s == S_CHO_FLANGER ? CHO_FLANGER : s == S_CHO_VIBRATO ? CHO_VIBRATO : CHO_CHORUS);
@@ -1119,6 +1119,8 @@ static void setup(int s)
         song.g[G_RTYPE] = (int16_t)(s == S_REV_ROOM ? 0 : s == S_REV_HALL ? 2 : 3);
         TSEL->p[P_REV] = 80;
         go_title("REVERB"); break;
+    case S_SHIM: TSEL->p[P_SHIM] = 80; go_title("SHIMMER"); break;
+    case S_INS_EXTRA: TSEL->p[P_DIST] = 80; go_title("INSERT 2"); break;
     case S_SLICER: TSEL->p[P_SLCR] = 1; go_title("SLICER"); break;
     case S_DLY: go_title("DELAY"); break;   /* (M-Vave-OP1: FX's DELAY card) */
     case S_SCL: TSEL->p[P_SCALE] = 2; go_title("SCL"); break;

@@ -202,6 +202,11 @@ static void ui_power_on(void)
     memset((void *)&cset_last, 0, sizeof cset_last);
     chos.type = CHO_CHORUS;                       /* (M-Vave-OP1: the chorus bus's TYPE and FDBK, as at power-on) */
     chos.fdbk = 0;
+    shim_p[0] = 90; shim_p[1] = 60; shim_p[2] = 12; shim_p[3] = 127; fx_serial = 1;
+    memset(shim_wet, 0, sizeof shim_wet);
+    memset(&shim_hl, 0, sizeof shim_hl); memset(shim_comb, 0, sizeof shim_comb);
+    memset(shim_ap, 0, sizeof shim_ap); memset(shim_shb, 0, sizeof shim_shb);
+    shim_live = shim_quiet = 0;
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
     key_defaults();                               /* (.. GLO > KEY: none, the scene's own neither) */
     key_own = 0;
@@ -3083,7 +3088,7 @@ static int test_layer(void)
     bad += check("FX tap: nothing on press, the FX page when let go", ok && !ui.home && cur_page()->fam == FAM_FX);
     frames(320);                                       /* (not a double tap: #83) */
     press(B_FX);
-    bad += check("  a second tap: the next page of the family (INSERT, M-Vave-OP1's second card)", str_eq(cur_page()->title, "INSERT"));
+    bad += check("  a second tap: the next page of the family (INSERT, the second card)", str_eq(cur_page()->title, "INSERT"));
     ui_power_on();
     btn_down(B_FX);
     for (flash = 0, i = 0; i < 22u; i++) { frame(); flash |= ui.layer; }      /* 0.35 s */
@@ -3224,16 +3229,16 @@ static int test_layer(void)
     ok &= song.g[G_RTYPE] == 1 && str_eq(GP[G_RTYPE].names[song.g[G_RTYPE]], "SPRING");
     turn(EN_K1, 1);
     ok &= song.g[G_RTYPE] == 2;
-    turn(EN_K1, 5);                                    /* (M-Vave-OP1: SHIMMER after HALL, the end) */
-    ok &= song.g[G_RTYPE] == 3 && str_eq(GP[G_RTYPE].names[3], "SHIMMER");
-    turn(EN_K1, -2);
+    turn(EN_K1, 5);                                    /* SHIMMER now has its own send; HALL is the last new choice */
+    ok &= song.g[G_RTYPE] == 2;
+    turn(EN_K1, -1);
     ok &= song.g[G_RTYPE] == 1;
     song.playing = 0;
     project_save(2);
     turn(EN_K1, -1);
     ok &= song.g[G_RTYPE] == 0;
     project_load(2);
-    bad += check("REVERB page: TYPE HALL (power-on) / ROOM / SPRING / SHIMMER on KNOB 1 (SIZE, DAMP beside it); a project keeps SPRING",
+    bad += check("REVERB page: TYPE HALL (power-on) / ROOM / SPRING on KNOB 1 (SIZE, DAMP beside it); a project keeps SPRING",
                  ok && song.g[G_RTYPE] == 1);
     /* M-Vave-OP1, CHORUS: KNOB 1 TYPE (CHORUS FLANGER VIBRATO, not round), 2 RATE, 3 DEPTH (the globals), 4 FDBK 0..100;
      * TYPE and FDBK kept by a project (its extras) */

@@ -615,8 +615,8 @@ static void fx_anim(const track_t *t, uint16_t c, uint16_t bgc, int32_t x0, int3
                 cv_line(x - 1, py, x, y, c);
             py = y;
         }
-    } else if (str_eq(ti, "REVERB") && song.g[G_RTYPE] == 3) {   /* SHIMMER: sparks rising, faster as they climb */
-        uint32_t n = 6u + (uint32_t)song.g[G_RSIZE] / 16u;
+    } else if (str_eq(ti, "SHIMMER") || (str_eq(ti, "REVERB") && song.g[G_RTYPE] == 3)) {   /* SHIMMER: sparks rising, faster as they climb */
+        uint32_t n = 6u + (uint32_t)(str_eq(ti, "SHIMMER") ? shim_p[0] : song.g[G_RSIZE]) / 16u;
         for (k = 0; k < n; k++) {
             uint32_t hsh = k * 2654435761u, life = 40u + (hsh >> 27), age = (f + (hsh >> 8)) % life;
             int32_t rise = (int32_t)(age * age * (uint32_t)(hh0 - 6) / (life * life)), r = age < life / 2u ? 2 : 1;
@@ -736,20 +736,21 @@ static void pedal_knob_val(const page_t *pg, uint32_t c, const char **lb, char *
     if (!(d = page_desc(pg, c, &vp)) || !vp)
         return;
     *lb = pg->graph == GR_CHO ? (c == 1u ? "RATE" : "DEPTH") : d->label;   /* (the pedal's words, not CRT CDP) */
+    if (pg->graph == GR_INS && pg->id[c] == P_DIST) *lb = "DIST";
     param_format(d, *vp, val, &unit);
     *pos = d->max > d->min ? (int32_t)(enum_rank(d, *vp) - d->min) * 1000 / (d->max - d->min) : 0;
 }
 #define PED_H (Y_GRAPH + H_GRAPH - Y_LABEL)             /* the pedal: y 28 .. 198, top part 48 px (draw_columns) */
 #define PED_TOP (Y_GRAPH - Y_LABEL)
-/* FX's SEND card as a mixer's four faders where KNOB 1..4 are (DST CHO DLY REV, the selected track's): a dark
- * channel strip each, its slot lit from the bottom up to the cap in its bus's colour (the pedal's: DIST orange, the
- * chorus blue, the delay green, the reverb silver), a scale beside it, the name and the value under it (turned: the
+/* FX's SEND card as a mixer's four faders where KNOB 1..4 are (CHO SHIM DLY REV, the selected track's): a dark
+ * channel strip each, its slot lit from the bottom up to the cap in its bus's colour (the pedal's: chorus blue, Shimmer violet,
+ * delay green, reverb silver), a scale beside it, the name and the value under it (turned: the
  * value in the accent). Drawn as the pedals are: the top part, then the rest (cv_oy) */
 #define SF_Y0 14                                       /* the slot: y 14 .. 120 */
 #define SF_H 106
 static void graph_sends(const track_t *t, uint32_t part)
 {
-    static const uint32_t COL[4] = {0xEE7A1E, 0x78B8E6, 0x3FA86A, 0xC2C4C8};
+    static const uint32_t COL[4] = {0x78B8E6, 0xA88CE0, 0x3FA86A, 0xC2C4C8};
     const page_t *pg = cur_page();
     uint16_t body = ped(0x24262B), edge = ped(0x121316), slot = ped(0x0A0B0D), cap = ped(0xD8DADE);
     uint32_t c, k;
@@ -795,6 +796,12 @@ static void graph_pedal(const track_t *t, uint32_t part)
     if (str_eq(ti, "FX")) {                            /* (SEND: a mixer's four faders, not a pedal) */
         graph_sends(t, part);
         return;
+    } else if (str_eq(ti, "INSERT 2")) {
+        pedal_t q = {"INSERT", "PRE DRIVE", 0xEE7A1E, 0x141414, 0x141414, 0xF2F2F2, t->p[P_DIST] != 0 || t->p[P_ITYPE] != 0};
+        p = q;
+    } else if (str_eq(ti, "SHIMMER")) {
+        pedal_t q = {"SHIMMER", "PITCH", 0xEDE8F4, 0x6B46B8, 0xD9CCF0, 0x3A2470, t->p[P_SHIM] != 0};
+        p = q;
     } else if (str_eq(ti, "INSERT")) {
         uint32_t ty = (uint32_t)clamp(t->p[P_ITYPE], 0, IT_N - 1);
         pedal_t q = {N_ITYPE[ty], "INSERT", 0xEE7A1E, 0x141414, 0x141414, 0xF2F2F2, ty != 0u};
@@ -922,7 +929,7 @@ static void graph_fx(const track_t *t, uint16_t c)
 {
     uint32_t i;
     for (i = 0; i < 4u; i++) {
-        int32_t h = t->p[P_DIST + i] * 76 / 127, x = CARD_X(i) + 26;
+        int32_t h = t->p[cur_page()->id[i]] * 76 / 127, x = CARD_X(i) + 26;
         cv_rrect(x, 6, 4, 82, 2, T_RAISE, T_SURF);
         if (h > 3)
             cv_rrect(x, 88 - h, 4, h, 2, c, T_RAISE);
@@ -1635,6 +1642,8 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_CSET)                        /* M-Vave-OP1, SCL > CSET: the set, the last chord, ON */
         h ^= (cset_last.gen * 2654435761u) ^ ((uint32_t)cset_set[song.sel % NTRK] << 9) ^ (uint32_t)t->engine * 389u ^
              (uint32_t)cset_en << 24;                /* (a kit, LOWEST NOTE: the sounding engine, VOICE: a parameter) */
+    if (pg->graph == GR_SHIM)
+        for (i = 0; i < 4u; i++) h = (h ^ (uint16_t)shim_p[i]) * 16777619u;
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u +

@@ -39,6 +39,7 @@ static void test_pages(void)
     press(B_FX); frames(400);
     press(B_FX); frames(400);
     press(B_FX); frames(400);
+    press(B_FX); frames(400);
     ok = str_eq(cur_page()->title, "CHORUS");
     press(B_ENV); frames(400);
     turn(EN_ALGO, 1);
@@ -47,6 +48,7 @@ static void test_pages(void)
     press(B_FX); frames(400);
     ck("another track: FX opens at its first page (SEND), not where the last track left it (CHORUS)",
        ok && str_eq(cur_page()->title, "FX"));
+    press(B_FX); frames(400);
     press(B_FX); frames(400);
     press(B_FX); frames(400);
     turn(EN_ALGO, -1);

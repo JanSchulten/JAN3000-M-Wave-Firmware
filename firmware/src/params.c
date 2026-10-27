@@ -114,6 +114,7 @@ static const param_desc_t TP[P_COUNT] = {
     [P_CHOR] = PD("CHO", F_PCT, 0, 127, 0),
     [P_DLY] = PD("DLY", F_PCT, 0, 127, 0),
     [P_REV] = PD("REV", F_PCT, 0, 127, 0),
+    [P_SHIM] = PD("SHIM", F_PCT, 0, 127, 0),
     [P_VOICE] = PE("VCE", N_VOICE, 0),
     [P_GLIDE] = PD("GLD", F_TIME, 0, 127, 0),
     [P_GLMODE] = PE("GLMOD", N_GLMODE, 0),
@@ -444,7 +445,7 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_CSET,                                 /* .. SCL > CSET (cset.c, ui_graph.c graph_cset) */
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
        GR_DLANE,                                /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
-       GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2 };   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
+       GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2, GR_SHIM };   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
 
 typedef struct {
     const char *title;
@@ -452,6 +453,13 @@ typedef struct {
     uint8_t id[4];               /* param ids; 0xFF = empty slot */
 } page_t;
 
+/* Global SHIMMER settings live in the project extras; G_* ids stay fixed on the wire. */
+static int16_t shim_p[4] = {90, 60, 12, 127};          /* SIZE, DAMP, semitones, feedback */
+static uint8_t fx_serial = 1;                        /* SHIMMER -> DELAY -> REVERB; old projects keep parallel */
+static const param_desc_t SHIM_DESC[4] = {
+    PD("SIZE", F_PCT, 0, 127, 90), PD("DAMP", F_PCT, 0, 127, 60),
+    PD("PITCH", F_SEMI, -12, 24, 12), PD("FDBK", F_PCT, 0, 127, 127)
+};
 static const page_t PAGES[] = {
     {"ENV", FAM_ENV, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},
     {"ENV DEST", FAM_ENV, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (P_ED_FX: nothing reads it);
@@ -460,20 +468,18 @@ static const page_t PAGES[] = {
     {"LFO 2", FAM_LFO, SC_TRACK, GR_LFO, {P_LSYNC, P_LTRIG, P_LPOL, 0xFF}},   /* 1.2: SYNC TRIG POL */
     {"LFO DEST", FAM_LFO, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},
     {"MOD", FAM_LFO, SC_TRACK, GR_MOD, {0xFF, P_M1SRC, P_M1DST, P_M1AMT}},   /* KNOB 1: the slot (mod_ui_slot) */
-    /* M-Vave-OP1: FX's seven cards, a tap of FX the next (ui.c page_visible hides the rest): SEND (the track's DST CHO
-     * DLY REV), INSERT (the track's: TYPE A B MIX; its C keeps its value), CHORUS, DELAY (fx1.c: KNOB 1 the TYPE, DELAY
-     * TIME FDBK MIX or CLOUD SIZE PITCH DENS; ui_input.c dly_knob), REVERB, SLICER, FX TRACKS (fxtrack.c: KNOB 1 the
-     * lane, 2 STEP, 3 its EFFECT, 4 LEN, REC arms it; REC held + F#3 clears them). Each its effect animated under the
-     * cards (ui_graph.c fx_anim). INSERT 2, DLY, CLOUD and FX TRACKS 2 stay as pages of their own for the rest of their
-     * values (the tests, the editor), never shown by FX's taps */
-    {"FX", FAM_FX, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},
+    /* FX: four track sends (CHO SHIM DLY REV), INSERT and its extra controls, then the shared CHORUS, SHIMMER, DELAY
+     * and REVERB settings, SLICER and FX TRACKS. SHIMMER -> DELAY -> REVERB form the serial aux chain;
+     * CHORUS remains parallel. The hidden pages retain the remaining CLOUD / FX TRACK values. */
+    {"FX", FAM_FX, SC_TRACK, GR_FX, {P_CHOR, P_SHIM, P_DLY, P_REV}},
     {"INSERT", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IMIX}},   /* 1.5: the track's INSERT (fx.c) */
+    {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_DIST, P_IC, 0xFF, 0xFF}},    /* original pre-drive and the type's third control */
     {"CHORUS", FAM_FX, SC_GLOBAL, GR_CHO, {0xFF, G_CRATE, G_CDEPTH, 0xFF}},   /* M-Vave-OP1: TYPE RATE DEPTH FDBK */
+    {"SHIMMER", FAM_FX, SC_GLOBAL, GR_SHIM, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"DELAY", FAM_FX, SC_GLOBAL, GR_FX1, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, 0xFF}},   /* TYPE: ROOM / SPRING / HALL / SHIMMER */
+    {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, 0xFF}},   /* stored TYPE 3: legacy SHIMMER */
     {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},
     {"FX TRACKS", FAM_FX, SC_GLOBAL, GR_FXT, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_IMIX, P_IC, 0xFF, 0xFF}},  /* (hidden: MIX and C) */
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},   /* (hidden: all the DELAY's) */
     {"CLOUD", FAM_FX, SC_GLOBAL, GR_CLOUD, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (hidden: all the CLOUD's) */
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_TRANS}},
@@ -535,6 +541,10 @@ static uint8_t mod_ui_slot;      /* the MOD page: the matrix slot (0..3) KNOB 2.
 static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **valp)
 {
     uint32_t id = pg->id[slot];
+    if (pg->graph == GR_SHIM) {
+        *valp = &shim_p[slot];
+        return &SHIM_DESC[slot];
+    }
     if (id == 0xFFu) {
         *valp = 0;
         return 0;

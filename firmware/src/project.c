@@ -1172,6 +1172,7 @@ static void project_new(uint32_t slot)
     xtra_lanes(fxt_lane, &none, 0);
     xtra_fx1(&none, 0);
     xtra_misc(&none, 0);
+    fx_serial = 1;
     np_sounds();
     for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
         pat_sig[k] = steps_sig(&trk[k]);
@@ -1411,6 +1412,8 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
+    h = as_mix(h, shim_p, sizeof shim_p);
+    h = as_mix(h, &fx_serial, sizeof fx_serial);
     h = as_mix(h, cset_set, sizeof cset_set);       /* SCL > CSET's ON, SETs and VOICEs too; */
     h = as_mix(h, cset_voice, sizeof cset_voice);
     h = as_mix(h, &cset_en, 1);

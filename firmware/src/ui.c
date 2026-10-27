@@ -369,11 +369,11 @@ enum { LK_OFF, LK_LABEL, LK_TALL };
  * cards: the pedal from the cards' top to the footer, its top (the knobs) drawn by draw_columns, the rest by draw_graph */
 static int fx_pedal(void)
 {
-    static const char *const C[6] = {"FX", "INSERT", "CHORUS", "DELAY", "REVERB", "SLICER"};
+    static const char *const C[8] = {"FX", "INSERT 2", "INSERT", "CHORUS", "DELAY", "REVERB", "SHIMMER", "SLICER"};
     uint32_t k;
     if (ui.home || ui.layer || ui.menu || cur_page()->fam != FAM_FX)
         return 0;
-    for (k = 0; k < 6u; k++)
+    for (k = 0; k < 8u; k++)
         if (str_eq(cur_page()->title, C[k]))
             return 1;
     return 0;
@@ -423,9 +423,8 @@ static uint32_t layer_btn(void);
  * track's (its patch's operators, ui_fm6op.c) */
 static int page_visible(uint32_t i)
 {
-    if (PAGES[i].graph == GR_CLOUD || PAGES[i].graph == GR_FXT2 || (PAGES[i].scope == SC_GLOBAL && PAGES[i].id[0] == G_DTIME) ||
-        (PAGES[i].graph == GR_INS && PAGES[i].id[0] == P_IMIX))
-        return 0;                                     /* M-Vave-OP1: FX's seven cards (params.c); these on their own */
+    if (PAGES[i].graph == GR_CLOUD || PAGES[i].graph == GR_FXT2 || (PAGES[i].scope == SC_GLOBAL && PAGES[i].id[0] == G_DTIME))
+        return 0;                                     /* M-Vave-OP1: FX's nine pages (params.c); these on their own */
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
     if (PAGES[i].id[0] == P_A2_CUT2 && PAGES[i].graph == GR_NONE)   /* WAVE 2: ANALOG2's (eng_analog2.c) */
@@ -1539,7 +1538,7 @@ static void set_engine_of(track_t *t, uint32_t ei);
  * draw and an engine switch; a user preset brings what was saved with it (upreset.c up_load: param_kept only).
  * Only the power-on sounds still load with their sends (preset_load_to with sends: main.c felucca_init, project.c's
  * format-1 tracks), so the power-on project and the projects saved with it sound as they always did */
-static int preset_fx(uint32_t i) { return (i >= P_DIST && i <= P_REV) || (i >= P_ITYPE && i <= P_IMIX); }
+static int preset_fx(uint32_t i) { return (i >= P_DIST && i <= P_REV) || i == P_SHIM || (i >= P_ITYPE && i <= P_IMIX); }
 
 /* preset pi of the engine the track asked for: the sound only (not the steps, not param_kept); sends: also the
  * preset's sends (or 0 24 28 36) and the INSERT OFF, as every load set them before M-Vave-OP1 */

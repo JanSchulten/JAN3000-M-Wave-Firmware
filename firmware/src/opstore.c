@@ -39,6 +39,7 @@ typedef struct {
     uint8_t cset_set[NTRK];                      /* .. each track's set (0 .. 99) */
     uint8_t cset_voice[NTRK];                    /* .. the VOICE before ON (0xFF: none) */
     uint8_t rsv4[2];                             /* (to the word: 0) */
+    uint8_t shim[4], serial, rsv5[3];           /* (XTRA_V7) SIZE DAMP PITCH(+12) FDBK, serial aux chain */
 } proj_xtra_t;
 #define XTRA_V1 (12u + FXT_N * (uint32_t)sizeof(fxt_lane_t))   /* the first extras: the FX TRACKS only */
 #define XTRA_V2 (XTRA_V1 + 8u)                   /* .. and FX1's (E1) */
@@ -46,7 +47,9 @@ typedef struct {
 #define XTRA_V4 (XTRA_V3 + 20u)                  /* .. the KEY's */
 #define XTRA_V5 (XTRA_V4 + NTRK * NSTEP / 8u)    /* .. the LEGATO steps */
 #define XTRA_V6 (XTRA_V5 + 4u + 2u * NTRK)       /* .. SCL > CSET's */
-_Static_assert(sizeof(proj_xtra_t) == XTRA_V6 && KEY_BARS == 16u && NSTEP % 8u == 0u,
+
+#define XTRA_V7 (XTRA_V6 + 8u)                  /* .. the independent SHIMMER bus */
+_Static_assert(sizeof(proj_xtra_t) == XTRA_V7 && KEY_BARS == 16u && NSTEP % 8u == 0u,
                "project extras layout (stored, append-only)");
 static proj_xtra_t xtra_slot[4] __attribute__((section(".pool")));   /* each project slot's (magic 0: none) */
 
@@ -91,6 +94,11 @@ static void xtra_capture(proj_xtra_t *x, uint32_t proj)
     memcpy(x->cset_voice, cset_voice, sizeof x->cset_voice);
     x->cho[0] = chos.type;
     x->cho[1] = chos.fdbk;
+    x->shim[0] = (uint8_t)shim_p[0];
+    x->shim[1] = (uint8_t)shim_p[1];
+    x->shim[2] = (uint8_t)(shim_p[2] + 12);
+    x->shim[3] = (uint8_t)shim_p[3];
+    x->serial = fx_serial;
     x->key_on = keyt.on;
     x->key_len = keyt.len;
     memcpy(x->key_root, (const void *)keyt.root, sizeof x->key_root);
@@ -145,6 +153,11 @@ static void xtra_misc(const proj_xtra_t *x, uint32_t proj)
     }
     chos.type = ok && x->cho[0] < CHO_NTYPE ? x->cho[0] : CHO_CHORUS;   /* (the CHORUS's: fx.c) */
     chos.fdbk = ok && x->cho[1] <= 100u ? x->cho[1] : 0u;
+    shim_p[0] = ok && x->size >= XTRA_V7 ? (int16_t)clamp(x->shim[0], 0, 127) : 90;
+    shim_p[1] = ok && x->size >= XTRA_V7 ? (int16_t)clamp(x->shim[1], 0, 127) : 60;
+    shim_p[2] = ok && x->size >= XTRA_V7 ? (int16_t)clamp((int32_t)x->shim[2] - 12, -12, 24) : 12;
+    shim_p[3] = ok && x->size >= XTRA_V7 ? (int16_t)clamp(x->shim[3], 0, 127) : 127;
+    fx_serial = ok && x->size >= XTRA_V7 ? x->serial & 1u : 0;
     key_defaults();                                 /* GLO > KEY's run (key.c); an older one: none */
     if (ok4) {
         keyt.on = x->key_on & 1u;
