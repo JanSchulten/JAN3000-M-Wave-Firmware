@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* Effects: per-track DIST and INSERT (1.5), then sends into three
- * shared buses (chorus, tempo delay, reverb). Mono buses, stereo dry mix. */
+/* Effects: per-track DIST and INSERT (1.5), then sends into four
+ * shared buses (chorus, tempo delay, reverb, shimmer). Mono buses, stereo dry mix. */
 #define DLY_LEN 65536u           /* 1.49 s: 1/4 fits from 41 BPM, 1/4D from 61, 1/2 from 81 */
 /* M-Vave-OP1: the delay bus is FX1, of a TYPE (fx1.c): DELAY, or CLOUD (granular, in the delay's line). Its settings:
  * the main loop's (FX1 and CLOUD pages), kept with the project's extras (opstore.c); bytes the ISR reads a block at a time */
@@ -19,6 +19,7 @@ static volatile struct {
     uint8_t type;                        /* CHO_* */
     uint8_t fdbk;                        /* 0..100 */
 } chos;
+static int32_t cho_wet[CTL], shim_wet[CTL], chain_rev[CTL];
 #define CHO_LEN 2048u
 static int16_t dly_buf[DLY_LEN] __attribute__((section(".pool")));
 static int16_t cho_buf[CHO_LEN] __attribute__((section(".pool")));
@@ -94,7 +95,7 @@ static inline int32_t cho_tick(const cho_k_t *k, int32_t in)
 _Static_assert(sizeof rev_comb / 2u >= SP_LEN && sizeof rev_u.sp / 4u >= 4u * (SP_N + 1u), "SPRING in ROOM's buffers");
 
 /* HALL (G_RTYPE 2, 1.2): a smooth, dense, stereo reverb, again in ROOM's buffers (its few states and one block
- * of work in the pool, no .bss). ROOM's 4 combs each ring on their own (the metallic tone); here every echo
+ * of work shared with SHIMMER). ROOM's 4 combs each ring on their own (the metallic tone); here every echo
  * goes round 8 lines that all feed each other, and they run at half the rate (22.05 kHz: the same memory holds
  * twice the time, so twice the resonances, at half the work; the tail stops near 10 kHz, as a hall's air
  * does). The send (every other sample of it, low-passed 1 2 1; ROOM's level) -> a low cut (~110 Hz: no boom
@@ -125,7 +126,7 @@ static const int16_t HL_APG[HL_NAP] = {11469, 10240};               /* Q14: 0.7,
 _Static_assert(467 + 509 + 547 + 593 + 631 + 673 + 709 + 743 + HL_NL <= sizeof rev_comb / 2u &&
                131 + 307 <= sizeof rev_u.ap / 2u, "HALL in ROOM's buffers");
 _Static_assert(CTL % 2u == 0u && HL_NC + 2u * HL_MOD + 2u < 467u && HL_NC <= 131u, "HALL: one wrap a block at most");
-static struct {                          /* HALL's state (in the pool: no .bss) */
+typedef struct {                         /* persistent state, one per HALL / SHIMMER bus */
     uint16_t i[HL_NL], d[HL_NAP];        /* the lines' write indices, the diffusers' */
     int32_t lp[HL_NL], le[HL_NL];        /* the low-passes and their steps' remainders */
     int32_t x, m, s, hp, he;             /* the send's last sample, its low cut and that step's remainder; the
@@ -134,12 +135,20 @@ static struct {                          /* HALL's state (in the pool: no .bss) 
     uint32_t ph;                         /* the taps' drift */
     uint8_t side;                        /* sd holds this block's stereo difference (HALL running) */
     int32_t sd[CTL];                     /* the block's left minus right (mix_block: rev_side_mix) */
-    int32_t bx[HL_NC], l[HL_NC], r[HL_NC];   /* the block at half the rate: the diffused send, left, right */
-    int16_t y[HL_NL][HL_NC];             /* the lines' ends, then what goes back into them */
     int32_t sh[HL_NC], shlp;             /* SHIMMER: its octave going into the next block's send; its low-pass */
+    uint32_t shp;                        /* fractional pitch-shifter phase of the independent bus */
     uint16_t shw, shd;                   /* .. its line's write index, the first tap's distance */
-    int16_t shb[1024];                   /* .. its line (SH_LEN) */
-} hl __attribute__((section(".pool")));
+} hall_t;
+/* Small states and block scratch in RAM leave the pool's 8 KiB reserve intact; every long line stays in the pool. */
+static hall_t hl, shim_hl;
+static struct {                         /* shared scratch: the two buses render sequentially */
+    int32_t bx[HL_NC], l[HL_NC], r[HL_NC];
+    int16_t y[HL_NL][HL_NC];
+} hw;
+static int16_t rev_shb[1024] __attribute__((section(".pool")));
+static int16_t shim_shb[1024] __attribute__((section(".pool")));
+static int16_t shim_comb[4872 + HL_NL] __attribute__((section(".pool")));
+static int16_t shim_ap[131 + 307] __attribute__((section(".pool")));
 #define rev_side (hl.sd)
 
 /* DIST: low cut -> drive (1x..8x, exponential) -> asymmetric soft clip
@@ -390,14 +399,14 @@ static uint32_t exp2_neg(uint32_t x)
 /* the lines' gains for SIZE s: RT60 = 0.5 s * 2^(s / 30); a line of D samples (22.05 kHz) loses 60 dB in
  * RT60 * 22050 / D passes: g = 2^(-D * 3 log2(10) / (22050 * RT60)) = 2^(-D * 59.2 / 65536 * 2^(-s / 30)),
  * at most 0.99, over sqrt(7) (the matrix's rows have 7 entries of +-1: / sqrt(7) makes it orthogonal) */
-static __attribute__((noinline)) void hall_gains(int32_t s)
+static __attribute__((noinline)) void hall_gains(hall_t *h, int32_t s)
 {
     uint32_t q = exp2_neg((uint32_t)s * 65536u / 30u), k, g;
     for (k = 0; k < HL_NL; k++) {
         g = exp2_neg((HL_LEN[k] * 59u * q) >> 15);
-        hl.g[k] = (int16_t)(((g > 32440u ? 32440u : g) * 6193u) >> 15);
+        h->g[k] = (int16_t)(((g > 32440u ? 32440u : g) * 6193u) >> 15);
     }
-    hl.sz = (int16_t)(s + 1);
+    h->sz = (int16_t)(s + 1);
 }
 
 /* an allpass diffuser over x[0 .. n) from q (its next samples, no wrap): its state rounded towards zero */
@@ -473,114 +482,146 @@ static inline void hall_end_lp(const int16_t *b, int16_t *y, uint32_t n, int32_t
 #define SH_G 12000                       /* Q15: the octave's level going back in (0.37: 16000 still dies away, slowly) */
 #define SH_LP 20000                      /* Q15: its low-pass */
 #define SH_IN 1                          /* the tail into the line: (left + right) / 2, the lines' sum over 4 */
-_Static_assert(sizeof hl.shb / 2u == SH_LEN, "SHIMMER's line");
-static __attribute__((noinline)) void hall_shimmer(void)
+_Static_assert(sizeof rev_shb / 2u == SH_LEN, "SHIMMER's line");
+static __attribute__((noinline)) void hall_shimmer(hall_t *h, int16_t *pitch)
 {
-    uint32_t i, w = hl.shw, d = hl.shd;
-    int32_t lp = hl.shlp;
+    uint32_t i, w = h->shw, d = h->shd;
+    int32_t lp = h->shlp;
     for (i = 0; i < HL_NC; i++) {
         uint32_t e = (d + SH_LEN / 2u) & SH_MASK;
         int32_t g0 = (int32_t)(d < SH_LEN / 2u ? d : SH_LEN - d), y;
-        hl.shb[w] = (int16_t)clamp((hl.l[i] + hl.r[i]) >> SH_IN, -32768, 32767);
-        y = (hl.shb[(w - d) & SH_MASK] * g0 + hl.shb[(w - e) & SH_MASK] * ((int32_t)SH_LEN / 2 - g0)) >> 9;
+        pitch[w] = (int16_t)clamp((hw.l[i] + hw.r[i]) >> SH_IN, -32768, 32767);
+        y = (pitch[(w - d) & SH_MASK] * g0 + pitch[(w - e) & SH_MASK] * ((int32_t)SH_LEN / 2 - g0)) >> 9;
         y -= lp;                                       /* (both rounded towards zero: the tail ends in exact silence) */
         lp += (y * SH_LP + (y < 0 ? 32767 : 0)) >> 15;
-        hl.sh[i] = (lp * SH_G + (lp < 0 ? 32767 : 0)) >> 15;
+        h->sh[i] = (lp * SH_G + (lp < 0 ? 32767 : 0)) >> 15;
         w = (w + 1u) & SH_MASK;
         d = (d - 1u) & SH_MASK;
     }
-    hl.shw = (uint16_t)w, hl.shd = (uint16_t)d, hl.shlp = lp;
+    h->shw = (uint16_t)w, h->shd = (uint16_t)d, h->shlp = lp;
 }
 
-static __attribute__((noinline)) void rev_hall(const int32_t *rev_in, int32_t *out, uint32_t n)
+/* The independent bus's two windowed taps at a variable rate (-12 .. +24 semitones). At +12 and FDBK
+ * 127 this is the legacy octave bit for bit. FDBK 100 % is the proven SH_G ceiling, not unity loop gain. */
+static const uint32_t SH_RATE[37] = {32768u, 34716u, 36781u, 38968u, 41285u, 43740u, 46341u, 49097u, 52016u, 55109u, 58386u, 61858u, 65536u, 69433u, 73562u, 77936u, 82570u, 87480u, 92682u, 98193u, 104032u, 110218u, 116772u, 123715u, 131072u, 138866u, 147123u, 155872u, 165140u, 174960u, 185364u, 196386u, 208064u, 220436u, 233544u, 247431u, 262144u};
+static __attribute__((noinline)) void shimmer_pitch(hall_t *h, int16_t *pitch)
 {
-    int16_t *b = rev_comb, *a = rev_ap;
+    uint32_t i, w = h->shw, phase = h->shp, rate = SH_RATE[clamp(shim_p[2], -12, 24) + 12];
+    int32_t lp = h->shlp, gain = SH_G * clamp(shim_p[3], 0, 127) / 127;
+    if (!shim_p[2]) gain /= 32;                 /* no spectral shift: leave gain margin for the hall's resonances */
+    for (i = 0; i < HL_NC; i++) {
+        uint32_t d = phase >> 16, f = phase & 65535u, e = (d + SH_LEN / 2u) & SH_MASK;
+        uint32_t a = (w - d) & SH_MASK, b = (w - e) & SH_MASK;
+        int32_t g0 = (int32_t)(d < SH_LEN / 2u ? d : SH_LEN - d), y, u, v;
+        pitch[w] = (int16_t)clamp((hw.l[i] + hw.r[i]) >> SH_IN, -32768, 32767);
+        u = pitch[a] + mulq16(pitch[(a - 1u) & SH_MASK] - pitch[a], f);
+        v = pitch[b] + mulq16(pitch[(b - 1u) & SH_MASK] - pitch[b], f);
+        y = ((u * g0 + v * ((int32_t)SH_LEN / 2 - g0)) >> 9) - lp;
+        lp += (y * SH_LP + (y < 0 ? 32767 : 0)) >> 15;
+        h->sh[i] = (lp * gain + (lp < 0 ? 32767 : 0)) >> 15;
+        w = (w + 1u) & SH_MASK;
+        phase = (phase + 65536u - rate) & ((SH_LEN << 16) - 1u);
+    }
+    h->shw = (uint16_t)w; h->shp = phase; h->shlp = lp;
+}
+
+static __attribute__((noinline)) void hall_block(hall_t *h, int16_t *comb, int16_t *ap, int16_t *pitch,
+                                              const int32_t *rev_in, int32_t *out, int32_t size, int32_t damp, int shimmer)
+{
+    int16_t *b = comb, *a = ap;
     uint32_t i, k, s, m, d;
-    int32_t kd = HL_KD(song.g[G_RDAMP]);
-    int32_t xp = hl.x, hp = hl.hp, he = hl.he, mp = hl.m, sp = hl.s;
-    (void)n;
-    if (hl.sz != song.g[G_RSIZE] + 1)
-        hall_gains(song.g[G_RSIZE]);
+    int32_t kd = HL_KD(damp);
+    int32_t xp = h->x, hp = h->hp, he = h->he, mp = h->m, sp = h->s;
+    if (h->sz != size + 1)
+        hall_gains(h, size);
     for (i = 0; i < HL_NC; i++) {
         int32_t x = (xp + 2 * rev_in[2u * i] + rev_in[2u * i + 1u]) >> 2, v;   /* every other sample, 1 2 1 */
         xp = rev_in[2u * i + 1u];
-        x = mulq15(clamp(x, -262143, 262143), 2580) + hl.sh[i];   /* (ROOM's level; SHIMMER's octave, 0 in a HALL:
+        x = mulq15(clamp(x, -262143, 262143), 2580) + h->sh[i];   /* (ROOM's level; SHIMMER's octave, 0 in a HALL:
                                                                      * through the low cut too, no rumble round it) */
         v = x - hp + he;                                /* the low cut, its step's remainder kept */
         he = v & 31;
         hp += v >> 5;
-        hl.bx[i] = x - hp;
+        hw.bx[i] = x - hp;
     }
-    hl.x = xp, hl.hp = hp, hl.he = he;
+    h->x = xp, h->hp = hp, h->he = he;
     for (k = 0; k < HL_NAP; k++) {                      /* the diffusers */
-        d = hl.d[k];
-        HL_RUNS(d, HL_AP[k], m, s, hall_ap(a + d, HL_APG[k], hl.bx + s, m));
-        hl.d[k] = (uint16_t)d;
+        d = h->d[k];
+        HL_RUNS(d, HL_AP[k], m, s, hall_ap(a + d, HL_APG[k], hw.bx + s, m));
+        h->d[k] = (uint16_t)d;
         a += HL_AP[k];
     }
-    hl.ph += HL_LFO;
+    h->ph += HL_LFO;
     for (k = 0; k < HL_NL; k++) {                       /* the lines' ends */
-        int32_t g = hl.g[k], f = 0, lo;
+        int32_t g = h->g[k], f = 0, lo;
         if ((HL_LPM >> k) & 1u)
-            d = hl.i[k];                                /* (low-passed: the line's end) */
+            d = h->i[k];                                /* (low-passed: the line's end) */
         else {                                          /* (drifting: HL_MOD + 2 +- HL_MOD samples short of it) */
             uint32_t r = (uint32_t)(((HL_MOD + 2) << 8) +
-                                    ((osc_sine(hl.ph * (1u + (k & 1u)) + k * 0x2C000000u) * HL_MOD) >> 7));
+                                    ((osc_sine(h->ph * (1u + (k & 1u)) + k * 0x2C000000u) * HL_MOD) >> 7));
             f = (int32_t)(r & 255u);
-            d = hl.i[k] + (r >> 8);
+            d = h->i[k] + (r >> 8);
             d = d >= HL_LEN[k] ? d - HL_LEN[k] : d;
         }
         s = d + HL_LEN[k] / 2u;                         /* quiet? (two samples half a line apart) */
         s = s >= HL_LEN[k] ? s - HL_LEN[k] : s;
         lo = (b[d] < 0 ? -b[d] : b[d]) + (b[s] < 0 ? -b[s] : b[s]) < HL_LOUD;
         if ((HL_LPM >> k) & 1u) {
-            HL_RUNS(d, HL_LEN[k], m, s, hall_end_lp(b + d, hl.y[k] + s, m, g, lo, &hl.lp[k], &hl.le[k], kd));
+            HL_RUNS(d, HL_LEN[k], m, s, hall_end_lp(b + d, hw.y[k] + s, m, g, lo, &h->lp[k], &h->le[k], kd));
         } else {
-            HL_RUNS(d, HL_LEN[k], m, s, hall_end(b + d, f, hl.y[k] + s, m, g, lo));
+            HL_RUNS(d, HL_LEN[k], m, s, hall_end(b + d, f, hw.y[k] + s, m, g, lo));
         }
         b += HL_LEN[k] + 1u;
     }
     for (i = 0; i < HL_NC; i++) {
-        int32_t y0 = hl.y[0][i], y1 = hl.y[1][i], y2 = hl.y[2][i], y3 = hl.y[3][i];
-        int32_t y4 = hl.y[4][i], y5 = hl.y[5][i], y6 = hl.y[6][i], y7 = hl.y[7][i], x = hl.bx[i];
+        int32_t y0 = hw.y[0][i], y1 = hw.y[1][i], y2 = hw.y[2][i], y3 = hw.y[3][i];
+        int32_t y4 = hw.y[4][i], y5 = hw.y[5][i], y6 = hw.y[6][i], y7 = hw.y[7][i], x = hw.bx[i];
         int32_t t, p0, p1, p2, p3, p4, p5, p6;
-        hl.l[i] = y0 + y3 + y4 - y7;                    /* the outputs */
-        hl.r[i] = y1 + y2 + y5 + y6;
+        hw.l[i] = y0 + y3 + y4 - y7;                    /* the outputs */
+        hw.r[i] = y1 + y2 + y5 + y6;
         /* the matrix: C = [0 1; -1 Q], Q (7 x 7) = chi(j - i), the quadratic character mod 7 (+1 at distances
          * 1 2 4, -1 at 3 5 6): row 1 + i of Q y = 2 (the three at +1) - (the sum of the 7) + y_1+i */
         t = y1 + y2 + y3 + y4 + y5 + y6 + y7;
         p0 = y2 + y3 + y5, p1 = y3 + y4 + y6, p2 = y4 + y5 + y7, p3 = y5 + y6 + y1;
         p4 = y6 + y7 + y2, p5 = y7 + y1 + y3, p6 = y1 + y2 + y4;
         y0 += t;
-        hl.y[0][i] = (int16_t)clamp(t + x, -32768, 32767);   /* (+ the send: signs spread over the rows) */
-        hl.y[1][i] = (int16_t)clamp(2 * p0 + y1 - y0 + x, -32768, 32767);
-        hl.y[2][i] = (int16_t)clamp(2 * p1 + y2 - y0 + x, -32768, 32767);
-        hl.y[3][i] = (int16_t)clamp(2 * p2 + y3 - y0 + x, -32768, 32767);
-        hl.y[4][i] = (int16_t)clamp(2 * p3 + y4 - y0 + x, -32768, 32767);
-        hl.y[5][i] = (int16_t)clamp(2 * p4 + y5 - y0 + x, -32768, 32767);
-        hl.y[6][i] = (int16_t)clamp(2 * p5 + y6 - y0 + x, -32768, 32767);
-        hl.y[7][i] = (int16_t)clamp(2 * p6 + y7 - y0 - x, -32768, 32767);
+        hw.y[0][i] = (int16_t)clamp(t + x, -32768, 32767);   /* (+ the send: signs spread over the rows) */
+        hw.y[1][i] = (int16_t)clamp(2 * p0 + y1 - y0 + x, -32768, 32767);
+        hw.y[2][i] = (int16_t)clamp(2 * p1 + y2 - y0 + x, -32768, 32767);
+        hw.y[3][i] = (int16_t)clamp(2 * p2 + y3 - y0 + x, -32768, 32767);
+        hw.y[4][i] = (int16_t)clamp(2 * p3 + y4 - y0 + x, -32768, 32767);
+        hw.y[5][i] = (int16_t)clamp(2 * p4 + y5 - y0 + x, -32768, 32767);
+        hw.y[6][i] = (int16_t)clamp(2 * p5 + y6 - y0 + x, -32768, 32767);
+        hw.y[7][i] = (int16_t)clamp(2 * p6 + y7 - y0 - x, -32768, 32767);
     }
-    b = rev_comb;
+    b = comb;
     for (k = 0; k < HL_NL; k++) {                       /* back into the lines (and the mirror after a wrap) */
-        d = hl.i[k];
-        HL_RUNS(d, HL_LEN[k], m, s, for (i = 0; i < m; i++) b[d + i] = hl.y[k][s + i]; if (!d) b[HL_LEN[k]] = b[0]);
-        hl.i[k] = (uint16_t)d;
+        d = h->i[k];
+        HL_RUNS(d, HL_LEN[k], m, s, for (i = 0; i < m; i++) b[d + i] = hw.y[k][s + i]; if (!d) b[HL_LEN[k]] = b[0]);
+        h->i[k] = (uint16_t)d;
         b += HL_LEN[k] + 1u;
     }
     for (i = 0; i < HL_NC; i++) {                       /* back to 44.1 kHz, between samples */
-        int32_t mm = (hl.l[i] + hl.r[i]) * HL_OUT, ss = (hl.l[i] - hl.r[i]) * HL_OUT;
+        int32_t mm = (hw.l[i] + hw.r[i]) * HL_OUT, ss = (hw.l[i] - hw.r[i]) * HL_OUT;
         out[2u * i] += (mp + mm) >> 1;
         out[2u * i + 1u] += mm;
-        rev_side[2u * i] = (sp + ss) >> 1;
-        rev_side[2u * i + 1u] = ss;
+        h->sd[2u * i] = (sp + ss) >> 1;
+        h->sd[2u * i + 1u] = ss;
         mp = mm;
         sp = ss;
     }
-    hl.m = mp, hl.s = sp;
-    hl.side = 1;
-    if (fx.rtype == 3u)
-        hall_shimmer();
+    h->m = mp, h->s = sp;
+    h->side = 1;
+    if (shimmer == 2)
+        shimmer_pitch(h, pitch);
+    else if (shimmer)
+        hall_shimmer(h, pitch);
+}
+
+static __attribute__((noinline)) void rev_hall(const int32_t *in, int32_t *out, uint32_t n)
+{
+    (void)n;
+    hall_block(&hl, rev_comb, rev_ap, rev_shb, in, out, song.g[G_RSIZE], song.g[G_RDAMP], fx.rtype == 3u);
 }
 
 /* the reverb's buffers and states to silence (the model changed) */
@@ -598,7 +639,7 @@ static void rev_clear(void)
     fx.sp_lp = fx.sp_hp = fx.sp_he = 0;
     hl.x = hl.m = hl.s = hl.hp = hl.he = 0;
     for (i = 0; i < SH_LEN; i++)                        /* (SHIMMER's) */
-        hl.shb[i] = 0;
+        rev_shb[i] = 0;
     for (i = 0; i < HL_NC; i++)
         hl.sh[i] = 0;
     hl.shlp = 0;
@@ -650,6 +691,7 @@ static __attribute__((noinline)) void dly_glide(const int32_t *cho_in, const int
     }
     for (i = 0; i < n; i++) {
         int32_t y = cho_tick(&ck, cho_in[i]), x = dly_buf[(fx.dly_w - fx.dl_cur) & (DLY_LEN - 1u)];
+        cho_wet[i] = y;
         if (fx.dxf) {
             int32_t xb = dly_buf[(fx.dly_w - fx.dl_new) & (DLY_LEN - 1u)];
             x += ((xb - x) * (DLY_XF - fx.dxf)) >> DLY_XF_LOG2;   /* (|xb - x| < 2^16: fits) */
@@ -663,6 +705,16 @@ static __attribute__((noinline)) void dly_glide(const int32_t *cho_in, const int
         y += mulq15(x << 1, dmix);
         wet[i] = y;
     }
+}
+
+/* The serial aux chain sums explicit per-track sends at each stage. Dry Shimmer and its echoes both
+ * reach REVERB (as a serial delay's dry/wet output); CHORUS stays parallel. Clamp before the reverb's Q15
+ * multiply: several loud tracks plus both upstream tails must not wrap. */
+static __attribute__((noinline)) const int32_t *serial_reverb(const int32_t *in, const int32_t *out, uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) chain_rev[i] = clamp(in[i] + shim_wet[i] + out[i] - cho_wet[i], -262143, 262143);
+    return chain_rev;
 }
 
 /* process the three buses for one block; sends in, wet stereo-equal out */
@@ -685,6 +737,7 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
     else
     for (i = 0; i < n; i++) {
         int32_t y = cho_tick(&ck, cho_in[i]), x;   /* the chorus (cho_tick) */
+        cho_wet[i] = y;
         /* delay with a low-passed feedback */
         x = dly_buf[(fx.dly_w - dl) & (DLY_LEN - 1u)];
         fx.dly_lp += mulq15(x - fx.dly_lp, col);
@@ -694,6 +747,8 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
         y += mulq15(x << 1, dmix);
         wet[i] = y;
     }
+    if (fx_serial)
+        rev_in = serial_reverb(rev_in, wet, n);
     rt = song.g[G_RTYPE];
     rt = rt >= 1 && rt <= 3 ? rt : 0;
     hl.side = 0;
@@ -914,7 +969,57 @@ static __attribute__((noinline)) void track_insert(track_t *t, int32_t *b, uint3
 /* one block of the whole mix (shared with hostsim.c): events -> each part (with its modulation matrix)
  * -> dist -> INSERT -> SLICER -> level / pan / sends -> buses -> master; out: stereo Q15 */
 static void events_block(uint32_t n);                    /* seq.c */
-static int32_t send_c[CTL], send_d[CTL], send_r[CTL], wet[CTL], mix_l[CTL], mix_r[CTL];
+static int32_t send_c[CTL], send_d[CTL], send_r[CTL], send_sh[CTL], wet[CTL], mix_l[CTL], mix_r[CTL];
+
+/* Silent buses sleep only after 256 zero-output blocks and empty delay/filter states. A low-pass can retain
+ * an inaudible +/-1 rounding residue, and its fractional remainder alone cannot produce output. */
+static uint8_t shim_live, shim_quiet;
+static __attribute__((noinline)) void shimmer_send(const track_t *t, const int32_t *b, uint32_t n)
+{
+    uint32_t i;
+    int32_t g = t->p[P_SHIM] * 258, lvl = LEVEL_Q12[t->p[P_LEVEL] & 127];
+    int32_t lim = 0x7FFFFFFF / (g | 1);
+    shim_live = 1;
+    fx_serial = 1;                                  /* adding SHIM to an old parallel project adopts the new chain */
+    for (i = 0; i < n; i++) {
+        int32_t x = ((b[i] >> 2) * lvl) >> 10;
+        send_sh[i] += mulq15(clamp(x, -lim, lim), g);
+    }
+}
+
+static __attribute__((noinline)) void shimmer_bus(int32_t *out, uint32_t n)
+{
+    uint32_t i;
+    if (!shim_live)
+        return;
+    hall_block(&shim_hl, shim_comb, shim_ap, shim_shb, send_sh, out, shim_p[0], shim_p[1], 2);
+    for (i = 0; i < n; i++) {
+        mix_l[i] += shim_hl.sd[i];
+        mix_r[i] -= shim_hl.sd[i];
+    }
+    if (shim_hl.m | shim_hl.s | shim_hl.x | shim_hl.hp | (shim_hl.shlp < -1 || shim_hl.shlp > 1))
+        shim_quiet = 0;
+    else if (!++shim_quiet) {
+        int32_t busy = 0;
+        for (i = 0; i < sizeof shim_comb / sizeof shim_comb[0]; i++) busy |= shim_comb[i];
+        for (i = 0; i < sizeof shim_ap / sizeof shim_ap[0]; i++) busy |= shim_ap[i];
+        for (i = 0; i < SH_LEN; i++) busy |= shim_shb[i];
+        for (i = 0; i < HL_NL; i++) busy |= shim_hl.lp[i];
+        for (i = 0; i < HL_NC; i++) busy |= shim_hl.sh[i];
+        if (!busy) shim_live = 0;
+    }
+}
+
+static __attribute__((noinline)) void serial_delay(uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) send_d[i] = clamp(send_d[i] + shim_wet[i], -262143, 262143);
+}
+static __attribute__((noinline)) void shimmer_return(uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) wet[i] += shim_wet[i];
+}
 
 /* SPREAD (#148): a POLY or UNISON part whose SPRD is above 0. Its voices start left and right of PAN in turn (voice.c
  * voice_start; UNISON's detuned voices alternate), at PAN -/+ SPRD / 2 (SPRD 127: hard left and right), with the pan
@@ -1014,6 +1119,8 @@ static void mix_part(track_t *t, uint32_t n)
         }
         t->peak = pk;
     }
+    if (t->p[P_SHIM])
+        shimmer_send(t, b, n);
     if (pf.thr)
         perf_throw(t, b, send_d, send_r, n);            /* perform.c: REV / ECHO THROW (1.5.1), the sends towards full */
     if (mod.on)
@@ -1059,16 +1166,19 @@ static void mix_block(int32_t *out, uint32_t n)
     int perf;
     int32_t mg = fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12;   /* (USB LEVEL FIXED: MASTER after) */
     for (i = 0; i < n; i++)
-        send_c[i] = send_d[i] = send_r[i] = mix_l[i] = mix_r[i] = 0;
+        send_c[i] = send_d[i] = send_r[i] = send_sh[i] = shim_wet[i] = mix_l[i] = mix_r[i] = 0;
     events_block(n);
     perf = perf_begin(n);                               /* the FX hold layer at work (perform.c) */
     for (i = 0; i < NPART; i++)
         mix_part(&trk[i], n);
     if (perf)
         perf_pre(mix_l, mix_r, send_d, send_r, n);
+    shimmer_bus(shim_wet, n);
+    if (fx_serial && shim_live) serial_delay(n);
     fx_buses(send_c, send_d, send_r, wet, n);
     if (hl.side)
         rev_side_mix(mix_l, mix_r, n);                  /* HALL: stereo */
+    if (shim_live) shimmer_return(n);
     if (scope_mix)
         scope_take_mix(n);
     if (perf) {

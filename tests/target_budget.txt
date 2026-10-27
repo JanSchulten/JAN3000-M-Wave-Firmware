@@ -67,7 +67,7 @@ perf_duck 32
 perf_stereo 65
 rev_room 245
 rev_spring 126
-rev_hall 1995
+hall_block 1995
 rev_side_mix 9
 dly_glide 106
 aud_fade_half 17
@@ -79,3 +79,11 @@ cloud_render 306
 cl_spawn 9
 fx1_block 92
 cloud_side 14
+
+# Independent SHIMMER bus and serial aux chain (existing limits above unchanged).
+shimmer_pitch 73
+shimmer_send 14
+shimmer_bus 30
+serial_delay 11
+serial_reverb 17
+shimmer_return 7

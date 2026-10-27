@@ -23,12 +23,13 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"LFO DEST", "[K1-4]LFO AMOUNTS[SELECT]MOD"},
     {"MOD", "[K1]SLOT[K2]SOURCE[K3]DEST"},
     {"FX", "[K1-4]SENDS[FX]HOLD: PERFORM"},
+    {"SHIMMER", "[K1-4]SHIMMER[SELECT]DELAY"},
     {"SLICER", "[K1]ON[K2]PATTERN[SELECT]FX TRACKS"},
-    {"INSERT", "[K1]TYPE[K4]MIX[SELECT]CHORUS"},
-    {"INSERT 2", "[K1]DRY / WET[SELECT]DLY"},
+    {"INSERT", "[K1]TYPE[K4]MIX[SELECT]INSERT 2"},
+    {"INSERT 2", "[K1]PRE DRIVE[SELECT]CHORUS"},
     {"DLY", "[K1-4]ALL TRACKS[SELECT]REVERB"},
     {"REVERB", "[K1]TYPE[K2]SIZE[SELECT]SLICER"},
-    {"CHORUS", "[K1]TYPE[K4]FDBK[SELECT]DELAY"},
+    {"CHORUS", "[K1]TYPE[K4]FDBK[SELECT]SHIMMER"},
     {"SCL", "[K2]SCALE[K3]QUANT[SELECT]CHORDS"},
     {"CHORD", "[K1]CHORD[SELECT]CSET"},
     {"CSET", "[K1]ON[K2]SET[K3]GENRE"},     /* (M-Vave-OP1, cset.c) */
@@ -49,15 +50,15 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"VOICE", "[K1]POLY, MONO[K2]GLIDE"},
     {"VOICE 2", "[K2]DETUNE[K3]PAN[K4]MUTE"},
     {"VOICE 3", "[K1]STEREO SPREAD[SELECT]EDIT 1"},
-    {"FX TRACKS", "[REC]ARM[FX]HOLD + KEYS"},
+    {"FX TRACKS", "[REC]ARM[EDIT]CLEAR LANE"},
     {"DELAY", "[K1]DELAY / CLOUD[SELECT]REVERB"},
     {"CLOUD", "[K1]SIZE[K2]DENSITY[K3]PITCH"},
     {"FX TRACKS 2", "[K1]LANE[K2]BOTH[OCT+]CLEAR"},
     {"KEY", "[KEYS]ROOT[REC]RECORD[K4]ON"},
-    {"SONG", "[REC]CHAIN[KEYS]A-D[PLAY]SONG"},
+    {"SONG", "[KEYS]F#3:SEC G#3:SONG[PLAY]RUN"},
     {"USER", "[K1]SLOT[OCT+]SAVE[SELECT]PRESETS"},
     {"PRESETS", "[K2]ENGINE[K3]FAV[K4]LIST"},
-    {"PHRASES", "[K1]PHRASE[OCT+]LOAD[SELECT]TOOLS"},
+    {"PHRASES", "[K1]PHRASE[OCT+]LOAD[SELECT]NEXT"},
     {"PROJECT", "[KEYS]PROJECT[OCT+]SAVE[OCT-]LOAD"},
     {"TOOLS", "[K1]CLEAR[K2]INIT SOUND[OCT+]DO"},
     {"ARP", "[K1]MODE[KEYS]CHORD[SELECT]ARP 2"},
@@ -65,16 +66,16 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"STEP", "[KEYS]WRITE[K1]STEP[SELECT]RATCH"},   /* (1.5.1: SEQ to DETAIL) */
     {"DETAIL", "[PRESETS]STEP[K1]CHANCE[K2]RATCH"},
     {"AUTOMATION", "[K1]ROW[OCT+]DO[EDIT]DELETE"},
-    {"MIXER", "[K4]MUTE[ALGO]TRACK[HOME]CLOCK"},
-    {"CLOCK", "[SELECT]TEMPO[GLO]HOLD: TAP"},
+    {"MIXER", "[K4]MUTE[ALGO]TRACK[SELECT]CLOCK"},
+    {"CLOCK", "[K1]BPM[GLO]HOLD: TAP"},
 };
 #define H_HOME "[PRESETS]SOUND[HOME]HOLD: MENU"
 #define H_LEVELS "[K1-4]T1-T4 LEVEL[HOME]MIXER"
 #define H_GRID "[KEYS]STEPS[K2]LANE[SELECT]RATCH"
 /* a layer's (LAYER_*): what its footer row (LAYERS[].foot) does not say */
 static const char *const HELP_LAYER[LAYER_N] = {
-    "", "[KEYS]BLACK: MUTES[FX]2 TAPS: LOCK", "[KEYS]SOLO MUTE TAP[K1-4]LEVELS", "[KEYS]ROOT[K1-4]ROOT SCL CHORD",
-    "[K1]ENGINE[K2]SOUND[K3]FAV", "[KEYS]BLACK: TOOLS[EDIT]PUT BACK", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",   /* (M-Vave-OP1:
+    "", "[KEYS]BLACK: MUTES[FX]HOLD", "[KEYS]SOLO MUTE TAP[K1-4]LEVELS", "[KEYS]ROOT[K1-4]ROOT SCL CHORD",
+    "[K1]ENGINE[K2]SOUND[K3]FAV", "[KEYS]BLACK: TOOLS[SAVE]HOLD: UNDO", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",   /* (M-Vave-OP1:
                                                      * SEQ's white keys are the scenes, the footer says so) */
 };
 

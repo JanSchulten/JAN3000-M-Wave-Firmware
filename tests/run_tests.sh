@@ -247,6 +247,10 @@
 # ROBUST (tests/robust_test.c): damaged or crafted stored data and editor requests: a SLICE scan bounded by the slot,
 #                   a slot that fails its check leaves no zone, engine numbers past the last refused, a retained older
 #                   RAM project bounded, user preset patterns inside their fields, malformed requests never stop PLAY.
+# SHIMMER (tests/shimmer_send_test.c): CHO / SHIM / DLY / REV sends, shared SIZE / DAMP / PITCH / FDBK,
+#                   serial SHIMMER -> DELAY -> REVERB with CHORUS parallel; independent buffers, legacy octave
+#                   bit-exact, bounded feedback and exact silence, INSERT's grouped DIST control, automation,
+#                   old project / scene ids and autosave. Also run with ASan / UBSan.
 # Sanitizers (ASan + UBSan, when the compiler has them; SANITIZE=0 skips): the stored-data and protocol tests again
 #                   (loader, M-UPGRADE entry, editor, projects, backup, ROBUST) and three short fuzz runs with fixed
 #                   seeds: tests/fuzz_ed.c (editor SysEx and raw USB-MIDI packets), tests/fuzz_proj.c (mutated project
@@ -261,7 +265,8 @@ export AC79_SDK="${AC79_SDK:-$HOME/fw-AC79_AIoT_SDK}"
 cd "$(dirname "$0")/.."
 OUT=build/host
 mkdir -p "$OUT"
-CC="${CC:-cc} -O1 -Wall -Wno-unused-function"
+# Match the target / WebAssembly float arithmetic: Apple clang otherwise contracts multiply-adds.
+CC="${CC:-cc} -O1 -ffp-contract=off -Wall -Wno-unused-function"
 fail=0
 run() { echo "== $1"; shift; "$@" || fail=1; }
 
@@ -332,12 +337,14 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/motion_test" tests/motion_test.c -lm
     run "motion, whole-step chance, FUN7 migration, song restore, ARP repeat and the 1.2 ARP modes" "$OUT/motion_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ratchet_test" tests/ratchet_test.c -lm
-    run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, AUTOMATION RATCH rows" "$OUT/ratchet_test"
+    run "RATCH: x1..x4 in a step (notes, chords, drum hits), gates, chance, swing, projects, user presets, DETAIL RATCH editor" "$OUT/ratchet_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/key_test" tests/key_test.c -lm
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/jan_test" tests/jan_test.c -lm
-    run "JAN3000 v0.8: another track opens the families' first pages, REC + OCT- / OCT+ undo / redo, SAVE > PROJECT > NEW" "$OUT/jan_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/workflow_test" tests/workflow_test.c -lm
+    run "JAN3000 single-path controls: navigation, storage, clearing, step values, recording and layer undo" "$OUT/workflow_test"
+    run "JAN3000: family navigation, SAVE undo / redo, PROJECT slots and NEW" "$OUT/jan_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/newproj_test" tests/newproj_test.c -lm
-    run "NEW PROJECT's sounds drawn: F#5, OCT- on an empty slot, power-on; every bass, lead and kit comes up, nothing else" "$OUT/newproj_test"
+    run "NEW PROJECT's sounds drawn: F#5 only, empty slot load refused, power-on; every bass, lead and kit comes up, nothing else" "$OUT/newproj_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/kitgrid_test" tests/kitgrid_test.c -lm
     mkdir -p build/kitgrid_shots
     run "KIT GRID: VDRUM (6 parts) and DBOX (8 lanes) on the grid as DRUM, REC, mutes, BEAT, notes as hits on load" "$OUT/kitgrid_test" build/kitgrid_shots
@@ -443,6 +450,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/perform_test" tests/perform_test.c -lm
     mkdir -p build/perform_demo build/fx_demo build/throw_demo
     run "FX layer effects: on the 1/16, stereo, too-long REPEAT, SLICER, silent keys, idle bit-identical, clicks, OCT UP / DN, FLANGER, PHASER, the key map, dotted TIME, REV / ECHO THROW, cost, demos" "$OUT/perform_test" build/perform_demo build/fx_demo build/throw_demo
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/shimmer_send_test" tests/shimmer_send_test.c -lm
+    mkdir -p build/shimmer_shots
+    run "SHIMMER: independent send, stereo DSP, UI, automation, old project and scene ids" "$OUT/shimmer_send_test" build/shimmer_shots
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/reverb_test" tests/reverb_test.c -lm
     mkdir -p build/reverb_demo
     run "REVERB TYPE: ROOM / SPRING bit-identical, ROOM silence, the delay TIME crossfade, SPRING and HALL decay / stability / level, HALL silence / stereo / ringing, model changes, cost, demos" "$OUT/reverb_test" build/fx_demo build/reverb_demo
@@ -537,13 +547,13 @@ elif ! san_ok; then
 else
     mkdir -p "$OUT/asan"
     A="$OUT/asan"
-    SCC="${CC%% *} $SAN -Ibuild/gen -Ifirmware/src"
+    SCC="${CC%% *} $SAN -ffp-contract=off -Ibuild/gen -Ifirmware/src"
     export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
     $SCC -o "$A/ldr_test" tests/ldr_test.c
     run "ASan/UBSan: update loader (other app -> this build)" "$A/ldr_test" "$OUT/old.fwsc" build/felucca.fwsc
     $SCC -DOWN_PKG=1 -o "$A/ota_test" tests/ota_test.c
     run "ASan/UBSan: M-UPGRADE entry (own loader)" "$A/ota_test" build/felucca.fwsc
-    for t in editor_test project_test backup_test robust_test fun10_test fm6bank_test; do
+    for t in editor_test project_test backup_test robust_test fun10_test fm6bank_test shimmer_send_test; do
         $SCC -o "$A/$t" tests/$t.c -lm
         run "ASan/UBSan: $t" "$A/$t"
     done

@@ -653,9 +653,9 @@ static int lock_ui(void)
     fam_next(FAM_FX);                                 /* the lock's knobs: the sound page shown last */
     fam_next(FAM_SEQ);
     frame();
-    bad += check("from FX: the knobs lock DIST CHO DLY REV", lock_id(0) == P_DIST && lock_id(3) == P_REV);
-    lk_down(k4); turn(EN_K4, 5); lk_up(k4);
-    bad += check("  step 5 gets a REV lock", motion_lock_get(t, 4, P_REV, &v) && v == t->p[P_REV] + 5);
+    bad += check("from FX: the knobs lock CHO SHIM DLY REV", lock_id(0) == P_CHOR && lock_id(1) == P_SHIM && lock_id(3) == P_REV);
+    lk_down(k4); turn(EN_K2, 5); lk_up(k4);
+    bad += check("  step 5 gets a SHIM lock", motion_lock_get(t, 4, P_SHIM, &v) && v == t->p[P_SHIM] + 5);
     go_auto_top();
     frame();
     bad += check("AUTOMATION: EVENT 0, LOCK 3", motion_count(t) - motion_lock_count(t) == 0u && motion_lock_count(t) == 3u);

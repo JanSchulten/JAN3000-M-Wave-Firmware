@@ -9,8 +9,8 @@
  *    and it (the effect's state does not depend on MIX).
  * 3. MIX glides (2.9 ms both ways), a TYPE change fades out, switches, fades in; MIX and TYPE as automation and as a
  *    step's lock on a playing pattern.
- * 4. stored: a project round trip (FUN10, 111 parameters with 1.5's TYPE and ESYNC; 16 spare bytes left), a FUN10 of 104 (1.2 .. 1.4) loads the
- *    INSERT OFF; user presets of 111 and 104; the labels and values the pages show per TYPE; the page order.
+ * 4. stored: a project round trip (FUN10, 112 parameters including SHIM; 12 spare bytes left), a FUN10 of 104 (1.2 .. 1.4) loads the
+ *    INSERT OFF; user presets of 112 and 104; the labels and values the pages show per TYPE; the page order.
  * 5. the cost per type and track (instructions / sample, host) against an 8-voice ANALOG part.
  * 6. demos (DEMO_DIR): each TYPE on a loop (acid line + drums), two bars dry, two bars with the INSERT. */
 #define UI_TEST_NO_MAIN 1
@@ -381,14 +381,14 @@ static void test_stored(void)
     motion_set_event(&trk[1], 3, P_IMIX, 77);
     motion_set_lock(&trk[2], 5, P_IA, 9);
     project_capture(&a);
-    ok = proj_pack(&st, &a) && st.raw[66] == P_COUNT && P_COUNT == 111u && proj_import(&b, &st, sizeof st) &&
+    ok = proj_pack(&st, &a) && st.raw[66] == P_COUNT && P_COUNT == 112u && proj_import(&b, &st, sizeof st) &&
          !memcmp(&a, &b, sizeof a);
     for (k = 0; k < NTRK; k++)
         ok &= b.t[k].p[P_ITYPE] == (int16_t)(k * 2u + 1u) && b.t[k].p[P_IMIX] == (int16_t)(100 + k) &&
               b.t[k].p[P_IC] == (int16_t)(30 + k);
-    ok &= 68u + NTRK * (P_COUNT + 2u + NSTEP * 9u) + sizeof(chain_config_t) + sizeof(motion_store_t) + 16u == PROJ_FM6_OFF;
-    ck("project: FUN10 round trip of the INSERT (111 parameters, its motion), 16 spare bytes before the patches", ok);
-    /* user presets: a record of 111 keeps them; one of 104 (1.2 .. 1.4) gets the INSERT OFF */
+    ok &= 68u + NTRK * (P_COUNT + 2u + NSTEP * 9u) + sizeof(chain_config_t) + sizeof(motion_store_t) + 12u == PROJ_FM6_OFF;
+    ck("project: FUN10 round trip of the INSERT (112 parameters, its motion), 12 spare bytes before the patches", ok);
+    /* user presets: a record of 112 keeps them; one of 104 (1.2 .. 1.4) gets the INSERT OFF */
     memset(&r, 0, sizeof r);
     r.used = UP_USED; r.ver = UP_VER; r.engine = 0; r.np = P_COUNT;
     for (i = 0; i < P_COUNT; i++) { up_set_value(&r, i, trk[3].p[i]); def[i] = TP[i].def; }
@@ -400,8 +400,8 @@ static void test_stored(void)
     up_params(&r, v, def);
     ok &= v[P_ITYPE] == 0 && v[P_IA] == 64 && v[P_IB] == 96 && v[P_IC] == 96 && v[P_IMIX] == 127 && v[P_SPRD] == trk[3].p[P_SPRD] &&
           v[P_E0] == 40 && v[P_E7] == 47;
-    ck("user presets: 111 parameters kept; one of 104 (1.2 .. 1.4): the INSERT OFF, its engine values in place", ok);
-    /* the pages: INSERT and INSERT 2 after SLICER, the labels and values per TYPE */
+    ck("user presets: 112 parameters kept; one of 104 (1.2 .. 1.4): the INSERT OFF, its engine values in place", ok);
+    /* the pages: INSERT and INSERT 2 together, the labels and values per TYPE */
     {
         uint32_t p, ps = 0, pi = 0, pi2 = 0, pf = 0, pd = 0;
         char val[16];
@@ -415,8 +415,8 @@ static void test_stored(void)
             if (str_eq(PAGES[p].title, "DLY")) pd = p;
         }
         ok = pi < pf && pf < ps && ps && pd && PAGES[pi].fam == FAM_FX && PAGES[pi].id[0] == P_ITYPE &&   /* (M-Vave-OP1: */
-             PAGES[pi].id[3] == P_IMIX && PAGES[pi2].id[0] == P_IMIX && PAGES[pi2].id[1] == P_IC &&      /* INSERT TYPE A B MIX, */
-             page_visible(pi) && !page_visible(pi2) && !page_visible(pd);                                /* the rest hidden) */
+             PAGES[pi].id[3] == P_IMIX && PAGES[pi2].id[0] == P_DIST && PAGES[pi2].id[1] == P_IC &&      /* INSERT TYPE A B MIX, */
+             page_visible(pi) && page_visible(pi2) && !page_visible(pd);                                /* other delay controls hidden) */
         set_ins(t, IT_CRUSH, 64, 96, 96, 127);
         ok &= str_eq(track_desc(t, P_IA)->label, "BITS") && str_eq(track_desc(t, P_IB)->label, "RATE") &&
               str_eq(track_desc(t, P_IC)->label, "LPF");
@@ -436,7 +436,7 @@ static void test_stored(void)
         ok &= str_eq(track_desc(t, P_IA)->label, "INS A") && str_eq(param_desc_of(0, P_IB)->label, "INS B");
         for (i = P_ITYPE; i <= P_IMIX; i++)
             ok &= motion_param(i) && !param_kept(i);
-        ck("pages: INSERT (TYPE A B MIX; INSERT 2 MIX C hidden), DELAY, DLY hidden, SLICER (M-Vave-OP1); A B C named by TYPE; recordable; part of the sound", ok);
+        ck("pages: INSERT (TYPE A B MIX; INSERT 2 DIST C), DELAY, DLY hidden, SLICER (M-Vave-OP1); A B C named by TYPE; recordable; part of the sound", ok);
     }
 }
 

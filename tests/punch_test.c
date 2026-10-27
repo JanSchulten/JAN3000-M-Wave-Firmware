@@ -373,7 +373,7 @@ static void test_map_b(const char *dir)
         screen_save(dir, "fx_map_a");
     turn(EN_ALGO, 1);
     frame();
-    ok &= perf_bank == 1u && msg_is("FX MAP B: OP-Z") && str_eq(layer_head(), "[FX] HOLD B");
+    ok &= perf_bank == 1u && msg_is("FX MAP B") && str_eq(layer_head(), "[FX] HOLD B");
     if (dir)
         screen_save(dir, "fx_map_b");
     key_down(f3);

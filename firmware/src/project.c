@@ -1015,6 +1015,26 @@ static int project_rename(uint32_t slot, const char *name)
     return 0;
 }
 
+/* Commit an empty payload through the existing A/B store: interrupted deletes retain the last valid project.
+ * No project field or format changes. The music in RAM and the other slots stay as they are. */
+static int project_erase(uint32_t slot)
+{
+    uint32_t empty = 0;
+    slot &= 3u;
+    if (transport_busy()) { ui_message("STOP TO SAVE"); return 1; }
+#if FELUCCA_FLASH
+    if (flash_ok && st_save(OBJ_PROJECT0 + slot, &empty, sizeof empty)) {
+        ui_message("ERASE ERROR"); return 2;
+    }
+#endif
+    memset(proj_slot[slot].raw, 0, sizeof proj_slot[slot].raw);
+    proj_wire_gen++;
+    if (proj_cur == slot) { proj_cur = PROJ_NO_SLOT; pat_from_set(0); }
+    ui_message("PROJECT DELETED");
+    ui.force = 1;
+    return 0;
+}
+
 static int project_restore_runtime(const project_t *input)
 {
     project_t *p = &proj_scratch;
@@ -1075,7 +1095,7 @@ static int project_restore_runtime(const project_t *input)
     proj_name_get(proj_name, (const uint8_t *)p->name);
     proj_cur = PROJ_NO_SLOT;                            /* (project_load: its slot) */
     pat_from_set(0);                                    /* (project_load: its slot; the header's letter) */
-    undo.trk = 0;                                       /* (ui.c) the undo copy belongs to the old project */
+    undo_clear();                                      /* (ui.c) the undo copy belongs to the old project */
     undo_depth++;                                       /* and these loads take none */
     for (k = 0; k < NTRK; k++) {                        /* the power-on sounds: format 1 (tracks 2..4), old drums */
         track_t *t = &trk[k];
@@ -1152,6 +1172,7 @@ static void project_new(uint32_t slot)
     xtra_lanes(fxt_lane, &none, 0);
     xtra_fx1(&none, 0);
     xtra_misc(&none, 0);
+    fx_serial = 1;
     np_sounds();
     for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
         pat_sig[k] = steps_sig(&trk[k]);
@@ -1391,6 +1412,8 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
+    h = as_mix(h, shim_p, sizeof shim_p);
+    h = as_mix(h, &fx_serial, sizeof fx_serial);
     h = as_mix(h, cset_set, sizeof cset_set);       /* SCL > CSET's ON, SETs and VOICEs too; */
     h = as_mix(h, cset_voice, sizeof cset_voice);
     h = as_mix(h, &cset_en, 1);

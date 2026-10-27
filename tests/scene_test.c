@@ -709,15 +709,14 @@ static void test_seq_layer(const char *dir)
         frame();
         key_up(black(0));
         frame();
-        ok &= msg_is("SEQUENCE CLEARED") && seq_is_empty(TSEL);
-        btn_down(B_EDIT);                             /* EDIT: the track as the layer opened */
-        frame();
-        btn_up(B_EDIT);
-        frame();
-        ok &= msg_is("SEQUENCE PUT BACK") && !memcmp(ref, TSEL->step, sizeof ref) && ui.layer == LAYER_SEQ;
+        ok &= msg_is("REVERSED") && !seq_is_empty(TSEL);
+        btn_down(B_EDIT); frame(); btn_up(B_EDIT); frame();
+        ok &= msg_is("REVERSED") && memcmp(ref, TSEL->step, sizeof ref) && ui.layer == LAYER_SEQ;
+        hold(B_SAVE);
+        ok &= !memcmp(ref, TSEL->step, sizeof ref);
         btn_up(B_SEQ);
         frame();
-        ck("  the black keys are the tools (G#3 REVERSE, F#3 CLEAR), SEQ + EDIT puts the track back", ok);
+        ck("  the black keys are the tools (G#3 REVERSE, F#3 unused), SEQ + EDIT inert, SAVE holds the opening undo", ok);
     }
     {   /* a DRUM track: BEAT and the lane's tools on the black keys, PRESETS the lane */
         set_engine_of(TSEL, ENGI_DRUM);
@@ -756,7 +755,7 @@ static void test_seq_layer(const char *dir)
     key_up(white(6));
     frame();
     m = layer_leds(&br);
-    ok = ((m >> white(0)) & 1u) && ((br >> white(6)) & 1u) && !((m >> white(6)) & 1u) && ((br >> black(0)) & 1u);
+    ok = ((m >> white(0)) & 1u) && ((br >> white(6)) & 1u) && !((m >> white(6)) & 1u) && ((br >> black(1)) & 1u) && !(((m | br) >> black(0)) & 1u);
     if (dir)
         screen_save(dir, "seq_scenes_waiting");
     btn_up(B_SEQ);

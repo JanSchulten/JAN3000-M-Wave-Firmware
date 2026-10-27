@@ -62,6 +62,21 @@ typedef struct {                                 /* a scene where it is: the tra
                                                   * holding one, as any other bank it cannot read: one is written only
                                                   * for a KEY of its own or one in use, scn_encode) */
 
+/* Scenes predate parameter counts on their wire: keep the original 103 common ids and eight engine ids
+ * fixed. New common values use 111 upward, so an old scene's engine automation never turns into a new send. */
+#define SCN_E0 103u
+static uint32_t scn_param_put(uint32_t p)
+{
+    uint32_t id = p & ~MOTION_LOCK;
+    return (p & MOTION_LOCK) | (id >= P_E0 ? SCN_E0 + id - P_E0 : id >= SCN_E0 ? id + 8u : id);
+}
+static uint32_t scn_param_get(uint32_t p)
+{
+    uint32_t id = p & ~MOTION_LOCK;
+    id = id >= SCN_E0 + 8u ? (id - 8u < P_E0 ? id - 8u : 127u) : id >= SCN_E0 ? P_E0 + id - SCN_E0 : id;
+    return (p & MOTION_LOCK) | id;
+}
+
 static uint8_t scn_u8(int32_t v) { return (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v); }
 /* the main loop's guard against the audio ISR (as motion.c's: the target's interrupts; the host builds run one thread) */
 static void scn_irq_off(void)
@@ -179,7 +194,7 @@ static __attribute__((noinline)) uint32_t scn_encode(const scn_view_t *v, uint8_
         SCN_PUT(v->mo->on);
         for (i = 0; i < v->mo->count && i < MOTION_MAX; i++) {
             SCN_PUT(v->mo->event[i].place);
-            SCN_PUT(v->mo->event[i].param);
+            SCN_PUT(scn_param_put(v->mo->event[i].param));
             SCN_PUT((uint8_t)v->mo->event[i].value);
         }
     }
@@ -282,7 +297,8 @@ static int scn_decode(const uint8_t *in, uint32_t n, chain_pattern_t *b, const u
         b->motion.on = (uint8_t)on;
         for (i = 0; i < c; i++) {
             SCN_GET(b->motion.event[i].place);
-            SCN_GET(b->motion.event[i].param);
+            SCN_GET(j);
+            b->motion.event[i].param = (uint8_t)scn_param_get(j);
             SCN_GET(j);
             b->motion.event[i].value = (int8_t)j;
         }
