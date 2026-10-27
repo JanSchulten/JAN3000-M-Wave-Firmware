@@ -145,8 +145,8 @@ static void test_ui(const char *dir)
 static void test_stored(void)
 {
     static project_t a, q; static project_store_t st; static uint8_t bytes[SCN_CAP]; static chain_pattern_t pat;
-    up_rec_t u; proj_xtra_t x; scn_view_t view;
-    int16_t v[P_COUNT], defs[P_COUNT]; uint32_t i, n, sig, pos, dst, span = P_COUNT + 2 + NSTEP * 9;
+    up_rec_t u; proj_xtra_t x; static xtra_hi_t xh; scn_view_t view;
+    int16_t v[P_COUNT], defs[P_COUNT]; uint32_t i, n, sig, pos, dst, span = P_COUNT + 2 + NSTEP_FMT * 9;
     ui_power_on();
     for (i = 0; i < NTRK; i++) trk[i].p[P_SHIM] = 20 + i * 25;
     shim_p[0] = 113; shim_p[1] = 47; shim_p[2] = -7; shim_p[3] = 98;
@@ -157,7 +157,7 @@ static void test_stored(void)
     shim_p[0] = shim_p[1] = 0; trk[0].p[P_SHIM] = 0; project_load(0);
     ck("project load restores independent sends and global settings", trk[0].p[P_SHIM] == 20 && shim_p[0] == 113 && shim_p[1] == 47 && shim_p[2] == -7 && shim_p[3] == 98 && fx_serial);
     sig = autosave_sig(); shim_p[1]++; ck("global SHIMMER edits trigger autosave", sig != autosave_sig());
-    xtra_capture(&x, 1); x.size = XTRA_V6; xtra_misc(&x, 1);
+    xtra_capture(&x, &xh, 1); x.shim_size = x.shim_damp = x.shim_pitch = x.shim_fdbk = x.fx_serial = 0; xtra_misc(&x, 1);   /* (written 0 before) */
     ck("older extras load safe SHIMMER defaults", shim_p[0] == 90 && shim_p[1] == 60 && shim_p[2] == 12 && shim_p[3] == 127 && !fx_serial);
     memset(&u, 0, sizeof u); u.np = P_COUNT; u.ver = UP_VER;
     for (i = 0; i < P_COUNT; i++) { defs[i] = TP[i].def; up_set_value(&u, i, trk[0].p[i]); }
@@ -170,8 +170,8 @@ static void test_stored(void)
         memmove(st.raw + dst + P_SHIM, st.raw + pos + P_SHIM + 1, span - P_SHIM - 1);
     }
     pos = 68 + NTRK * span; dst = pos - NTRK;
-    memmove(st.raw + dst, st.raw + pos, sizeof a.chain + sizeof a.motion);
-    st.raw[dst + sizeof a.chain + 4 + 1] = 103;  /* motion_store_t's 4-byte header, first record's id */
+    memmove(st.raw + dst, st.raw + pos, sizeof a.chain + sizeof(motion_disk_t));
+    st.raw[dst + sizeof a.chain + 4 + 1] = 103;  /* motion_disk_t's 4-byte header, first record's id */
     st.raw[66] = 111; n = proj_hash(st.raw, sizeof st - 4); memcpy(st.raw + sizeof st - 4, &n, 4);
     ck("old 111-parameter project: SHIM zero, engine values and automation retain their meaning",
        proj_import(&q, &st, sizeof st) && !q.t[0].p[P_SHIM] && q.t[0].p[P_E0] == a.t[0].p[P_E0] && MOTION_ID(&q.motion.event[0]) == P_E0);
