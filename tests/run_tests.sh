@@ -114,6 +114,10 @@
 # SLICER POSITION (tests/fxchain_test.c, M-Vave-OP1): the SLICER at the start of the chain, before the DRIVE; nothing
 #                   after the reverb (the retired GATE END / PUMP END play as OFF). PUMP: the drop at each step, the four
 #                   curves and their lengths, no clicks, RATE 1/4, the page.
+# FX CHAIN (tests/chain_test.c, M-Vave-OP1): CHORUS -> SHIMMER -> DELAY -> REVERB in series: a CHR send fills every
+#                   stage after the CHORUS, a REV send the REVERB only; MIX 2's levels (SHR 0: the SHIMMER passed by;
+#                   CHR 0, REV 0: silent; turned down while it rings: no jump), the CHORUS's stereo, the levels' Q16
+#                   multiply bounded on four loud tracks, the levels stored (XTRA_V9), the MIX 2 page.
 # PUNCH-INS (tests/punch_test.c, M-Vave-OP1 E2): the OP-Z's punch-ins on the FX layer (perform.c): DUCK's curve on the
 #                   beat (also stopped), STEREO's pan a 1/16 a side with the power kept, PITCH 5TH UP / 4TH DN's pitch
 #                   with no live part, RAMP UP from standing to in time, GLITCH's slices (from the next 1/16, their
@@ -398,6 +402,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fxchain_test" tests/fxchain_test.c -lm
     mkdir -p build/fxchain_shots
     run "SLICER at the start of the chain (before the DRIVE, nothing after the reverb), PUMP" "$OUT/fxchain_test" build/fxchain_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/chain_test" tests/chain_test.c -lm
+    mkdir -p build/chain_shots
+    run "FX chain CHORUS -> SHIMMER -> DELAY -> REVERB: flow, MIX 2 levels, stereo chorus, bounds, stored, page" "$OUT/chain_test" build/chain_shots
     mkdir -p build/punch_shots build/punch_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/punch_test" tests/punch_test.c -lm
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo

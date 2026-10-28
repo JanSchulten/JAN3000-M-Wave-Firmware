@@ -504,6 +504,7 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2, GR_SHIM,   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
        GR_EQ,                                   /* .. HOME > EQ: the selected track's four bands (eq.c, ui_eq.c) */
        GR_DYN,                                  /* .. HOME > MASTER: the master's dynamics (dyn.c, ui_dyn.c) */
+       GR_FXLVL,                                /* .. FX > MIX 2: the chain's levels (fx_lvl, fx.c chain_g) */
        GR_N };                                  /* (the count: new kinds go before it) */
 
 typedef struct {
@@ -565,7 +566,15 @@ static const page_ops_t *page_ops(const page_t *pg)
 
 /* Global SHIMMER settings live in the project extras; G_* ids stay fixed on the wire. */
 static int16_t shim_p[4] = {90, 60, 12, 127};          /* SIZE, DAMP, semitones, feedback */
-static uint8_t fx_serial = 1;                        /* SHIMMER -> DELAY -> REVERB; old projects keep parallel */
+/* M-Vave-OP1: MIX 2, the serial chain's levels (fx.c chain_g), kept with the project's extras (opstore.c): 0 CHORUS,
+ * 1 SHIMMER, 3 REVERB; the DELAY's is its MIX (G_DMIX: slot 2 shows it, fx_lvl[2] is not read). The ISR reads them a
+ * block at a time */
+#define FX_LVL_DEF 127
+static int16_t fx_lvl[4] = {FX_LVL_DEF, FX_LVL_DEF, FX_LVL_DEF, FX_LVL_DEF};
+static const param_desc_t LVL_DESC[4] = {
+    PD("CHR", F_PCT, 0, 127, FX_LVL_DEF), PD("SHR", F_PCT, 0, 127, FX_LVL_DEF),
+    PD("DEL", F_PCT, 0, 127, 90), PD("REV", F_PCT, 0, 127, FX_LVL_DEF)
+};
 static const param_desc_t SHIM_DESC[4] = {
     PD("SIZE", F_PCT, 0, 127, 90), PD("DAMP", F_PCT, 0, 127, 60),
     PD("PITCH", F_SEMI, -12, 24, 12), PD("FDBK", F_PCT, 0, 127, 127)
@@ -621,10 +630,11 @@ static const page_t PAGES[] = {
     {"LFO 2", FAM_LFO, SC_TRACK, GR_LFO, {P_LSYNC, P_LTRIG, P_LPOL, 0xFF}},   /* 1.2: SYNC TRIG POL */
     {"LFO DEST", FAM_LFO, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},
     {"MOD", FAM_LFO, SC_TRACK, GR_MOD, {0xFF, P_M1SRC, P_M1DST, P_M1AMT}},   /* KNOB 1: the slot (mod_ui_slot) */
-    /* FX: four track sends (CHO SHIM DLY REV), the DRIVE (TYPE and its three values), then the shared CHORUS, SHIMMER, DELAY
-     * and REVERB settings, SLICER and FX TRACKS. SHIMMER -> DELAY -> REVERB form the serial aux chain;
-     * CHORUS remains parallel. The hidden pages retain the remaining CLOUD / FX TRACK values. */
+    /* FX: four track sends (CHO SHIM DLY REV), the chain's levels (MIX 2), the DRIVE (TYPE and its three values), then
+     * the shared CHORUS, SHIMMER, DELAY and REVERB settings, SLICER and FX TRACKS. CHORUS -> SHIMMER -> DELAY -> REVERB
+     * form one serial chain (fx.c). The hidden pages retain the remaining CLOUD / FX TRACK values. */
     {"FX", FAM_FX, SC_TRACK, GR_FX, {P_CHOR, P_SHIM, P_DLY, P_REV}},
+    {"MIX 2", FAM_FX, SC_GLOBAL, GR_FXLVL, {0xFF, 0xFF, 0xFF, 0xFF}},   /* M-Vave-OP1: the chain's levels (fx_lvl) */
     {"DRIVE", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},   /* M-Vave-OP1: the track's DRIVE (fx.c) */
     {"CHORUS", FAM_FX, SC_GLOBAL, GR_CHO, {0xFF, G_CRATE, G_CDEPTH, 0xFF}},   /* M-Vave-OP1: TYPE RATE DEPTH FDBK */
     {"SHIMMER", FAM_FX, SC_GLOBAL, GR_SHIM, {0xFF, 0xFF, 0xFF, 0xFF}},
@@ -701,6 +711,10 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
     }
     if (page_ops(pg)->desc)                           /* M-Vave-OP1: a page with values of its own (EQ) */
         return page_ops(pg)->desc(slot, valp);
+    if (pg->graph == GR_FXLVL) {                      /* (slot 2: the DELAY's MIX, G_DMIX) */
+        *valp = slot == 2u ? &song.g[G_DMIX] : &fx_lvl[slot & 3u];
+        return &LVL_DESC[slot & 3u];
+    }
     if (id == 0xFFu) {
         *valp = 0;
         return 0;

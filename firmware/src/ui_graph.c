@@ -764,7 +764,8 @@ static void pedal_knob_val(const page_t *pg, uint32_t c, const char **lb, char *
 }
 #define PED_H (Y_GRAPH + H_GRAPH - Y_LABEL)             /* the pedal: y 28 .. 198, top part 48 px (draw_columns) */
 #define PED_TOP (Y_GRAPH - Y_LABEL)
-/* FX's SEND card as a mixer's four faders where KNOB 1..4 are (CHO SHIM DLY REV, the selected track's): a dark
+/* FX's SEND card as a mixer's four faders where KNOB 1..4 are (CHO SHIM DLY REV, the selected track's; M-Vave-OP1: MIX 2
+ * the same four faders for the chain's levels, every track's): a dark
  * channel strip each, its slot lit from the bottom up to the cap in its bus's colour (the pedal's: chorus blue, Shimmer violet,
  * delay green, reverb silver), a scale beside it, the name and the value under it (turned: the
  * value in the accent). Drawn as the pedals are: the top part, then the rest (cv_oy) */
@@ -815,7 +816,7 @@ static void graph_pedal(const track_t *t, uint32_t part)
     uint32_t c, rt = (uint32_t)clamp(song.g[G_RTYPE], 0, 3);
     int32_t gh = PED_H;
     cv_oy = part ? -PED_TOP : 0;
-    if (str_eq(ti, "FX")) {                            /* (SEND: a mixer's four faders, not a pedal) */
+    if (str_eq(ti, "FX") || str_eq(ti, "MIX 2")) {    /* (SEND, MIX 2's levels: a mixer's four faders, not a pedal) */
         graph_sends(t, part);
         return;
     } else if (str_eq(ti, "SHIMMER")) {
@@ -1658,6 +1659,8 @@ static uint32_t graph_signature(void)
         for (i = 0; i < 4u; i++) h = (h ^ (uint16_t)shim_p[i]) * 16777619u;
     if (page_ops(pg)->sig)                           /* M-Vave-OP1: the page's panel's state (ui_pages.c) */
         h = page_ops(pg)->sig(h);
+    if (pg->graph == GR_FXLVL)                       /* M-Vave-OP1, MIX 2: the chain's levels, the DELAY's MIX */
+        for (h ^= (uint32_t)song.g[G_DMIX] * 2654435761u, i = 0; i < 4u; i++) h = (h ^ (uint16_t)fx_lvl[i]) * 16777619u;
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u +

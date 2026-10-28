@@ -8,7 +8,7 @@
  *            an engine switch (set_engine_of) and a MIDI Program Change (midi_pc_load).
  *   USER     a user preset brings the sends and the INSERT it was saved with (upreset.c up_load).
  *   POWER-ON the power-on sounds load with their sends as ever (preset_load_to with sends: main.c, project.c's
- *            format-1 tracks): every track's sends are its preset's (or 0 24 28 36), the INSERT OFF (M-Vave-OP1: a
+ *            format-1 tracks): every track's sends are its preset's (or 0 0 28 36; CHO 24 before the serial chain), the INSERT OFF (M-Vave-OP1: a
  *            preset's DIST, retired, as a SOFT DRIVE of about its gain).
  * Built and run by tests/run_tests.sh. */
 #define UI_TEST_NO_MAIN 1
@@ -122,7 +122,7 @@ static void user_test(void)
 
 static void power_on_test(void)
 {
-    static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
+    static const uint8_t FX_DEF[4] = {0, 0, 28, 36};   /* (CHO 24 before the serial chain: a SHIMMER on all) */
     uint32_t i, k, ok = 1, n = 0;
     ui_power_on();
     for (k = 0; k < NTRK; k++) {

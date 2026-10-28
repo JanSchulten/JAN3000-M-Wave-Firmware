@@ -380,11 +380,11 @@ enum { LK_OFF, LK_LABEL, LK_TALL };
  * cards: the pedal from the cards' top to the footer, its top (the knobs) drawn by draw_columns, the rest by draw_graph */
 static int fx_pedal(void)
 {
-    static const char *const C[7] = {"FX", "DRIVE", "CHORUS", "DELAY", "REVERB", "SHIMMER", "SLICER"};
+    static const char *const C[8] = {"FX", "MIX 2", "DRIVE", "CHORUS", "DELAY", "REVERB", "SHIMMER", "SLICER"};
     uint32_t k;
     if (ui.home || ui.layer || ui.menu || cur_page()->fam != FAM_FX)
         return 0;
-    for (k = 0; k < 7u; k++)
+    for (k = 0; k < 8u; k++)
         if (str_eq(cur_page()->title, C[k]))
             return 1;
     return 0;
@@ -1578,7 +1578,7 @@ static void set_engine_of(track_t *t, uint32_t ei);
 static int preset_fx(uint32_t i) { return (i >= P_DIST && i <= P_REV) || i == P_SHIM || (i >= P_ITYPE && i <= P_IMIX); }
 
 /* preset pi of the engine the track asked for: the sound only (not the steps, not param_kept); sends: also the
- * preset's sends (or 0 24 28 36) and the DRIVE OFF, as every load set them before M-Vave-OP1. The preset's old DIST
+ * preset's sends (or 0 0 28 36; CHO 24 before the serial chain) and the DRIVE OFF, as every load set them before M-Vave-OP1. The preset's old DIST
  * (retired, fx.c track_insert) becomes a SOFT DRIVE of about its gain (DIST d: 1 + d^2 / 2048, DRIVE a: 1 + 3 a^2 /
  * 4096, so a = 0.82 d), at the drives' default TONE and LEVEL */
 static void preset_load_to(track_t *t, uint32_t pi, uint32_t sends)
@@ -1620,7 +1620,7 @@ static void preset_load_to(track_t *t, uint32_t pi, uint32_t sends)
     t->p[P_ED_FLT] = e->presets[pi].fenv;
     t->p[P_VOICE] = e->presets[pi].mono ? V_LEGATO : V_POLY;   /* mono presets keep the legato feel */
     if (sends) {   /* the power-on sounds' sends */
-        static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
+        static const uint8_t FX_DEF[4] = {0, 0, 28, 36};   /* (CHO 24 before the serial chain: a SHIMMER on all) */
         const preset_t *pr = &e->presets[pi];
         for (i = 0; i < 4u; i++)
             t->p[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);

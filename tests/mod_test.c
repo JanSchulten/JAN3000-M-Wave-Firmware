@@ -85,6 +85,11 @@ static void fresh(uint32_t e, uint32_t pi)        /* the boot state (no FX tails
     memset(rev_comb, 0, sizeof rev_comb);
     memset(rev_ap, 0, sizeof rev_ap);
     memset(&fx, 0, sizeof fx);
+    memset(&shim_hl, 0, sizeof shim_hl);          /* (M-Vave-OP1: the SHIMMER too: the chain feeds it from the CHORUS) */
+    memset(shim_comb, 0, sizeof shim_comb);
+    memset(shim_ap, 0, sizeof shim_ap);
+    memset(shim_shb, 0, sizeof shim_shb);
+    shim_live = shim_quiet = 0;
     lim_env = LIM_T;
     memset(trk, 0, sizeof trk);
     memset(&mod, 0, sizeof mod);

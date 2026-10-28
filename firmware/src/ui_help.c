@@ -25,6 +25,7 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"FX", "[K1-4]SENDS[FX]HOLD: PERFORM"},
     {"SHIMMER", "[K1-4]SHIMMER[SELECT]DELAY"},
     {"SLICER", "[K1]ON[K2]PATTERN[SELECT]FX TRACKS"},
+    {"MIX 2", "[K1-4]LEVELS, ALL TRACKS[SELECT]DRIVE"},
     {"DRIVE", "[K1]TYPE[K2]DRIVE[SELECT]CHORUS"},
     {"DLY", "[K1-4]ALL TRACKS[SELECT]REVERB"},
     {"REVERB", "[K1]TYPE[K2]SIZE[SELECT]SLICER"},

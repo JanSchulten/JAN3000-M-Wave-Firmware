@@ -73,7 +73,7 @@ static void host_tracks_init(void)                /* as felucca_init: defaults, 
     uint32_t i, k;
     for (i = 0; i < G_COUNT; i++)
         song.g[i] = GP[i].def;
-    fx_serial = 0;                              /* legacy parallel routing: unchanged preset golden renders */
+    fx_lvl[0] = fx_lvl[1] = fx_lvl[2] = fx_lvl[3] = FX_LVL_DEF;   /* (M-Vave-OP1: the serial chain, MIX 2 full) */
     song.g[G_RTYPE] = 0;                          /* ROOM, the power-on reverb until 1.2: the renders (goldens) as
                                                    * before, ROOM bit for bit; HALL, the default since: reverb_test.c */
     for (k = 0; k < NTRK; k++) {
@@ -91,7 +91,7 @@ static void host_tracks_init(void)                /* as felucca_init: defaults, 
  * the engine as the UI asks for it (eng_req: the audio side switches; host_preset: at once) */
 static void host_preset_values(track_t *t, uint32_t e, uint32_t pi, const preset_t *p)
 {
-    static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
+    static const uint8_t FX_DEF[4] = {0, 0, 28, 36};   /* (CHO 24 before the serial chain: a SHIMMER on all) */
     uint32_t i;
     t->eng_req = (uint8_t)e;
     t->preset = (uint8_t)pi;
@@ -931,7 +931,7 @@ int main(int argc, char **argv)
     }
     fm6_track_loaded(&inst);                            /* FM6: the preset's patch */
     inst.p[P_VOICE] = (int16_t)mono;
-    inst.p[P_CHOR] = argc > 5 ? atoi(argv[5]) : 24;      /* as felucca_init */
+    inst.p[P_CHOR] = argc > 5 ? atoi(argv[5]) : 0;       /* as felucca_init (CHO 0 since the serial chain) */
     inst.p[P_DLY] = argc > 5 ? atoi(argv[5]) : 28;
     inst.p[P_REV] = argc > 5 ? atoi(argv[5]) : 36;
     if (getenv("PRESET"))                               /* PRESET=1: sends, voice mode too (then SENDS, PSET) */

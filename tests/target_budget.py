@@ -43,7 +43,8 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "rev_room", "rev_spring", "hall_block", "hall_down", "hall_up", "rev_side_mix",   # the reverb bus (fx.c): REVERB TYPE ROOM / SPRING / HALL (and its stereo)
          "dly_glide",                                       # .. M-Vave-OP1: the delay's taps crossfading after a TIME change
          "aud_fade_half",                                   # .. M-Vave-OP1 (audio.c): the DAC faded around a flash erase
-         "shimmer_pitch", "shimmer_send", "shimmer_bus", "serial_delay", "serial_reverb", "shimmer_return",
+         "shimmer_pitch", "shimmer_send", "shimmer_bus", "chain_shimmer_in", "chain_delay_in", "chain_reverb", "shimmer_return",
+         "cho_bus", "cho_side_mix", "chain_scale",          # .. M-Vave-OP1: the CHORUS, the chain's first stage (stereo); a level
          "hall_shimmer",                                    # .. M-Vave-OP1: SHIMMER's octave (fx.c), after rev_hall
          "track_insert", "ins_drive",                       # the per-track DRIVE (fx.c; the INSERT of 1.5), while a TYPE plays
          "cloud_render", "cl_spawn", "fx1_block", "cloud_side"]   # M-Vave-OP1: FX1's CLOUD (fx1.c), while it is the TYPE

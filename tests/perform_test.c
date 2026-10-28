@@ -41,6 +41,18 @@
  * OCT UP with the shimmer) and FLANGER's and PHASER's (a loop plain, then with each) into it. */
 #define main hostsim_main
 #include "hostsim.c"
+
+/* M-Vave-OP1: the buses as mix_block chains them, without the SHIMMER: the CHORUS (cho_bus), its wet into the DELAY,
+ * then the DELAY and the REVERB (fx_buses: the CHORUS's and the DELAY's wet into the REVERB) */
+static void buses(const int32_t *c, const int32_t *d, const int32_t *r, int32_t *w, uint32_t n)
+{
+    int32_t dd[CTL];
+    uint32_t i;
+    cho_bus(c, n);
+    for (i = 0; i < n; i++)
+        dd[i] = d[i] + cho_wet[i];
+    fx_buses(dd, r, w, n);
+}
 #undef main
 #ifdef __APPLE__
 #include <libproc.h>
@@ -298,6 +310,11 @@ static void song_setup(void)
     memset(trk, 0, sizeof trk);
     host_tracks_init();
     perf_reset();
+    memset(&shim_hl, 0, sizeof shim_hl);           /* (M-Vave-OP1: the SHIMMER silent: the chain feeds it from the */
+    memset(shim_comb, 0, sizeof shim_comb);         /* CHORUS, a tail of a test before would ring on) */
+    memset(shim_ap, 0, sizeof shim_ap);
+    memset(shim_shb, 0, sizeof shim_shb);
+    shim_live = shim_quiet = 0;
     song.g[G_BPM] = 120;
     host_preset(t1, 0, 4);
     host_preset(t2, 1, 5);
@@ -572,6 +589,11 @@ static int test_misc(void)
         trk[1].p[P_SLEN] = 1; trk[3].p[P_SLEN] = 1;
         trk[1].step[0].n = 0; trk[3].step[0].n = 0;          /* only track 1 plays, dry */
         trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;
+        memset(dly_buf, 0, sizeof dly_buf);                  /* (M-Vave-OP1: no tail of a test before: the chain */
+        memset(cho_buf, 0, sizeof cho_buf);                  /* feeds the REVERB more than the sends did) */
+        memset(rev_comb, 0, sizeof rev_comb);
+        memset(&rev_u, 0, sizeof rev_u);
+        rev_clear();
         transport_req = 1;
         for (f = 0; f < 2u * FS; f += CTL) {
             uint32_t i;
@@ -1031,7 +1053,8 @@ static int test_map(void)
 }
 
 /* ------------------------------- 12. the delay's dotted TIME, REV / ECHO THROW (1.5.1) --- */
-/* the delay bus alone (fx_buses with the chorus and reverb inputs silent and their lines cleared): dly_in -> wet */
+/* the delay bus alone (fx_buses with the chorus and reverb inputs silent and their lines cleared; M-Vave-OP1: dly_run
+ * with MIX 2's REVERB level 0, or the chain would take the echoes into it): dly_in -> wet */
 static void dly_clear(void)
 {
     memset(dly_buf, 0, sizeof dly_buf);
@@ -1045,8 +1068,9 @@ static void dly_run(const int32_t *in, int32_t *wet_out, uint32_t frames)
 {
     static int32_t z[CTL], w[CTL];
     uint32_t t, i;
+    fx_lvl[3] = 0;                                  /* (the chain: no REVERB after the DELAY) */
     for (t = 0; t < frames; t += CTL) {
-        fx_buses(z, in + t, z, w, CTL);
+        buses(z, in + t, z, w, CTL);
         for (i = 0; i < CTL; i++)
             wet_out[t + i] = w[i];
     }
@@ -1331,7 +1355,7 @@ static int test_throw(void)
                 memset(sr, 0, sizeof sr);
                 if (pf.thr)
                     perf_throw(tk, b1, sd, sr, CTL);
-                fx_buses(z, sd, sr, wb, CTL);
+                buses(z, sd, sr, wb, CTL);
                 perf_block(z, z, CTL);
                 for (i = 0; i < CTL; i++) {
                     double a = fabs((double)wb[i]);

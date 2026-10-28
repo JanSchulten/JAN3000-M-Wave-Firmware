@@ -84,19 +84,19 @@ static void sh_test_chain(void)
 {
     uint32_t i; int ok = 1;
     ui_power_on();
-    for (i = 0; i < CTL; i++) { send_d[i] = 100; shim_wet[i] = 200 + (int32_t)i; }
-    serial_delay(CTL);
-    for (i = 0; i < CTL; i++) ok &= send_d[i] == 300 + (int32_t)i;
-    ck("SHIMMER output feeds DELAY before the delay renders", ok);
-    for (i = 0; i < CTL; i++) { send_r[i] = 10; cho_wet[i] = 2000; wet[i] = 2300; }
-    { const int32_t *r = serial_reverb(send_r, wet, CTL);
-      for (i = 0; i < CTL; i++) ok &= r[i] == 510 + (int32_t)i; }
-    ck("REVERB receives Shimmer plus delay output and its own send; CHORUS stays parallel", ok);
+    for (i = 0; i < CTL; i++) { send_d[i] = 100; cho_wet[i] = 1000; shim_wet[i] = 200 + (int32_t)i; }
+    chain_delay_in(CTL);
+    for (i = 0; i < CTL; i++) ok &= send_d[i] == 1300 + (int32_t)i;
+    ck("CHORUS and SHIMMER output feed DELAY before the delay renders", ok);
+    for (i = 0; i < CTL; i++) { send_r[i] = 10; wet[i] = 2300; }
+    { const int32_t *r = chain_reverb(send_r, wet, CTL);
+      for (i = 0; i < CTL; i++) ok &= r[i] == 2510 + (int32_t)i; }
+    ck("REVERB receives its own send, the SHIMMER's and what came before (CHORUS, DELAY: fx_buses' wet)", ok);
     (void)mix_hash(100, 0);
     { int d = 0, r = 0;
       for (i = 0; i < DLY_LEN; i++) d |= dly_buf[i];
       for (i = 0; i < sizeof rev_comb / sizeof rev_comb[0]; i++) r |= rev_comb[i];
-      ck("SHIM alone reaches both downstream delay and reverb buffers through mix_block", d && r && fx_serial); }
+      ck("SHIM alone reaches both downstream delay and reverb buffers through mix_block", d && r); }
     { hall_t h; int16_t pitch[SH_LEN]; int n, p; double low = 0, high = 0;
       for (p = 0; p < 2; p++) {
         memset(&h, 0, sizeof h); memset(pitch, 0, sizeof pitch); shim_p[2] = 7; shim_p[3] = p ? 127 : 32;
@@ -124,14 +124,16 @@ static void test_ui(const char *dir)
     TSEL->p[P_SHIM] = 77; frame(); if (dir) screen_save(dir, "send-shimmer");
     track_select(1); ck("SHIM send belongs to the selected track", TSEL->p[P_SHIM] == 0 && trk[0].p[P_SHIM] == 77);
     go_page(GR_FX); turn(EN_SELECT, 1); frame();
-    ok = str_eq(cur_page()->title, "DRIVE");
+    ok = str_eq(cur_page()->title, "MIX 2");
+    turn(EN_SELECT, 1); frame();
+    ok &= str_eq(cur_page()->title, "DRIVE");
     TSEL->p[P_ITYPE] = IT_SOFT;
     { int16_t a = TSEL->p[P_IA], b = TSEL->p[P_IB], c = TSEL->p[P_IC]; turn(EN_K2, 1); turn(EN_K3, 1); turn(EN_K4, 1);
       ok &= TSEL->p[P_IA] > a && TSEL->p[P_IB] > b && TSEL->p[P_IC] > c && TSEL->p[P_ITYPE] == IT_SOFT; }
     turn(EN_SELECT, 1); frame();
     ok &= str_eq(cur_page()->title, "CHORUS");
     for (k = 0; k < NPAGES; k++) ok &= !str_eq(PAGES[k].title, "DIST") && !str_eq(PAGES[k].title, "INSERT 2");
-    ck("the DRIVE after the sends: TYPE DRIVE TONE LEVEL on K1..K4, CHORUS next; no DIST or INSERT 2 page", ok);
+    ck("MIX 2, then the DRIVE after the sends: TYPE DRIVE TONE LEVEL on K1..K4, CHORUS next; no DIST or INSERT 2 page", ok);
     if (dir) screen_save(dir, "drive");
     go_page(GR_SHIM); sig = graph_signature();
     { int16_t sz = song.g[G_RSIZE], damp = song.g[G_RDAMP]; turn(EN_K1, 1); turn(EN_K2, -1);
@@ -155,10 +157,10 @@ static void test_stored(void)
     project_capture(&a); ck("FUN10 round trip keeps all sends, automation and locks", proj_pack(&st, &a) && proj_import(&q, &st, sizeof st) && !memcmp(&a, &q, sizeof a));
     ck("project with extras saves", project_save_as(0, "SHIMMER") == 0);
     shim_p[0] = shim_p[1] = 0; trk[0].p[P_SHIM] = 0; project_load(0);
-    ck("project load restores independent sends and global settings", trk[0].p[P_SHIM] == 20 && shim_p[0] == 113 && shim_p[1] == 47 && shim_p[2] == -7 && shim_p[3] == 98 && fx_serial);
+    ck("project load restores independent sends and global settings", trk[0].p[P_SHIM] == 20 && shim_p[0] == 113 && shim_p[1] == 47 && shim_p[2] == -7 && shim_p[3] == 98);
     sig = autosave_sig(); shim_p[1]++; ck("global SHIMMER edits trigger autosave", sig != autosave_sig());
     xtra_capture(&x, &xh, 1); x.shim_size = x.shim_damp = x.shim_pitch = x.shim_fdbk = x.fx_serial = 0; xtra_misc(&x, 1);   /* (written 0 before) */
-    ck("older extras load safe SHIMMER defaults", shim_p[0] == 90 && shim_p[1] == 60 && shim_p[2] == 12 && shim_p[3] == 127 && !fx_serial);
+    ck("older extras load safe SHIMMER defaults", shim_p[0] == 90 && shim_p[1] == 60 && shim_p[2] == 12 && shim_p[3] == 127);
     memset(&u, 0, sizeof u); u.np = P_COUNT; u.ver = UP_VER;
     for (i = 0; i < P_COUNT; i++) { defs[i] = TP[i].def; up_set_value(&u, i, trk[0].p[i]); }
     up_params(&u, v, defs); ck("user preset keeps the SHIM send", v[P_SHIM] == 20);

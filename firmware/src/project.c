@@ -803,7 +803,7 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
  * (until 1.0.2 the SAMPLE engine's PERC set, retired since) */
 static void proj_legacy_drums(track_t *t)
 {
-    static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
+    static const uint8_t FX_DEF[4] = {0, 0, 28, 36};   /* (CHO 24 before the serial chain: a SHIMMER on all) */
     static const int8_t KIT_E[8] = DRUM_KIT_E;    /* (M-Vave-OP1: the STD kit, as these projects always loaded) */
     const preset_t *pr = &ENGINES[ENGI_DRUM]->presets[0];
     uint32_t i;
@@ -1222,7 +1222,7 @@ static void project_new(uint32_t slot)
     xtra_misc(&none, 0);
     eq_defaults();                                      /* (M-Vave-OP1: HOME > EQ flat) */
     dyn_defaults();                                     /* (.. HOME > MASTER: no compressor, the limiter as before) */
-    fx_serial = 1;
+    xtra_lvl(0);                                        /* (.. MIX 2: the chain's levels full) */
     np_sounds();
     for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
         pat_sig[k] = steps_sig(&trk[k]);
@@ -1469,9 +1469,9 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
     h = as_mix(h, shim_p, sizeof shim_p);
-    h = as_mix(h, &fx_serial, sizeof fx_serial);
     h = as_mix(h, eq_set, sizeof eq_set);           /* (M-Vave-OP1: HOME > EQ, the extras') */
     h = as_mix(h, dyn_set, sizeof dyn_set);         /* (.. HOME > MASTER's) */
+    h = as_mix(h, fx_lvl, sizeof fx_lvl);           /* (.. MIX 2's levels: the DELAY's MIX is G_DMIX's) */
     h = as_mix(h, cset_set, sizeof cset_set);       /* SCL > CSET's ON, SETs and VOICEs too; */
     h = as_mix(h, cset_voice, sizeof cset_voice);
     h = as_mix(h, &cset_en, 1);

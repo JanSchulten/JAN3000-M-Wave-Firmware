@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* Effects: per track the DRIVE (the INSERT of 1.5), then sends into four
- * shared buses (chorus, tempo delay, reverb, shimmer). Mono buses, stereo dry mix. */
+/* Effects: per track the DRIVE (the INSERT of 1.5), then sends into four shared buses, one serial chain (M-Vave-OP1):
+ * CHORUS -> SHIMMER -> DELAY -> REVERB. Each stage takes the tracks' sends to it and what every stage before it gives
+ * (chain_feed, chain_reverb); every stage's wet goes to the mix as well. MIX 2's levels (params.c fx_lvl; the DELAY's
+ * is its MIX, G_DMIX) scale a stage's input, so a stage turned down rings out as a send would and passes nothing on.
+ * Mono buses (the CHORUS, HALL, SHIMMER and the CLOUD add a side), stereo dry mix. */
 #define DLY_LEN 65536u           /* 1.49 s: 1/4 fits from 41 BPM, 1/4D from 61, 1/2 from 81 */
 /* M-Vave-OP1: the delay bus is FX1, of a TYPE (fx1.c): DELAY, or CLOUD (granular, in the delay's line). Its settings:
  * the main loop's (FX1 and CLOUD pages), kept with the project's extras (opstore.c); bytes the ISR reads a block at a time */
@@ -19,7 +22,10 @@ static volatile struct {
     uint8_t type;                        /* CHO_* */
     uint8_t fdbk;                        /* 0..100 */
 } chos;
-static int32_t cho_wet[CTL], shim_wet[CTL], chain_rev[CTL];
+static int32_t cho_wet[CTL], cho_sd[CTL], shim_wet[CTL], chain_rev[CTL];
+static uint8_t cho_on;                   /* the CHORUS gave something this block (cho_bus): it feeds the stages after it */
+/* MIX 2's level of stage k (0 CHORUS, 1 SHIMMER, 3 REVERB; params.c fx_lvl), Q15 */
+static inline int32_t chain_g(uint32_t k) { return fx_lvl[k & 3u] >= 127 ? 32768 : fx_lvl[k & 3u] <= 0 ? 0 : fx_lvl[k & 3u] * 258; }
 #define CHO_LEN 2048u
 static int16_t dly_buf[DLY_LEN] __attribute__((section(".pool")));
 static int16_t cho_buf[CHO_LEN] __attribute__((section(".pool")));
@@ -46,7 +52,7 @@ static struct {
 } fx;
 
 /* the chorus bus: a short line read through a sine, between samples, the read fed back (FDBK). By TYPE: CHORUS
- * Felucca's, 9.1 .. 26 ms (DEPTH 6 samples a step), feedback up to 0.49; FLANGER 0.5 .. 6.3 ms (2 a step: the comb
+ * Felucca's (M-Vave-OP1: read twice, stereo: cho_bus), 9.1 .. 26 ms (DEPTH 6 samples a step), feedback up to 0.49; FLANGER 0.5 .. 6.3 ms (2 a step: the comb
  * swept through the audio band), up to 0.87 (the jet); VIBRATO 1 .. 9.6 ms (3 a step), up to 0.49: the copy's pitch
  * swings (the bus is all wet: a track with its CHO send up and its LEVEL down is a vibrato alone). Its constants a
  * block (cho_setup), a sample (cho_tick: read first, the line's shortest read 22 samples back, so the order does not
@@ -75,6 +81,33 @@ static inline int32_t cho_tick(const cho_k_t *k, int32_t in)
     cho_buf[fx.cho_w & (CHO_LEN - 1u)] = (int16_t)clamp((in >> 1) + c1, -32768, 32767);
     fx.cho_w++;
     return c << 1;
+}
+/* M-Vave-OP1: the chorus's second read, for the right (cho_bus), after cho_tick wrote this sample: its sine a quarter turn
+ * on (ph), the same depth */
+static inline int32_t cho_tap(const cho_k_t *k, uint32_t ph)
+{
+    int32_t r = k->base + ((osc_sine(ph) + 32768) * k->cd >> 8), f = r & 255, c0, c1;
+    uint32_t ri = (uint32_t)r >> 8;
+    c0 = cho_buf[(fx.cho_w - 1u - ri) & (CHO_LEN - 1u)];
+    c1 = cho_buf[(fx.cho_w - 2u - ri) & (CHO_LEN - 1u)];
+    return (c0 + (((c1 - c0) * f) >> 8)) << 1;
+}
+/* M-Vave-OP1: the CHORUS, the chain's first stage, a block: in (the sends, CHORUS's level on them) through the line,
+ * read twice (cho_tick's read the left, cho_tap's a quarter turn on the right): cho_wet their mean (the mono bus, what
+ * the stages after take), cho_sd half their difference (mix_block: added left, taken right). cho_on: any of it not 0 */
+static __attribute__((noinline)) void cho_bus(const int32_t *in, uint32_t n)
+{
+    cho_k_t k;
+    uint32_t i;
+    int32_t g = chain_g(0), any = 0;
+    cho_setup(&k);
+    for (i = 0; i < n; i++) {
+        int32_t a = cho_tick(&k, g == 32768 ? in[i] : mulq16(in[i], (uint32_t)g << 1)), b = cho_tap(&k, fx.cho_ph + 0x40000000u);
+        cho_wet[i] = (a + b) >> 1;
+        cho_sd[i] = (a - b) >> 1;
+        any |= a | b;
+    }
+    cho_on = any != 0;
 }
 
 /* SPRING (G_RTYPE 1): one spring of a spring tank, mono like the other buses, in the ROOM's own buffers (no
@@ -302,6 +335,15 @@ static uint32_t div_samples(uint32_t div)
 static uint32_t delay_samples(void);
 #include "fx1.c"                                     /* M-Vave-OP1: FX1's CLOUD, the TYPE switch (the delay's line) */
 #include "eq.c"                                      /* M-Vave-OP1: HOME > EQ, each track's four bands */
+
+/* M-Vave-OP1: the delay's feedback, rounded towards zero (as ROOM's: fx.c rev_room). Floored, a low-pass left at -2
+ * fed -1 back for ever: an endless -1 in the line, which the chain (its echoes into the REVERB) made a tail that never
+ * ended */
+static inline int32_t dly_fb(int32_t lp, int32_t fb)
+{
+    int32_t f = lp * fb;
+    return (f + ((f >> 31) & 32767)) >> 15;
+}
 
 /* the delay's TIME (params.c N_DTIME): N_DIV's ten (div_samples), then 1.5.1's dotted 1/8D 1/16D 1/4D (10, 11, 12: 3/4,
  * 3/8, 3/2 of a quarter); at most DLY_LEN - 1 samples (1.486 s): 1/4D clamps at 60 BPM and below (1/2 below 81) */
@@ -724,17 +766,14 @@ static __attribute__((noinline)) void rev_switch(const int32_t *rev_in, int32_t 
 /* M-Vave-OP1: the delay's TIME changed (a detent, the tempo, an external clock's new estimate, which moves by ~176
  * samples a ms of its 1 ms timestamps): the read tap jumped there at once and every echo clicked, under an external
  * clock about every quarter note. Now the old tap fades into the new one over DLY_XF samples (23 ms, linear: no
- * pitch bend, no click), in the feedback as in the output; a change during a fade waits for its end. The chorus and
- * the rest as fx_buses' own loop, which stays as it was while the tap holds still (this one out of line) */
+ * pitch bend, no click), in the feedback as in the output; a change during a fade waits for its end. The rest as
+ * fx_buses' own loop, which stays as it was while the tap holds still (this one out of line) */
 #define DLY_XF_LOG2 10
 #define DLY_XF (1 << DLY_XF_LOG2)
-static __attribute__((noinline)) void dly_glide(const int32_t *cho_in, const int32_t *dly_in, int32_t *wet, uint32_t n,
-                                                int32_t fb, uint32_t dl)
+static __attribute__((noinline)) void dly_glide(const int32_t *dly_in, int32_t *wet, uint32_t n, int32_t fb, uint32_t dl)
 {
     uint32_t i;
     int32_t col = 2000 + song.g[G_DCOLOR] * 240, dmix = song.g[G_DMIX] * 258;
-    cho_k_t ck;
-    cho_setup(&ck);
     if (!fx.dl_cur)
         fx.dl_cur = dl;                                 /* (the first block: nothing to fade from) */
     if (!fx.dxf && dl != fx.dl_cur) {
@@ -742,8 +781,7 @@ static __attribute__((noinline)) void dly_glide(const int32_t *cho_in, const int
         fx.dxf = DLY_XF;
     }
     for (i = 0; i < n; i++) {
-        int32_t y = cho_tick(&ck, cho_in[i]), x = dly_buf[(fx.dly_w - fx.dl_cur) & (DLY_LEN - 1u)];
-        cho_wet[i] = y;
+        int32_t y = cho_wet[i], x = dly_buf[(fx.dly_w - fx.dl_cur) & (DLY_LEN - 1u)];
         if (fx.dxf) {
             int32_t xb = dly_buf[(fx.dly_w - fx.dl_new) & (DLY_LEN - 1u)];
             x += ((xb - x) * (DLY_XF - fx.dxf)) >> DLY_XF_LOG2;   /* (|xb - x| < 2^16: fits) */
@@ -752,55 +790,54 @@ static __attribute__((noinline)) void dly_glide(const int32_t *cho_in, const int
         }
         fx.dly_lp += mulq15(x - fx.dly_lp, col);
         dly_buf[fx.dly_w & (DLY_LEN - 1u)] =
-            (int16_t)clamp((dly_in[i] >> 1) + mulq15(fx.dly_lp, fb), -32768, 32767);
+            (int16_t)clamp((dly_in[i] >> 1) + dly_fb(fx.dly_lp, fb), -32768, 32767);
         fx.dly_w++;
         y += mulq15(x << 1, dmix);
         wet[i] = y;
     }
 }
 
-/* The serial aux chain sums explicit per-track sends at each stage. Dry Shimmer and its echoes both
- * reach REVERB (as a serial delay's dry/wet output); CHORUS stays parallel. Clamp before the reverb's Q15
- * multiply: several loud tracks plus both upstream tails must not wrap. */
-static __attribute__((noinline)) const int32_t *serial_reverb(const int32_t *in, const int32_t *out, uint32_t n)
+/* the REVERB's input in the chain: its sends, the SHIMMER's wet and out (the CHORUS's wet and the DELAY's echoes: fx_buses'
+ * wet so far), at the REVERB's level (MIX 2). Clamped before the reverb's Q15 multiply: several loud tracks plus the
+ * stages before must not wrap */
+static __attribute__((noinline)) const int32_t *chain_reverb(const int32_t *in, const int32_t *out, uint32_t n)
 {
     uint32_t i;
-    for (i = 0; i < n; i++) chain_rev[i] = clamp(in[i] + shim_wet[i] + out[i] - cho_wet[i], -262143, 262143);
+    int32_t g = chain_g(3);
+    for (i = 0; i < n; i++)
+        chain_rev[i] = mulq16(clamp(in[i] + shim_wet[i] + out[i], -262143, 262143), (uint32_t)g << 1);   /* (Q16: the sum
+                                                         * of four loud tracks would wrap a Q15 multiply) */
     return chain_rev;
 }
 
-/* process the three buses for one block; sends in, wet stereo-equal out */
-static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t *rev_in, int32_t *wet,
-                     uint32_t n)
+/* the DELAY and the REVERB for one block, after the CHORUS (cho_bus) and the SHIMMER: their inputs in, wet (the
+ * CHORUS's, the DELAY's, the REVERB's) stereo-equal out */
+static void fx_buses(const int32_t *dly_in, const int32_t *rev_in, int32_t *wet, uint32_t n)
 {
     uint32_t i, dl = delay_samples();
     int32_t fb = song.g[G_DFDBK] * 230, col = 2000 + song.g[G_DCOLOR] * 240;
     int32_t dmix = song.g[G_DMIX] * 258;
     int32_t rt;
-    cho_k_t ck;
-    cho_setup(&ck);
     if (pf.ew1 && fb < THR_FB)
         fb += mulq16(THR_FB - fb, (uint32_t)pf.ew1 << 1);   /* ECHO THROW (perform.c): more feedback while held, 0.7
                                                              * at most (the loop's gain below 1: it never runs away) */
     if (fx1s.type | cld.type | cld.busy)
-        fx1_block(cho_in, dly_in, wet, n, fb);          /* M-Vave-OP1: FX1 not the DELAY, or changing (fx1.c) */
+        fx1_block(dly_in, wet, n, fb);                  /* M-Vave-OP1: FX1 not the DELAY, or changing (fx1.c) */
     else if ((dl != fx.dl_cur) | fx.dxf)
-        dly_glide(cho_in, dly_in, wet, n, fb, dl);      /* M-Vave-OP1: TIME changed, the taps crossfade */
+        dly_glide(dly_in, wet, n, fb, dl);              /* M-Vave-OP1: TIME changed, the taps crossfade */
     else
     for (i = 0; i < n; i++) {
-        int32_t y = cho_tick(&ck, cho_in[i]), x;   /* the chorus (cho_tick) */
-        cho_wet[i] = y;
+        int32_t y = cho_wet[i], x;                      /* the chorus's (cho_bus) */
         /* delay with a low-passed feedback */
         x = dly_buf[(fx.dly_w - dl) & (DLY_LEN - 1u)];
         fx.dly_lp += mulq15(x - fx.dly_lp, col);
         dly_buf[fx.dly_w & (DLY_LEN - 1u)] =
-            (int16_t)clamp((dly_in[i] >> 1) + mulq15(fx.dly_lp, fb), -32768, 32767);
+            (int16_t)clamp((dly_in[i] >> 1) + dly_fb(fx.dly_lp, fb), -32768, 32767);
         fx.dly_w++;
         y += mulq15(x << 1, dmix);
         wet[i] = y;
     }
-    if (fx_serial)
-        rev_in = serial_reverb(rev_in, wet, n);
+    rev_in = chain_reverb(rev_in, wet, n);
     rt = song.g[G_RTYPE];
     rt = rt >= 1 && rt <= 3 ? rt : 0;
     hl.side = 0;
@@ -968,18 +1005,27 @@ static __attribute__((noinline)) void shimmer_send(const track_t *t, const int32
     int32_t g = t->p[P_SHIM] * 258, lvl = LEVEL_Q12[t->p[P_LEVEL] & 127];
     int32_t lim = 0x7FFFFFFF / (g | 1);
     shim_live = 1;
-    fx_serial = 1;                                  /* adding SHIM to an old parallel project adopts the new chain */
     for (i = 0; i < n; i++) {
         int32_t x = ((b[i] >> 2) * lvl) >> 10;
         send_sh[i] += mulq15(clamp(x, -lim, lim), g);
     }
 }
 
+/* a stage's input at its level g (Q15, below 1: MIX 2; as Q16: several loud tracks' sends would wrap a Q15 multiply) */
+static __attribute__((noinline)) void chain_scale(int32_t *x, uint32_t n, int32_t g)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++)
+        x[i] = mulq16(x[i], (uint32_t)g << 1);
+}
 static __attribute__((noinline)) void shimmer_bus(int32_t *out, uint32_t n)
 {
     uint32_t i;
+    int32_t g = chain_g(1);
     if (!shim_live)
         return;
+    if (g != 32768)
+        chain_scale(send_sh, n, g);                 /* (MIX 2's SHIMMER level on its input) */
     hall_block(&shim_hl, shim_comb, shim_ap, shim_shb, send_sh, out, shim_p[0], shim_p[1], 2);
     for (i = 0; i < n; i++) {
         mix_l[i] += shim_hl.sd[i];
@@ -998,10 +1044,28 @@ static __attribute__((noinline)) void shimmer_bus(int32_t *out, uint32_t n)
     }
 }
 
-static __attribute__((noinline)) void serial_delay(uint32_t n)
+/* the chain after the CHORUS: its wet into the SHIMMER (a stage with something to take wakes up) and both into the DELAY */
+static __attribute__((noinline)) void chain_shimmer_in(uint32_t n)
 {
     uint32_t i;
-    for (i = 0; i < n; i++) send_d[i] = clamp(send_d[i] + shim_wet[i], -262143, 262143);
+    shim_live = 1;
+    for (i = 0; i < n; i++)
+        send_sh[i] += cho_wet[i];
+}
+static __attribute__((noinline)) void chain_delay_in(uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++)
+        send_d[i] = clamp(send_d[i] + cho_wet[i] + shim_wet[i], -262143, 262143);
+}
+/* the CHORUS's stereo: its side to the left and from the right of the dry mix (cho_wet, the mid, is in wet) */
+static __attribute__((noinline)) void cho_side_mix(uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        mix_l[i] += cho_sd[i];
+        mix_r[i] -= cho_sd[i];
+    }
 }
 static __attribute__((noinline)) void shimmer_return(uint32_t n)
 {
@@ -1166,9 +1230,15 @@ static void mix_block(int32_t *out, uint32_t n)
     }
     if (perf)
         perf_pre(mix_l, mix_r, send_d, send_r, n);
+    cho_bus(send_c, n);                                 /* the chain: CHORUS -> SHIMMER -> DELAY -> REVERB */
+    if (cho_on && chain_g(1))
+        chain_shimmer_in(n);
     shimmer_bus(shim_wet, n);
-    if (fx_serial && shim_live) serial_delay(n);
-    fx_buses(send_c, send_d, send_r, wet, n);
+    if (cho_on | shim_live)
+        chain_delay_in(n);
+    fx_buses(send_d, send_r, wet, n);
+    if (cho_on)
+        cho_side_mix(n);                                /* CHORUS: stereo */
     if (hl.side)
         rev_side_mix(mix_l, mix_r, n);                  /* HALL: stereo */
     if (shim_live) shimmer_return(n);

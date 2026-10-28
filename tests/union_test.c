@@ -16,7 +16,9 @@
  * the 424 that play GRAIN's CLOUD PAD or GLITCH (part 3 plays them alongside) when FLUTE and SAX left the firmware:
  * their SRC is PIANO now. M-Vave-OP1 rewrote the 256 whose presets bring a DIST when DIST was retired (the preset's
  * DIST a SOFT DRIVE since, hostsim.c host_preset_values): with DIST taken out of the presets, every one of the 546
- * rendered bit for bit as before.
+ * rendered bit for bit as before. M-Vave-OP1 rewrote all 546 for the serial FX chain (CHORUS -> SHIMMER -> DELAY ->
+ * REVERB; the power-on CHO send 0): with the presets' REVERB sends alone (CHO SHIM DLY 0) every one rendered bit for bit
+ * as before.
  * env: GOLDEN_UPDATE=1 rewrites GOLDEN_FILE (only with a reason: a switch is to sound as it did). */
 #define main hostsim_main
 #include "hostsim.c"
