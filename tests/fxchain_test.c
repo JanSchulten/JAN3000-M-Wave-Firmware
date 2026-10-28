@@ -2,14 +2,12 @@
  * Copyright (C) 2026 M-Vave-OP1 contributors */
 /* The SLICER's place in the chain (firmware/src/slicer.c, fx.c), on the firmware's own sources (ui_test.c):
  *   SLICER   at the START (GATE STUT PUMP) before DIST: a half-closed gate on a driven sound stays loud (DIST's
- *            input gated, not its output); at the END (GATE END, PUMP END) on the whole sum after the reverb: another
- *            track's sound and the reverb's tail gated by the driving track's pattern, the track itself silent; two on
- *            END: the lower drives; a track on END not gated at the start; END turned OFF while closed: it opens
- *            without a click.
+ *            input gated, not its output). Nothing after the reverb any more: the retired END values (4 GATE END,
+ *            5 PUMP END, in old projects) leave the mix bit for bit as OFF.
  *   PUMP     the level drops by DEPTH at every step (ramped, from the step's first sample) and comes back along PAT's
  *            curve over its share of the step (SMOOTH PUNCH LINEAR HOLD; all, 3/4, 1/2, 1/4); no clicks with the
- *            settings turned while it runs; RATE 1/4 a beat a step; PUMP END ducks the whole mix by its track's clock;
- *            the SLICER page draws the curve (its signature follows PAT and DEPTH).
+ *            settings turned while it runs; RATE 1/4 a beat a step; the SLICER page draws the curve (its signature
+ *            follows PAT and DEPTH).
  * Built and run by tests/run_tests.sh (a directory argument: the screens). */
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
@@ -80,7 +78,6 @@ static void sl_fresh(void)
         pf.mg[k] = 32768;
     memset(ins, 0, sizeof ins);
     memset(sl, 0, sizeof sl);
-    memset(&sle, 0, sizeof sle);
     lim_env = LIM_T;
     dc_l = dc_r = dce_l = dce_r = 0;
     for (k = 0; k < NTRK; k++) {
@@ -125,7 +122,6 @@ static void test_slicer_pos(void)
 {
     double op, cl, op2, cl2;
     char what[200];
-    uint32_t b, i;
     /* START before DIST: DEPTH 64 (the gate half closed) on a pad through DIST 127: the closed steps nearly as loud as the
      * open ones (DIST's input halved, its output saturated alike); DIST before it (as it was) would halve them */
     sl_fresh();
@@ -143,79 +139,36 @@ static void test_slicer_pos(void)
     snprintf(what, sizeof what, "SLICER at the START, before DIST: DEPTH 64, closed / open steps on DIST 127 %.2f, without DIST "
              "%.2f (after DIST both alike)", cl / op, cl2 / op2);
     ck(what, op > 100 && cl2 / op2 > 0.4 && cl2 / op2 < 0.75 && cl / op > cl2 / op2 + 0.15);
-    /* END: track 2 on GATE END (silent itself), track 1 playing: the whole sum gated by track 2's pattern */
-    sl_fresh();
-    set_sl(1, SL_GEND, 1, 0, 127);
-    trk_note_on(&trk[0], 48, 120);
-    sl_measure(FS * 3u / CTL, 1, &op, &cl, FS / CTL);
-    snprintf(what, sizeof what, "SLICER at the END: track 2 GATE END (silent), track 1 playing: closed / open %.3f", cl / op);
-    ck(what, op > 100 && cl / op < 0.01);
-    ck("SLICER at the END: .. track 2 drove it (the closure from its clock)", sle.gc >= 0 && !sl[1].gc && !sl[0].gc);
-    /* the reverb's tail in it: the pad sent to the reverb, its note let go: the tail gated too */
-    sl_fresh();
-    song.g[G_RTYPE] = 2;
-    song.g[G_RSIZE] = 110;
-    trk[0].p[P_REV] = 127;
-    set_sl(1, SL_GEND, 1, 0, 127);
-    trk_note_on(&trk[0], 48, 120);
-    for (b = 0; b < FS / CTL; b++)
-        mix_block(ob, CTL);
-    trk_note_off(&trk[0], 48);
-    for (b = 0; b < FS / 2u / CTL; b++)                /* (the voice's release over: the tail alone) */
-        mix_block(ob, CTL);
-    sl_measure(FS / CTL, 1, &op, &cl, 0);
-    snprintf(what, sizeof what, "SLICER at the END: the reverb's tail gated too (closed / open %.3f, open %.0f)", cl / op, op);
-    ck(what, op > 20 && cl / op < 0.02);
-    /* two tracks on END with opposite patterns (1: x.x., 13: .x.x): the lower (track 2) drives */
-    sl_fresh();
-    set_sl(1, SL_GEND, 1, 0, 127);
-    set_sl(2, SL_GEND, 13, 0, 127);
-    trk_note_on(&trk[0], 48, 120);
-    sl_measure(FS * 3u / CTL, 1, &op, &cl, FS / CTL);
-    sl_measure(FS * 3u / CTL, 2, &op2, &cl2, 0);
-    snprintf(what, sizeof what, "SLICER at the END: tracks 2 and 3 on it, the lower drives (by 2's steps %.3f, by 3's %.1f)",
-             cl / op, cl2 / (op2 + 1));
-    ck(what, cl / op < 0.01 && cl2 > 20 * op2);
-    /* a track on END is not gated at the start: track 1 itself on GATE END, depth 127 */
-    sl_fresh();
-    set_sl(0, SL_GEND, 1, 0, 127);
-    trk_note_on(&trk[0], 48, 120);
+    /* END retired: GATE END and PUMP END (4, 5, still stored in old projects) play as OFF: track 2 on them, track 1's pad
+     * through the mix as loud in track 2's closed steps as in its open ones (GATE END: closed / open < 0.01) and just
+     * after a step's start as at its end (PUMP END: ducked to < 0.05); track 2's own gate stays open */
     {
-        int32_t gmax = 0;
-        for (b = 0; b < FS / CTL; b++) {
-            mix_block(ob, CTL);
-            gmax = sl[0].gc > gmax ? sl[0].gc : gmax;
-        }
-        ck("SLICER: a track on END is not gated at the start (its own gate stays open)", !gmax && sle.gc >= 0);
-    }
-    /* END turned OFF in a closed step: it opens over SL_RAMP, no click */
-    sl_fresh();
-    set_sl(1, SL_GEND, 7, 0, 127);                      /* (x... : three closed steps in four) */
-    trk_note_on(&trk[0], 48, 120);
-    for (b = 0; b < FS / CTL; b++)
-        mix_block(ob, CTL);
-    while (sl[1].bit || sl[1].pos < SL_RAMP + CTL)
-        mix_block(ob, CTL);
-    {
-        int32_t prev = ob[2u * (CTL - 1u)], mx = 0, own = 0;
-        uint32_t opened = 0;
-        trk[1].p[P_SLCR] = SL_OFF;
-        for (b = 0; b < 40u; b++) {
-            mix_block(ob, CTL);
-            for (i = 0; i < CTL; i++) {
-                int32_t st = abs(ob[2u * i] - prev);
-                prev = ob[2u * i];
-                if (b < 8u)
-                    mx = st > mx ? st : mx;
-                else
-                    own = st > own ? st : own;
+        int m;
+        for (m = 4; m <= 5; m++) {
+            double lo = 0, hi = 0;
+            uint32_t b, i, nl = 0, nh = 0;
+            sl_fresh();
+            set_sl(1, m, 1, 6, 127);
+            trk_note_on(&trk[0], 48, 120);
+            sl_measure(FS * 3u / CTL, 1, &op, &cl, FS / CTL);
+            for (b = 0; b < 2u * FS / CTL; b++) {
+                double s2 = 0;
+                mix_block(ob, CTL);
+                for (i = 0; i < CTL; i++)
+                    s2 += abs(ob[2u * i]);
+                if (sl[1].pos > SL_RAMP + CTL && sl[1].pos < SL_RAMP + 40u * CTL)   /* (PUMP END: still ducked here) */
+                    lo += s2, nl++;
+                if (sl[1].pos > sl[1].len - 40u * CTL)
+                    hi += s2, nh++;
             }
-            if (!sle.gc && !opened)
-                opened = b + 1u;
+            lo /= nl ? nl : 1;
+            hi /= nh ? nh : 1;
+            snprintf(what, sizeof what, "SLICER: the retired END value %d plays as OFF: by track 2's closed / open steps %.3f, "
+                     "a step's start / end %.3f", m, cl / op, lo / hi);
+            ck(what, op > 100 && cl / op > 0.8 && cl / op < 1.25 && lo > hi * 0.8 && !sl[1].gc);
         }
-        snprintf(what, sizeof what, "SLICER: END turned OFF while closed: open after %u blocks, steps %d (the pad's own %d)", opened,
-                 mx, own);
-        ck(what, opened >= 3u && opened <= 6u && mx <= own + own / 2);
+        ck("SLICER: its modes OFF GATE STUT PUMP, nothing after (the page's range ends at PUMP)",
+           SL_NMODE == 4 && TP[P_SLCR].max == SL_PUMP && str_eq(TP[P_SLCR].names[SL_PUMP], "PUMP"));
     }
 }
 
@@ -230,7 +183,6 @@ static int32_t pump_run(uint32_t frames, double f, int turn)
     int32_t prev = 0, mx = 0;
     track_t *tk = &trk[0];
     memset(&sl[0], 0, sizeof sl[0]);
-    sle.k = 0;
     slicer_start();
     for (t = 0; t < frames; t += CTL) {
         int32_t b[CTL];
@@ -241,7 +193,6 @@ static int32_t pump_run(uint32_t frames, double f, int turn)
         for (i = 0; i < CTL; i++)
             b[i] = f > 0 ? (int32_t)lrint(20000 * sin(2 * M_PI * f * (double)(t + i) / FS)) : 20000;
         slicer_track(tk, b, CTL);
-        sle.k = 0;
         for (i = 0; i < CTL && t + i < PGN; i++) {
             pg[t + i] = b[i];
             if (t + i) {
@@ -322,29 +273,6 @@ static void test_pump(const char *dir)
     sl_enter(&trk[0], &sl[0]);
     snprintf(what, sizeof what, "PUMP: RATE 1/4 at 120 BPM: a step of %u samples (22050)", sl[0].base);
     ck(what, sl[0].base == 22050u && str_eq(TP[P_SLRATE].names[6], "1/4"));
-    /* PUMP END: track 2 on it (silent), track 1's pad: the mix ducked by 2's clock */
-    {
-        double lo = 1e9, hi = 0;
-        uint32_t b, i;
-        sl_fresh();
-        set_sl(1, SL_PEND, 1, 6, 127);
-        trk_note_on(&trk[0], 48, 120);
-        for (b = 0; b < 3u * FS / CTL; b++) {
-            double s2 = 0;
-            mix_block(ob, CTL);
-            if (b < FS / CTL)
-                continue;
-            for (i = 0; i < CTL; i++)
-                s2 += abs(ob[2u * i]);
-            s2 /= CTL;
-            if (sl[1].pos > SL_RAMP + CTL && sl[1].pos < SL_RAMP + 6u * CTL)
-                lo = s2 < lo ? s2 : lo;
-            if (sl[1].pos > sl[1].len - 6u * CTL)
-                hi = s2 > hi ? s2 : hi;
-        }
-        snprintf(what, sizeof what, "PUMP END: track 2's clock ducks the whole mix (after the drop %.0f, by the step's end %.0f)", lo, hi);
-        ck(what, hi > 200 && lo < hi * 0.05 && !sl[0].gc);
-    }
     /* the SLICER page draws the curve; its signature follows PAT and DEPTH */
     {
         uint32_t s0, s1, s2;
@@ -365,8 +293,6 @@ static void test_pump(const char *dir)
             trk[0].p[P_SLPAT] = 1;
             trk[0].p[P_SLDEPTH] = 110;
             screen_save(dir, "slicer_pump");
-            trk[0].p[P_SLCR] = SL_GEND;
-            screen_save(dir, "slicer_gate_end");
         }
     }
 }

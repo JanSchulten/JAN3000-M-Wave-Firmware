@@ -2,12 +2,10 @@
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* SLICER: a per-track insert, a tempo-synced 16-step gate / stutter. It works on the track's dry
  * mono signal after DIST and before LEVEL / PAN / the sends (fx.c mix_part), so the sends follow
- * the chopped sound. M-Vave-OP1: at the START or at the END of the chain. START (GATE, STUT, PUMP): per
- * track, first: sound -> SLICER -> DIST -> INSERT -> LEVEL / PAN / the sends. END (GATE END, PUMP END:
- * SL_GEND and after): on the whole stereo sum after the reverb (dry + wet), before MASTER and the FX
- * layer's punch-ins (fx.c slicer_end), driven by that track's PAT / RATE / DEPTH and step clock; several
- * tracks on END: the lowest drives it (the others' clocks run on). A track on END is not sliced at the start.
- *   P_SLCR    OFF / GATE / STUT / PUMP / GATE END / PUMP END (N_SLCR's names: GT END, PM END)
+ * the chopped sound. M-Vave-OP1: at the START of the chain only, per track, first: sound -> SLICER -> DIST ->
+ * INSERT -> LEVEL / PAN / the sends. (The END, GATE END and PUMP END on the whole sum after the reverb, is gone: the
+ * chain ends with the reverb. Their stored values, 4 and 5, are retired and play as OFF.)
+ *   P_SLCR    OFF / GATE / STUT / PUMP
  *   P_SLPAT   one of SL_NPAT patterns of 16 steps ('x' live / open, '.' gated / repeated); PUMP: the release curve
  *   P_SLRATE  the step: 1/8, 1/16, 1/32, 8T, 16T, 32T, (M-Vave-OP1) 1/4
  *   P_SLDEPTH GATE: how far a '.' step closes (100 % = silent); STUT: the level of the repeat; PUMP: the duck
@@ -20,7 +18,7 @@
  * PUMP (M-Vave-OP1): ducking in time, as a sidechain compressor keyed by a kick would (without the kick): at every step
  *   the level drops by DEPTH (ramped over SL_RAMP: no click) and comes back along the curve PAT picks (sl_pump_r):
  *   PAT 1..4 SMOOTH (an S curve), 5..8 PUNCH (quick, then easing in), 9..12 LINEAR, 13..16 HOLD (down, then back late),
- *   each over the whole step, 3/4, 1/2 or 1/4 of it (after the drop). At the START it ducks the track, at the END the mix.
+ *   each over the whole step, 3/4, 1/2 or 1/4 of it (after the drop).
  * The step clock: per track, always running (also with the SLICER OFF, so switching it on lands
  * in time), restarted with the transport (seq_start -> slicer_start: step 0 starts with the
  * sequencer's step 0), BPM and the track's + the global SWING as the sequencer has them (seq.c
@@ -30,8 +28,8 @@
 #define SL_RAMP_LOG2 7
 #define SL_RAMP (1 << SL_RAMP_LOG2)     /* 128 samples, 2.9 ms */
 #define SL_SLOPE (32768 / SL_RAMP)
-enum { SL_OFF, SL_GATE, SL_STUT, SL_PUMP, SL_GEND, SL_PEND, SL_NMODE };   /* P_SLCR (params.c N_SLCR; stored:
-                                                                             * append-only) */
+enum { SL_OFF, SL_GATE, SL_STUT, SL_PUMP, SL_NMODE };   /* P_SLCR (params.c N_SLCR; stored: append-only; 4 and 5,
+                                                         * the retired GATE END and PUMP END, never come back) */
 
 /* bit k = step k: 1 = 'x' (open / live), 0 = '.' (closed / repeat) */
 static const uint16_t SL_PAT[SL_NPAT] = {
@@ -73,13 +71,6 @@ typedef struct {
 } sl_t;
 static sl_t sl[NTRK];
 static uint8_t sl_lent;          /* perform.c has borrowed sl_buf: STUT plays live, records nothing */
-/* the END's gate (fx.c slicer_end): one for the whole sum, its closure moving as a track's gate does; the track driving
- * it this block (k + 1: the first on END in mix_block's order, the lowest; 0: none), its closure per sample */
-static struct {
-    int32_t gc;                  /* closure, Q15: 0 = open */
-    uint8_t k;                   /* the track driving it this block + 1 */
-    int32_t g[CTL];              /* this block's closure, sample by sample */
-} sle;
 
 static void slicer_start(void)   /* seq_start: the next block starts step 0 of every track */
 {
@@ -91,7 +82,7 @@ static void slicer_start(void)   /* seq_start: the next block starts step 0 of e
 }
 
 static uint32_t sl_pattern(const track_t *t) { return SL_PAT[(uint32_t)(t->p[P_SLPAT] - 1) % SL_NPAT]; }
-static int sl_pump_mode(uint32_t mode) { return mode == SL_PUMP || mode == SL_PEND; }
+static int sl_pump_mode(uint32_t mode) { return mode == SL_PUMP; }
 
 /* PUMP's release: what is left of the drop at u (Q15, 0 .. 1 through the release) for curve sh, Q15 (1 at 0, 0 at 1).
  * The ISR's and the SLICER page's (ui_graph.c) */
@@ -236,30 +227,13 @@ static __attribute__((noinline)) void sl_pump_seg(const track_t *t, sl_t *s, int
     }
 }
 
-/* the END's closure over m samples of track t's step (at o in the block): as sl_seg's GATE, on sle.gc */
-static __attribute__((noinline)) void sl_end_seg(const track_t *t, const sl_t *s, uint32_t o, uint32_t m)
-{
-    uint32_t j, nbit = (sl_pattern(t) >> ((s->idx + 1u) & 15u)) & 1u;
-    int32_t depth = t->p[P_SLDEPTH] * 258, tc = s->bit ? 0 : depth, tn = nbit ? 0 : depth, gc = sle.gc;
-    for (j = 0; j < m; j++) {
-        int32_t tg = tc;
-        if (s->len - s->pos - j <= (uint32_t)SL_RAMP && tn > tg)
-            tg = tn;                                /* close by the boundary */
-        gc += clamp(tg - gc, -SL_SLOPE, SL_SLOPE);
-        sle.g[o + j] = gc;
-    }
-    sle.gc = gc;
-}
-
-/* the step clock over n samples and the SLICER on b (0: the clock only, the track is silent). A track at the START
- * (GATE STUT PUMP, or a ramp still running) slices b; the lowest on END gives the END its closure for the block */
+/* the step clock over n samples and the SLICER on b (0: the clock only, the track is silent). A track on GATE STUT PUMP
+ * (or a ramp still running) slices b; a retired END value (4, 5) does not */
 static void slicer_track(const track_t *t, int32_t *b, uint32_t n)
 {
     uint32_t k = (uint32_t)(t - trk), i = 0, mode = (uint32_t)t->p[P_SLCR];
     sl_t *s = &sl[k];
-    int act = b && (mode - 1u < SL_GEND - 1u || s->gc || s->w), end = mode >= SL_GEND && !sle.k;
-    if (end)
-        sle.k = (uint8_t)(k + 1u);
+    int act = b && (mode - 1u < SL_NMODE - 1u || s->gc || s->w);
     while (i < n) {
         uint32_t m;
         if (s->pos >= s->len)
@@ -273,12 +247,6 @@ static void slicer_track(const track_t *t, int32_t *b, uint32_t n)
             else
                 sl_seg(t, s, sl_buf[k], b + i, 0, m);
         }
-        if (end) {
-            if (mode == SL_PEND)
-                sl_pump(t, s, &sle.gc, sle.g + i, m);
-            else
-                sl_end_seg(t, s, i, m);
-        }
         s->pos += m;
         i += m;
     }
@@ -289,9 +257,7 @@ static __attribute__((noinline)) void slicer_track_sd(const track_t *t, int32_t 
 {
     uint32_t k = (uint32_t)(t - trk), i = 0, mode = (uint32_t)t->p[P_SLCR];
     sl_t *s = &sl[k];
-    int act = mode - 1u < SL_GEND - 1u || s->gc || s->w, end = mode >= SL_GEND && !sle.k;
-    if (end)
-        sle.k = (uint8_t)(k + 1u);
+    int act = mode - 1u < SL_NMODE - 1u || s->gc || s->w;
     while (i < n) {
         uint32_t m;
         if (s->pos >= s->len)
@@ -304,12 +270,6 @@ static __attribute__((noinline)) void slicer_track_sd(const track_t *t, int32_t 
                 sl_pump_seg(t, s, b + i, sd + i, m);
             else
                 sl_seg(t, s, sl_buf[k], b + i, sd + i, m);
-        }
-        if (end) {
-            if (mode == SL_PEND)
-                sl_pump(t, s, &sle.gc, sle.g + i, m);
-            else
-                sl_end_seg(t, s, i, m);
         }
         s->pos += m;
         i += m;

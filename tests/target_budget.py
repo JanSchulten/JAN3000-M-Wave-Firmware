@@ -20,7 +20,7 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "px_string_excite", "px_string_run", "px_symp_run",
          "dv_metal_run", "dv_kick_run", "dv_snare_run", "dv_clap_run", "dv_hat_run", "dv_tom_run",   # drum_voice.c
          "dv_rim_run", "dv_bell_run", "dv_cym_run", "dv_out", "dv_metal_mix",
-         "slicer_track", "sl_end_seg", "slicer_end",          # .. M-Vave-OP1: the SLICER at the END (slicer.c, fx.c),
+         "slicer_track",                                    # .. M-Vave-OP1: the SLICER (slicer.c),
          "sl_pump", "sl_pump_seg",                          # .. its PUMP (slicer.c)
          "vd_render", "vd_layer_run", "vd_post",             # M-Vave-OP1: VDRUM (eng_vdrum.c): the parts, a layer, the resonator
          "plv_post",                                        # M-Vave-OP1: the Plaits engines' filter (plaits_voice.c)

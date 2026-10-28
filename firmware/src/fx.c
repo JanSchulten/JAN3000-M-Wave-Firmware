@@ -872,7 +872,7 @@ static __attribute__((noinline)) void rev_side_mix(int32_t *l, int32_t *r, uint3
  * takes the mono sum b, as DIST does; the side passes it by.
  * Order (M-Vave-OP1): SLICER -> DIST -> INSERT: the SLICER at the START chops the sound first (DIST and the INSERT
  * colour the gated sound, a flanger's feedback or a phaser's ringing may soften its edges; a STUT repeats the sound
- * before them); a SLICER at the END gates the whole mix (slicer_end). State in the pool, per track (ins[], 580 B each); noinline, its own loops: the audio
+ * before them). State in the pool, per track (ins[], 580 B each); noinline, its own loops: the audio
  * ISR's inlined path gains one test per part (track_t ins_run) */
 enum { IT_OFF, IT_SOFT, IT_HARD, IT_FOLD, IT_FUZZ, IT_CRUSH, IT_PHASER, IT_FLANGER, IT_CHORUS, IT_N };
 #define IL_LEN 256u                     /* FLANG / CHOR: the line, samples (a power of 2: masked) */
@@ -1043,7 +1043,7 @@ static __attribute__((noinline)) void track_insert(track_t *t, int32_t *b, uint3
 }
 
 /* one block of the whole mix (shared with hostsim.c): events -> each part (with its modulation matrix)
- * -> SLICER (START) -> dist -> INSERT -> EQ (M-Vave-OP1) -> level / pan / sends -> buses -> SLICER (END) -> master; out: stereo Q15 */
+ * -> SLICER -> dist -> INSERT -> EQ (M-Vave-OP1) -> level / pan / sends -> buses -> master; out: stereo Q15 */
 static void events_block(uint32_t n);                    /* seq.c */
 static int32_t send_c[CTL], send_d[CTL], send_r[CTL], send_sh[CTL], wet[CTL], mix_l[CTL], mix_r[CTL];
 
@@ -1241,29 +1241,6 @@ static __attribute__((noinline)) void perf_master(int32_t *out, uint32_t n)
     master_block(out, n, ~0);
 }
 
-/* M-Vave-OP1: the SLICER at the END (slicer.c): the whole stereo sum after the reverb (dry + wet, HALL's and the CLOUD's
- * side in it) through the closure the driving track gave the block (sle.g); before MASTER and the FX layer's punch-ins.
- * No track on END any more: the closure opens on its own (SL_SLOPE a sample, as the gate's) */
-static __attribute__((noinline)) void slicer_end(int32_t *l, int32_t *r, int32_t *w, uint32_t n)
-{
-    uint32_t i;
-    if (!sle.k) {
-        int32_t gc = sle.gc;
-        for (i = 0; i < n; i++) {
-            gc -= gc < SL_SLOPE ? gc : SL_SLOPE;
-            sle.g[i] = gc;
-        }
-        sle.gc = gc;
-    }
-    for (i = 0; i < n; i++) {
-        uint32_t k = (uint32_t)(32768 - sle.g[i]) << 1;   /* the gain, Q16 */
-        l[i] = mulq16(l[i] + w[i], k);
-        r[i] = mulq16(r[i] + w[i], k);
-        w[i] = 0;                                       /* (in l and r now) */
-    }
-    sle.k = 0;
-}
-
 static void mix_block(int32_t *out, uint32_t n)
 {
     uint32_t i;
@@ -1286,8 +1263,6 @@ static void mix_block(int32_t *out, uint32_t n)
     if (hl.side)
         rev_side_mix(mix_l, mix_r, n);                  /* HALL: stereo */
     if (shim_live) shimmer_return(n);
-    if (sle.k | sle.gc)
-        slicer_end(mix_l, mix_r, wet, n);               /* M-Vave-OP1: the SLICER at the END */
     if (scope_mix)
         scope_take_mix(n);
     if (perf) {

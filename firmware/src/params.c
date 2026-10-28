@@ -54,8 +54,8 @@ static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", 
 static const char *const N_DASH[] = {"--"};
 static const char *const N_RTYPE[] = {"ROOM", "SPRING", "HALL", "SHIMMER"};   /* G_RTYPE: the reverb bus's model (fx.c) */
 static const char *const N_GO[] = {"--", "GO"};
-static const char *const N_SLCR[] = {"OFF", "GATE", "STUT", "PUMP", "GT END", "PM END"};   /* SL_OFF .. SL_PEND
-                                                  * (slicer.c; stored, append-only): GATE END, PUMP END on the cards */
+static const char *const N_SLCR[] = {"OFF", "GATE", "STUT", "PUMP"};   /* SL_OFF .. SL_PUMP (slicer.c; stored,
+                                                  * append-only: 4 and 5, GATE END and PUMP END, retired) */
 static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T", "1/4"};   /* SL_DEN (1/4: M-Vave-OP1,
                                                                                          * appended, the PUMP's) */
 /* the INSERT's types (1.5, fx.c IT_*; append-only: stored). Its three values A B C mean what the type says (ins_desc) */

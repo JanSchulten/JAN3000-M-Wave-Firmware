@@ -860,9 +860,8 @@ static void graph_pedal(const track_t *t, uint32_t part)
         p = q;
     } else if (str_eq(ti, "SLICER")) {
         pedal_t q = {"SLICER", "GATE", 0xF0C828, 0x141414, 0x141414, 0xF2F2F2, t->p[P_SLCR] != 0};
-        static const char *const MODE[SL_NMODE] = {"OFF", "GATE", "STUT", "PUMP", "GATE END", "PUMP END"};   /* (the
-                                                       * cards' GT END, PM END: the pedal has the room) */
-        q.sub = MODE[clamp(t->p[P_SLCR], 0, SL_NMODE - 1)];
+        static const char *const MODE[SL_NMODE] = {"OFF", "GATE", "STUT", "PUMP"};
+        q.sub = MODE[t->p[P_SLCR] >= 0 && t->p[P_SLCR] < SL_NMODE ? t->p[P_SLCR] : SL_OFF];   /* (4, 5 retired: OFF) */
         p = q;
     }
     body = ped(p.body);
@@ -989,9 +988,9 @@ static void graph_insert(const track_t *t, uint16_t c)
         py = y;
     }
 }
-/* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE (and GATE END) a bar as high as it
- * stays open (DEPTH), STUT hatched (it repeats the last 'x'); the step playing underlined. Grey when OFF. PUMP (and
- * PUMP END): the level over four steps (pump_curve) */
+/* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE a bar as high as it stays open
+ * (DEPTH), STUT hatched (it repeats the last 'x'); the step playing underlined. Grey when OFF. PUMP: the level over
+ * four steps (pump_curve) */
 static void graph_slicer(const track_t *t, uint16_t c)
 {
     uint32_t i, pat = sl_pattern(t), mode = (uint32_t)t->p[P_SLCR], cur = sl[t - trk].idx;
