@@ -22,7 +22,7 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"LFO 2", "[K1]SYNC TO BPM[SELECT]LFO DEST"},
     {"LFO DEST", "[K1-4]LFO AMOUNTS[SELECT]MOD"},
     {"MOD", "[K1]SLOT[K2]SOURCE[K3]DEST"},
-    {"FX", "[K1-4]SENDS[FX]HOLD: PERFORM"},
+    {"MIX", "[K1-4]SENDS[FX]HOLD: PERFORM"},
     {"SHIMMER", "[K1-4]SHIMMER[SELECT]DELAY"},
     {"SLICER", "[K1]ON[K2]PATTERN[SELECT]FX TRACKS"},
     {"MIX 2", "[K1-4]LEVELS, ALL TRACKS[SELECT]DRIVE"},

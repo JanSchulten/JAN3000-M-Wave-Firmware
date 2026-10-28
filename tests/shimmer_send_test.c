@@ -48,16 +48,33 @@ static void test_audio(void)
         for (i = 0; i < CTL; i++) expected[i] += mulq15(((in[i] >> 2) * LEVEL_Q12[100 + k]) >> 10, (30 + 20 * k) * 258);
     }
     ck("all four tracks feed one post-LEVEL send", !memcmp(expected, send_sh, sizeof expected));
-    memset(&hl, 0, sizeof hl); rev_clear(); reset_shimmer();
-    fx.rtype = 3; song.g[G_RSIZE] = shim_p[0] = 90; song.g[G_RDAMP] = shim_p[1] = 60;
-    for (b = 0; b < 6000u; b++) {
-        for (i = 0; i < CTL; i++) in[i] = b < 1200u ? (int32_t)(16000.0 * sin((b * CTL + i) * 2.0 * 3.141592653589793 * 440.0 / 44100.0)) : 0;
-        memset(out, 0, sizeof out); rev_hall(in, out, CTL); memcpy(side, rev_side, sizeof side);
-        memset(wet, 0, sizeof wet); memset(mix_l, 0, sizeof mix_l); memset(mix_r, 0, sizeof mix_r);
-        memcpy(send_sh, in, sizeof in); if (b < 1200u) shim_live = 1; shimmer_bus(wet, CTL);
-        for (i = 0; i < CTL; i++) { ok &= wet[i] == out[i] && mix_l[i] == side[i] && mix_r[i] == -side[i]; heard |= wet[i]; }
-    }
-    ck("own bus matches the existing octave shimmer sample for sample, including stereo and tail", ok && heard);
+    /* (M-Vave-OP1: the REVERB TYPE SHIMMER, this bus's reference, is retired.) The bus at PITCH +12: a 440 Hz burst's
+     * tail (1 .. 2 s) holds its octave, 880 Hz, near the 440's; a HALL of the same SIZE / DAMP (the REVERB) does not */
+    { static int32_t hs[2][2u * FS]; double a[2][2]; uint32_t m, f;
+      for (m = 0; m < 2u; m++) {
+        memset(&hl, 0, sizeof hl); rev_clear(); reset_shimmer(); fx.rtype = 2;
+        song.g[G_RSIZE] = shim_p[0] = 90; song.g[G_RDAMP] = shim_p[1] = 60; shim_p[2] = 12; shim_p[3] = 127;
+        for (b = 0; b < 2u * FS / CTL; b++) {
+          for (i = 0; i < CTL; i++) in[i] = b < 300u ? (int32_t)(16000.0 * sin((b * CTL + i) * 2.0 * 3.141592653589793 * 440.0 / 44100.0)) : 0;
+          memset(out, 0, sizeof out); memset(wet, 0, sizeof wet); memset(mix_l, 0, sizeof mix_l); memset(mix_r, 0, sizeof mix_r);
+          if (m) { memcpy(send_sh, in, sizeof in); shim_live = 1; shimmer_bus(wet, CTL); }
+          else { rev_hall(in, out, CTL); memcpy(wet, out, sizeof out); }
+          for (i = 0; i < CTL; i++) { hs[m][b * CTL + i] = wet[i]; heard |= wet[i]; }
+        }
+        for (f = 0; f < 2u; f++) {                      /* 440, 880 Hz over 1 .. 2 s (Goertzel, +-10 % in 10 Hz steps) */
+          double p = 0, g;
+          for (g = (f ? 880.0 : 440.0) * 0.9; g <= (f ? 880.0 : 440.0) * 1.1; g += 10) {
+            double w = 2 * 3.141592653589793 * g / FS, c = 2 * cos(w), s0, s1 = 0, s2 = 0; uint32_t t;
+            for (t = FS; t < 2u * FS; t++) { s0 = hs[m][t] + c * s1 - s2; s2 = s1; s1 = s0; }
+            p += s1 * s1 + s2 * s2 - c * s1 * s2;
+          }
+          a[m][f] = sqrt(p);
+        }
+      }
+      ok = a[1][1] > 0.3 * a[1][0] && a[0][1] < 0.05 * a[0][0];
+      { char w[160]; snprintf(w, sizeof w, "own bus at PITCH +12: its tail's octave 880 / 440 Hz %.2f, a HALL's %.3f", a[1][1] / a[1][0],
+                              a[0][1] / a[0][0]);
+        ck(w, ok && heard); } }
     { hall_t saved = shim_hl; int16_t comb[sizeof shim_comb / 2], ap[sizeof shim_ap / 2], pitch[SH_LEN];
       memcpy(comb, shim_comb, sizeof comb); memcpy(ap, shim_ap, sizeof ap); memcpy(pitch, shim_shb, sizeof pitch);
       rev_clear(); song.g[G_RTYPE] = 1; song.g[G_RSIZE] = 4; song.g[G_RDAMP] = 126;

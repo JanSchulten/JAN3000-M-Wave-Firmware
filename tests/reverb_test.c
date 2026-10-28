@@ -809,20 +809,7 @@ static void test_switch(void)
     check("  and back to ROOM", fx.rtype == 0 && !hl.side);
 }
 
-/* SHIMMER (M-Vave-OP1, G_RTYPE 3): the HALL with its octave fed back. A 440 Hz burst: the tail (1 .. 2 s) holds the
- * band round 880 Hz well above HALL's and near the 440's, and round 1760 Hz too (the octave climbs); the corners (SIZE 127, DAMP 0 and 127, a full-scale noise burst):
- * bounded, decaying, exact silence within 40 s; HALL itself unchanged by SHIMMER's code (the octave's send 0) */
-static void shimmer_reset(int rt, int32_t size, int32_t damp)
-{
-    song.g[G_RTYPE] = (int16_t)rt;
-    song.g[G_RSIZE] = (int16_t)size;
-    song.g[G_RDAMP] = (int16_t)damp;
-    rev_clear();
-    fx.rtype = (uint8_t)rt;
-    hl.ph = 0;
-    hl.sz = 0;
-    hl.shw = hl.shd = 0;
-}
+/* the power of f in h[a .. b) (the HALL tests' measure) */
 static double goertzel(const int32_t *h, uint32_t a, uint32_t b, double f)
 {
     double w = 2 * M_PI * f / FS, c = 2 * cos(w), s0, s1 = 0, s2 = 0;
@@ -910,62 +897,40 @@ static void test_hall_quiet(void)
     check(what, tone > 0 && db <= -15.0);
 }
 
+/* SHIMMER as a REVERB TYPE (M-Vave-OP1, G_RTYPE 3) is retired: the chain's SHIMMER is its own stage (fx.c shimmer_bus).
+ * A project that stored 3 plays a HALL: the same noise bursts through the buses on TYPE 3 and on TYPE 2, from the
+ * same state, render bit for bit alike; the TYPE's names end at HALL */
 static void test_shimmer(void)
 {
-    static int32_t in[CTL], out[CTL], bur[FS / 4];
-    static int32_t h[2][3 * FS];
-    double a[2][3];
-    uint32_t m, i, t, k;
-    char what[200];
-    for (i = 0; i < FS / 4u; i++)
-        bur[i] = (int32_t)(20000 * sin(2 * M_PI * 440 * i / FS));
-    for (m = 0; m < 2u; m++) {                           /* HALL, SHIMMER: the tail's 440 880 1760 Hz */
-        shimmer_reset(m ? 3 : 2, 90, 60);
-        for (t = 0; t < 3u * FS / CTL * CTL; t += CTL) {
+    static int32_t c[CTL], d[CTL], r[CTL], h[2][4u * FS];
+    uint32_t m, t, i;
+    int same = 1;
+    for (m = 0; m < 2u; m++) {
+        host_tracks_init();
+        song.g[G_RTYPE] = (int16_t)(m ? 3 : 2);
+        song.g[G_RSIZE] = 110;
+        rev_clear();
+        fx.rtype = 2;
+        memset(&hl, 0, sizeof hl);
+        xs = 0x1234567u;                                /* (the same noise both times) */
+        for (t = 0; t < 4u * FS; t += CTL) {
+            int32_t w[CTL];
             for (i = 0; i < CTL; i++) {
-                in[i] = t + i < FS / 4u ? bur[t + i] : 0;
-                out[i] = 0;
+                c[i] = d[i] = 0;
+                r[i] = t < FS ? noise(90000) : 0;
             }
-            rev_hall(in, out, CTL);
+            buses(c, d, r, w, CTL);
             for (i = 0; i < CTL; i++)
-                h[m][t + i] = out[i] + rev_side[i];
+                h[m][t + i] = w[i] + (hl.side ? rev_side[i] : 0);
         }
-        a[m][0] = band(h[m], FS, 2 * FS, 440);
-        a[m][1] = band(h[m], FS, 2 * FS, 880);
-        a[m][2] = band(h[m], FS, 2 * FS, 1760);
     }
-    snprintf(what, sizeof what, "SHIMMER: the tail's octave (1 .. 2 s, 880 / 440 Hz) %.2f, HALL's %.3f; 1760 Hz %.2f", a[1][1] / a[1][0],
-             a[0][1] / a[0][0], a[1][2] / a[1][0]);
-    check(what, a[1][1] > 0.4 * a[1][0] && a[1][2] > 0.1 * a[1][0] && a[0][1] < 0.05 * a[0][0] && a[0][2] < 0.05 * a[0][0]);
-    for (k = 0; k < 2u; k++) {                           /* the corners */
-        int32_t peak = 0, late = 0;
-        double e1 = 0, e2 = 0;
-        uint32_t quiet = 0;
-        shimmer_reset(3, 127, k ? 127 : 0);
-        for (t = 0; t < 40u * FS; t += CTL) {
-            for (i = 0; i < CTL; i++) {
-                in[i] = t < FS ? noise(131071) : 0;
-                out[i] = 0;
-            }
-            rev_hall(in, out, CTL);
-            for (i = 0; i < CTL; i++) {
-                int32_t v = abs(out[i]) + abs(rev_side[i]);
-                peak = v > peak ? v : peak;
-                if (t >= FS && t < 3u * FS)
-                    e1 += (double)out[i] * out[i];
-                if (t >= 10u * FS && t < 12u * FS)
-                    e2 += (double)out[i] * out[i];
-                if (t >= 38u * FS)
-                    late |= out[i] | rev_side[i] | hl.sh[i % HL_NC];
-            }
-            quiet = t >= 38u * FS ? quiet : 0;
-        }
-        snprintf(what, sizeof what, "SHIMMER SIZE 127 DAMP %d: peak %d, 10 s after %.1f dB below 1 s after, silent at 38 .. 40 s: %s",
-                 k ? 127 : 0, peak, 10 * log10(e1 / (e2 + 1e-9)), late ? "no" : "yes");
-        check(what, peak < 4000000 && e2 * 1000 < e1 && !late);
-        (void)quiet;
-    }
-    shimmer_reset(0, 90, 60);
+    for (t = 0; t < 4u * FS; t++)
+        same &= h[0][t] == h[1][t];
+    check("REVERB TYPE 3 (the retired SHIMMER) plays a HALL bit for bit; the names end at HALL",
+          same && fx.rtype == 2 && GP[G_RTYPE].max == 2 && str_eq(GP[G_RTYPE].names[2], "HALL"));
+    song.g[G_RTYPE] = 0;
+    rev_clear();
+    fx.rtype = 0;
 }
 
 /* the CHORUS's TYPE (M-Vave-OP1, fx.c chos) through fx_buses, DEPTH 0 (the line still): an impulse comes out 400

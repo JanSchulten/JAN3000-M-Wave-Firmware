@@ -262,7 +262,7 @@ static void test_ui(const char *dir)
     ok &= cur_page()->graph == GR_FXT && fxt_page();
     frames(400);
     press(B_FX);
-    ok &= str_eq(cur_page()->title, "FX") && !fxt_page();
+    ok &= str_eq(cur_page()->title, "MIX") && !fxt_page();
     bad += check("FX: FX first; FX TRACKS the last card (after SLICER), then FX again (M-Vave-OP1's seven)", ok);
     go_title("FX TRACKS");
     turn(EN_K1, 1);

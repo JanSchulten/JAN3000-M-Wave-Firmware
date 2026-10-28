@@ -788,7 +788,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "learn_wait", "learn_pick", "learn_set", "learn_long", "layer_glo_learn", "menu_learn_clear", "menu_learn_clear_none",
     "dly_dotted", "dly_dotted_16", "perform_throw",
     "detail", "detail_playing", "detail_rest", "detail_drum", "roll_marks", "drum_marks", "help_detail",
-    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec",
+    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_spring", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec",
     "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song", "shimmer_send", "drive_soft", "eq", "eq_pass", "master"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
@@ -1108,10 +1108,10 @@ static void setup(int s)
     case S_LFO: go_title("LFO"); break;
     case S_MOD: TSEL->p[P_M1SRC] = 1; TSEL->p[P_M1DST] = 2; TSEL->p[P_M1AMT] = 40; TSEL->p[P_M2SRC] = 6;
         TSEL->p[P_M2DST] = 14; TSEL->p[P_M2AMT] = -64; mod_ui_slot = 1; go_title("MOD"); break;
-    case S_FX: go_title("FX"); break;
+    case S_FX: go_title("MIX"); break;
     case S_FX_SEND_HOT:                                /* (M-Vave-OP1: SEND's faders, CHO turned) */
         TSEL->p[P_SHIM] = 40; TSEL->p[P_CHOR] = 90; TSEL->p[P_DLY] = 127; TSEL->p[P_REV] = 64;
-        go_title("FX"); ui.hot_col = 1; ui.hot_t = 30; break;
+        go_title("MIX"); ui.hot_col = 1; ui.hot_t = 30; break;
     case S_CHO: case S_CHO_FLANGER: case S_CHO_VIBRATO:   /* .. CHORUS by TYPE, FDBK turned on FLANGER */
         chos.type = (uint8_t)(s == S_CHO_FLANGER ? CHO_FLANGER : s == S_CHO_VIBRATO ? CHO_VIBRATO : CHO_CHORUS);
         chos.fdbk = s == S_CHO_FLANGER ? 70u : 0u;
@@ -1120,7 +1120,8 @@ static void setup(int s)
         if (s == S_CHO_FLANGER) { ui.hot_col = 3; ui.hot_t = 30; }
         break;
     case S_REV_ROOM: case S_REV_HALL: case S_REV_SHIMMER:   /* .. REVERB by TYPE */
-        song.g[G_RTYPE] = (int16_t)(s == S_REV_ROOM ? 0 : s == S_REV_HALL ? 2 : 3);
+        song.g[G_RTYPE] = (int16_t)(s == S_REV_ROOM ? 0 : s == S_REV_HALL ? 2 : 1);   /* (S_REV_SHIMMER: SPRING; the
+                                                       * SHIMMER TYPE retired, the chain's SHIMMER has its own page) */
         TSEL->p[P_REV] = 80;
         go_title("REVERB"); break;
     case S_SHIM: TSEL->p[P_SHIM] = 80; go_title("SHIMMER"); break;

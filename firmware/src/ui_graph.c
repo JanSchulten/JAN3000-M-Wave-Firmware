@@ -638,8 +638,8 @@ static void fx_anim(const track_t *t, uint16_t c, uint16_t bgc, int32_t x0, int3
                 cv_line(x - 1, py, x, y, c);
             py = y;
         }
-    } else if (str_eq(ti, "SHIMMER") || (str_eq(ti, "REVERB") && song.g[G_RTYPE] == 3)) {   /* SHIMMER: sparks rising, faster as they climb */
-        uint32_t n = 6u + (uint32_t)(str_eq(ti, "SHIMMER") ? shim_p[0] : song.g[G_RSIZE]) / 16u;
+    } else if (str_eq(ti, "SHIMMER")) {                /* SHIMMER: sparks rising, faster as they climb */
+        uint32_t n = 6u + (uint32_t)shim_p[0] / 16u;
         for (k = 0; k < n; k++) {
             uint32_t hsh = k * 2654435761u, life = 40u + (hsh >> 27), age = (f + (hsh >> 8)) % life;
             int32_t rise = (int32_t)(age * age * (uint32_t)(hh0 - 6) / (life * life)), r = age < life / 2u ? 2 : 1;
@@ -699,8 +699,8 @@ static void fx_anim(const track_t *t, uint16_t c, uint16_t bgc, int32_t x0, int3
 }
 /* M-Vave-OP1: FX's cards as effect pedals, each its own after a classic (the colours of the kind, never a maker's
  * name): DRIVE a red drive, CHORUS a light blue chorus (FLANGER a magenta one, VIBRATO teal), DELAY a green delay
- * (CLOUD a purple ambient box), REVERB by its TYPE (ROOM a blue box, SPRING brown tolex, HALL silver, SHIMMER pearl
- * with violet), SLICER a yellow one. SEND is no pedal: a mixer's four faders (graph_sends). On each: the knobs where
+ * (CLOUD a purple ambient box), REVERB by its TYPE (ROOM a blue box, SPRING brown tolex, HALL silver), SHIMMER pearl
+ * with violet, SLICER a yellow one. MIX and MIX 2 are no pedals: a mixer's four faders (graph_sends). On each: the knobs where
  * KNOB 1..4 sit (their pointer the value; turned, the value under it), a window with the effect moving (fx_anim), the
  * name, the LED (the effect on) and the footswitch. GREY and MONO: the pedals in their greys (ped) */
 static uint16_t ped(uint32_t rgb)                   /* 0xRRGGBB -> the screen's colour (GREY / MONO: a grey) */
@@ -813,10 +813,10 @@ static void graph_pedal(const track_t *t, uint32_t part)
     const char *ti = pg->title;
     pedal_t p = {"SEND", "AUX", 0x2E3036, 0xEDE3C8, 0x15161A, 0xF4F0E6, 0};
     uint16_t body, ink, knob, ptr, edge, win;
-    uint32_t c, rt = (uint32_t)clamp(song.g[G_RTYPE], 0, 3);
+    uint32_t c, rt = (uint32_t)clamp(song.g[G_RTYPE], 0, 2);   /* (3, the retired SHIMMER: a HALL) */
     int32_t gh = PED_H;
     cv_oy = part ? -PED_TOP : 0;
-    if (str_eq(ti, "FX") || str_eq(ti, "MIX 2")) {    /* (SEND, MIX 2's levels: a mixer's four faders, not a pedal) */
+    if (str_eq(ti, "MIX") || str_eq(ti, "MIX 2")) {   /* (the sends, MIX 2's levels: a mixer's four faders, not a pedal) */
         graph_sends(t, part);
         return;
     } else if (str_eq(ti, "SHIMMER")) {
@@ -848,9 +848,6 @@ static void graph_pedal(const track_t *t, uint32_t part)
         p = q;
     } else if (str_eq(ti, "REVERB") && rt == 0u) {
         pedal_t q = {"REVERB", "ROOM", 0x2B4A7A, 0xF2F2F2, 0x141414, 0xF2F2F2, t->p[P_REV] != 0};
-        p = q;
-    } else if (str_eq(ti, "REVERB") && rt == 3u) {
-        pedal_t q = {"SHIMMER", "OCTAVE", 0xEDE8F4, 0x6B46B8, 0xD9CCF0, 0x3A2470, t->p[P_REV] != 0};
         p = q;
     } else if (str_eq(ti, "REVERB")) {
         pedal_t q = {"REVERB", "HALL", 0xC2C4C8, 0xA8201E, 0x141414, 0xF2F2F2, t->p[P_REV] != 0};

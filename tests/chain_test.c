@@ -227,7 +227,7 @@ static void test_page(const char *dir)
     int16_t d0;
     int ok;
     fresh();
-    go_title("FX");
+    go_title("MIX");
     turn(EN_SELECT, 1);
     frame();
     ok = str_eq(cur_page()->title, "MIX 2") && cur_page()->graph == GR_FXLVL;

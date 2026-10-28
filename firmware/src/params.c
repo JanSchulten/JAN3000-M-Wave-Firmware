@@ -52,7 +52,8 @@ static const char *const N_MIDI_INPUT[] = {"USB", "TRS"};
 static const char *const N_ROUTE[] = {"CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16"};
 static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const N_DASH[] = {"--"};
-static const char *const N_RTYPE[] = {"ROOM", "SPRING", "HALL", "SHIMMER"};   /* G_RTYPE: the reverb bus's model (fx.c) */
+static const char *const N_RTYPE[] = {"ROOM", "SPRING", "HALL"};   /* G_RTYPE: the reverb bus's model (fx.c; 3, SHIMMER,
+                                                                    * retired: a HALL; the chain's SHIMMER stage is its own) */
 static const char *const N_GO[] = {"--", "GO"};
 static const char *const N_SLCR[] = {"OFF", "GATE", "STUT", "PUMP"};   /* SL_OFF .. SL_PUMP (slicer.c; stored,
                                                   * append-only: 4 and 5, GATE END and PUMP END, retired) */
@@ -630,16 +631,16 @@ static const page_t PAGES[] = {
     {"LFO 2", FAM_LFO, SC_TRACK, GR_LFO, {P_LSYNC, P_LTRIG, P_LPOL, 0xFF}},   /* 1.2: SYNC TRIG POL */
     {"LFO DEST", FAM_LFO, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},
     {"MOD", FAM_LFO, SC_TRACK, GR_MOD, {0xFF, P_M1SRC, P_M1DST, P_M1AMT}},   /* KNOB 1: the slot (mod_ui_slot) */
-    /* FX: four track sends (CHO SHIM DLY REV), the chain's levels (MIX 2), the DRIVE (TYPE and its three values), then
+    /* FX: MIX, four track sends (CHO SHIM DLY REV), the chain's levels (MIX 2), the DRIVE (TYPE and its three values), then
      * the shared CHORUS, SHIMMER, DELAY and REVERB settings, SLICER and FX TRACKS. CHORUS -> SHIMMER -> DELAY -> REVERB
      * form one serial chain (fx.c). The hidden pages retain the remaining CLOUD / FX TRACK values. */
-    {"FX", FAM_FX, SC_TRACK, GR_FX, {P_CHOR, P_SHIM, P_DLY, P_REV}},
+    {"MIX", FAM_FX, SC_TRACK, GR_FX, {P_CHOR, P_SHIM, P_DLY, P_REV}},   /* M-Vave-OP1: FX's first card (was "FX") */
     {"MIX 2", FAM_FX, SC_GLOBAL, GR_FXLVL, {0xFF, 0xFF, 0xFF, 0xFF}},   /* M-Vave-OP1: the chain's levels (fx_lvl) */
     {"DRIVE", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},   /* M-Vave-OP1: the track's DRIVE (fx.c) */
     {"CHORUS", FAM_FX, SC_GLOBAL, GR_CHO, {0xFF, G_CRATE, G_CDEPTH, 0xFF}},   /* M-Vave-OP1: TYPE RATE DEPTH FDBK */
     {"SHIMMER", FAM_FX, SC_GLOBAL, GR_SHIM, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"DELAY", FAM_FX, SC_GLOBAL, GR_FX1, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, 0xFF}},   /* stored TYPE 3: legacy SHIMMER */
+    {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, 0xFF}},   /* (stored TYPE 3: a HALL) */
     {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},
     {"FX TRACKS", FAM_FX, SC_GLOBAL, GR_FXT, {0xFF, 0xFF, 0xFF, 0xFF}, &FXT_OPS},
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},   /* (hidden: all the DELAY's) */

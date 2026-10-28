@@ -378,7 +378,7 @@ static uint32_t fx_pages(char *out, uint32_t n)       /* the FX family's titles 
 {
     uint32_t k;
     out[0] = 0;
-    go_title("FX");
+    go_title("MIX");
     for (k = 0; k < n; k++) {
         if (k) {
             frames(400);
@@ -396,8 +396,8 @@ static void test_ui(const char *dir)
     int ok;
     cloud_power_on();
     fx_pages(pages, 10);
-    ck("FX's nine cards: SEND, MIX 2, DRIVE, CHORUS, SHIMMER, DELAY, REVERB, SLICER, FX TRACKS (M-Vave-OP1)",
-       strstr(pages, "FX|MIX 2|DRIVE|CHORUS|SHIMMER|DELAY|REVERB|SLICER|FX TRACKS|FX|") != 0);
+    ck("FX's nine cards: MIX (the sends), MIX 2, DRIVE, CHORUS, SHIMMER, DELAY, REVERB, SLICER, FX TRACKS (M-Vave-OP1)",
+       strstr(pages, "MIX|MIX 2|DRIVE|CHORUS|SHIMMER|DELAY|REVERB|SLICER|FX TRACKS|MIX|") != 0);
     go_title("DELAY");
     song.g[G_DFDBK] = 60;
     song.g[G_DMIX] = 90;

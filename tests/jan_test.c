@@ -47,7 +47,7 @@ static void test_pages(void)
     ok &= song.sel == 1u && str_eq(cur_page()->title, "ENV");   /* (the family shown stays) */
     press(B_FX); frames(400);
     ck("another track: FX opens at its first page (SEND), not where the last track left it (CHORUS)",
-       ok && str_eq(cur_page()->title, "FX"));
+       ok && str_eq(cur_page()->title, "MIX"));
     press(B_FX); frames(400);
     press(B_FX); frames(400);
     press(B_FX); frames(400);
@@ -184,7 +184,7 @@ static void test_select(void)
     b0 = song.g[G_BPM];
     press(B_FX); frames(400);
     first = ui.page;
-    ok = str_eq(cur_page()->title, "FX");
+    ok = str_eq(cur_page()->title, "MIX");
     turn(EN_SELECT, 1); frame();
     ok &= str_eq(cur_page()->title, "MIX 2") && song.g[G_BPM] == b0;
     turn(EN_SELECT, -1); frame();

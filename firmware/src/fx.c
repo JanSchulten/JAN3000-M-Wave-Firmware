@@ -42,7 +42,8 @@ static struct {
     int32_t dly_lp;
     uint16_t comb_i[4], ap_i[2];
     int32_t comb_lp[4];
-    uint8_t rtype;                       /* the reverb model running (G_RTYPE: 0 ROOM, 1 SPRING, 2 HALL, 3 SHIMMER) */
+    uint8_t rtype;                       /* the reverb model running (G_RTYPE: 0 ROOM, 1 SPRING, 2 HALL; 3, the retired
+                                          * SHIMMER, runs as 2) */
     uint16_t sp_w;                       /* SPRING: the loop's write index (SP_MASK) */
     int32_t sp_lp, sp_hp, sp_he, sp_size;   /* .. its loop low-pass, low cut (and its remainder), the loop
                                              * length (Q8, glides) */
@@ -200,7 +201,6 @@ static struct {                         /* shared scratch: the two buses render 
 static struct {                         /* M-Vave-OP1: hall_down / hall_up's history and block, in a row */
     float x[2u * HB_D + CTL], m[HB_D + HL_NC], s[HB_D + HL_NC];
 } hb;
-static int16_t rev_shb[1024] __attribute__((section(".pool")));
 static int16_t shim_shb[1024] __attribute__((section(".pool")));
 static int16_t shim_comb[4872 + HL_NL] __attribute__((section(".pool")));
 static int16_t shim_ap[131 + 307] __attribute__((section(".pool")));
@@ -521,38 +521,16 @@ static inline void hall_end_lp(const int16_t *b, int16_t *y, uint32_t n, int32_t
  * sample, low cut, diffusers (hl.bx); the lines' ends at their drifting taps, low-passed, scaled (hl.y); the
  * outputs and the matrix; back into the lines; the outputs back to 44.1 kHz. */
 #define HL_LFO ((uint32_t)(0.37 * CTL / FS * 4294967296.0))   /* the drift: 0.37 Hz (even lines), 0.74 Hz (odd) */
-/* SHIMMER (G_RTYPE 3, M-Vave-OP1): the HALL with its tail an octave up going back into it, so every pass round
- * climbs an octave higher (the halo that rises over a held chord). The tail ((left + right) / 2, at the half rate)
- * -> a line of SH_LEN read by two taps half a line apart that close in at a sample a sample (read 2 samples a
- * sample: an octave up), each through a triangle (0 where it jumps back: the two always sum to one) -> a one-pole
- * low-pass (~3.3 kHz: each octave darker than the one below it, the climb fades out) -> SH_G -> the next block's
- * send, before its low cut (no rumble goes round; a block's delay, 0.7 ms). Its loop gain: the octave of a 440 Hz
- * tail at 0.7 of the 440 a second on, the next at 0.2 (reverb_test); SIZE 127 still dies away to exact silence
- * (both its roundings towards zero). Its RAM: in hl (the pool); rev_clear empties it with HALL's */
+/* the SHIMMER bus's octave (M-Vave-OP1; shimmer_pitch): the HALL's tail ((left + right) / 2, at the half rate) -> a
+ * line of SH_LEN read by two taps half a line apart, each through a triangle (0 where it jumps back) -> a one-pole
+ * low-pass -> the next block's send, before its low cut. (It was REVERB TYPE SHIMMER, G_RTYPE 3, too: retired, a
+ * stored 3 plays HALL; the SHIMMER is the chain's own stage.) */
 #define SH_LEN 1024u                     /* 46 ms at 22.05 kHz: the window the octave is read in */
 #define SH_MASK (SH_LEN - 1u)
 #define SH_G 12000                       /* Q15: the octave's level going back in (0.37: 16000 still dies away, slowly) */
 #define SH_LP 20000                      /* Q15: its low-pass */
 #define SH_IN 1                          /* the tail into the line: (left + right) / 2, the lines' sum over 4 */
-_Static_assert(sizeof rev_shb / 2u == SH_LEN, "SHIMMER's line");
-static __attribute__((noinline)) void hall_shimmer(hall_t *h, int16_t *pitch)
-{
-    uint32_t i, w = h->shw, d = h->shd;
-    int32_t lp = h->shlp;
-    for (i = 0; i < HL_NC; i++) {
-        uint32_t e = (d + SH_LEN / 2u) & SH_MASK;
-        int32_t g0 = (int32_t)(d < SH_LEN / 2u ? d : SH_LEN - d), y;
-        pitch[w] = (int16_t)clamp((hw.l[i] + hw.r[i]) >> SH_IN, -32768, 32767);
-        y = (pitch[(w - d) & SH_MASK] * g0 + pitch[(w - e) & SH_MASK] * ((int32_t)SH_LEN / 2 - g0)) >> 9;
-        y -= lp;                                       /* (both rounded towards zero: the tail ends in exact silence) */
-        lp += (y * SH_LP + (y < 0 ? 32767 : 0)) >> 15;
-        h->sh[i] = (lp * SH_G + (lp < 0 ? 32767 : 0)) >> 15;
-        w = (w + 1u) & SH_MASK;
-        d = (d - 1u) & SH_MASK;
-    }
-    h->shw = (uint16_t)w, h->shd = (uint16_t)d, h->shlp = lp;
-}
-
+_Static_assert(sizeof shim_shb / 2u == SH_LEN, "SHIMMER's line");
 /* The independent bus's two windowed taps at a variable rate (-12 .. +24 semitones). At +12 and FDBK
  * 127 this is the legacy octave bit for bit. FDBK 100 % is the proven SH_G ceiling, not unity loop gain. */
 static const uint32_t SH_RATE[37] = {32768u, 34716u, 36781u, 38968u, 41285u, 43740u, 46341u, 49097u, 52016u, 55109u, 58386u, 61858u, 65536u, 69433u, 73562u, 77936u, 82570u, 87480u, 92682u, 98193u, 104032u, 110218u, 116772u, 123715u, 131072u, 138866u, 147123u, 155872u, 165140u, 174960u, 185364u, 196386u, 208064u, 220436u, 233544u, 247431u, 262144u};
@@ -703,16 +681,14 @@ static __attribute__((noinline)) void hall_block(hall_t *h, int16_t *comb, int16
     sp = (hw.l[HL_NC - 1u] - hw.r[HL_NC - 1u]) * HL_OUT;
     h->m = mp, h->s = sp;
     h->side = 1;
-    if (shimmer == 2)
-        shimmer_pitch(h, pitch);
-    else if (shimmer)
-        hall_shimmer(h, pitch);
+    if (shimmer)
+        shimmer_pitch(h, pitch);                        /* (the SHIMMER bus's octave) */
 }
 
 static __attribute__((noinline)) void rev_hall(const int32_t *in, int32_t *out, uint32_t n)
 {
     (void)n;
-    hall_block(&hl, rev_comb, rev_ap, rev_shb, in, out, song.g[G_RSIZE], song.g[G_RDAMP], fx.rtype == 3u);
+    hall_block(&hl, rev_comb, rev_ap, 0, in, out, song.g[G_RSIZE], song.g[G_RDAMP], 0);
 }
 
 /* the reverb's buffers and states to silence (the model changed) */
@@ -732,9 +708,7 @@ static void rev_clear(void)
     memset(hl.hin, 0, sizeof hl.hin);                   /* (M-Vave-OP1: the half-band's histories) */
     memset(hl.hm, 0, sizeof hl.hm);
     memset(hl.hs, 0, sizeof hl.hs);
-    for (i = 0; i < SH_LEN; i++)                        /* (SHIMMER's) */
-        rev_shb[i] = 0;
-    for (i = 0; i < HL_NC; i++)
+    for (i = 0; i < HL_NC; i++)                         /* (the octave's of the retired SHIMMER TYPE: 0) */
         hl.sh[i] = 0;
     hl.shlp = 0;
 }
@@ -839,7 +813,7 @@ static void fx_buses(const int32_t *dly_in, const int32_t *rev_in, int32_t *wet,
     }
     rev_in = chain_reverb(rev_in, wet, n);
     rt = song.g[G_RTYPE];
-    rt = rt >= 1 && rt <= 3 ? rt : 0;
+    rt = rt == 1 ? 1 : rt == 2 || rt == 3 ? 2 : 0;     /* (3: the retired SHIMMER, a HALL now) */
     hl.side = 0;
     if (rt != fx.rtype)
         rev_switch(rev_in, wet, n, rt);
@@ -1026,7 +1000,7 @@ static __attribute__((noinline)) void shimmer_bus(int32_t *out, uint32_t n)
         return;
     if (g != 32768)
         chain_scale(send_sh, n, g);                 /* (MIX 2's SHIMMER level on its input) */
-    hall_block(&shim_hl, shim_comb, shim_ap, shim_shb, send_sh, out, shim_p[0], shim_p[1], 2);
+    hall_block(&shim_hl, shim_comb, shim_ap, shim_shb, send_sh, out, shim_p[0], shim_p[1], 1);
     for (i = 0; i < n; i++) {
         mix_l[i] += shim_hl.sd[i];
         mix_r[i] -= shim_hl.sd[i];
