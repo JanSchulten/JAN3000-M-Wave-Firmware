@@ -14,7 +14,9 @@
  * reverb of these renders) began to round towards zero (fx.c rev_room: no hum, an exact end): with ROOM's old
  * rounding every one of them still matched the file before, so the switches sound as they did. M-Vave-OP1 rewrote
  * the 424 that play GRAIN's CLOUD PAD or GLITCH (part 3 plays them alongside) when FLUTE and SAX left the firmware:
- * their SRC is PIANO now.
+ * their SRC is PIANO now. M-Vave-OP1 rewrote the 256 whose presets bring a DIST when DIST was retired (the preset's
+ * DIST a SOFT DRIVE since, hostsim.c host_preset_values): with DIST taken out of the presets, every one of the 546
+ * rendered bit for bit as before.
  * env: GOLDEN_UPDATE=1 rewrites GOLDEN_FILE (only with a reason: a switch is to sound as it did). */
 #define main hostsim_main
 #include "hostsim.c"

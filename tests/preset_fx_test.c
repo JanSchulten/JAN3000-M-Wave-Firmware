@@ -8,7 +8,8 @@
  *            an engine switch (set_engine_of) and a MIDI Program Change (midi_pc_load).
  *   USER     a user preset brings the sends and the INSERT it was saved with (upreset.c up_load).
  *   POWER-ON the power-on sounds load with their sends as ever (preset_load_to with sends: main.c, project.c's
- *            format-1 tracks): every track's sends are its preset's (or 0 24 28 36), the INSERT OFF.
+ *            format-1 tracks): every track's sends are its preset's (or 0 24 28 36), the INSERT OFF (M-Vave-OP1: a
+ *            preset's DIST, retired, as a SOFT DRIVE of about its gain).
  * Built and run by tests/run_tests.sh. */
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
@@ -122,16 +123,20 @@ static void user_test(void)
 static void power_on_test(void)
 {
     static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
-    uint32_t i, k, ok = 1;
+    uint32_t i, k, ok = 1, n = 0;
     ui_power_on();
     for (k = 0; k < NTRK; k++) {
         const engine_t *en = ENGINES[TRK_DEF[k][0]];
         const preset_t *pr = &en->presets[preset_orig(en, TRK_DEF[k][1])];
-        for (i = 0; i < 4u; i++)
+        int32_t dist = pr->fx[0] ? pr->fx[0] - 1 : FX_DEF[0];
+        for (i = 1; i < 4u; i++)
             ok &= trk[k].p[P_DIST + i] == (pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
-        ok &= trk[k].p[P_ITYPE] == TP[P_ITYPE].def;
+        ok &= !trk[k].p[P_DIST] && (dist ? trk[k].p[P_ITYPE] == IT_SOFT && trk[k].p[P_IA] == dist * 13 / 16
+                                         : trk[k].p[P_ITYPE] == TP[P_ITYPE].def);
+        n += dist != 0;
     }
-    ck("the power-on sounds load with their sends, the INSERT off (as ever)", ok);
+    ck("the power-on sounds load with their sends; the DRIVE off, or SOFT where the preset had a DIST (M-Vave-OP1)",
+       ok && n > 0);
 }
 
 int main(void)
