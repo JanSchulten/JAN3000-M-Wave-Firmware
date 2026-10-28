@@ -6,7 +6,7 @@
  *   build/host/hostsim ENGINE PRESET MONO OUT.wav [CHORUS]
  * env: SECS=n renders n s (the 2 s note pattern repeats), CHORD[=k] holds k keys
  * (default 4, up to 8), DRUMS=1 adds GM drum hits (part 4: DRUM), BENCH=1 prints the render time,
- * DIST=d, LEVEL=l, SENDS=c,d,r, SWEEP=1, NOTE=k, OCT=o, PSET=id:v,..., VSWEEP=1, PSWEEP=id:a:b,
+ * DIST=d (a SOFT DRIVE), LEVEL=l, SENDS=c,d,r, SWEEP=1, NOTE=k, OCT=o, PSET=id:v,..., VSWEEP=1, PSWEEP=id:a:b,
  * PRESET=1 (the whole preset: sends, voice mode), STEPS=n,n,... (a pattern, 0 = rest; see below).
  * TRACKS=DIR: the 4-track test (tracks_demo below): a bass / pad / lead / drums (DRUM) pattern
  * with live recording into DIR (mix + solos), checks, and the cost against one track. */
@@ -105,6 +105,11 @@ static void host_preset_values(track_t *t, uint32_t e, uint32_t pi, const preset
     t->p[P_VOICE] = p->mono ? V_LEGATO : V_POLY;
     for (i = 0; i < 4u; i++)
         t->p[P_DIST + i] = (int16_t)(p->fx[i] ? p->fx[i] - 1 : FX_DEF[i]);
+    if (t->p[P_DIST]) {                           /* the retired DIST as a SOFT DRIVE (ui.c preset_load_to) */
+        t->p[P_ITYPE] = IT_SOFT;
+        t->p[P_IA] = (int16_t)(t->p[P_DIST] * 13 / 16);
+        t->p[P_DIST] = 0;
+    }
     fm6_track_loaded(t);                          /* FM6: the preset's patch (ui.c apply_preset_to) */
     if (ENGINES[e % NENGINES] == &ENG_ANALOG2)    /* ANALOG2: WAVE 2's values (as apply_preset_to) */
         a2_preset(t, pi);
@@ -410,7 +415,7 @@ static int steal_test(const char *dir)
         t->p[P_ED_FLT] = 0;
         t->p[P_ATK] = 40;                          /* slow attack, full sustain, no sends */
         t->p[P_SUS] = 127;
-        t->p[P_DIST] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
+        t->p[P_ITYPE] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
         t->p[P_VOICE] = V_POLY;
         t->p[P_LEVEL] = 90;
     }
@@ -475,7 +480,7 @@ static void xfade_sine(track_t *t)
     t->p[P_ATK] = 40;
     t->p[P_SUS] = 127;
     t->p[P_REL] = 100;
-    t->p[P_DIST] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
+    t->p[P_ITYPE] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
     t->p[P_VOICE] = V_POLY;
     t->p[P_LEVEL] = 100;
 }
@@ -514,7 +519,7 @@ static int xfade_test(const char *dir)
         for (k = 0; k < 4u; k++)
             if (f == sw[k]) {
                 host_preset_req(t, to[k], 0);
-                t->p[P_DIST] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
+                t->p[P_ITYPE] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
                 panic_req |= 1u;
             } else if (k == 3u && f == sw[k] + CTL) {
                 trk_note_on(t, 60, 100);           /* (c): a note during the fade */
@@ -989,8 +994,10 @@ int main(int argc, char **argv)
                 host_drums(&trk[3]);
             drum_hit(f / (FS / 8u));
         }
-        if (getenv("DIST"))
-            inst.p[P_DIST] = (int16_t)atoi(getenv("DIST"));
+        if (getenv("DIST")) {                    /* (M-Vave-OP1: the DRIVE, SOFT, of that amount) */
+            inst.p[P_ITYPE] = IT_SOFT;
+            inst.p[P_IA] = (int16_t)atoi(getenv("DIST"));
+        }
         if (getenv("LEVEL"))
             inst.p[P_LEVEL] = (int16_t)atoi(getenv("LEVEL"));
         if (getenv("SWEEP")) {          /* cutoff and resonance sweeps while a note is held */

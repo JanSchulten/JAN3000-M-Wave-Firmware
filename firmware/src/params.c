@@ -58,8 +58,9 @@ static const char *const N_SLCR[] = {"OFF", "GATE", "STUT", "PUMP"};   /* SL_OFF
                                                   * append-only: 4 and 5, GATE END and PUMP END, retired) */
 static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T", "1/4"};   /* SL_DEN (1/4: M-Vave-OP1,
                                                                                          * appended, the PUMP's) */
-/* the INSERT's types (1.5, fx.c IT_*; append-only: stored). Its three values A B C mean what the type says (ins_desc) */
-static const char *const N_ITYPE[] = {"OFF", "SOFT", "HARD", "FOLD", "FUZZ", "CRUSH", "PHASR", "FLANG", "CHOR"};
+/* the DRIVE's types (the INSERT of 1.5, fx.c IT_*; append-only: stored; 6 .. 8, PHASR FLANG CHOR, retired: OFF). Its
+ * three values A B C mean what the type says (ins_desc) */
+static const char *const N_ITYPE[] = {"OFF", "SOFT", "HARD", "FOLD", "FUZZ", "CRUSH"};
 /* CRUSH: BITS 1..16 and RATE (the held sample's rate, fx.c INS_HOLD) over the range in 16 even parts (0-terminated) */
 static const char *const N_IBITS[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
                                       "16", 0};
@@ -113,7 +114,7 @@ static const param_desc_t TP[P_COUNT] = {
     [P_SDIV] = PE("DIV", N_DIV, 2),
     [P_SSWING] = PD("SWG", F_PCT, 0, 100, 0),
     [P_SGATE] = PD("GATE", F_PCT, 1, 127, 64),
-    [P_DIST] = PD("DST", F_PCT, 0, 127, 0),
+    [P_DIST] = PD("DST", F_PCT, 0, 127, 0),       /* (retired: nothing reads it; fx.c track_insert) */
     [P_CHOR] = PD("CHO", F_PCT, 0, 127, 0),
     [P_DLY] = PD("DLY", F_PCT, 0, 127, 0),
     [P_REV] = PD("REV", F_PCT, 0, 127, 0),
@@ -156,8 +157,8 @@ static const param_desc_t TP[P_COUNT] = {
     [P_LPOL] = PE("POL", N_LPOL, 0),
     [P_SQNT] = PE("QNTZ", N_ONOFF, 1),            /* ON: every step on its start, as before 1.2 */
     [P_SPRD] = PD("SPRD", F_PCT, 0, 127, 0),      /* #148: 0 = every voice on PAN, as before (fx.c mix_spread) */
-    /* the INSERT (1.5, fx.c track_insert): TYPE OFF = as before. A B C as the editor protocol names them; the device
-     * shows the type's own labels (ins_desc) */
+    /* the DRIVE (the INSERT of 1.5, fx.c track_insert): TYPE OFF = as before. A B C as the editor protocol names them;
+     * the device shows the type's own labels (ins_desc). MIX: on no page (100 %), the editor and automation reach it */
     [P_ITYPE] = PE("INSRT", N_ITYPE, 0),
     [P_IA] = PD("INS A", F_PCT, 0, 127, 64),
     [P_IB] = PD("INS B", F_PCT, 0, 127, 96),
@@ -167,20 +168,17 @@ static const param_desc_t TP[P_COUNT] = {
     [P_ESYNC] = PE("ESYNC", N_ONOFF, 0),          /* 1.5 (#175): OFF = ATK DEC REL in ms, as before (voice.c esync) */
 };
 
-/* the INSERT's A B C as its TYPE means them (TP's ranges and defaults): the drives DRIVE TONE LEVEL, CRUSH BITS RATE
- * LPF, the swept ones RATE DEPTH FDBK; OFF TP's own */
+/* the DRIVE's A B C as its TYPE means them (TP's ranges and defaults): the drives DRIVE TONE LEVEL, CRUSH BITS RATE
+ * LPF; OFF (and a retired type) the drives' names too: the page reads DRIVE TONE LEVEL before a TYPE is picked */
 #define PU(l, f, df, n, u) {l, f, 0, 127, df, n, u}
-static const param_desc_t INS_DESC[3][3] = {
+static const param_desc_t INS_DESC[2][3] = {
     {PU("DRIVE", F_PCT, 64, 0, 0), PU("TONE", F_CUTOFF, 96, 0, 0), PU("LEVEL", F_DB, 96, 0, 0)},
     {PU("BITS", F_INT, 64, N_IBITS, 0), PU("RATE", F_INT, 96, N_IRATE, "Hz"), PU("LPF", F_CUTOFF, 96, 0, 0)},
-    {PU("RATE", F_LFOHZ, 64, 0, 0), PU("DEPTH", F_PCT, 96, 0, 0), PU("FDBK", F_PCT, 96, 0, 0)},
 };
 #undef PU
 static const param_desc_t *ins_desc(int32_t type, uint32_t k)
 {
-    if (type <= 0 || type >= (int32_t)NELEM(N_ITYPE))
-        return &TP[P_IA + k];
-    return &INS_DESC[type < 5 ? 0 : type == 5 ? 1 : 2][k];   /* (IT_SOFT .. IT_FUZZ, IT_CRUSH, the swept ones) */
+    return &INS_DESC[type == 5][k];                     /* (IT_CRUSH; the rest the drives') */
 }
 
 static const param_desc_t GP[G_COUNT] = {
@@ -623,12 +621,11 @@ static const page_t PAGES[] = {
     {"LFO 2", FAM_LFO, SC_TRACK, GR_LFO, {P_LSYNC, P_LTRIG, P_LPOL, 0xFF}},   /* 1.2: SYNC TRIG POL */
     {"LFO DEST", FAM_LFO, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},
     {"MOD", FAM_LFO, SC_TRACK, GR_MOD, {0xFF, P_M1SRC, P_M1DST, P_M1AMT}},   /* KNOB 1: the slot (mod_ui_slot) */
-    /* FX: four track sends (CHO SHIM DLY REV), INSERT and its extra controls, then the shared CHORUS, SHIMMER, DELAY
+    /* FX: four track sends (CHO SHIM DLY REV), the DRIVE (TYPE and its three values), then the shared CHORUS, SHIMMER, DELAY
      * and REVERB settings, SLICER and FX TRACKS. SHIMMER -> DELAY -> REVERB form the serial aux chain;
      * CHORUS remains parallel. The hidden pages retain the remaining CLOUD / FX TRACK values. */
     {"FX", FAM_FX, SC_TRACK, GR_FX, {P_CHOR, P_SHIM, P_DLY, P_REV}},
-    {"INSERT", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IMIX}},   /* 1.5: the track's INSERT (fx.c) */
-    {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_DIST, P_IC, 0xFF, 0xFF}},    /* original pre-drive and the type's third control */
+    {"DRIVE", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},   /* M-Vave-OP1: the track's DRIVE (fx.c) */
     {"CHORUS", FAM_FX, SC_GLOBAL, GR_CHO, {0xFF, G_CRATE, G_CDEPTH, 0xFF}},   /* M-Vave-OP1: TYPE RATE DEPTH FDBK */
     {"SHIMMER", FAM_FX, SC_GLOBAL, GR_SHIM, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"DELAY", FAM_FX, SC_GLOBAL, GR_FX1, {0xFF, 0xFF, 0xFF, 0xFF}},

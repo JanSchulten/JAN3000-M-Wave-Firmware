@@ -111,9 +111,9 @@
 #                   CLOUD's grains always inside what was written (30 s of random settings), DENS, PITCH +-12 / +7, the
 #                   level, FDBK bounded and dying away, CLOUD FREEZE; the FX1 / CLOUD pages, F5, kept with the project;
 #                   screens into build/cloud_shots, WAV demos into build/cloud_demo.
-# SLICER POSITION (tests/fxchain_test.c, M-Vave-OP1): the SLICER at the START before DIST, at the END on the whole
-#                   sum after the reverb (the lowest END track drives it). PUMP: the drop at each step, the four curves and
-#                   their lengths, no clicks, RATE 1/4, PUMP END, the page.
+# SLICER POSITION (tests/fxchain_test.c, M-Vave-OP1): the SLICER at the start of the chain, before the DRIVE; nothing
+#                   after the reverb (the retired GATE END / PUMP END play as OFF). PUMP: the drop at each step, the four
+#                   curves and their lengths, no clicks, RATE 1/4, the page.
 # PUNCH-INS (tests/punch_test.c, M-Vave-OP1 E2): the OP-Z's punch-ins on the FX layer (perform.c): DUCK's curve on the
 #                   beat (also stopped), STEREO's pan a 1/16 a side with the power kept, PITCH 5TH UP / 4TH DN's pitch
 #                   with no live part, RAMP UP from standing to in time, GLITCH's slices (from the next 1/16, their
@@ -152,10 +152,11 @@
 #                   the band-limited restart), SPREAD (SPRD 0 / MONO / LEGATO bit for bit, a note hard left / right, the
 #                   mono sum, UNISON, the SLICER's gate and the mute key on both sides, mono sends), the cost; demos in
 #                   build/sound14_demo/.
-# INSERT (tests/insert_test.c, 1.5; #78 #177): the per-track INSERT (src/fx.c track_insert): TYPE OFF and MIX 0 bit for
-#                   bit (POLY, SPREAD), each TYPE at its corners on 3 and 8 voices (no DC, bounded, MIX 50 % halfway
-#                   to the wet), the MIX glide and TYPE changes, MIX / TYPE as automation and locks, FUN10 and user
-#                   presets of 109 and 104, the pages' labels, the cost per type; demos in build/insert_demo/.
+# DRIVE (tests/insert_test.c, the INSERT of 1.5; #78 #177): the per-track DRIVE (src/fx.c track_insert): TYPE OFF, MIX 0,
+#                   the retired types (PHASR FLANG CHOR) and DIST bit for bit (POLY, SPREAD), each TYPE at its corners on
+#                   3 and 8 voices (no DC, bounded, MIX 50 % halfway to the wet), the MIX glide and TYPE changes, MIX /
+#                   TYPE as automation and locks, FUN10 and user presets of 109 and 104, the DRIVE page's labels, a
+#                   power-on sound's DIST as a SOFT DRIVE, the cost per type; demos in build/insert_demo/.
 # SOUND 1.5 (tests/sound15_test.c; #104 #175): ANALOG's filter TYPE (LP bit for bit, every other engine ignores it, BP / HP
 #                   responses around the cutoff, RES, bounded at the corners), ENV SYNC (OFF bit for bit, the note values
 #                   on the knob, attack / decay / release times at 60 / 120 / 173 BPM and on the external clock), the cost;
@@ -396,7 +397,7 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "FX1 CLOUD: granular in the delay's line (TYPE change, grains inside the line, DENS, PITCH, level, FDBK, FREEZE), pages, F5, kept" "$OUT/cloud_test" build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fxchain_test" tests/fxchain_test.c -lm
     mkdir -p build/fxchain_shots
-    run "SLICER at the START / END of the chain, PUMP" "$OUT/fxchain_test" build/fxchain_shots
+    run "SLICER at the start of the chain (before the DRIVE, nothing after the reverb), PUMP" "$OUT/fxchain_test" build/fxchain_shots
     mkdir -p build/punch_shots build/punch_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/punch_test" tests/punch_test.c -lm
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo
@@ -495,7 +496,7 @@ if [ -f build/gen/felucca_tables.h ]; then
         "$OUT/sound14_test" build/sound14_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/insert_test" tests/insert_test.c -lm
     mkdir -p build/insert_demo
-    run "INSERT (1.5): OFF / MIX 0 bit for bit, each TYPE (no DC, bounded, dry / wet), MIX glide, automation, stored, cost, demos" \
+    run "DRIVE: OFF / MIX 0 / retired types and DIST bit for bit, each TYPE (no DC, bounded, dry / wet), MIX glide, automation, stored, cost, demos" \
         "$OUT/insert_test" build/insert_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/sound15_test" tests/sound15_test.c -lm
     mkdir -p build/sound15_demo

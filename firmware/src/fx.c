@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* Effects: per-track DIST and INSERT (1.5), then sends into four
+/* Effects: per track the DRIVE (the INSERT of 1.5), then sends into four
  * shared buses (chorus, tempo delay, reverb, shimmer). Mono buses, stereo dry mix. */
 #define DLY_LEN 65536u           /* 1.49 s: 1/4 fits from 41 BPM, 1/4D from 61, 1/2 from 81 */
 /* M-Vave-OP1: the delay bus is FX1, of a TYPE (fx1.c): DELAY, or CLOUD (granular, in the delay's line). Its settings:
@@ -172,30 +172,6 @@ static int16_t shim_shb[1024] __attribute__((section(".pool")));
 static int16_t shim_comb[4872 + HL_NL] __attribute__((section(".pool")));
 static int16_t shim_ap[131 + 307] __attribute__((section(".pool")));
 #define rev_side (hl.sd)
-
-/* DIST: low cut -> drive (1x..8x, exponential) -> asymmetric soft clip
- * (a little bias = even harmonics) -> tone low-pass that closes with drive ->
- * make-up gain (straight into tanh over the full band, it would sound like a
- * broken digital fuzz). State per part (track_t dist_*). */
-static void track_dist(track_t *t, int32_t *b, uint32_t n)
-{
-    int32_t d = t->p[P_DIST], i, g, k, mk, bias = 2400, b0;
-    if (!d)
-        return;                                         /* states kept: switching on does not click */
-    g = 4096 + d * d * 2;                                /* Q12: 1x .. ~9x, gentle at first */
-    k = 32000 - d * 95;                                  /* tone: transparent at low drive .. ~3 kHz, Q15 */
-    mk = 30000 - d * 120;                                /* make-up */
-    b0 = softclip(bias);
-    for (i = 0; i < (int32_t)n; i++) {
-        int32_t x = b[i], y;
-        t->dist_hp += (x - t->dist_hp + 64) >> 7;           /* ~55 Hz low cut: keep the bass out of the clipper */
-        x = clamp(x - t->dist_hp, -230000, 230000);         /* (x >> 2) * g fits 32 bits; the clip is flat out there */
-        y = softclip((((x >> 2) * g) >> 10) + bias) - b0;   /* >> 2 first: no overflow for loud poly */
-        t->dist_lp1 += mulq15(y - t->dist_lp1, k);         /* two poles: tames the fizz */
-        t->dist_lp2 += mulq15(t->dist_lp1 - t->dist_lp2, k);
-        b[i] = mulq15(t->dist_lp2, mk);
-    }
-}
 
 /* master: peak limiter in front of the soft clipper. Fast attack (~0.1 ms),
  * ~150 ms release, threshold where tanh is still nearly linear, so chords
@@ -851,41 +827,32 @@ static __attribute__((noinline)) void rev_side_mix(int32_t *l, int32_t *r, uint3
     }
 }
 
-/* INSERT (1.5, Discussions #78 and #177): one effect per track, after DIST and before the SLICER, with a dry / wet
- * MIX. TYPE (P_ITYPE, N_ITYPE; stored, append-only) and its three values A B C (P_IA .. P_IC, what they mean: params.c
- * ins_desc):
+/* DRIVE (the INSERT of 1.5, Discussions #78 and #177; M-Vave-OP1: the track's one drive): after the SLICER, before
+ * LEVEL / PAN / the sends. TYPE (P_ITYPE, N_ITYPE; stored, append-only) and its three values A B C (P_IA .. P_IC, what
+ * they mean: params.c ins_desc):
  *   SOFT HARD FOLD FUZZ  DRIVE (1x .. ~13x, squared), TONE (two one-pole low-passes at F_CUTOFF), LEVEL (F_DB, as the
  *                        track's LEVEL: 112 is 0 dB). A slow low cut in front (~27 Hz), a DC blocker after (FUZZ is
  *                        lopsided). SOFT tanh, HARD a flat clip at a voice's level, FOLD a triangle folder (the wave
  *                        reflected at +-16384: every fold more harmonics), FUZZ a hard top and a soft, halved bottom;
  *   CRUSH                BITS (1 .. 16, of a voice's full scale), RATE (a held sample, 689 Hz .. 44.1 kHz, INS_HOLD:
- *                        aliasing as the old samplers), LPF (two one-pole low-passes at F_CUTOFF after them, #177);
- *   PHASR                RATE (F_LFOHZ), DEPTH (the sweep around ~850 Hz: 0 still .. the whole 150 Hz .. 4.8 kHz),
- *                        FDBK (0 .. 0.7): the FX layer's four all-pass stages (perform.c PH_A), mono, per track;
- *   FLANG CHOR           RATE, DEPTH, FDBK: a 256-sample line per track (5.8 ms); FLANG swept 0.25 .. 5 ms (the FX
- *                        layer's squared triangle), feedback 0 .. 0.85; CHOR a sine around 3.2 ms (+-2.3 ms at DEPTH
- *                        127), feedback 0 .. 0.4. A DC blocker on the swept copy (a clipped loud input is lopsided).
- * The swept ones are the pedals': their wet is (dry + swept) / 2, the notches need both, so MIX 100 % is the whole
- * effect and less a lighter one. MIX (P_IMIX) blends dry and wet linearly; MIX 0 or TYPE OFF: the track bit for bit
- * as before (nothing runs). MIX glides (2.9 ms, SL_SLOPE); a TYPE change fades the old one out, clears the state,
- * fades the new one in; so does a start from MIX 0 (no stale line or filter). With SPREAD (mix_spread) the insert
- * takes the mono sum b, as DIST does; the side passes it by.
- * Order (M-Vave-OP1): SLICER -> DIST -> INSERT: the SLICER at the START chops the sound first (DIST and the INSERT
- * colour the gated sound, a flanger's feedback or a phaser's ringing may soften its edges; a STUT repeats the sound
- * before them). State in the pool, per track (ins[], 580 B each); noinline, its own loops: the audio
- * ISR's inlined path gains one test per part (track_t ins_run) */
-enum { IT_OFF, IT_SOFT, IT_HARD, IT_FOLD, IT_FUZZ, IT_CRUSH, IT_PHASER, IT_FLANGER, IT_CHORUS, IT_N };
-#define IL_LEN 256u                     /* FLANG / CHOR: the line, samples (a power of 2: masked) */
+ *                        aliasing as the old samplers), LPF (two one-pole low-passes at F_CUTOFF after them, #177).
+ * M-Vave-OP1: the swept types (PHASR FLANG CHOR, stored 6 .. 8) are retired and play as OFF: the CHORUS bus has its
+ * CHORUS / FLANGER / VIBRATO, the FX layer its PHASER and FLANGER. So is the old pre-drive DIST (P_DIST, kept in the
+ * stored formats; the power-on sounds that had it get a SOFT drive instead, ui.c preset_load_to).
+ * MIX (P_IMIX, no longer on a page: 100 % by default; the editor and automation still reach it) blends dry and wet
+ * linearly; MIX 0 or TYPE OFF: the track bit for bit as before (nothing runs). MIX glides (2.9 ms, SL_SLOPE); a TYPE
+ * change fades the old one out, clears the state, fades the new one in; so does a start from MIX 0 (no stale filter).
+ * With SPREAD (mix_spread) the drive takes the mono sum b; the side passes it by.
+ * Order (M-Vave-OP1): SLICER -> DRIVE: the SLICER chops the sound first (the drive colours the gated sound, a STUT
+ * repeats the sound before it). State in the pool, per track (ins[]); noinline, its own loop: the audio ISR's inlined
+ * path gains one test per part (track_t ins_run) */
+enum { IT_OFF, IT_SOFT, IT_HARD, IT_FOLD, IT_FUZZ, IT_CRUSH, IT_N };   /* (6 .. 8, PHASR FLANG CHOR: retired, OFF) */
 static const uint8_t INS_HOLD[16] = {64, 48, 40, 32, 24, 20, 16, 12, 10, 8, 6, 5, 4, 3, 2, 1};   /* CRUSH RATE */
 typedef struct {
     int32_t w;                          /* the wet share now, Q15 */
     uint8_t type;                       /* the type running */
     uint8_t cnt;                        /* CRUSH: samples left of the held one */
-    uint16_t wp;                        /* FLANG / CHOR: the line's next write */
-    uint32_t ph;                        /* the sweep's phase */
     int32_t hp, lp1, lp2, dc, hold;     /* low cut (Q8), the two low-passes, DC blocker (Q8), CRUSH's held sample */
-    int32_t px[PH_ST], py[PH_ST], fb;   /* PHASR: each stage's last input and output, the fed back */
-    int16_t line[IL_LEN];               /* FLANG / CHOR, at a quarter (headroom) */
 } ins_t;
 static ins_t ins[NTRK] __attribute__((section(".pool")));
 
@@ -959,71 +926,19 @@ static __attribute__((noinline)) void ins_drive(ins_t *s, const track_t *t, int3
     }
 }
 
-/* PHASR, FLANG, CHOR: the sweep at RATE (one LFO per track), DEPTH, FDBK */
-static __attribute__((noinline)) void ins_swept(ins_t *s, const track_t *t, int32_t *b, uint32_t n, int32_t tw)
-{
-    uint32_t i, inc = LFO_INC[clamp(t->p[P_IA], 0, 127)] / CTL, dep = (uint32_t)clamp(t->p[P_IB], 0, 127);
-    int32_t c = clamp(t->p[P_IC], 0, 127);
-    if (s->type == IT_PHASER) {                         /* the coefficients a block at a time (at its middle) */
-        uint32_t tr = pf_tri(s->ph + (n >> 1) * inc), q = 32768u + (uint32_t)(((int32_t)tr - 32768) * (int32_t)dep / 127);
-        int32_t a = PH_A[q >> 11] + (((PH_A[(q >> 11) + 1u] - PH_A[q >> 11]) * (int32_t)(q & 2047u)) >> 11);
-        int32_t fbk = c * 180;                          /* 0 .. 0.7, Q15 */
-        for (i = 0; i < n; i++) {
-            int32_t x = b[i], xs = clamp((x + 4) >> 3, -16383, 16383), u = xs + ((s->fb * fbk + 16384) >> 15), y = u;
-            uint32_t st;
-            s->w += clamp(tw - s->w, -SL_SLOPE, SL_SLOPE);
-            for (st = 0; st < PH_ST; st++) {            /* y = a (u - y1) + u1 */
-                y = clamp(s->px[st] + ((a * (u - s->py[st]) + 8192) >> 14), -65535, 65535);
-                s->px[st] = u;
-                s->py[st] = y;
-                u = y;
-            }
-            s->fb = clamp(y, -32767, 32767);
-            y <<= 2;                                    /* (y: at an eighth) */
-            s->dc += ((y << 8) - s->dc) >> 9;           /* DC blocker, ~14 Hz (a clipped loud input is lopsided) */
-            b[i] = pf_mix(x, (x >> 1) + y - (s->dc >> 8), s->w);   /* (dry + all-passed) / 2 */
-        }
-        s->ph += n * inc;
-        return;
-    }
-    {
-        int32_t chorus = s->type == IT_CHORUS, fbk = c * (chorus ? 103 : 219);   /* 0 .. 0.4 / 0 .. 0.85, Q15 */
-        uint32_t dq = dep * 516u;                       /* DEPTH, Q16 */
-        for (i = 0; i < n; i++, s->ph += inc) {
-            int32_t x = b[i], r0, r1, v, fr;
-            uint32_t d;                                 /* the delay, Q16 samples */
-            s->w += clamp(tw - s->w, -SL_SLOPE, SL_SLOPE);
-            if (chorus) {
-                d = (uint32_t)((140 << 16) + ((osc_sine(s->ph) * (int32_t)dep * 50) >> 5));   /* 3.2 +- 2.3 ms */
-            } else {
-                uint32_t tr = pf_tri(s->ph), sw = (tr * tr) >> 16;   /* longer near the short end (perform.c) */
-                d = (11u << 16) + 209u * (((sw >> 1) * dq) >> 15);  /* 0.25 .. 5 ms */
-            }
-            r0 = (int32_t)(s->wp - (d >> 16)) & (int32_t)(IL_LEN - 1u);
-            r1 = (r0 - 1) & (int32_t)(IL_LEN - 1u);
-            fr = (int32_t)((d >> 1) & 0x7FFFu);
-            v = s->line[r0] + (((s->line[r1] - s->line[r0]) * fr) >> 15);
-            s->line[s->wp] = (int16_t)clamp((x >> 2) + softclip(mulq15(v, fbk)), -32767, 32767);
-            s->wp = (uint16_t)((s->wp + 1u) & (IL_LEN - 1u));
-            v <<= 1;                                    /* (v: at a quarter) */
-            s->dc += ((v << 8) - s->dc) >> 9;           /* DC blocker (the line's clip on a loud lopsided wave) */
-            b[i] = pf_mix(x, (x >> 1) + v - (s->dc >> 8), s->w);   /* (dry + delayed) / 2 */
-        }
-    }
-}
-
-/* the INSERT at rest at once (mix_part: TYPE turned OFF while the part was silent, its fade never ran) */
+/* the DRIVE at rest at once (mix_part: TYPE turned OFF while the part was silent, its fade never ran) */
 static __attribute__((noinline)) void ins_rest(track_t *t)
 {
     memset(&ins[(uint32_t)(t - trk) % NTRK], 0, sizeof(ins_t));
     t->ins_run = 0;
 }
 
-/* the track's INSERT on its block b (mix_part, mix_spread): nothing while TYPE is OFF or MIX is 0 and faded */
+/* the track's DRIVE on its block b (mix_part, mix_spread): nothing while TYPE is OFF (or retired) or MIX is 0 and
+ * faded */
 static __attribute__((noinline)) void track_insert(track_t *t, int32_t *b, uint32_t n)
 {
     ins_t *s = &ins[(uint32_t)(t - trk) % NTRK];
-    int32_t ty = clamp(t->p[P_ITYPE], 0, IT_N - 1), tw;
+    int32_t ty = (uint32_t)t->p[P_ITYPE] < IT_N ? t->p[P_ITYPE] : IT_OFF, tw;
     if (s->type != ty && !s->w)                         /* faded out: the new type from rest */
         s->type = (uint8_t)ty;
     tw = s->type == ty && ty ? ins_mixq(t->p[P_IMIX]) : 0;
@@ -1032,18 +947,15 @@ static __attribute__((noinline)) void track_insert(track_t *t, int32_t *b, uint3
             t->ins_run = 0;
             return;                                     /* dry: bit for bit */
         }
-        memset(s, 0, sizeof *s);                        /* starting: no stale line or filter */
+        memset(s, 0, sizeof *s);                        /* starting: no stale filter */
         s->type = (uint8_t)ty;
     }
-    if (s->type >= IT_PHASER)
-        ins_swept(s, t, b, n, tw);
-    else
-        ins_drive(s, t, b, n, tw);
+    ins_drive(s, t, b, n, tw);
     t->ins_run = s->w != 0;                             /* (mix_part calls again while it fades) */
 }
 
 /* one block of the whole mix (shared with hostsim.c): events -> each part (with its modulation matrix)
- * -> SLICER -> dist -> INSERT -> EQ (M-Vave-OP1) -> level / pan / sends -> buses -> master; out: stereo Q15 */
+ * -> SLICER -> DRIVE -> EQ (M-Vave-OP1) -> level / pan / sends -> buses -> master; out: stereo Q15 */
 static void events_block(uint32_t n);                    /* seq.c */
 static int32_t send_c[CTL], send_d[CTL], send_r[CTL], send_sh[CTL], wet[CTL], mix_l[CTL], mix_r[CTL];
 
@@ -1101,9 +1013,9 @@ static __attribute__((noinline)) void shimmer_return(uint32_t n)
  * voice_start; UNISON's detuned voices alternate), at PAN -/+ SPRD / 2 (SPRD 127: hard left and right), with the pan
  * law PAN has (the far side down, the near one as it is). track_render gives every voice (b, as always) and the left
  * ones (spread_buf); here d = left - right, the side signal, so for a pair of pans L = b (gla + glb) / 2 + d (gla - glb)
- * / 2 (R alike): the mono sum is b's, the level of a centre pan less by SPRD / 256 at most. b goes through DIST, the
+ * / 2 (R alike): the mono sum is b's, the level of a centre pan less by SPRD / 256 at most. b goes through the DRIVE, the
  * SLICER and the FX layer's mute key as always; d gets the SLICER's gate and the mute's ramp (slicer_track_sd,
- * perf_mute_sd) and passes DIST by (the spread of a distorted chord is its voices' clean difference). The sends
+ * perf_mute_sd) and passes the DRIVE by (the spread of a distorted chord is its voices' clean difference). The sends
  * take b, mono, as before. SPRD 0, MONO or LEGATO: mix_part's own loop, bit for bit as before. The cost: a block's
  * clear and sum of spread_buf, the side and a wider mix loop, per part; per voice none (it picks its buffer) */
 static __attribute__((noinline)) void mix_spread(track_t *t, int32_t *b, uint32_t n)
@@ -1120,10 +1032,9 @@ static __attribute__((noinline)) void mix_spread(track_t *t, int32_t *b, uint32_
     xmax = 0x7FFFFFFF / ((xmax > r ? xmax : r) | 1);
     for (i = 0; i < n; i++)
         d[i] = (d[i] << 1) - b[i];                      /* left - right */
-    slicer_track_sd(t, b, d, n);                        /* (M-Vave-OP1: the SLICER first, then DIST and the INSERT) */
-    track_dist(t, b, n);
+    slicer_track_sd(t, b, d, n);                        /* (M-Vave-OP1: the SLICER first, then the DRIVE) */
     if (t->p[P_ITYPE] | t->ins_run)
-        track_insert(t, b, n);                          /* (the mono sum, as DIST) */
+        track_insert(t, b, n);                          /* (the mono sum) */
     if (eqa.run[t - trk] | eqx.req[t - trk])
         track_eq(t, b, d, n);                           /* (M-Vave-OP1: the EQ, the side too) */
     if ((pf.mute >> (t - trk)) & 1u)
@@ -1146,7 +1057,7 @@ static __attribute__((noinline)) void mix_spread(track_t *t, int32_t *b, uint32_
 }
 
 /* one synth part into the dry mix and the sends; a part with no voice sounding costs
- * the LFO tick and a cleared buffer only (after the DIST tail has run out) */
+ * the LFO tick and a cleared buffer only (after the DRIVE tail has run out) */
 static void mix_part(track_t *t, uint32_t n)
 {
     int32_t *b = part_buf;
@@ -1154,9 +1065,8 @@ static void mix_part(track_t *t, uint32_t n)
     mod_begin(t);                                       /* the matrix's per-block values into t->p (mod.c) */
     spread_on = t->p[P_SPRD] > 0 && (trk_vmode(t) == V_POLY || trk_vmode(t) == V_UNISON);   /* (SPREAD, mix_spread) */
     if (track_render(t, b, n))
-        t->tail = t->p[P_ITYPE] ? 64 : 16;              /* blocks of DIST / INSERT state to run out after the last
-                                                         * voice (the INSERT's: 46 ms, a flanger's feedback) */
-    else if ((!t->tail || !(t->p[P_DIST] | t->p[P_ITYPE] | eqa.run[t - trk]) || !--t->tail) && !slicer_busy(t)) {
+        t->tail = 16;                                   /* blocks of DRIVE / EQ state to run out after the last voice */
+    else if ((!t->tail || !(t->p[P_ITYPE] | eqa.run[t - trk]) || !--t->tail) && !slicer_busy(t)) {
         slicer_track(t, 0, n);                          /* (the SLICER's step clock runs on) */
         if (eqa.live[t - trk] | eqx.req[t - trk])
             eq_rest(t);                                 /* (M-Vave-OP1: the EQ from rest at the next note) */
@@ -1169,10 +1079,9 @@ static void mix_part(track_t *t, uint32_t n)
     if (spread_on)
         mix_spread(t, b, n);
     else {
-        slicer_track(t, b, n);                          /* slicer.c at the START (M-Vave-OP1: first, before DIST) */
-        track_dist(t, b, n);
+        slicer_track(t, b, n);                          /* slicer.c (M-Vave-OP1: first, before the DRIVE) */
         if (t->p[P_ITYPE] | t->ins_run)
-            track_insert(t, b, n);                      /* the INSERT (1.5): off, nothing */
+            track_insert(t, b, n);                      /* the DRIVE: off, nothing */
         if (eqa.run[t - trk] | eqx.req[t - trk])
             track_eq(t, b, 0, n);                       /* M-Vave-OP1: the EQ (flat: nothing) */
         if ((pf.mute >> (t - trk)) & 1u)

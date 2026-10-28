@@ -383,8 +383,8 @@ static void test_ui(const char *dir)
     int ok;
     cloud_power_on();
     fx_pages(pages, 10);
-    ck("FX's nine cards: SEND, INSERT, INSERT 2 (DIST), CHORUS, SHIMMER, DELAY, REVERB, SLICER, FX TRACKS (M-Vave-OP1)",
-       strstr(pages, "FX|INSERT|INSERT 2|CHORUS|SHIMMER|DELAY|REVERB|SLICER|FX TRACKS|FX|") != 0);
+    ck("FX's eight cards: SEND, DRIVE, CHORUS, SHIMMER, DELAY, REVERB, SLICER, FX TRACKS (M-Vave-OP1)",
+       strstr(pages, "FX|DRIVE|CHORUS|SHIMMER|DELAY|REVERB|SLICER|FX TRACKS|FX|") != 0);
     go_title("DELAY");
     song.g[G_DFDBK] = 60;
     song.g[G_DMIX] = 90;

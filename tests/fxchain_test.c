@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
 /* The SLICER's place in the chain (firmware/src/slicer.c, fx.c), on the firmware's own sources (ui_test.c):
- *   SLICER   at the START (GATE STUT PUMP) before DIST: a half-closed gate on a driven sound stays loud (DIST's
- *            input gated, not its output). Nothing after the reverb any more: the retired END values (4 GATE END,
+ *   SLICER   at the START (GATE STUT PUMP) before the DRIVE: a half-closed gate on a driven sound stays loud (the
+ *            drive's input gated, not its output). Nothing after the reverb any more: the retired END values (4 GATE END,
  *            5 PUMP END, in old projects) leave the mix bit for bit as OFF.
  *   PUMP     the level drops by DEPTH at every step (ramped, from the step's first sample) and comes back along PAT's
  *            curve over its share of the step (SMOOTH PUNCH LINEAR HOLD; all, 3/4, 1/2, 1/4); no clicks with the
@@ -84,7 +84,7 @@ static void sl_fresh(void)
         host_preset(&trk[k], e, preset_by_name(e, "SOFT PAD"));
         trk[k].p[P_CHOR] = trk[k].p[P_DLY] = trk[k].p[P_REV] = 0;
         trk[k].p[P_SLCR] = SL_OFF;
-        trk[k].p[P_DIST] = 0;
+        trk[k].p[P_ITYPE] = IT_OFF;
     }
     song.g[G_BPM] = 120;
     slicer_start();
@@ -122,22 +122,22 @@ static void test_slicer_pos(void)
 {
     double op, cl, op2, cl2;
     char what[200];
-    /* START before DIST: DEPTH 64 (the gate half closed) on a pad through DIST 127: the closed steps nearly as loud as the
-     * open ones (DIST's input halved, its output saturated alike); DIST before it (as it was) would halve them */
+    /* before the DRIVE: DEPTH 64 (the gate half closed) on a pad through a SOFT DRIVE 127: the closed steps nearly as loud
+     * as the open ones (the drive's input halved, its output saturated alike); the drive before it would halve them */
     sl_fresh();
-    trk[0].p[P_DIST] = 127;
+    trk[0].p[P_ITYPE] = IT_SOFT;
+    trk[0].p[P_IA] = 127;
     set_sl(0, SL_GATE, 1, 0, 64);
     trk_note_on(&trk[0], 48, 120);
     trk_note_on(&trk[0], 55, 120);
     sl_measure(FS * 3u / CTL, 0, &op, &cl, FS / CTL);
     sl_fresh();
-    trk[0].p[P_DIST] = 0;
     set_sl(0, SL_GATE, 1, 0, 64);
     trk_note_on(&trk[0], 48, 120);
     trk_note_on(&trk[0], 55, 120);
     sl_measure(FS * 3u / CTL, 0, &op2, &cl2, FS / CTL);
-    snprintf(what, sizeof what, "SLICER at the START, before DIST: DEPTH 64, closed / open steps on DIST 127 %.2f, without DIST "
-             "%.2f (after DIST both alike)", cl / op, cl2 / op2);
+    snprintf(what, sizeof what, "SLICER before the DRIVE: DEPTH 64, closed / open steps on a SOFT DRIVE 127 %.2f, without it "
+             "%.2f (after the drive both alike)", cl / op, cl2 / op2);
     ck(what, op > 100 && cl2 / op2 > 0.4 && cl2 / op2 < 0.75 && cl / op > cl2 / op2 + 0.15);
     /* END retired: GATE END and PUMP END (4, 5, still stored in old projects) play as OFF: track 2 on them, track 1's pad
      * through the mix as loud in track 2's closed steps as in its open ones (GATE END: closed / open < 0.01) and just

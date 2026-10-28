@@ -783,13 +783,13 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "head_bpm_locked", "head_glo_turn", "head_downbeat", "head_beat_2",
     "song_lanes", "song_lanes_playing", "song_lanes_silent", "song_pictures", "head_slot", "head_slot_edited", "head_slot_song",
     "menu_tune", "menu_info", "home_tracks", "home_tracks_stopped", "home_tracks_hot", "menu_home", "home_levels", "help_home", "help_user", "help_grid", "help_lfo", "layer_glo_help", "layer_seq_help", "menu_help",
-    "insert_crush", "insert_fold", "insert_phaser", "insert_off", "insert_mix",
+    "insert_crush", "insert_fold", "insert_fuzz", "insert_off", "insert_mix",
     "env_sync", "env_dest_sync", "filter",
     "learn_wait", "learn_pick", "learn_set", "learn_long", "layer_glo_learn", "menu_learn_clear", "menu_learn_clear_none",
     "dly_dotted", "dly_dotted_16", "perform_throw",
     "detail", "detail_playing", "detail_rest", "detail_drum", "roll_marks", "drum_marks", "help_detail",
     "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec",
-    "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song", "shimmer_send", "insert_extra", "eq", "eq_pass", "master"};
+    "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song", "shimmer_send", "drive_soft", "eq", "eq_pass", "master"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -1124,7 +1124,7 @@ static void setup(int s)
         TSEL->p[P_REV] = 80;
         go_title("REVERB"); break;
     case S_SHIM: TSEL->p[P_SHIM] = 80; go_title("SHIMMER"); break;
-    case S_INS_EXTRA: TSEL->p[P_DIST] = 80; go_title("INSERT 2"); break;
+    case S_INS_EXTRA: set_ins_ui(IT_SOFT, 90, 80, 100, 127); go_title("DRIVE"); break;
     case S_EQ:                                           /* (M-Vave-OP1: a low cut-ish shelf, a bell up, band 2 picked) */
         eq_set[song.sel][0].g = -12; eq_set[song.sel][1].g = 10; eq_set[song.sel][3].g = 4; eq_ui_band = 1;
         go_title("EQ");
@@ -1239,12 +1239,13 @@ static void setup(int s)
     case S_HELP_SEQ: ui_prefs2 |= PREF_HELP >> 16; go_page(GR_ROLL); ui.help_t = 0; ui.layer = LAYER_SEQ; break;
     case S_MENU_HELP: ui_prefs2 |= PREF_HELP >> 16; ui.menu = 1; ui.menu_sel = MI_HELP; break;
     case S_HOME_LEVELS: tracks_scene(1); ui_home_view = HV_LEVELS; trk[1].p[P_LEVEL] = 90; ui.hot_col = 1; ui.hot_t = 30; break;
-    /* 1.5: the INSERT pages (fx.c track_insert): CRUSH (#177: BITS RATE LPF), FOLD at MIX 60 %, PHASR, OFF; INSERT 2 */
-    case S_INSERT_CRUSH: set_ins_ui(IT_CRUSH, 64, 96, 80, 127); go_title("INSERT"); break;
-    case S_INSERT_FOLD: set_ins_ui(IT_FOLD, 100, 96, 100, 76); go_title("INSERT"); break;
-    case S_INSERT_PHASER: set_ins_ui(IT_PHASER, 70, 110, 90, 127); go_title("INSERT"); break;
-    case S_INSERT_OFF: go_title("INSERT"); break;
-    case S_INSERT_MIX: set_ins_ui(IT_FLANGER, 40, 127, 110, 90); go_title("INSERT"); break;
+    /* the DRIVE page (fx.c track_insert; the INSERT of 1.5): CRUSH (#177: BITS RATE LPF), FOLD at MIX 60 %, FUZZ, OFF,
+     * HARD at MIX 70 % (MIX on no page: the editor's, automation's) */
+    case S_INSERT_CRUSH: set_ins_ui(IT_CRUSH, 64, 96, 80, 127); go_title("DRIVE"); break;
+    case S_INSERT_FOLD: set_ins_ui(IT_FOLD, 100, 96, 100, 76); go_title("DRIVE"); break;
+    case S_INSERT_PHASER: set_ins_ui(IT_FUZZ, 70, 110, 90, 127); go_title("DRIVE"); break;
+    case S_INSERT_OFF: go_title("DRIVE"); break;
+    case S_INSERT_MIX: set_ins_ui(IT_HARD, 40, 127, 110, 90); go_title("DRIVE"); break;
     /* 1.5 MIDI LEARN (midi_learn.c): on, nothing picked (MIXER); T1 CUT picked, no CC yet (EDIT 2); T1 CUT on CC74 (its
      * message in the header); the widest line, a 5-letter label waiting; GLO's map with LEARN on (D4) */
     case S_LEARN_WAIT: go_page(GR_TRK); ml_toggle(); ui.msg_t = 0; break;

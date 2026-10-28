@@ -124,15 +124,15 @@ static void test_ui(const char *dir)
     TSEL->p[P_SHIM] = 77; frame(); if (dir) screen_save(dir, "send-shimmer");
     track_select(1); ck("SHIM send belongs to the selected track", TSEL->p[P_SHIM] == 0 && trk[0].p[P_SHIM] == 77);
     go_page(GR_FX); turn(EN_SELECT, 1); frame();
-    ok = str_eq(cur_page()->title, "INSERT");
-    TSEL->p[P_ITYPE] = IT_SOFT; TSEL->p[P_DIST] = 37;
+    ok = str_eq(cur_page()->title, "DRIVE");
+    TSEL->p[P_ITYPE] = IT_SOFT;
+    { int16_t a = TSEL->p[P_IA], b = TSEL->p[P_IB], c = TSEL->p[P_IC]; turn(EN_K2, 1); turn(EN_K3, 1); turn(EN_K4, 1);
+      ok &= TSEL->p[P_IA] > a && TSEL->p[P_IB] > b && TSEL->p[P_IC] > c && TSEL->p[P_ITYPE] == IT_SOFT; }
     turn(EN_SELECT, 1); frame();
-    ok &= str_eq(cur_page()->title, "INSERT 2") && TSEL->p[P_DIST] == 37 && TSEL->p[P_ITYPE] == IT_SOFT;
-    { int16_t c = TSEL->p[P_IC]; turn(EN_K1, 1); turn(EN_K2, 1);
-      ok &= TSEL->p[P_DIST] > 37 && TSEL->p[P_IC] > c && TSEL->p[P_ITYPE] == IT_SOFT; }
-    for (k = 0; k < NPAGES; k++) ok &= !str_eq(PAGES[k].title, "DIST");
-    ck("DIST and the third insert control are grouped under INSERT; existing stacked settings survive", ok);
-    if (dir) screen_save(dir, "insert-extra");
+    ok &= str_eq(cur_page()->title, "CHORUS");
+    for (k = 0; k < NPAGES; k++) ok &= !str_eq(PAGES[k].title, "DIST") && !str_eq(PAGES[k].title, "INSERT 2");
+    ck("the DRIVE after the sends: TYPE DRIVE TONE LEVEL on K1..K4, CHORUS next; no DIST or INSERT 2 page", ok);
+    if (dir) screen_save(dir, "drive");
     go_page(GR_SHIM); sig = graph_signature();
     { int16_t sz = song.g[G_RSIZE], damp = song.g[G_RDAMP]; turn(EN_K1, 1); turn(EN_K2, -1);
       ck("SHIMMER SIZE / DAMP redraw independently of REVERB", shim_p[0] > 90 && shim_p[1] < 60 && sig != graph_signature() && song.g[G_RSIZE] == sz && song.g[G_RDAMP] == damp); }

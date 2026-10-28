@@ -35,7 +35,7 @@ static void setup(uint32_t pi, const int16_t *e, uint32_t mode)
         for (i = 0; i < 8u; i++)
             trk[0].p[P_E0 + i] = e[i];
     trk[0].p[P_VOICE] = (int16_t)mode;
-    trk[0].p[P_DIST] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;
+    trk[0].p[P_ITYPE] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;
 }
 
 static void render(int32_t *y, uint32_t n)

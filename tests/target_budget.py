@@ -45,7 +45,7 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "aud_fade_half",                                   # .. M-Vave-OP1 (audio.c): the DAC faded around a flash erase
          "shimmer_pitch", "shimmer_send", "shimmer_bus", "serial_delay", "serial_reverb", "shimmer_return",
          "hall_shimmer",                                    # .. M-Vave-OP1: SHIMMER's octave (fx.c), after rev_hall
-         "track_insert", "ins_drive", "ins_swept",           # the per-track INSERT (fx.c, 1.5), while a TYPE plays
+         "track_insert", "ins_drive",                       # the per-track DRIVE (fx.c; the INSERT of 1.5), while a TYPE plays
          "cloud_render", "cl_spawn", "fx1_block", "cloud_side"]   # M-Vave-OP1: FX1's CLOUD (fx1.c), while it is the TYPE
 # built only with FELUCCA_FM4=1 (DIGITAL, src/eng_digital.c; not in the default build, so not in BUDGET): absent,
 # they are skipped; present, checked against these (their budget lines until the engine was retired in 1.0)

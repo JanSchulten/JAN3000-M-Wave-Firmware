@@ -24,9 +24,9 @@
  *            the fixed routings can reach, so the engines see no new range
  *     AMP    a gain <= 1: AMT > 0 the source opens it (AMT 64: silent at 0, full at 1), AMT < 0 closes it
  *            (bipolar sources as 0..1, as LFO DEST AMP); several AMP slots multiply
- *   per track, once per block: PAN, DIST CHO DLY REV (the sends), RATE (LFO rate), VIB (LFO DEST PIT, the
- *     vibrato depth), E1..E8 (the engine's parameters P_E0..P_E7, named by the engine): AMT 64 at a full
- *     source = the parameter's whole range; the sum is clamped to its range
+ *   per track, once per block: PAN, DIST (M-Vave-OP1: the DRIVE's amount, P_IA), CHO DLY REV (the sends), RATE (LFO
+ *     rate), VIB (LFO DEST PIT, the vibrato depth), E1..E8 (the engine's parameters P_E0..P_E7, named by the
+ *     engine): AMT 64 at a full source = the parameter's whole range; the sum is clamped to its range
  *   DEPTH (#132, per track): the depth of the track LFO, a gain <= 1 on it as AMP is on the voice (AMT > 0 the source
  *     opens it, AMT 64: none at 0, full at 1; AMT < 0 closes it; several DEPTH slots multiply): it scales the LFO
  *     wherever it goes, the four LFO DEST routings and the matrix's LFO source (not S&H / SLEW). With RATE (the LFO's
@@ -54,7 +54,7 @@ _Static_assert(P_M2SRC == P_M1SRC + 3 && P_M4AMT == P_M1SRC + 11 && P_M4AMT + 1 
 /* the track parameter of a per-block destination */
 static uint32_t mod_param(uint32_t d)
 {
-    static const uint8_t ID[MD_E1] = {[MD_PAN] = P_PAN, [MD_DIST] = P_DIST, [MD_CHO] = P_CHOR, [MD_DLY] = P_DLY,
+    static const uint8_t ID[MD_E1] = {[MD_PAN] = P_PAN, [MD_DIST] = P_IA, [MD_CHO] = P_CHOR, [MD_DLY] = P_DLY,
                                       [MD_REV] = P_REV, [MD_RATE] = P_LRATE, [MD_VIB] = P_LD_PIT};
     return MD_ENGINE(d) ? P_E0 + d - MD_E1 : ID[d];
 }
