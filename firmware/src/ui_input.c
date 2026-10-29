@@ -82,8 +82,7 @@ static int mom_turn(uint32_t k, int32_t s)
         d = &TP[MIX_ID[k & 3u]];
     } else {
         if (act_cols() || lock_any() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
-            pg->graph == GR_EVENTS || pg->graph == GR_SONG || pg->graph == GR_BROWSE || pg->graph == GR_USER ||
-            pg->graph == GR_PATS || (pg->graph == GR_MOD && k == 0u) ||
+            pg->graph == GR_BROWSE || pg->graph == GR_USER || (pg->graph == GR_MOD && k == 0u) ||
             pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
             return 0;
         d = page_desc(pg, k, &vp);
@@ -1252,8 +1251,8 @@ static void edit_param(uint32_t slot, int32_t steps)
     const page_t *pg = cur_page();
     const param_desc_t *d;
     int32_t v;
-    if (pg->graph == GR_EVENTS) {                         /* AUTOMATION (ui_events.c) */
-        ev_knob(slot, steps);
+    if (page_ops(pg)->knob) {                             /* M-Vave-OP1: the page's (AUTOMATION, SONG, PHRASES: ui_pages.c) */
+        page_ops(pg)->knob(slot, steps);
         return;
     }
     if (pg->graph == GR_CHORD && slot == 2u) {         /* M-Vave-OP1, SCL > CHORD: KNOB 3 GENRE (the sets) */
@@ -1334,39 +1333,6 @@ static void edit_param(uint32_t slot, int32_t steps)
         }
         return;
     }
-    if (pg->graph == GR_SONG) {                       /* KNOB 1 SECTION, 2 TRACK, 3 PAT (A..D, -), 4 REPS */
-        chain_row_t *r;
-        if (slot == 0u) {
-            ui.song_row = (uint8_t)clamp((int32_t)ui.song_row + steps, 0,
-                chain_config.count < CHAIN_ROWS ? chain_config.count : CHAIN_ROWS - 1u);
-            return;
-        }
-        if (slot == 1u) {
-            ui.song_trk = (uint8_t)clamp((int32_t)ui.song_trk + steps, 0, NTRK - 1);
-            return;
-        }
-        if (ui.song_row >= chain_config.count && slot == 3u) {   /* + ADD, KNOB 4 (M-Vave-OP1): the song's END, */
-            if (steps > 0)                           /* LOOP (right) or STOP (left) */
-                chain_config.rsv[0] |= CHAIN_LOOP;
-            else
-                chain_config.rsv[0] &= (uint8_t)~CHAIN_LOOP;
-            ui_message(chain_config.rsv[0] & CHAIN_LOOP ? "END: LOOP" : "END: STOP");
-            chain_live(CHN_EDIT);
-            return;
-        }
-        if (ui.song_row >= chain_config.count) {     /* + ADD: a turn adds the section (KNOB 3: only that) */
-            song_add();
-            chain_live(CHN_EDIT);
-            if (slot == 2u) return;
-        }
-        r = &chain_config.row[ui.song_row];
-        if (slot == 2u)
-            r->slot[ui.song_trk % NTRK] = (uint8_t)clamp((int32_t)r->slot[ui.song_trk % NTRK] + steps, 0, CHAIN_SILENT);
-        else
-            r->repeat = (uint8_t)clamp((int32_t)r->repeat + steps, 1, 16);
-        chain_live(CHN_EDIT);                         /* (playing: where its section ends) */
-        return;
-    }
     if (chain_busy() && (pg->scope == SC_STEP || pg->graph == GR_STEPS ||
         0)) {
         ui_message("STOP TO EDIT"); return;
@@ -1410,18 +1376,12 @@ static void edit_param(uint32_t slot, int32_t steps)
     if (pg->graph == GR_SLOTS)                    /* PROJECT: keys select; no knob action */
         return;
     if ((act_cols() >> slot) & 1u) {                      /* an action's knob picks it (right) or drops it (left); */
-        if (pg->graph != GR_PATS)                         /* OCT+ does it (act_do) */
-            ui.act = steps > 0 ? (uint8_t)(slot + 1u) : ui.act == slot + 1u ? 0u : ui.act;
+        ui.act = steps > 0 ? (uint8_t)(slot + 1u) : ui.act == slot + 1u ? 0u : ui.act;   /* OCT+ does it (act_do) */
         return;
     }
     if (pg->graph == GR_USER) {                           /* KNOB 1 selects one of two banks; keys select its slots. */
         if (slot == 0u)
             ui.uslot = (uint8_t)((ui.uslot & 15u) + (steps > 0 ? 16u : 0u));
-        return;
-    }
-    if (pg->graph == GR_PATS) {                          /* KNOB 1 the pattern */
-        if (slot == 0u)
-            ui.ppick = (uint8_t)clamp((int32_t)pat_pick() + steps, 0, (int32_t)pat_count() - 1);
         return;
     }
     if (fop_page(pg->graph)) {                           /* FM6's operators: KNOB 1 OP, 2..4 its bytes (ui_fm6op.c) */
@@ -1461,13 +1421,8 @@ static void act_do(void)
     uint32_t c = act_col(), id, k = (uint32_t)song.g[G_SLOT] - 1u;
     if (!c--)
         return;
-    if (cur_page()->graph == GR_EVENTS) {
-        ev_oct();
-        return;
-    }
-    if (cur_page()->graph == GR_SONG) {
-        if (song.playing || chain_busy() || seq_counting()) transport_req = 2;
-        else chain_play_ui();
+    if (page_ops(cur_page())->act_do) {                   /* M-Vave-OP1: the page's (ui_pages.c) */
+        page_ops(cur_page())->act_do(c);
         return;
     }
     if (cur_page()->graph == GR_FXT2) {                   /* CLEAR: the selected lane (c 0) or both */
@@ -1477,14 +1432,6 @@ static void act_do(void)
             ui_message("NOTHING TO CLEAR");
         else
             confirm_open(c == 0u ? CF_FXT_LANE : CF_FXT_ALL, ui.fxt_sel);
-        return;
-    }
-    if (cur_page()->graph == GR_PATS) {
-        if (chain_busy()) { ui_message("STOP TO EDIT"); return; }
-        if (pat_needs_confirm(TSEL))                      /* the user's steps: the dialog */
-            confirm_open(CF_LOAD_PAT, song.sel);
-        else                                              /* empty, or a pattern loaded and untouched */
-            pat_load_ui(TSEL, pat_pick());
         return;
     }
     if (cur_page()->graph == GR_SLOTS && c == 1u) {       /* M-Vave-OP1: NEW, after the dialog */
@@ -1660,7 +1607,7 @@ static void presets_turn(int32_t s)
         preset_step(s);
     } else if (g == GR_USER || g == GR_SLOTS) {
         return;                                         /* slots are picked by their keys only */
-    } else if (g == GR_ROLL || g == GR_PATS || g == GR_SONG || g == GR_EVENTS) {
+    } else if (g == GR_ROLL || (page_ops(pg)->flags & PG_K1)) {   /* (M-Vave-OP1: PHRASES, SONG, AUTOMATION) */
         edit_param(0, s);                                 /* KNOB 1's (STEP: STOP TO EDIT while a song plays) */
         ui.hot_col = 0;
         ui.hot_t = 40;
@@ -2094,7 +2041,7 @@ static void ui_input(void)
     } else if (act_cols() && (oct & 2u)) {              /* action pages: OCT+ does the picked action, */
         act_do();
     } else if (act_cols() && (oct & 1u)) {              /* OCT- drops it, or (none picked) goes HOME */
-        if (cur_page()->graph != GR_PATS && ui.act)
+        if (!(page_ops(cur_page())->flags & PG_ACT_FIXED) && ui.act)
             ui.act = 0;
         else
             go_home();
@@ -2158,8 +2105,8 @@ static void ui_input(void)
             continue;
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
-            ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
-            || pg->graph == GR_SONG || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
+            ((pg->graph == GR_USER || pg->graph == GR_MOD) && k == 0u) || ((page_ops(pg)->hot >> k) & 1u)
+            || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD ||
             (pg->graph == GR_CHORD && k == 2u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
             (vdu_page(pg->graph) && vdu_field(k) != VU_NONE)) {   /* (not an empty column) */

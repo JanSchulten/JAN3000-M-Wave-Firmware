@@ -1647,12 +1647,6 @@ static void graph_title(void)
     cv_text_in(0, y, 240, f, ti, T_THEME, T_SURF);
 }
 
-/* M-Vave-OP1: a panel kind's own drawing and state (GR_*: GRAPH_OPS at the end of this file) */
-typedef struct {
-    void (*draw)(const track_t *t, uint16_t c);      /* the panel (draw_graph: the cards, header and footer are not its) */
-    uint32_t (*sig)(uint32_t h);                     /* h with everything it draws mixed in (graph_signature: lazy drawing) */
-} graph_ops_t;
-static const graph_ops_t *graph_ops(uint32_t g);
 static uint32_t graph_signature(void)
 {
     const page_t *pg = cur_page();
@@ -1676,8 +1670,8 @@ static uint32_t graph_signature(void)
              (uint32_t)cset_en << 24;                /* (a kit, LOWEST NOTE: the sounding engine, VOICE: a parameter) */
     if (pg->graph == GR_SHIM)
         for (i = 0; i < 4u; i++) h = (h ^ (uint16_t)shim_p[i]) * 16777619u;
-    if (graph_ops(pg->graph)->sig)                   /* M-Vave-OP1: a panel's own state (GRAPH_OPS) */
-        h = graph_ops(pg->graph)->sig(h);
+    if (page_ops(pg)->sig)                           /* M-Vave-OP1: the page's panel's state (ui_pages.c) */
+        h = page_ops(pg)->sig(h);
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u +
@@ -1687,20 +1681,6 @@ static uint32_t graph_signature(void)
         for (i = 0; i < CHORD_MAX; i++)
             h = (h ^ chord_last[song.sel].note[i]) * 16777619u;
         h ^= (uint32_t)t->engine * 389u;             /* (MONO and kits follow the sounding engine) */
-    }
-    if (pg->graph == GR_SONG) {
-        h ^= ui.song_row * 40503u + chain_config.count * 7919u + ui.song_trk * 3571u + chain_config.rsv[0] * 611953u;
-        h = fnv(h, chain_config.row, sizeof chain_config.row);
-        h ^= chain.running ? (chain.row + 1u) * 104729u + chain.remaining * 1299709u : 0u;
-        for (i = 0; i < 4u; i++) h ^= (uint32_t)graph_project_used(i) << (24u + i);
-        h += graph_pname_sig;
-        {                                            /* the timeline: its view (following, ui_graph.c song_follow), the playhead */
-            song_lay_t L;
-            song_layout(&L);
-            h = (h ^ (uint32_t)song_follow(&L)) * 16777619u;
-            h = (h ^ (uint32_t)(song_playx(&L) + 1)) * 16777619u;
-            h ^= (ui_prefs & PREF_LARGE) ? 0x2545F491u : 0u;
-        }
     }
     if (pg->graph == GR_KEY) {                        /* the run, the cursor, the bar playing, the scale (key.c) */
         uint32_t i;
@@ -1742,9 +1722,6 @@ static uint32_t graph_signature(void)
             h ^= (uint32_t)graph_project_used(i) << (20u + i);
         h += graph_pname_sig;
     }
-    if (pg->graph == GR_EVENTS)                      /* AUTOMATION: the rows, the one selected, + ADD's place, PLAY,
-                                                      * QUANTIZE */
-        h = (h ^ ev_sig()) * 16777619u;
     if (pg->scope == SC_ENGINE && (ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL || t->eng_req % NENGINES == ENGI_FM6 ||
                                    (FELUCCA_FM4 && t->eng_req % NENGINES == ENGI_DIGITAL)))
         h ^= (ui.hot_t ? ui.hot_col + 1u : 0u) * 65537u;
@@ -3008,8 +2985,8 @@ static void draw_graph(void)
         graph_rows(rr, nr);
     } else if (fx_pedal()) {                          /* .. FX's cards: effect pedals */
         graph_pedal(t, 1);
-    } else if (graph_ops(pg->graph)->draw) {          /* M-Vave-OP1: a panel of its own file (GRAPH_OPS) */
-        graph_ops(pg->graph)->draw(t, c);
+    } else if (page_ops(pg)->draw) {                  /* M-Vave-OP1: the page's panel (ui_pages.c) */
+        page_ops(pg)->draw(t, c);
     } else {
         switch (pg->graph) {
         case GR_ADSR:
@@ -3070,10 +3047,6 @@ static void draw_graph(void)
             cv_oy = 0;
             graph_user();
             break;
-        case GR_SONG:
-            cv_oy = 0;
-            graph_song();
-            break;
         case GR_KEY:
             cv_oy = 0;
             graph_key();
@@ -3087,14 +3060,6 @@ static void draw_graph(void)
         case GR_CLOUD:
             cv_oy = 0;
             graph_fx1();
-            break;
-        case GR_PATS:
-            cv_oy = 0;
-            graph_pats();
-            break;
-        case GR_EVENTS:
-            cv_oy = 0;
-            graph_events();
             break;
         case GR_TOOLS:
             cv_oy = 0;
@@ -3129,13 +3094,3 @@ static void draw_graph(void)
     cv_oy = 0;
     cv_blit(0, graph_y());
 }
-
-/* ------------------------------------------------- the panels' own files --- */
-/* M-Vave-OP1: a page whose panel lives in a file of its own puts its drawing and its state here instead of a case in
- * draw_graph and a test in graph_signature (tools/ui_pages.py lists the pages still special-cased elsewhere). A kind
- * without an entry (all zero) keeps draw_graph's switch */
-#include "ui_eq.c"                                   /* HOME > EQ */
-static const graph_ops_t GRAPH_OPS[GR_N] = {
-    [GR_EQ] = {graph_eq, eq_sig},
-};
-static const graph_ops_t *graph_ops(uint32_t g) { return &GRAPH_OPS[g < GR_N ? g : GR_NONE]; }

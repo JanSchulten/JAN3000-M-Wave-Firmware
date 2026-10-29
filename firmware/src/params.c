@@ -489,11 +489,40 @@ typedef struct {
     const char *title;
     uint8_t fam, scope, graph;
     uint8_t id[4];               /* param ids; 0xFF = empty slot */
-    uint8_t flags;               /* M-Vave-OP1: PG_* */
-    const param_desc_t *(*desc)(uint32_t slot, int16_t **valp);   /* .. KNOB slot's value and its descriptor, when the page
-                                                                     * keeps its own (page_desc); 0: id[] says */
+    const struct page_ops *ops;  /* M-Vave-OP1: the page's own code (below; 0: none) */
 } page_t;
-enum { PG_LIST = 1 };            /* M-Vave-OP1: MENU > LARGE keeps the cards and the panel as on a list page (ui.c large_kind) */
+/* M-Vave-OP1: a page's own code, in one place (ui_pages.c) instead of a test of its GR_* in each shared function that
+ * treats it differently (tools/ui_pages.py lists the tests still left). Every member may be 0: the shared code's
+ * default. The ops are declared here (PAGES points at them) and defined in ui_pages.c, included last by the UI; a
+ * build without the UI's drawing and input (the storage tests, the sound tests) leaves them zero: tentative
+ * definitions, no warning in C */
+typedef struct page_ops {
+    uint8_t flags;               /* PG_* */
+    uint8_t acts;                /* an action page's action columns, a bit each (ui.c act_cols) */
+    uint8_t act_col;             /* .. the one OCT+ does, 1..5 (act_col; 5: none of the four, the page's own); 0: picked */
+    uint8_t hot;                 /* the columns a turned knob lights (ui_input.c ui_input) besides page_desc's */
+    const param_desc_t *(*desc)(uint32_t slot, int16_t **valp);   /* KNOB slot's value and its descriptor, the page's
+                                                                     * own (page_desc) */
+    void (*knob)(uint32_t slot, int32_t steps);    /* KNOB slot turned (ui_input.c edit_param) */
+    void (*enter)(void);                           /* the page opened (ui.c page_entered) */
+    void (*cards)(void);                           /* the four cards (ui_draw.c draw_columns) */
+    void (*draw)(const track_t *t, uint16_t c);    /* the panel (ui_graph.c draw_graph) */
+    uint32_t (*sig)(uint32_t h);                   /* h with everything the panel draws mixed in (graph_signature) */
+    const char *(*act_name)(uint32_t c);           /* action column c's name (ui.c act_name) */
+    int (*act_ready)(uint32_t c);                  /* .. it can run (act_ready) */
+    void (*act_do)(uint32_t c);                    /* .. OCT+ (ui_input.c act_do) */
+} page_ops_t;
+enum {
+    PG_LIST = 1,                 /* MENU > LARGE keeps the cards and the panel as on a list page (ui.c large_kind) */
+    PG_K1 = 2,                   /* the PRESETS knob turns KNOB 1 (ui_input.c presets_turn) */
+    PG_ACT_FIXED = 4             /* the action is the page's, no knob picks one: OCT- goes back (ui_input.c, ui_draw.c) */
+};
+static const page_ops_t EQ_OPS, SONG_OPS, PATS_OPS, EVENTS_OPS;   /* (ui_pages.c) */
+static const page_ops_t *page_ops(const page_t *pg)
+{
+    static const page_ops_t none;
+    return pg->ops ? pg->ops : &none;
+}
 
 /* Global SHIMMER settings live in the project extras; G_* ids stay fixed on the wire. */
 static int16_t shim_p[4] = {90, 60, 12, 127};          /* SIZE, DAMP, semitones, feedback */
@@ -527,14 +556,6 @@ static void eq_defaults(void)                        /* (a new project; one with
         memcpy(eq_set[k], EQ_DEF, sizeof EQ_DEF);
 }
 static int eq_pass(const eq_band_t *b) { return b->ty == EQT_LP || b->ty == EQT_HP; }   /* (KNOB 3: RESO, not GAIN) */
-/* the EQ page's knobs (page_t desc): BAND, then the band's FREQ, GAIN (a LP / HP: RESO), TYPE */
-static const param_desc_t *eq_page_desc(uint32_t slot, int16_t **valp)
-{
-    eq_band_t *b = &eq_set[song.sel % NTRK][eq_ui_band & 3];
-    int16_t *const v[4] = {&eq_ui_band, &b->f, eq_pass(b) ? &b->q : &b->g, &b->ty};
-    *valp = v[slot & 3u];
-    return &EQ_DESC[slot == 2u && eq_pass(b) ? 4u : slot & 3u];
-}
 static const page_t PAGES[] = {
     {"ENV", FAM_ENV, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},
     {"ENV DEST", FAM_ENV, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (P_ED_FX: nothing reads it);
@@ -590,27 +611,26 @@ static const page_t PAGES[] = {
     /* 1.2 (Discussion #153): a family's pages go round in this order, a tap of its button each (ui.c open_family) */
     /* M-Vave-OP1: GLO's first page the KEY (key.c): KNOB 1 BAR, 2 ROOT, 3 LEN, 4 ON; a key sets the bar's root */
     {"KEY", FAM_GLO, SC_GLOBAL, GR_KEY, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"SONG", FAM_GLO, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},        /* (1.2; up to 1.1.5 SEQ's) */
+    {"SONG", FAM_GLO, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}, &SONG_OPS},        /* (1.2; up to 1.1.5 SEQ's) */
     /* SAVE's taps (1.5, #173): USER (SAVE from another page: the quick save, SAVE OCT+ OCT+), PRESETS (the engines and
      * sounds one tap on; up to 1.4.1 the last), PHRASES, PROJECT, TOOLS */
     {"PROJECT", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {G_SLOT, 0xFF, G_LOAD, G_SAVE}},   /* M-Vave-OP1: SAVE's first (the keys pick) */
     {"USER", FAM_SAVE, SC_GLOBAL, GR_USER, {0xFF, 0xFF, 0xFF, 0xFF}},       /* user presets: SLOT LOAD ERASE SAVE */
     {"PRESETS", FAM_SAVE, SC_GLOBAL, GR_BROWSE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* browser: PRESETS knob / KNOB 1 */
-    {"PHRASES", FAM_SAVE, SC_GLOBAL, GR_PATS, {0xFF, 0xFF, 0xFF, 0xFF}},    /* pattern loader: PAT LOAD (ui.c pat_load);
+    {"PHRASES", FAM_SAVE, SC_GLOBAL, GR_PATS, {0xFF, 0xFF, 0xFF, 0xFF}, &PATS_OPS},    /* pattern loader: PAT LOAD (ui.c pat_load);
                                                                              * the tap after PRESETS (up to 1.1.5 SEQ's) */
     {"ARP", FAM_ARP, SC_TRACK, GR_ARP, {P_AMODE, P_ARATE, P_AOCT, P_AGATE}},
     {"ARP 2", FAM_ARP, SC_TRACK, GR_ARP, {P_ASWING, P_APROB, P_AHOLD, P_AORDER}},   /* (M-Vave-OP1: one screen with ARP) */
     {"STEP", FAM_SEQ, SC_STEP, GR_ROLL, {0, 1, 2, 3}},
     {"DETAIL", FAM_SEQ, SC_STEP, GR_ROLL, {0, 1, 2, 3}},   /* 1.5.1 (#199): the cursor step's CHANCE RATCH NUDGE VEL
                                                              * (ui.c detail_on, ui_input.c sd_turn) */
-    {"AUTOMATION", FAM_SEQ, SC_TRACK, GR_EVENTS, {0xFF, 0xFF, 0xFF, 0xFF}},  /* the locks, events, CHANCE and RATCH as a
+    {"AUTOMATION", FAM_SEQ, SC_TRACK, GR_EVENTS, {0xFF, 0xFF, 0xFF, 0xFF}, &EVENTS_OPS},  /* the locks, events, CHANCE and RATCH as a
                                                                              * list, PLAY and CLEAR (ui_events.c) */
     /* HOME's pages (1.2): HOME tapped on HOME the MIXER (up to 1.1.5 GLO's; LEVEL PAN REV MUTE), again CLOCK (up to 1.1.5
      * GLO > GLOBAL; its TUNE is MENU > AUDIO's now), again HOME (ui.c home_tap) */
     {"MIXER", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},
     {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, 0xFF}},
-    {"EQ", FAM_TRK, SC_GLOBAL, GR_EQ, {0xFF, 0xFF, 0xFF, 0xFF}, PG_LIST, eq_page_desc},   /* M-Vave-OP1: the selected
-                                                                                            * track's (eq_set) */
+    {"EQ", FAM_TRK, SC_GLOBAL, GR_EQ, {0xFF, 0xFF, 0xFF, 0xFF}, &EQ_OPS},   /* M-Vave-OP1: the selected track's (eq_set) */
 };
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
 static uint8_t mod_ui_slot;      /* the MOD page: the matrix slot (0..3) KNOB 2..4 edit */
@@ -622,8 +642,8 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         *valp = &shim_p[slot];
         return &SHIM_DESC[slot];
     }
-    if (pg->desc)                                     /* M-Vave-OP1: a page with values of its own (EQ) */
-        return pg->desc(slot, valp);
+    if (page_ops(pg)->desc)                           /* M-Vave-OP1: a page with values of its own (EQ) */
+        return page_ops(pg)->desc(slot, valp);
     if (id == 0xFFu) {
         *valp = 0;
         return 0;

@@ -399,9 +399,9 @@ static uint32_t large_kind(void)
     if (ui.home)                                        /* (HOME > TRACKS: its rows need the panel, the cards as on */
         return home_tracks() ? LK_LABEL : LK_TALL;      /* a list page; the rows' names in M: draw_home_tracks) */
     g = cur_page()->graph;
-    return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_PATS || g == GR_SONG || g == GR_ROLL ||
-           g == GR_EVENTS || g == GR_KEY || g == GR_FXT || g == GR_FXT2 ||
-           g == GR_FX1 || g == GR_CLOUD || (cur_page()->flags & PG_LIST) ? LK_LABEL
+    return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_ROLL ||
+           g == GR_KEY || g == GR_FXT || g == GR_FXT2 ||
+           g == GR_FX1 || g == GR_CLOUD || (page_ops(cur_page())->flags & PG_LIST) ? LK_LABEL
                                                                                                           : LK_TALL;
 }
 /* the geometry of the page shown: the cards' height, the panel's top and height */
@@ -537,7 +537,6 @@ static uint32_t lock_id(uint32_t k)
     return id < P_COUNT && motion_param(id) ? id : 0xFFu;
 }
 
-static void ev_enter(void);
 /* 1.5 (Discussion #156): MENU > HELP ON: a page entered (here, go_home) shows its hint in the footer for ~2 s
  * (ui_help.c, ui_draw.c draw_foot) */
 #define HELP_FRAMES 120u                       /* (~2 s at the UI's ~60 frames a second) */
@@ -546,8 +545,8 @@ static void help_start(void) { ui.help_t = (uint8_t)(help_on() ? HELP_FRAMES : 0
 static void page_entered(void)
 {
     const page_t *pg = cur_page();
-    if (!ui.home && pg->graph == GR_EVENTS)      /* AUTOMATION: + ADD on the SEQ cursor's step */
-        ev_enter();
+    if (!ui.home && page_ops(pg)->enter)         /* (M-Vave-OP1: AUTOMATION, + ADD on the SEQ cursor's step) */
+        page_ops(pg)->enter();
     if (!ui.home && lock_page_ok(ui.page))
         ui.plk_src = (uint8_t)(ui.page + 1u);
     song.seq_mode = !ui.home && pg->fam == FAM_SEQ;
@@ -1984,13 +1983,10 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     uint32_t c, m = 0;
     if (ui.home)
         return 0;
-    if (pg->graph == GR_EVENTS) return 16u;     /* AUTOMATION: no knob is an action; OCT+ by the row (ev_oct) */
-    if (pg->graph == GR_SONG)
-        return 1u;                               /* PLAY / STOP (also the PLAY button) */
+    if (page_ops(pg)->acts)                      /* M-Vave-OP1: the page's (AUTOMATION, SONG, PHRASES: ui_pages.c) */
+        return page_ops(pg)->acts;
     if (pg->graph == GR_FXT2)
         return 3u;                               /* CLEAR the lane, CLEAR both */
-    if (pg->graph == GR_PATS)
-        return 2u;                               /* LOAD */
     if (pg->graph == GR_USER)
         return 0u;                              /* LOAD ERASE SAVE */
     if (pg->graph == GR_SLOTS)
@@ -2005,22 +2001,17 @@ static uint32_t act_cols(void)                   /* the columns that are actions
 /* the action OCT+ does: its column + 1, 0 = none picked yet (PHRASES has LOAD only) */
 static uint32_t act_col(void)
 {
-    if (!ui.home && cur_page()->graph == GR_SONG) return 1u;
-    if (!ui.home && cur_page()->graph == GR_EVENTS) return 5u;
-    return !ui.home && cur_page()->graph == GR_PATS ? 2u : ui.act;
+    return !ui.home && page_ops(cur_page())->act_col ? page_ops(cur_page())->act_col : ui.act;   /* (the page's: ui_pages.c) */
 }
 
 static const char *act_name(uint32_t c)          /* column c's action (the footer hint) */
 {
     static const char *const UP_GO[3] = {"LOAD", "ERASE", "SAVE"};
     uint32_t id = cur_page()->id[c & 3u];
-    if (cur_page()->graph == GR_EVENTS) return ev_act_name();
-    if (cur_page()->graph == GR_SONG)
-        return song.playing || chain_busy() ? "STOP" : "PLAY";
+    if (page_ops(cur_page())->act_name)            /* M-Vave-OP1: the page's (ui_pages.c) */
+        return page_ops(cur_page())->act_name(c);
     if (cur_page()->graph == GR_FXT2)
         return "CLEAR";
-    if (cur_page()->graph == GR_PATS)
-        return "LOAD";
     if (cur_page()->graph == GR_USER)
         return UP_GO[(c + 2u) % 3u];
     if (cur_page()->graph == GR_SLOTS && (c & 3u) == 1u)
@@ -2032,16 +2023,13 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
  * a flash write, steps to clear */
 static int act_ready(void)
 {
-    uint32_t c = act_col(), s = song.sel, id;
+    uint32_t c = act_col(), id;
     if (!c--)
         return 0;
-    if (cur_page()->graph == GR_EVENTS) return ev_act_ready();
-    if (cur_page()->graph == GR_SONG)
-        return song.playing || chain_busy() || chain_config.count;
+    if (page_ops(cur_page())->act_ready)                /* M-Vave-OP1: the page's (ui_pages.c) */
+        return page_ops(cur_page())->act_ready(c);
     if (cur_page()->graph == GR_FXT2)                   /* steps there to clear */
         return c == 0u ? fxt_used(ui.fxt_sel) != 0u : (fxt_used(0) | fxt_used(1)) != 0u;
-    if (cur_page()->graph == GR_PATS)
-        return pat_last[s] != pat_pick() + 1u || steps_sig(TSEL) != pat_sig[s];
     if (cur_page()->graph == GR_USER)
         return c == 3u ? !song.playing : up_used(ui.uslot) && (c == 1u || !song.playing);
     if (cur_page()->graph == GR_SLOTS && c == 1u)       /* NEW: stopped (the whole song changes) */

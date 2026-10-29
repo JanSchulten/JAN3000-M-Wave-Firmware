@@ -5,31 +5,36 @@ Each recipe lists every place that has to change. Grep for the closest existing 
 
 ## A new page
 
-Keep the page's own code together: its knobs, its panel and its state go through the page hooks instead of new
-`if (pg->graph == GR_…)` tests in shared functions (`tools/ui_pages.py` lists the ones still there; HOME > EQ is the
-model: `eq_page_desc` in params.c, `ui_eq.c`, its row in `GRAPH_OPS`):
+Keep the page's own code together in a `page_ops_t` (params.c) instead of new `if (pg->graph == GR_…)` tests in
+shared functions (`tools/ui_pages.py` lists the ones still there). Declare `MYPAGE_OPS` beside `EQ_OPS` in params.c,
+point the `PAGES[]` row at it (`&MYPAGE_OPS`) and define it in its section of `ui_pages.c` (included last by the UI,
+so every UI function is there; a bigger page in a file of its own included from there, as `ui_eq.c`). The members,
+each optional (0: the shared default):
 
-- **`PAGES[]` row:** `flags` (`PG_LIST`: MENU > LARGE keeps the list layout, no `large_kind()` case) and `desc`, a
-  function giving KNOB 1..4's value pointer and descriptor when the page keeps values of its own (no `page_desc()`
-  case; the `0xFF` ids stay).
-- **`GRAPH_OPS[GR_MYPAGE]`** at the end of ui_graph.c: `{draw, sig}`, the panel (no `draw_graph()` case) and
-  everything it draws mixed into the hash (no `graph_signature()` case). Put both in `ui_mypage.c`, included just
-  above the table, and add that file to `SIZE_FILES` in tools/size_fns.py (the UI is built for size).
-- Then `sh tools/ui_compare.sh` on any move of existing code: every screen byte for byte as on `origin/main`.
+- `flags`: `PG_LIST` (MENU > LARGE's list layout), `PG_K1` (the PRESETS knob turns KNOB 1), `PG_ACT_FIXED` (an action
+  of the page's own: no knob picks one, OCT- goes back).
+- `acts`, `act_col`, `act_name`, `act_ready`, `act_do`: an action page (SONG, PHRASES, AUTOMATION are the models).
+- `hot`: the columns a turned knob lights; `desc`: KNOB 1..4's values when the page keeps its own (EQ); `knob`: the
+  knobs handled whole (SONG); `enter`: the page opened.
+- `cards` (draw_columns), `draw` (the panel), `sig` (everything the panel draws, for lazy drawing).
+
+Then `sh tools/ui_compare.sh` on any move of existing code: every screen byte for byte as on `origin/main`. A
+build without the drawing and input files (the storage tests) sees the ops as zero (tentative definitions).
 
 The steps below cover what has no hook yet:
 
 1. `params.c`: add `GR_MYPAGE` to the `GR_*` enum, before `GR_N`; add `{"TITLE", FAM_x, SC_x, GR_MYPAGE, {ids}}` to `PAGES[]`
    at the place it should take in its family's cycle (the first page of a family opens first). Page indices are
    not stored anywhere, so inserting is safe.
-2. `ui.c`: `large_kind()` only for a page without a `PG_LIST` flag to give; for an action page `act_cols()`,
+2. `ui.c`: `large_kind()` only where `PG_LIST` does not fit; for an action page without ops `act_cols()`,
    `act_name()`, `act_ready()`; a predicate such as `fxt_page()` if other code must know.
 3. `ui_input.c`: `edit_param()` for knobs with `0xFF` ids; exclude the page from MOMENTARY in `mom_turn()`; mark the
    turned column hot (the `hot_col` condition in `ui_input()`); `act_do()` for actions; REC / LED behaviour in
    `rec_tap()` and `ui_leds()` if the page changes them.
 4. `ui_draw.c`: the four cards in `draw_columns()` (`draw_column(c, label, value, unit, colour, ratio, icon)`,
    `draw_act_column()` for actions).
-5. The panel and its state: `GRAPH_OPS` (above), not a `case` in `draw_graph()` and a test in `graph_signature()`.
+5. The panel and its state: the ops' `draw` and `sig` (above), not a `case` in `draw_graph()` and a test in
+   `graph_signature()`.
 6. `icons.c` `page_icon()`; `ui_help.c` `HELP_PAGE[]` (the hint must fit its row: the UI test checks it).
 7. Tests: drive it through `tests/ui_test.c` helpers (see testing.md) and save screens with `screen_save`.
 8. Expect existing UI tests to assert the old page layout (for example "GLO opens SONG"). Update those assertions
