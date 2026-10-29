@@ -38,7 +38,7 @@ Every item is described in the [README](../README.md) and the user guide (`web/m
 - **Sequencer:** 64 steps a track, a note turned OFF with KNOB 2, transpose a track (SEQ + A#4 / C#5), REC arms and
   PLAY starts, legato recorded as played, SAVE held is undo and redo.
 - **Projects:** SAVE opens PROJECT, played on the keys; a new project draws its sounds; USB DISK shows the projects
-  as files; Bounce renders them as WAV in the browser.
+  as files.
 - **SYNC OUT PO:** Pocket Operator sync on the headphone jack.
 - **The web editor** without a device (the firmware in the page), presets as files, an installer ZIP.
 
@@ -46,7 +46,7 @@ Every item is described in the [README](../README.md) and the user guide (`web/m
 
 - HOME > EQ; clear a scene; transpose a track.
 - **The user guide** (`web/manual/`, English and German) now explains every feature: ACID, the SLICER's PUMP and its
-  END modes, the scene song, USB DISK, Bounce and the web editor (without a device, presets as files, FLUTE and SAX
+  END modes, the scene song, USB DISK and the web editor (without a device, presets as files, FLUTE and SAX
   as slot files).
 - **HALL reverb, cleaner highs:** a half-band filter for its internal rate change (no mirror tones in the tail), and
   its lines 6 dB louder inside (6 to 12 dB less noise as a tail fades). The tail rings about 20 % longer at the same
