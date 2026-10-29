@@ -109,7 +109,9 @@ _Static_assert(sizeof rev_comb / 2u >= SP_LEN && sizeof rev_u.sp / 4u >= 4u * (S
  * order 8: every line feeds the 7 others, +-1 each, none itself: no flutter at a line's own length), with
  * the send added. Stereo: left lines 0 3 4 -7, right 1 2 5 6 (sums spread over the matrix's rows); the wet
  * bus (mono) gets left + right, rev_side left - right, which mix_block adds to the left and takes from the
- * right (rev_side_mix). Back to 44.1 kHz between samples. Rounding: a loud line's gain rounds to the nearest
+ * right (rev_side_mix). M-Vave-OP1: down to 22.05 kHz and back up through a half-band low-pass (hall_down, hall_up:
+ * Felucca's 1 2 1 down and its line between two samples up let what folds over at 11.025 kHz through, a hiss in the
+ * tail's highs). Rounding: a loud line's gain rounds to the nearest
  * (the tail decays as it should), a quiet one's towards zero (it ends in exact silence: no limit cycle), and
  * the low-passes keep their steps' remainders (no offset). */
 #define HL_NL 8u                         /* lines */
@@ -126,11 +128,25 @@ static const int16_t HL_APG[HL_NAP] = {11469, 10240};               /* Q14: 0.7,
 _Static_assert(467 + 509 + 547 + 593 + 631 + 673 + 709 + 743 + HL_NL <= sizeof rev_comb / 2u &&
                131 + 307 <= sizeof rev_u.ap / 2u, "HALL in ROOM's buffers");
 _Static_assert(CTL % 2u == 0u && HL_NC + 2u * HL_MOD + 2u < 467u && HL_NC <= 131u, "HALL: one wrap a block at most");
+/* M-Vave-OP1: HALL's rate change, a half-band low-pass of 31 taps (Kaiser, beta 7): flat to 8 kHz, -0.4 dB at 9 kHz,
+ * -6 dB at 11.025 kHz where the two rates fold over, 51 dB down and more from 14 kHz. The 1 2 1 down and the line between
+ * two samples up it replaces let a 9 kHz tone ring in the tail with a mirror at 13 kHz 5 dB below it, and brought one of
+ * 15 kHz back as 7 kHz (reverb_test: HALL ALIAS). A half-band's every other tap is 0 and the rest pair up, so its work
+ * is 8 multiplies a sample down and 8 for each of mid and side up, on the FPU (single float: the send's 19 bits and the
+ * lines' sums fit its 24). HB_K: the taps 0, 2 .. 14 of 31 (30, 28 .. 16 the same), scaled so they sum to 0.25 (the
+ * centre, 15, is 0.5: unity gain at 0 Hz, both phases up). Its delay: 15 samples down, 15 up (0.7 ms; the first echo
+ * comes 21 ms after the send). The histories are the bus's (hall_t: a block's samples in front of them in hb) */
+#define HB_D 15u                         /* the centre tap: the delay, samples */
+#define HB_N 8u                          /* the taps of one half that are not 0 */
+static const float HB_K[HB_N] = {-0.000125854f, 0.001064443f, -0.003772257f, 0.009803523f, -0.021590671f, 0.043986472f,
+                                 -0.093085237f, 0.313719582f};
 typedef struct {                         /* persistent state, one per HALL / SHIMMER bus */
     uint16_t i[HL_NL], d[HL_NAP];        /* the lines' write indices, the diffusers' */
     int32_t lp[HL_NL], le[HL_NL];        /* the low-passes and their steps' remainders */
     int32_t x, m, s, hp, he;             /* the send's last sample, its low cut and that step's remainder; the
                                           * last mid and side out (half rate) */
+    float hin[2u * HB_D];                /* M-Vave-OP1: the send's last 30 samples (hall_down) */
+    float hm[HB_D], hs[HB_D];            /* .. the last 15 mid and side out (hall_up) */
     int16_t g[HL_NL], sz;                /* the lines' gains / sqrt(7) (Q14), for SIZE sz - 1 (0: none yet) */
     uint32_t ph;                         /* the taps' drift */
     uint8_t side;                        /* sd holds this block's stereo difference (HALL running) */
@@ -145,6 +161,9 @@ static struct {                         /* shared scratch: the two buses render 
     int32_t bx[HL_NC], l[HL_NC], r[HL_NC];
     int16_t y[HL_NL][HL_NC];
 } hw;
+static struct {                         /* M-Vave-OP1: hall_down / hall_up's history and block, in a row */
+    float x[2u * HB_D + CTL], m[HB_D + HL_NC], s[HB_D + HL_NC];
+} hb;
 static int16_t rev_shb[1024] __attribute__((section(".pool")));
 static int16_t shim_shb[1024] __attribute__((section(".pool")));
 static int16_t shim_comb[4872 + HL_NL] __attribute__((section(".pool")));
@@ -526,6 +545,50 @@ static __attribute__((noinline)) void shimmer_pitch(hall_t *h, int16_t *pitch)
     h->shw = (uint16_t)w; h->shp = phase; h->shlp = lp;
 }
 
+/* M-Vave-OP1: the send (CTL samples) to half the rate: y[i] the half-band's output at the pair i's second sample */
+FM1_FPU static __attribute__((noinline)) void hall_down(hall_t *h, const int32_t *in, int32_t *y)
+{
+    float *x = hb.x;
+    uint32_t i, j;
+    memcpy(x, h->hin, sizeof h->hin);
+    for (i = 0; i < CTL; i++)
+        x[2u * HB_D + i] = (float)in[i];
+    for (i = 0; i < HL_NC; i++) {
+        const float *p = x + 2u * i + 1u;               /* p[30]: the pair's second sample; p[0] 30 before it */
+        float a = 0.5f * p[HB_D];
+        for (j = 0; j < HB_N; j++)
+            a += HB_K[j] * (p[2u * j] + p[2u * HB_D - 2u * j]);
+        y[i] = (int32_t)a;
+    }
+    memcpy(h->hin, x + CTL, sizeof h->hin);
+}
+/* .. and the lines' mid and side (hw.l, hw.r) back to 44.1 kHz: the even samples the taps', the odd ones the centre's
+ * (the sample 7 before at half the rate) */
+FM1_FPU static __attribute__((noinline)) void hall_up(hall_t *h, int32_t *out)
+{
+    float *m = hb.m, *s = hb.s;
+    uint32_t i, j;
+    memcpy(m, h->hm, sizeof h->hm);
+    memcpy(s, h->hs, sizeof h->hs);
+    for (i = 0; i < HL_NC; i++) {
+        m[HB_D + i] = (float)((hw.l[i] + hw.r[i]) * HL_OUT);
+        s[HB_D + i] = (float)((hw.l[i] - hw.r[i]) * HL_OUT);
+    }
+    for (i = 0; i < HL_NC; i++) {
+        const float *pm = m + i, *ps = s + i;           /* pm[15]: this half-rate sample; pm[0] 15 before it */
+        float a = 0.0f, b = 0.0f;
+        for (j = 0; j < HB_N; j++) {
+            a += HB_K[j] * (pm[j] + pm[HB_D - j]);
+            b += HB_K[j] * (ps[j] + ps[HB_D - j]);
+        }
+        out[2u * i] += (int32_t)(2.0f * a);
+        out[2u * i + 1u] += (int32_t)pm[HB_D / 2u + 1u];
+        h->sd[2u * i] = (int32_t)(2.0f * b);
+        h->sd[2u * i + 1u] = (int32_t)ps[HB_D / 2u + 1u];
+    }
+    memcpy(h->hm, m + HL_NC, sizeof h->hm);
+    memcpy(h->hs, s + HL_NC, sizeof h->hs);
+}
 static __attribute__((noinline)) void hall_block(hall_t *h, int16_t *comb, int16_t *ap, int16_t *pitch,
                                               const int32_t *rev_in, int32_t *out, int32_t size, int32_t damp, int shimmer)
 {
@@ -535,9 +598,10 @@ static __attribute__((noinline)) void hall_block(hall_t *h, int16_t *comb, int16
     int32_t xp = h->x, hp = h->hp, he = h->he, mp = h->m, sp = h->s;
     if (h->sz != size + 1)
         hall_gains(h, size);
+    hall_down(h, rev_in, hw.bx);                        /* (M-Vave-OP1: half the rate, the half-band's) */
+    xp = rev_in[CTL - 1u];                              /* (the shimmer bus: still fed) */
     for (i = 0; i < HL_NC; i++) {
-        int32_t x = (xp + 2 * rev_in[2u * i] + rev_in[2u * i + 1u]) >> 2, v;   /* every other sample, 1 2 1 */
-        xp = rev_in[2u * i + 1u];
+        int32_t x = hw.bx[i], v;
         x = mulq15(clamp(x, -262143, 262143), 2580) + h->sh[i];   /* (ROOM's level; SHIMMER's octave, 0 in a HALL:
                                                                      * through the low cut too, no rumble round it) */
         v = x - hp + he;                                /* the low cut, its step's remainder kept */
@@ -602,15 +666,9 @@ static __attribute__((noinline)) void hall_block(hall_t *h, int16_t *comb, int16
         h->i[k] = (uint16_t)d;
         b += HL_LEN[k] + 1u;
     }
-    for (i = 0; i < HL_NC; i++) {                       /* back to 44.1 kHz, between samples */
-        int32_t mm = (hw.l[i] + hw.r[i]) * HL_OUT, ss = (hw.l[i] - hw.r[i]) * HL_OUT;
-        out[2u * i] += (mp + mm) >> 1;
-        out[2u * i + 1u] += mm;
-        h->sd[2u * i] = (sp + ss) >> 1;
-        h->sd[2u * i + 1u] = ss;
-        mp = mm;
-        sp = ss;
-    }
+    hall_up(h, out);                                    /* back to 44.1 kHz (M-Vave-OP1: the half-band's) */
+    mp = (hw.l[HL_NC - 1u] + hw.r[HL_NC - 1u]) * HL_OUT;   /* (the last mid and side: the shimmer bus's still-sounding test) */
+    sp = (hw.l[HL_NC - 1u] - hw.r[HL_NC - 1u]) * HL_OUT;
     h->m = mp, h->s = sp;
     h->side = 1;
     if (shimmer == 2)
@@ -639,6 +697,9 @@ static void rev_clear(void)
         hl.lp[i] = hl.le[i] = 0;
     fx.sp_lp = fx.sp_hp = fx.sp_he = 0;
     hl.x = hl.m = hl.s = hl.hp = hl.he = 0;
+    memset(hl.hin, 0, sizeof hl.hin);                   /* (M-Vave-OP1: the half-band's histories) */
+    memset(hl.hm, 0, sizeof hl.hm);
+    memset(hl.hs, 0, sizeof hl.hs);
     for (i = 0; i < SH_LEN; i++)                        /* (SHIMMER's) */
         rev_shb[i] = 0;
     for (i = 0; i < HL_NC; i++)

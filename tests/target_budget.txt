@@ -75,6 +75,8 @@ rev_room 235
 rev_spring 126
 rev_hall 1997
 hall_block 1995
+hall_down 50
+hall_up 106
 rev_side_mix 9
 dly_glide 106
 aud_fade_half 17

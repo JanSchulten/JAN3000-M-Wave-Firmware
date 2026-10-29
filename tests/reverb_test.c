@@ -638,7 +638,8 @@ static void test_hall(void)
         snprintf(what, sizeof what, "HALL at SIZE 127 DAMP %d: 2 s of %s: peak %d, the last second %d (side %d)",
                  k & 1u ? 127 : 0, k < 2u ? "full-scale noise" : k == 2u ? "a full-scale 3.2 kHz square" : "a 416 Hz square",
                  pk, tail, tails);
-        check(what, pk <= 12 * 32768 && tail <= 4 && tails <= 4);   /* (the sum of 4 lines x HL_OUT, twice) */
+        check(what, pk <= 24 * 32768 && tail <= 4 && tails <= 4);   /* (the sum of 4 lines x HL_OUT, twice; M-Vave-OP1:
+                                                     * x 2, the half-band up's overshoot, at most 1.95: fx.c HB_K) */
     }
     {   /* no limit cycle anywhere: SIZE 0 / 64 / 127 x DAMP 0 / 60 / 127, 1 s of a chord, quiet, middling or
          * loud (the quiet one keeps the lines near where their rounding changes), then silence: the last
@@ -832,6 +833,36 @@ static double band(const int32_t *h, uint32_t a, uint32_t b, double f)
         }
     return sqrt(p);
 }
+/* M-Vave-OP1, HALL ALIAS: HALL runs at 22.05 kHz; what the rate change lets fold over at 11.025 kHz rings in the tail as
+ * tones the send never had (fx.c hall_down / hall_up). A sine for 0.5 s at SIZE 90 DAMP 0, then its tail from 0.6 to
+ * 1.6 s: a 6 kHz tone's mirror (16.05 kHz) and a 9 kHz one's (13.05 kHz) against the tone itself, and a 15 kHz tone
+ * (above what the lines hold) folded to 7.05 kHz against what a 7.05 kHz tone leaves. Felucca's 1 2 1 down and its line
+ * between samples up: -14, -5 and -10 dB; the half-band: -46, -26 and -51 */
+static void test_hall_alias(void)
+{
+    static int32_t x[FS / 2u];
+    static const double TONE[4] = {6000, 9000, 15000, 7050};
+    const uint32_t a = 6u * FS / 10u, b = 16u * FS / 10u, n = 2u * FS / CTL * CTL;
+    double sig[4], img[4], dbv[3];
+    char what[240];
+    uint32_t k, i;
+    host_tracks_init();
+    for (k = 0; k < 4u; k++) {
+        for (i = 0; i < FS / 2u; i++)
+            x[i] = (int32_t)(1 << 17) * sin(2 * M_PI * TONE[k] * i / FS);
+        model_reset(M_HALL, 90, 0);
+        model_run(M_HALL, x, FS / 2u, n);
+        sig[k] = band(ir, a, b, TONE[k] > 11025 ? 22050 - TONE[k] : TONE[k]);
+        img[k] = band(ir, a, b, 22050 - TONE[k]);
+    }
+    dbv[0] = 20 * log10(img[0] / sig[0] + 1e-12);
+    dbv[1] = 20 * log10(img[1] / sig[1] + 1e-12);
+    dbv[2] = 20 * log10(sig[2] / sig[3] + 1e-12);
+    snprintf(what, sizeof what, "HALL ALIAS: mirrors in the tail: 6 kHz at 16.05 kHz %.1f dB, 9 kHz at 13.05 kHz %.1f dB, "
+             "15 kHz back as 7.05 kHz %.1f dB", dbv[0], dbv[1], dbv[2]);
+    check(what, dbv[0] <= -35 && dbv[1] <= -20 && dbv[2] <= -40);
+}
+
 static void test_shimmer(void)
 {
     static int32_t in[CTL], out[CTL], bur[FS / 4];
@@ -1245,6 +1276,7 @@ int main(int argc, char **argv)
     test_spring();
     test_spring_identical();
     test_hall();
+    test_hall_alias();
     test_clear();
     test_switch();
     test_shimmer();
