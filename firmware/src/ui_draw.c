@@ -888,19 +888,6 @@ static void draw_columns(void)
         page_ops(cur_page())->cards();
         return;
     }
-    if (cur_page()->graph == GR_KEY) {                /* M-Vave-OP1, GLO > KEY (key.c): BAR, its ROOT (the chord it
-                                                       * makes in the selected track's scale), LEN, ON */
-        uint32_t len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u, r = keyt.root[key_cur % KEY_BARS];
-        fmt_int(val, (int32_t)key_cur + 1);
-        draw_column(0, "BAR", val, "", VAL(0u), len > 1u ? (int32_t)(key_cur * 1000u / (len - 1u)) : 0, ICON_TIME);
-        key_chord_name(TSEL, r, val);
-        draw_column(1, "ROOT", val, "", r < 12u ? VAL(1u) : T_DIM, r < 12u ? (int32_t)(r * 1000u / 11u) : -1, ICON_SCALE);
-        fmt_int(val, (int32_t)len);
-        draw_column(2, "LEN", val, len == 1u ? "BAR" : "BARS", VAL(2u), (int32_t)((len - 1u) * 1000u / (KEY_BARS - 1u)),
-                    ICON_LENGTH);
-        draw_column(3, "KEY", keyt.on ? "ON" : "OFF", "", keyt.on ? VAL(3u) : T_DIM, -1, ICON_TRANSPOSE);
-        return;
-    }
     if (cur_page()->graph == GR_FX1) {                /* M-Vave-OP1 DELAY: TYPE; DELAY TIME FDBK MIX, CLOUD SIZE PITCH DENS */
         int cloud = fx1s.type == FX1_CLOUD;
         draw_column(0, "TYPE", cloud ? "CLOUD" : "DELAY", "", VAL(0u), -1, cloud ? ICON_GRAIN : ICON_DELAY);
@@ -955,46 +942,6 @@ static void draw_columns(void)
         draw_column(2, "PITCH", val, "ST", VAL(2u), (fx1s.pitch + 24) * 1000 / 48, ICON_PITCH);
         fmt_int(val, fx1s.spread);
         draw_column(3, "SPREAD", val, "%", VAL(3u), fx1s.spread * 10, ICON_PAN);
-        return;
-    }
-    if (cur_page()->graph == GR_FXT) {                /* the lane, STEP, its EFFECT, LEN (fxtrack.c) */
-        uint32_t l = ui.fxt_sel % FXT_N, len = FXT_LEN(fxt_src(l)), c = fxt_src(l)->step[ui.fxt_cur % NSTEP];
-        uint32_t e = fxt_eff(c);
-        const char *unit = "";
-        draw_column(0, "LANE", l ? "FX2" : "FX1", "", (fxt.arm >> l) & 1u ? T_REC : VAL(0u), -1, ICON_X_REPEAT);
-        fmt_int(val, (int32_t)ui.fxt_cur + 1);
-        draw_column(1, "STEP", val, "", VAL(1u), (int32_t)(ui.fxt_cur * 1000u / (len > 1u ? len - 1u : 1u)), ICON_STEPS);
-        if (c == FXT_TIE) {
-            str_cpy(val, "TIE", sizeof val);
-        } else if (e >= PF_N) {
-            str_cpy(val, "OFF", sizeof val);
-        } else if (e >= PF_M1) {
-            str_cpy(val, "T1", sizeof val);
-            val[1] = (char)('1' + e - PF_M1);
-            unit = "MUTE";
-        } else {
-            str_cpy(val, PF_CELL[e], sizeof val);
-            unit = e <= PF_R32 ? "RPT" : e == PF_RTHR || e == PF_ETHR ? "THROW" : "";
-        }
-        draw_column(2, "EFFECT", val, unit, e < PF_N || c == FXT_TIE ? VAL(2u) : T_DIM, -1, ICON_SWEEP);
-        fmt_int(val, (int32_t)len);
-        draw_column(3, "LEN", val, "", VAL(3u), (int32_t)(len * 1000u / NSTEP), ICON_LENGTH);
-        return;
-    }
-    if (cur_page()->graph == GR_FXT2) {               /* CLEAR the lane, CLEAR both; the steps each holds */
-        uint32_t l = ui.fxt_sel % FXT_N, n0 = fxt_used(0), n1 = fxt_used(1);
-        draw_act_column(0, l ? "FX2" : "FX1", (l ? n1 : n0) ? T_THEME : T_DIM, ICON_CLEAR);
-        draw_act_column(1, "BOTH", n0 | n1 ? T_THEME : T_DIM, ICON_CLEAR);
-        fmt_int(val, (int32_t)n0);
-        draw_column(2, "FX1", val, "STEPS", n0 ? T_THEME : T_DIM, -1, ICON_NONE);
-        fmt_int(val, (int32_t)n1);
-        draw_column(3, "FX2", val, "STEPS", n1 ? T_THEME : T_DIM, -1, ICON_NONE);
-        return;
-    }
-    if (cur_page()->graph == GR_TOOLS) {
-        static const char *const labels[] = {"PAT", "SOUND", "SEC", "SONG"};
-        static const uint8_t icons[] = {ICON_AUTO, ICON_AUTO, ICON_X_SONG, ICON_X_SONG};   /* ROW, SONG: the song's */
-        for (c = 0; c < 4u; c++) draw_act_column(c, labels[c], VAL(c), icons[c]);
         return;
     }
     if (cur_page()->scope == SC_TRK) {                 /* LEVEL PAN REV MUTE of the selected track */

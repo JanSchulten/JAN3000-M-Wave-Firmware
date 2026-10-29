@@ -1617,10 +1617,8 @@ static void page_title(char *ti)
                 k = n;
         }
     str_cpy(ti, pt ? pt : grid_on() && !detail_on() ? "GRID" : pg->title, 12);
-    if (pg->graph == GR_KEY) {                        /* M-Vave-OP1: the scene whose KEY it is ("KEY S3", scene.c) */
-        str_cpy(ti + str_len(ti), " S", 4);
-        fmt_int(ti + str_len(ti), (int32_t)scn.cur + 1);
-    }
+    if (page_ops(pg)->title_add)                      /* M-Vave-OP1: the page's (KEY: its scene, ui_pages.c) */
+        page_ops(pg)->title_add(ti);
     if (n > 1) {
         str_cpy(ti + str_len(ti), " ", 4);
         fmt_int(ti + str_len(ti), (int32_t)k);
@@ -1681,26 +1679,6 @@ static uint32_t graph_signature(void)
         for (i = 0; i < CHORD_MAX; i++)
             h = (h ^ chord_last[song.sel].note[i]) * 16777619u;
         h ^= (uint32_t)t->engine * 389u;             /* (MONO and kits follow the sounding engine) */
-    }
-    if (pg->graph == GR_KEY) {                        /* the run, the cursor, the bar playing, the scale (key.c) */
-        uint32_t i;
-        for (i = 0; i < KEY_BARS; i++)
-            h = (h ^ keyt.root[i]) * 16777619u;
-        h = (h ^ (keyt.on | (uint32_t)keyt.len << 8 | (uint32_t)key_cur << 16 | (uint32_t)key_bar << 24)) * 16777619u;
-        h = (h ^ ((uint32_t)song.playing | (uint32_t)TSEL->p[P_ROOT] << 8 | (uint32_t)TSEL->p[P_SCALE] << 16 |
-                  (uint32_t)key_arm << 24 | (uint32_t)(key_live & 31u) << 25)) * 16777619u;
-        h = (h ^ (scn.cur + 1u)) * 16777619u;        /* (M-Vave-OP1: the scene in the title) */
-    }
-    if (pg->graph == GR_FXT || pg->graph == GR_FXT2) {     /* the lanes, the cursor, the play heads (fxtrack.c) */
-        uint32_t l;
-        for (l = 0; l < FXT_N; l++) {
-            const fxt_lane_t *ln = fxt_src(l);       /* (in a song: the section's) */
-            for (i = 0; i < NSTEP; i++)
-                h = (h ^ ln->step[i]) * 16777619u;
-            h = (h ^ (ln->len | (uint32_t)fxt.idx[l] << 8 | (uint32_t)fxt.cur[l] << 16)) * 16777619u;
-        }
-        h = (h ^ (fxt.arm | (uint32_t)ui.fxt_sel << 4 | (uint32_t)ui.fxt_cur << 8 | (uint32_t)song.playing << 16 |
-                  (uint32_t)fxt_follow() << 17)) * 16777619u;
     }
     if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* the line as it moves, the grains, the settings (fx1.c) */
         uint32_t k;
@@ -3030,23 +3008,10 @@ static void draw_graph(void)
             cv_oy = 0;
             graph_dlane(t);
             break;
-        case GR_KEY:
-            cv_oy = 0;
-            graph_key();
-            break;
-        case GR_FXT:
-        case GR_FXT2:
-            cv_oy = 0;
-            graph_fxt();
-            break;
         case GR_FX1:
         case GR_CLOUD:
             cv_oy = 0;
             graph_fx1();
-            break;
-        case GR_TOOLS:
-            cv_oy = 0;
-            panel_note("TURN TO PICK", "[OCT+] CONFIRM", 0);
             break;
         case GR_FMOP:
         case GR_FMOP2:

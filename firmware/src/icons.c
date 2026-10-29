@@ -266,9 +266,6 @@ static uint32_t page_icon(const page_t *pg)
         return page_ops(pg)->icon();
     switch (pg->graph) {
     case GR_TRK: return ICON_X_MIXER;         /* MIXER (HOME): vertical faders */
-    case GR_KEY: return ICON_SCALE;           /* KEY (M-Vave-OP1): the chord progression */
-    case GR_FXT:
-    case GR_FXT2: return ICON_X_REPEAT;       /* FX TRACKS (M-Vave-OP1): a punch-in's */
     case GR_FX1: return fx1s.type == FX1_CLOUD ? ICON_GRAIN : ICON_DELAY;   /* FX1 (M-Vave-OP1): its TYPE's */
     case GR_CLOUD: return ICON_GRAIN;         /* CLOUD: granular */
     default: return ICON_NONE;

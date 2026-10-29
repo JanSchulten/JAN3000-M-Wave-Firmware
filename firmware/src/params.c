@@ -473,10 +473,12 @@ enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE,
        FAM_COUNT };
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
-       GR_SLCR, GR_MOD, GR_PATS, GR_SONG, GR_TOOLS, GR_CHORD, GR_EVENTS,
+       GR_SLCR, GR_MOD, GR_PATS, GR_SONG, GR_TOOLS,   /* (GR_TOOLS: retired, its CLEAR and INIT on their pages, fa3884a) */
+       GR_CHORD, GR_EVENTS,
        GR_FMOP, GR_FMOP2, GR_FMENV, GR_INS,     /* (GR_STEPS: SEQ TOOLS' knobs; GR_FMOP..: FM6's operator pages, ui_fm6op.c) */
        GR_KEY,                                  /* M-Vave-OP1: GLO > KEY (key.c, ui_graph.c graph_key) */
-       GR_FXT, GR_FXT2,                         /* .. FX > FX TRACKS, FX TRACKS 2 (fxtrack.c, ui_graph.c graph_fxt) */
+       GR_FXT, GR_FXT2,                         /* .. FX > FX TRACKS (fxtrack.c, ui_graph.c graph_fxt); FX TRACKS 2
+                                                 * (retired: its CLEARs are FX TRACKS' EDIT and the FX layer's, fa3884a) */
        GR_FX1, GR_CLOUD,                        /* .. FX > FX1 (the delay bus's TYPE), CLOUD (fx1.c, ui_graph.c graph_fx1) */
        GR_CSET,                                 /* .. (retired: SCL > CSET, now SCL > CHORD's sets) */
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
@@ -497,7 +499,7 @@ typedef struct {
  * build without the UI's drawing and input (the storage tests, the sound tests) leaves them zero: tentative
  * definitions, no warning in C */
 typedef struct page_ops {
-    uint8_t flags;               /* PG_* */
+    uint16_t flags;              /* PG_* */
     uint8_t acts;                /* an action page's action columns, a bit each (ui.c act_cols) */
     uint8_t act_col;             /* .. the one OCT+ does, 1..5 (act_col; 5: none of the four, the page's own); 0: picked */
     uint8_t hot;                 /* the columns a turned knob lights (ui_input.c ui_input) besides page_desc's */
@@ -513,10 +515,12 @@ typedef struct page_ops {
     void (*act_do)(uint32_t c);                    /* .. OCT+ (ui_input.c act_do) */
     uint32_t (*icon)(void);                        /* the icon before the title in the footer (icons.c page_icon) */
     void (*title_short)(char *ti, uint32_t n);     /* the footer's title cut where the sound's name would be (ui_draw.c) */
+    void (*title_add)(char *ti);                   /* .. something after the page's name (ui_graph.c page_title: KEY S3) */
     void (*edit)(void);                            /* EDIT tapped (ui_input.c page_tap) */
     uint32_t (*edit_state)(void);                  /* .. its footer key: 0 none, 1 dim, 2 lit (ui_draw.c foot_rename) */
     const char *edit_word;                         /* .. its word there (0: "NAME") */
-    int (*rec)(uint32_t bit);                      /* REC tapped for track bit: 1 done (ui_input.c rec_tap) */
+    int (*rec)(uint32_t bit);                      /* REC tapped for track bit (ui_input.c rec_tap): 1 the arming
+                                                    * changed, 0 not (said why), -1 not the page's: the track's */
     void (*play)(void);                            /* PLAY tapped, stopped (ui_input.c) */
 } page_ops_t;
 enum {
@@ -528,9 +532,12 @@ enum {
     PG_SLOTS = 32,               /* the keys pick a slot, OCT+ saves, OCT- loads; no knob action, the PRESETS knob nothing
                                   * (ui.c slots_keys_on, ui_input.c slots_keys, slots_oct) */
     PG_USER_SLOTS = 64,          /* .. the slots are user presets (two banks of 16), else the four projects */
-    PG_ENTRY = 128               /* its family's button opens it, not the page last shown (ui.c open_family: PROJECT) */
+    PG_ENTRY = 128,              /* its family's button opens it, not the page last shown (ui.c open_family: PROJECT) */
+    PG_ROOT_KEYS = 256,          /* the keys play the roots of a key run, REC arms its recording (ui.c key_keys_on: KEY) */
+    PG_LANE_REC = 512            /* REC arms the selected FX lane, its LED says so (ui.c fxt_page: FX TRACKS) */
 };
-static const page_ops_t EQ_OPS, SONG_OPS, PATS_OPS, EVENTS_OPS, BROWSE_OPS, SLOTS_OPS, USER_OPS;   /* (ui_pages.c) */
+static const page_ops_t EQ_OPS, SONG_OPS, PATS_OPS, EVENTS_OPS, BROWSE_OPS, SLOTS_OPS, USER_OPS, KEY_OPS, FXT_OPS;
+                                 /* (ui_pages.c) */
 static const page_ops_t *page_ops(const page_t *pg)
 {
     static const page_ops_t none;
@@ -588,7 +595,7 @@ static const page_t PAGES[] = {
     {"DELAY", FAM_FX, SC_GLOBAL, GR_FX1, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, 0xFF}},   /* stored TYPE 3: legacy SHIMMER */
     {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},
-    {"FX TRACKS", FAM_FX, SC_GLOBAL, GR_FXT, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"FX TRACKS", FAM_FX, SC_GLOBAL, GR_FXT, {0xFF, 0xFF, 0xFF, 0xFF}, &FXT_OPS},
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},   /* (hidden: all the DELAY's) */
     {"CLOUD", FAM_FX, SC_GLOBAL, GR_CLOUD, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (hidden: all the CLOUD's) */
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_TRANS}},
@@ -623,7 +630,7 @@ static const page_t PAGES[] = {
     {"VOICE 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_ALLOC, P_DETUNE, P_SPRD, 0xFF}},
     /* 1.2 (Discussion #153): a family's pages go round in this order, a tap of its button each (ui.c open_family) */
     /* M-Vave-OP1: GLO's first page the KEY (key.c): KNOB 1 BAR, 2 ROOT, 3 LEN, 4 ON; a key sets the bar's root */
-    {"KEY", FAM_GLO, SC_GLOBAL, GR_KEY, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"KEY", FAM_GLO, SC_GLOBAL, GR_KEY, {0xFF, 0xFF, 0xFF, 0xFF}, &KEY_OPS},
     {"SONG", FAM_GLO, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}, &SONG_OPS},        /* (1.2; up to 1.1.5 SEQ's) */
     /* SAVE's taps (1.5, #173): USER (SAVE from another page: the quick save, SAVE OCT+ OCT+), PRESETS (the engines and
      * sounds one tap on; up to 1.4.1 the last), PHRASES, PROJECT, TOOLS */
