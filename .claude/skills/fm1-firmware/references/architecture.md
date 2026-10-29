@@ -46,7 +46,10 @@ Everything is `static`. Names are short and prefixed by subsystem (`key_`, `seq_
 - **Pages** (`params.c` `PAGES[]`): `{title, family, scope, graph, id[4]}`. The family is the button that opens it
   (`FAM_ENV` … `FAM_TRK`; tapping the button again steps through the family in `PAGES` order). `id[4]` are the
   parameters KNOB 1..4 edit; `0xFF` means the page handles the knob itself (`edit_param` in ui_input.c).
-  `GR_*` selects the panel graphic; append new ones at the end of the enum.
+  `GR_*` selects the panel graphic; add new ones before `GR_N`. M-Vave-OP1: a page's own code goes through hooks
+  rather than tests of `pg->graph` in shared functions: the row's `flags` (`PG_LIST`) and `desc` (its knobs' values),
+  and `GRAPH_OPS[GR_*]` in ui_graph.c (`draw`, `sig`: the panel and its hash), its code in a file of its own
+  (`ui_eq.c`). `tools/ui_pages.py` writes `docs/UI_PAGES.md`, the special cases still left (229 in 49 functions).
 - **Screen layout:** header 0..24, four cards 28..72, the panel 76..198 (`Y_GRAPH`, `H_GRAPH` 122), footer 202..240.
   MENU > LARGE changes the cards and panel; `large_kind()` decides per graph.
 - **Lazy rendering:** each element remembers a signature; `graph_signature()` must include everything the panel
@@ -169,7 +172,7 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
 ## HOME > EQ (four bands a track)
 
 - Settings `eq_set[NTRK][EQ_NB]` (params.c, beside `shim_p`): int16 FREQ step (R40, `EQ_HZ_X10`), GAIN in half dB,
-  TYPE (`EQT_*`, stored), RESO (LP / HP Q step). The page is `GR_EQ` in FAM_TRK after CLOCK; `page_desc` hands KNOB 1..4
+  TYPE (`EQT_*`, stored), RESO (LP / HP Q step). The page is `GR_EQ` in FAM_TRK after CLOCK; its row's `desc` (`eq_page_desc`) hands KNOB 1..4
   `eq_ui_band` and the band's values (KNOB 3: RESO on LP / HP). New formats `F_EQHZ`, `F_HDB`, `F_EQQ` (appended).
 - `eq.c` (included by fx.c after fx1.c): RBJ biquads in single float on the FPU (`FM1_FPU`), TDF-II. `eq_poll` (main,
   every ui_input pass) computes a changed track's coefficients from gen_tables.py's `EQ_COS/SIN/A/SQA/QV` and hands them
@@ -178,5 +181,5 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
   INSERT. A silent part (tail run out) calls `eq_rest`: state dropped. The EQ counts for the part's tail.
 - Kept in the project extras' tail (`xtra_hi_t.eq`, `XTRA_V9`, 4 bytes a band, validated on load); `autosave_sig`
   hashes `eq_set`; `project_new` and extras of before: `eq_defaults`. Host tests reset with `eq_power_on`.
-- The panel (`graph_eq`) draws |H| from RBJ's sin^2(w/2) form (`EQ_PHI`): the cos w form cancels in float near 0 Hz.
+- The panel (`graph_eq`, ui_eq.c, with its hash `eq_sig`: `GRAPH_OPS`) draws |H| from RBJ's sin^2(w/2) form (`EQ_PHI`): the cos w form cancels in float near 0 Hz.
 - Cost (this change): image +6.4 KB, RAM +1.6 KB, `fm1_alnk0_irq` static cost +171. `tests/eq_test.c`.

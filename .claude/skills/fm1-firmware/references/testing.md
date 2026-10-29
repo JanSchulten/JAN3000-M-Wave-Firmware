@@ -51,6 +51,8 @@ and confirm it goes red.
 
 ## Lints and budgets that run inside the suite
 
+- **Screens unchanged** (`sh tools/ui_compare.sh [BASE]`, M-Vave-OP1): renders every screen from the working tree and
+  from BASE (default `origin/main`) and compares them byte for byte (2868 screens, ~1 min); for UI refactors.
 - **UI renders** (`tests/ui_render.c`): every page, every palette; text clipping, overlap, ink on its own colour,
   GREY / MONO purity, and alignment by ink: a centred glyph off by 1 px fails (odd cushion sizes do this).
 - **Target budget** (`tests/target_budget.py`): static cost of the render loops and ISRs from the pi32v2

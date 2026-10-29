@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
-/* HOME > EQ (firmware/src/eq.c, params.c eq_set, ui_graph.c graph_eq), on the firmware's own sources (ui_test.c's harness):
+/* HOME > EQ (firmware/src/eq.c, params.c eq_set, ui_eq.c graph_eq), on the firmware's own sources (ui_test.c's harness):
  *   FLAT     power-on, a new project, extras of before: every band flat; the ISR runs no band, a block passes untouched
  *   RESPONSE each TYPE's level measured with sines through track_eq against the cookbook's in double: a BELL +6 dB at
  *            1 kHz, a LOW SHELF -12 dB at 100 Hz, a HIGH SHELF +9 dB at 8 kHz, a LP and a HP (Q 0.71 and 2.83), at the
