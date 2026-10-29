@@ -1010,20 +1010,6 @@ static void draw_columns(void)
         draw_column(3, "MUTE", t->p[P_MUTE] ? "ON" : "OFF", "", t->p[P_MUTE] ? T_ACCENT : VAL(3u), -1, ICON_AUTO);
         return;
     }
-    if (cur_page()->graph == GR_USER || cur_page()->graph == GR_SLOTS) {
-        uint32_t user = cur_page()->graph == GR_USER;
-        if (user) {
-            draw_column(0, "BANK", ui.uslot & 16u ? "2" : "1", "/2", VAL(0u), ui.uslot & 16u ? 1000 : 0, ICON_AUTO);
-            up_slot_label(val, ui.uslot);
-        } else {
-            draw_column(0, "", "", "", T_THEME, -1, ICON_NONE);
-            val[0] = (char)('A' + (((uint32_t)song.g[G_SLOT] - 1u) & 3u)); val[1] = 0;
-        }
-        draw_column(1, "SLOT", val, "", T_THEME, -1, ICON_AUTO);
-        draw_column(2, "SAVE", "OCT+", "", T_THEME, -1, ICON_AUTO);
-        draw_column(3, "LOAD", "OCT-", "", T_THEME, -1, ICON_AUTO);
-        return;
-    }
     if (vdu_page(cur_page()->graph)) {                   /* (M-Vave-OP1) VDRUM: the part's bytes (ui_vdrum.c) */
         for (c = 0; c < 4u; c++) {
             const char *lb, *u;
@@ -1190,12 +1176,6 @@ static void draw_columns(void)
                 unit = c == DL_TUNE ? "st" : "";
             }
             draw_column(c, L[c], val, unit, VAL(c), c == DL_SOUND ? -1 : (int32_t)v * 1000 / DL_MAX[c], ICON_AUTO);
-            continue;
-        }
-        if (cur_page()->graph == GR_SLOTS && c) {         /* M-Vave-OP1: PROJECT's NEW LOAD SAVE: where they are; */
-            static const char *const L[3] = {"NEW", "LOAD", "SAVE"}, *const K[3] = {"F#5", "OCT-", "OCT+"};
-            const char *l = c == 2u && !project_used(((uint32_t)song.g[G_SLOT] - 1u) & 3u) ? "NEW" : L[c - 1u];
-            draw_column(c, l, K[c - 1u], "", T_THEME, -1, ICON_AUTO);   /* (an empty slot: OCT- makes a new one) */
             continue;
         }
         if (cur_page()->graph == GR_CHORD && c == 2u) {  /* M-Vave-OP1, SCL > CHORD: KNOB 3 the set's GENRE */

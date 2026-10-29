@@ -82,7 +82,7 @@ static int mom_turn(uint32_t k, int32_t s)
         d = &TP[MIX_ID[k & 3u]];
     } else {
         if (act_cols() || lock_any() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
-            (page_ops(pg)->flags & PG_NO_MOM) || pg->graph == GR_USER || (pg->graph == GR_MOD && k == 0u) ||
+            (page_ops(pg)->flags & PG_NO_MOM) || (pg->graph == GR_MOD && k == 0u) ||
             pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
             return 0;
         d = page_desc(pg, k, &vp);
@@ -123,7 +123,7 @@ static uint32_t oct_leds(void)
                (menu_step(ui.menu_sel, -1) != menu_get(ui.menu_sel) ? OCT_BREATH_DN : 0u) |   /* a value: each */
                (menu_step(ui.menu_sel, 1) != menu_get(ui.menu_sel) ? OCT_BREATH : 0u);         /* way it can go */
     if (slots_keys_on()) {
-        uint32_t used = cur_page()->graph == GR_USER ? up_used(ui.uslot) : project_used(((uint32_t)song.g[G_SLOT] - 1u) & 3u);
+        uint32_t used = slots_user() ? up_used(ui.uslot) : project_used(((uint32_t)song.g[G_SLOT] - 1u) & 3u);
         return (used ? OCT_BREATH_DN : 0u) | (!transport_busy() ? OCT_BREATH : 0u);
     }
     if (ui.confirm || act_cols())
@@ -383,7 +383,7 @@ static void key_knob(uint32_t slot, int32_t steps)
  * USER has two banks of sixteen; PROJECT alone keeps F#5 NEW. */
 static void slots_keys(uint32_t notes)
 {
-    uint32_t k, user = cur_page()->graph == GR_USER, slot;
+    uint32_t k, user = slots_user(), slot;
     for (k = 0; k < 27u; k++)
         if (((notes >> k) & 1u) && !key_black(k) && key_place(k) < (user ? 16u : 4u)) {
             if (user) ui.uslot = (uint8_t)((ui.uslot & 16u) + key_place(k));
@@ -404,7 +404,7 @@ static void slots_keys(uint32_t notes)
 /* OCT+ saves (NAME, or OVERWRITE first); OCT- loads (LOAD first). An empty slot never starts a new project. */
 static void slots_oct(uint32_t oct)
 {
-    uint32_t user = cur_page()->graph == GR_USER, k = user ? ui.uslot : ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
+    uint32_t user = slots_user(), k = user ? ui.uslot : ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
     uint32_t used = user ? up_used(k) : project_used(k);
     ui.act = 0;
     if (oct & 2u) {
@@ -498,7 +498,7 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
     c = name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds(br) : grid_on() ? grid_leds() :
                  (fm1_in.notes & ~kb_layer) | play_leds() | step_leds() | (song_keys_on() ? song_leds() : 0u);
     if (slots_keys_on()) {
-        uint32_t k, user = cur_page()->graph == GR_USER, slot = user ? ui.uslot : ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
+        uint32_t k, user = slots_user(), slot = user ? ui.uslot : ((uint32_t)song.g[G_SLOT] - 1u) & 3u;
         c = user ? 0u : 1u << SLOT_KEY_NEW;
         for (k = 0; k < 27u; k++)
             if (!key_black(k) && key_place(k) < (user ? 16u : 4u)) c |= 1u << k;
@@ -1350,15 +1350,8 @@ static void edit_param(uint32_t slot, int32_t steps)
         }
         return;
     }
-    if (pg->graph == GR_SLOTS)                    /* PROJECT: keys select; no knob action */
-        return;
     if ((act_cols() >> slot) & 1u) {                      /* an action's knob picks it (right) or drops it (left); */
         ui.act = steps > 0 ? (uint8_t)(slot + 1u) : ui.act == slot + 1u ? 0u : ui.act;   /* OCT+ does it (act_do) */
-        return;
-    }
-    if (pg->graph == GR_USER) {                           /* KNOB 1 selects one of two banks; keys select its slots. */
-        if (slot == 0u)
-            ui.uslot = (uint8_t)((ui.uslot & 15u) + (steps > 0 ? 16u : 0u));
         return;
     }
     if (fop_page(pg->graph)) {                           /* FM6's operators: KNOB 1 OP, 2..4 its bytes (ui_fm6op.c) */
@@ -1409,13 +1402,6 @@ static void act_do(void)
             ui_message("NOTHING TO CLEAR");
         else
             confirm_open(c == 0u ? CF_FXT_LANE : CF_FXT_ALL, ui.fxt_sel);
-        return;
-    }
-    if (cur_page()->graph == GR_SLOTS && c == 1u) {       /* M-Vave-OP1: NEW, after the dialog */
-        if (transport_busy())
-            ui_message("STOP FIRST");
-        else
-            confirm_open(CF_NEW_PROJ, 0);
         return;
     }
     id = cur_page()->id[c & 3u];
@@ -1582,8 +1568,8 @@ static void presets_turn(int32_t s)
     }
     if (ui.home) {                                        /* (PRESETS too: below, the default) */
         preset_step(s);
-    } else if (g == GR_USER || g == GR_SLOTS) {
-        return;                                         /* slots are picked by their keys only */
+    } else if (page_ops(pg)->flags & PG_SLOTS) {
+        return;                                         /* slots are picked by their keys only (PROJECT, USER) */
     } else if (g == GR_ROLL || (page_ops(pg)->flags & PG_K1)) {   /* (M-Vave-OP1: PHRASES, SONG, AUTOMATION) */
         edit_param(0, s);                                 /* KNOB 1's (STEP: STOP TO EDIT while a song plays) */
         ui.hot_col = 0;
@@ -2082,7 +2068,7 @@ static void ui_input(void)
             continue;
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
-            ((pg->graph == GR_USER || pg->graph == GR_MOD) && k == 0u) || ((page_ops(pg)->hot >> k) & 1u)
+            (pg->graph == GR_MOD && k == 0u) || ((page_ops(pg)->hot >> k) & 1u)
             || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
             pg->graph == GR_CLOUD ||
             (pg->graph == GR_CHORD && k == 2u) || pg->graph == GR_CHO || fop_page(pg->graph) ||

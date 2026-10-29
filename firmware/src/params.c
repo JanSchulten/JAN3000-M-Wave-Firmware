@@ -524,9 +524,13 @@ enum {
     PG_K1 = 2,                   /* the PRESETS knob turns KNOB 1 (ui_input.c presets_turn) */
     PG_ACT_FIXED = 4,            /* the action is the page's, no knob picks one: OCT- goes back (ui_input.c, ui_draw.c) */
     PG_CHAIN_KEYS = 8,           /* the keys type a song chain (ui.c song_keys_on) */
-    PG_NO_MOM = 16               /* its knobs are its own: no MOMENTARY on them (ui_input.c mom_turn) */
+    PG_NO_MOM = 16,              /* its knobs are its own: no MOMENTARY on them (ui_input.c mom_turn) */
+    PG_SLOTS = 32,               /* the keys pick a slot, OCT+ saves, OCT- loads; no knob action, the PRESETS knob nothing
+                                  * (ui.c slots_keys_on, ui_input.c slots_keys, slots_oct) */
+    PG_USER_SLOTS = 64,          /* .. the slots are user presets (two banks of 16), else the four projects */
+    PG_ENTRY = 128               /* its family's button opens it, not the page last shown (ui.c open_family: PROJECT) */
 };
-static const page_ops_t EQ_OPS, SONG_OPS, PATS_OPS, EVENTS_OPS, BROWSE_OPS;   /* (ui_pages.c) */
+static const page_ops_t EQ_OPS, SONG_OPS, PATS_OPS, EVENTS_OPS, BROWSE_OPS, SLOTS_OPS, USER_OPS;   /* (ui_pages.c) */
 static const page_ops_t *page_ops(const page_t *pg)
 {
     static const page_ops_t none;
@@ -623,8 +627,8 @@ static const page_t PAGES[] = {
     {"SONG", FAM_GLO, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}, &SONG_OPS},        /* (1.2; up to 1.1.5 SEQ's) */
     /* SAVE's taps (1.5, #173): USER (SAVE from another page: the quick save, SAVE OCT+ OCT+), PRESETS (the engines and
      * sounds one tap on; up to 1.4.1 the last), PHRASES, PROJECT, TOOLS */
-    {"PROJECT", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {G_SLOT, 0xFF, G_LOAD, G_SAVE}},   /* M-Vave-OP1: SAVE's first (the keys pick) */
-    {"USER", FAM_SAVE, SC_GLOBAL, GR_USER, {0xFF, 0xFF, 0xFF, 0xFF}},       /* user presets: SLOT LOAD ERASE SAVE */
+    {"PROJECT", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {G_SLOT, 0xFF, G_LOAD, G_SAVE}, &SLOTS_OPS},   /* M-Vave-OP1: SAVE's first (the keys pick) */
+    {"USER", FAM_SAVE, SC_GLOBAL, GR_USER, {0xFF, 0xFF, 0xFF, 0xFF}, &USER_OPS},       /* user presets: SLOT LOAD ERASE SAVE */
     {"PRESETS", FAM_SAVE, SC_GLOBAL, GR_BROWSE, {0xFF, 0xFF, 0xFF, 0xFF}, &BROWSE_OPS},   /* browser: PRESETS knob / KNOB 1 */
     {"PHRASES", FAM_SAVE, SC_GLOBAL, GR_PATS, {0xFF, 0xFF, 0xFF, 0xFF}, &PATS_OPS},    /* pattern loader: PAT LOAD (ui.c pat_load);
                                                                              * the tap after PRESETS (up to 1.1.5 SEQ's) */

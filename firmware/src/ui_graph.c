@@ -1717,11 +1717,6 @@ static uint32_t graph_signature(void)
         h ^= (mod_ui_slot + 1u) * 40503u;
     if (pg->graph == GR_SLCR && t->p[P_SLCR])        /* the SLICER's step playing */
         h ^= (sl[song.sel].idx + 1u) * 2654435761u;
-    if (pg->graph == GR_SLOTS) {                     /* (a checksum over each slot) */
-        for (i = 0; i < 4u; i++)
-            h ^= (uint32_t)graph_project_used(i) << (20u + i);
-        h += graph_pname_sig;
-    }
     if (pg->scope == SC_ENGINE && (ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL || t->eng_req % NENGINES == ENGI_FM6 ||
                                    (FELUCCA_FM4 && t->eng_req % NENGINES == ENGI_DIGITAL)))
         h ^= (ui.hot_t ? ui.hot_col + 1u : 0u) * 65537u;
@@ -3034,14 +3029,6 @@ static void draw_graph(void)
         case GR_DLANE:
             cv_oy = 0;
             graph_dlane(t);
-            break;
-        case GR_SLOTS:
-            cv_oy = 0;
-            graph_slots();
-            break;
-        case GR_USER:
-            cv_oy = 0;
-            graph_user();
             break;
         case GR_KEY:
             cv_oy = 0;
