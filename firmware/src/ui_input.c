@@ -83,7 +83,7 @@ static int mom_turn(uint32_t k, int32_t s)
     } else {
         if (act_cols() || lock_any() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
             (page_ops(pg)->flags & PG_NO_MOM) || (pg->graph == GR_MOD && k == 0u) ||
-            pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
+            pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
             return 0;
         d = page_desc(pg, k, &vp);
     }
@@ -771,29 +771,11 @@ static uint32_t song_leds(void)
 static int rec_tap(void)                                /* 1: the arming changed */
 {
     uint8_t bit = (uint8_t)(1u << song.sel);
-    if (key_keys_on()) {                              /* M-Vave-OP1, GLO > KEY (key.c): its recording, not the pattern's; */
-        if (!key_arm) record_begin(0, 0, 1, 0);
-        key_arm ^= 1u;                                /* armed only: PLAY starts it (the count-in first, if set) */
-        ui.force = 1;
-        ui_message(!key_arm ? "KEY REC OFF" : song.playing || seq_counting() ? "KEY REC: PLAY THE ROOTS"
-                                                                             : "KEY REC: PRESS PLAY");
-        return 1;
+    if (!ui.home && page_ops(cur_page())->rec) {        /* M-Vave-OP1: the page's own recording (KEY, FX TRACKS, SONG) */
+        int r = page_ops(cur_page())->rec(bit);
+        if (r >= 0)
+            return r;
     }
-    if (fxt_page()) {                                 /* FX TRACKS (fxtrack.c): the selected lane's ARM, not the pattern's */
-        uint8_t lb = (uint8_t)(1u << (ui.fxt_sel % FXT_N));
-        if (chain_busy() && !(fxt.arm & lb)) {
-            ui_message("STOP TO RECORD");
-            return 0;
-        }
-        if (!(fxt.arm & lb)) record_begin(0, lb, 0, 0);
-        fxt.arm ^= lb;                                /* (M-Vave-OP1: armed only, PLAY starts it) */
-        ui.force = 1;
-        ui_message(fxt.arm & lb ? (ui.fxt_sel ? "FX2 ARMED: HOLD [FX]" : "FX1 ARMED: HOLD [FX]")
-                                : (ui.fxt_sel ? "FX2 DISARMED" : "FX1 DISARMED"));
-        return 1;
-    }
-    if (!ui.home && page_ops(cur_page())->rec && page_ops(cur_page())->rec(bit))   /* M-Vave-OP1: the page's (SONG) */
-        return 1;
     if (chain_busy()) {
         ui_message("STOP TO RECORD");
         return 0;
@@ -1267,10 +1249,6 @@ static void edit_param(uint32_t slot, int32_t steps)
         }
         return;
     }
-    if (pg->graph == GR_KEY) {                        /* M-Vave-OP1, GLO > KEY (key.c): KNOB 1 the bar, 2 its ROOT */
-        key_knob(slot, steps);                        /* (- C .. B), 3 LEN, 4 ON */
-        return;
-    }
     if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* DELAY (fx1.c): TYPE, then TIME FDBK MIX or SIZE PITCH DENS; CLOUD */
         volatile uint8_t *v;
         if (pg->graph == GR_FX1 && slot == 0u) {
@@ -1299,32 +1277,6 @@ static void edit_param(uint32_t slot, int32_t steps)
         v = pg->graph == GR_CLOUD ? (slot == 0u ? &fx1s.size : slot == 1u ? &fx1s.dens : &fx1s.spread)
                                   : (slot == 1u ? &fx1s.size : &fx1s.dens);
         *v = (uint8_t)clamp((int32_t)*v + accel(EN_K1 + slot, steps, 100), 0, 100);
-        return;
-    }
-    if (pg->graph == GR_FXT) {                        /* KNOB 1 the lane, 2 STEP, 3 its EFFECT, 4 LEN (fxtrack.c) */
-        fxt_lane_t *ln = &fxt_lane[ui.fxt_sel % FXT_N];
-        uint32_t len = FXT_LEN(ln);
-        if (slot == 0u) {
-            ui.fxt_sel = (uint8_t)clamp((int32_t)ui.fxt_sel + steps, 0, FXT_N - 1);
-            if (ui.fxt_cur >= FXT_LEN(fxt_src(ui.fxt_sel)))
-                ui.fxt_cur = (uint8_t)(FXT_LEN(fxt_src(ui.fxt_sel)) - 1u);
-        } else if (slot == 1u) {
-            ui.fxt_cur = (uint8_t)clamp((int32_t)ui.fxt_cur + steps, 0, (int32_t)FXT_LEN(fxt_src(ui.fxt_sel)) - 1);
-        } else if (chain_busy()) {                    /* (a song plays its slots' lanes: they are its patterns') */
-            ui_message("STOP TO EDIT");
-        } else if (slot == 2u) {                      /* (the list: OFF, TIE, the effects, the mutes; not round) */
-            static const char *const MUTE_NAME[NTRK] = {"MUTE T1", "MUTE T2", "MUTE T3", "MUTE T4"};
-            uint8_t *st = &ln->step[ui.fxt_cur % NSTEP];
-            uint32_t e;
-            *st = fxt_of_choice((uint32_t)clamp((int32_t)fxt_choice(*st) + steps, 0, FXT_CHOICES - 1u));
-            e = fxt_eff(*st);
-            ui_message(*st == FXT_TIE ? "TIE: THE EFFECT GOES ON" : e >= PF_N ? "OFF" : e >= PF_M1 ? MUTE_NAME[e - PF_M1]
-                                                                                                 : PF_NAME[e]);
-        } else {
-            ln->len = (uint8_t)clamp((int32_t)len + steps, 1, NSTEP);
-            if (ui.fxt_cur >= ln->len)
-                ui.fxt_cur = (uint8_t)(ln->len - 1u);
-        }
         return;
     }
     if (chain_busy() && (pg->scope == SC_STEP || pg->graph == GR_STEPS ||
@@ -1393,15 +1345,6 @@ static void act_do(void)
         return;
     if (page_ops(cur_page())->act_do) {                   /* M-Vave-OP1: the page's (ui_pages.c) */
         page_ops(cur_page())->act_do(c);
-        return;
-    }
-    if (cur_page()->graph == GR_FXT2) {                   /* CLEAR: the selected lane (c 0) or both */
-        if (chain_busy())
-            ui_message("STOP TO EDIT");
-        else if (!act_ready())
-            ui_message("NOTHING TO CLEAR");
-        else
-            confirm_open(c == 0u ? CF_FXT_LANE : CF_FXT_ALL, ui.fxt_sel);
         return;
     }
     id = cur_page()->id[c & 3u];
@@ -1574,7 +1517,7 @@ static void presets_turn(int32_t s)
         edit_param(0, s);                                 /* KNOB 1's (STEP: STOP TO EDIT while a song plays) */
         ui.hot_col = 0;
         ui.hot_t = 40;
-    } else if (g != GR_TOOLS) {
+    } else {
         preset_step(s);
     }
 }
@@ -1645,12 +1588,6 @@ static int page_tap(uint32_t b)
     }
     if (b == B_EDIT && !ui.home && page_ops(cur_page())->edit) {   /* M-Vave-OP1: the page's (AUTOMATION: the row's record) */
         page_ops(cur_page())->edit();
-        return 1;
-    }
-    if (b == B_EDIT && !ui.home && cur_page()->graph == GR_FXT) {
-        if (chain_busy()) ui_message("STOP TO EDIT");
-        else if (!fxt_used(ui.fxt_sel)) ui_message("NOTHING TO CLEAR");
-        else confirm_open(CF_FXT_LANE, ui.fxt_sel);
         return 1;
     }
     for (f = FAM_HOME + 1u; f < FAM_COUNT; f++)        /* (GLO SEQ SAVE ..: HOME is ui_input's, home_tap) */
@@ -2069,8 +2006,7 @@ static void ui_input(void)
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
             (pg->graph == GR_MOD && k == 0u) || ((page_ops(pg)->hot >> k) & 1u)
-            || pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 ||
-            pg->graph == GR_CLOUD ||
+            || pg->graph == GR_FX1 || pg->graph == GR_CLOUD ||
             (pg->graph == GR_CHORD && k == 2u) || pg->graph == GR_CHO || fop_page(pg->graph) ||
             (vdu_page(pg->graph) && vdu_field(k) != VU_NONE)) {   /* (not an empty column) */
             ui.hot_col = (uint8_t)k;

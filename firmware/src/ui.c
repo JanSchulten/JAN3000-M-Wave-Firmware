@@ -400,7 +400,6 @@ static uint32_t large_kind(void)
         return home_tracks() ? LK_LABEL : LK_TALL;      /* a list page; the rows' names in M: draw_home_tracks) */
     g = cur_page()->graph;
     return g == GR_ROLL ||
-           g == GR_KEY || g == GR_FXT || g == GR_FXT2 ||
            g == GR_FX1 || g == GR_CLOUD || (page_ops(cur_page())->flags & PG_LIST) ? LK_LABEL
                                                                                                           : LK_TALL;
 }
@@ -434,7 +433,7 @@ static uint32_t layer_btn(void);
  * track's (its patch's operators, ui_fm6op.c) */
 static int page_visible(uint32_t i)
 {
-    if (PAGES[i].graph == GR_CLOUD || PAGES[i].graph == GR_FXT2 || (PAGES[i].scope == SC_GLOBAL && PAGES[i].id[0] == G_DTIME))
+    if (PAGES[i].graph == GR_CLOUD || (PAGES[i].scope == SC_GLOBAL && PAGES[i].id[0] == G_DTIME))
         return 0;                                     /* M-Vave-OP1: FX's nine pages (params.c); these on their own */
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
@@ -623,7 +622,10 @@ static int song_keys_on(void)
     return !ui.home && !ui.menu && !ui.confirm && !ui.layer && (page_ops(cur_page())->flags & PG_CHAIN_KEYS);   /* (SONG) */
 }
 /* M-Vave-OP1, GLO > KEY shown: the keys are roots (key.c), silent (seq.c keyboard_block: song.grid 4) */
-static int key_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_KEY; }
+static int key_keys_on(void)
+{
+    return !ui.home && !ui.menu && !ui.confirm && !ui.layer && (page_ops(cur_page())->flags & PG_ROOT_KEYS);   /* (KEY) */
+}
 /* M-Vave-OP1, SAVE > PROJECT: the keys pick the project (F3 G3 A3 B3: A..D), F#5 is NEW; OCT+ saves, OCT- loads */
 #define SLOT_KEY_NEW 25u                          /* F#5, the highest black key */
 static int slots_keys_on(void)
@@ -633,7 +635,7 @@ static int slots_keys_on(void)
 /* the slot page shown keeps user presets (USER), else the projects (PROJECT) */
 static int slots_user(void) { return (page_ops(cur_page())->flags & PG_USER_SLOTS) != 0u; }
 /* FX > FX TRACKS or FX TRACKS 2 shown (fxtrack.c): REC arms the selected lane, its LED says so */
-static int fxt_page(void) { return !ui.home && (cur_page()->graph == GR_FXT || cur_page()->graph == GR_FXT2); }
+static int fxt_page(void) { return !ui.home && (page_ops(cur_page())->flags & PG_LANE_REC); }
 /* .. the 16 steps shown follow the selected lane's play head: playing, STEP and EFFECT not just turned (ui_graph.c) */
 static int fxt_follow(void) { return song.playing && !(ui.hot_t && (ui.hot_col == 1u || ui.hot_col == 2u)); }
 /* the FX layer's effects (perform.c PF_*): their names (the messages, FX TRACKS' EFFECT; NONE: PF_N) and the map's cells'
@@ -1994,8 +1996,6 @@ static uint32_t act_cols(void)                   /* the columns that are actions
         return 0;
     if (page_ops(pg)->acts)                      /* M-Vave-OP1: the page's (AUTOMATION, SONG, PHRASES: ui_pages.c) */
         return page_ops(pg)->acts;
-    if (pg->graph == GR_FXT2)
-        return 3u;                               /* CLEAR the lane, CLEAR both */
     if (page_ops(pg)->flags & PG_SLOTS)
         return 0;                                /* M-Vave-OP1: PROJECT, USER: the keys and OCT+ / OCT- (slots_keys) */
     if (pg->scope == SC_GLOBAL)
@@ -2016,8 +2016,6 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
     uint32_t id = cur_page()->id[c & 3u];
     if (page_ops(cur_page())->act_name)            /* M-Vave-OP1: the page's (ui_pages.c) */
         return page_ops(cur_page())->act_name(c);
-    if (cur_page()->graph == GR_FXT2)
-        return "CLEAR";
     return id == G_CLRSEQ ? "CLEAR" : id == G_INITSND ? "INIT" : id == G_LOAD ? "LOAD" : "SAVE";
 }
 
@@ -2030,8 +2028,6 @@ static int act_ready(void)
         return 0;
     if (page_ops(cur_page())->act_ready)                /* M-Vave-OP1: the page's (ui_pages.c) */
         return page_ops(cur_page())->act_ready(c);
-    if (cur_page()->graph == GR_FXT2)                   /* steps there to clear */
-        return c == 0u ? fxt_used(ui.fxt_sel) != 0u : (fxt_used(0) | fxt_used(1)) != 0u;
     id = cur_page()->id[c & 3u];
     if (id == G_LOAD)
         return project_used((uint32_t)song.g[G_SLOT] - 1u);

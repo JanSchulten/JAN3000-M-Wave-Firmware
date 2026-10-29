@@ -114,7 +114,7 @@ static uint32_t song_icon(void) { return ICON_X_SONG; }   /* the disc */
 static int song_rec(uint32_t bit)
 {
     if (song.rec & bit)
-        return 0;
+        return -1;                                /* (the track recording: its REC, the shared code's) */
     if (!ui.song_rec) record_begin(0, 0, 0, 1);
     ui.song_rec ^= 1u;                            /* (song_chain_key), the first key a new one; not the pattern's */
     ui.song_new = ui.song_rec;
@@ -410,3 +410,167 @@ static void user_panel(const track_t *t, uint16_t c)
 }
 static const page_ops_t USER_OPS = {.flags = PG_LIST | PG_SLOTS | PG_USER_SLOTS | PG_NO_MOM, .hot = 1u, .knob = user_knob,
                                     .cards = slots_cards, .draw = user_panel};
+
+/* ------------------------------------------------------------------- GLO > KEY --- */
+/* key.c's run of roots (a bar each): KNOB 1 the bar, 2 its ROOT, 3 LEN, 4 ON (key_knob); the keys play the roots and
+ * REC arms their recording (PG_ROOT_KEYS) */
+/* the cards: BAR, its ROOT (the chord it makes in the selected track's scale), LEN, ON */
+static void key_cards(void)
+{
+    char val[12];
+    uint32_t len = keyt.len >= 1u && keyt.len <= KEY_BARS ? keyt.len : 1u, r = keyt.root[key_cur % KEY_BARS];
+    fmt_int(val, (int32_t)key_cur + 1);
+    draw_column(0, "BAR", val, "", VAL(0u), len > 1u ? (int32_t)(key_cur * 1000u / (len - 1u)) : 0, ICON_TIME);
+    key_chord_name(TSEL, r, val);
+    draw_column(1, "ROOT", val, "", r < 12u ? VAL(1u) : T_DIM, r < 12u ? (int32_t)(r * 1000u / 11u) : -1, ICON_SCALE);
+    fmt_int(val, (int32_t)len);
+    draw_column(2, "LEN", val, len == 1u ? "BAR" : "BARS", VAL(2u), (int32_t)((len - 1u) * 1000u / (KEY_BARS - 1u)),
+                ICON_LENGTH);
+    draw_column(3, "KEY", keyt.on ? "ON" : "OFF", "", keyt.on ? VAL(3u) : T_DIM, -1, ICON_TRANSPOSE);
+}
+static void key_panel(const track_t *t, uint16_t c)
+{
+    (void)t;
+    (void)c;
+    cv_oy = 0;
+    graph_key();
+}
+/* the run, the cursor, the bar playing, the scale */
+static uint32_t key_sig(uint32_t h)
+{
+    uint32_t i;
+    for (i = 0; i < KEY_BARS; i++)
+        h = (h ^ keyt.root[i]) * 16777619u;
+    h = (h ^ (keyt.on | (uint32_t)keyt.len << 8 | (uint32_t)key_cur << 16 | (uint32_t)key_bar << 24)) * 16777619u;
+    h = (h ^ ((uint32_t)song.playing | (uint32_t)TSEL->p[P_ROOT] << 8 | (uint32_t)TSEL->p[P_SCALE] << 16 |
+              (uint32_t)key_arm << 24 | (uint32_t)(key_live & 31u) << 25)) * 16777619u;
+    h = (h ^ (scn.cur + 1u)) * 16777619u;        /* (M-Vave-OP1: the scene in the title) */
+    return h;
+}
+static void key_title(char *ti)                   /* the scene whose KEY it is ("KEY S3", scene.c) */
+{
+    str_cpy(ti + str_len(ti), " S", 4);
+    fmt_int(ti + str_len(ti), (int32_t)scn.cur + 1);
+}
+static uint32_t key_icon(void) { return ICON_SCALE; }   /* the chord progression */
+/* REC: its recording, not the pattern's; armed only: PLAY starts it (the count-in first, if set) */
+static int key_rec(uint32_t bit)
+{
+    (void)bit;
+    if (ui.menu || ui.confirm || ui.layer)
+        return -1;
+    if (!key_arm) record_begin(0, 0, 1, 0);
+    key_arm ^= 1u;                                /* armed only: PLAY starts it (the count-in first, if set) */
+    ui.force = 1;
+    ui_message(!key_arm ? "KEY REC OFF" : song.playing || seq_counting() ? "KEY REC: PLAY THE ROOTS"
+                                                                         : "KEY REC: PRESS PLAY");
+    return 1;
+}
+static const page_ops_t KEY_OPS = {.flags = PG_LIST | PG_NO_MOM | PG_ROOT_KEYS, .hot = 15u, .knob = key_knob,
+                                   .cards = key_cards, .draw = key_panel, .sig = key_sig, .icon = key_icon,
+                                   .title_add = key_title, .rec = key_rec};
+
+/* ------------------------------------------------------------- FX > FX TRACKS --- */
+/* fxtrack.c's two lanes of punch-in effects: KNOB 1 the lane, 2 STEP, 3 its EFFECT, 4 LEN; REC arms the lane
+ * (PG_LANE_REC), EDIT clears it */
+static void fxt_knob(uint32_t slot, int32_t steps)
+{
+    fxt_lane_t *ln = &fxt_lane[ui.fxt_sel % FXT_N];
+    uint32_t len = FXT_LEN(ln);
+    if (slot == 0u) {
+        ui.fxt_sel = (uint8_t)clamp((int32_t)ui.fxt_sel + steps, 0, FXT_N - 1);
+        if (ui.fxt_cur >= FXT_LEN(fxt_src(ui.fxt_sel)))
+            ui.fxt_cur = (uint8_t)(FXT_LEN(fxt_src(ui.fxt_sel)) - 1u);
+    } else if (slot == 1u) {
+        ui.fxt_cur = (uint8_t)clamp((int32_t)ui.fxt_cur + steps, 0, (int32_t)FXT_LEN(fxt_src(ui.fxt_sel)) - 1);
+    } else if (chain_busy()) {                    /* (a song plays its slots' lanes: they are its patterns') */
+        ui_message("STOP TO EDIT");
+    } else if (slot == 2u) {                      /* (the list: OFF, TIE, the effects, the mutes; not round) */
+        static const char *const MUTE_NAME[NTRK] = {"MUTE T1", "MUTE T2", "MUTE T3", "MUTE T4"};
+        uint8_t *st = &ln->step[ui.fxt_cur % NSTEP];
+        uint32_t e;
+        *st = fxt_of_choice((uint32_t)clamp((int32_t)fxt_choice(*st) + steps, 0, FXT_CHOICES - 1u));
+        e = fxt_eff(*st);
+        ui_message(*st == FXT_TIE ? "TIE: THE EFFECT GOES ON" : e >= PF_N ? "OFF" : e >= PF_M1 ? MUTE_NAME[e - PF_M1]
+                                                                                             : PF_NAME[e]);
+    } else {
+        ln->len = (uint8_t)clamp((int32_t)len + steps, 1, NSTEP);
+        if (ui.fxt_cur >= ln->len)
+            ui.fxt_cur = (uint8_t)(ln->len - 1u);
+    }
+}
+/* the cards: the lane, STEP, its EFFECT, LEN */
+static void fxt_cards(void)
+{
+    char val[12];
+    uint32_t l = ui.fxt_sel % FXT_N, len = FXT_LEN(fxt_src(l)), c = fxt_src(l)->step[ui.fxt_cur % NSTEP];
+    uint32_t e = fxt_eff(c);
+    const char *unit = "";
+    draw_column(0, "LANE", l ? "FX2" : "FX1", "", (fxt.arm >> l) & 1u ? T_REC : VAL(0u), -1, ICON_X_REPEAT);
+    fmt_int(val, (int32_t)ui.fxt_cur + 1);
+    draw_column(1, "STEP", val, "", VAL(1u), (int32_t)(ui.fxt_cur * 1000u / (len > 1u ? len - 1u : 1u)), ICON_STEPS);
+    if (c == FXT_TIE) {
+        str_cpy(val, "TIE", sizeof val);
+    } else if (e >= PF_N) {
+        str_cpy(val, "OFF", sizeof val);
+    } else if (e >= PF_M1) {
+        str_cpy(val, "T1", sizeof val);
+        val[1] = (char)('1' + e - PF_M1);
+        unit = "MUTE";
+    } else {
+        str_cpy(val, PF_CELL[e], sizeof val);
+        unit = e <= PF_R32 ? "RPT" : e == PF_RTHR || e == PF_ETHR ? "THROW" : "";
+    }
+    draw_column(2, "EFFECT", val, unit, e < PF_N || c == FXT_TIE ? VAL(2u) : T_DIM, -1, ICON_SWEEP);
+    fmt_int(val, (int32_t)len);
+    draw_column(3, "LEN", val, "", VAL(3u), (int32_t)(len * 1000u / NSTEP), ICON_LENGTH);
+}
+static void fxt_panel(const track_t *t, uint16_t c)
+{
+    (void)t;
+    (void)c;
+    cv_oy = 0;
+    graph_fxt();
+}
+/* the lanes, the cursor, the play heads */
+static uint32_t fxt_sig(uint32_t h)
+{
+    uint32_t i;
+    uint32_t l;
+    for (l = 0; l < FXT_N; l++) {
+        const fxt_lane_t *ln = fxt_src(l);       /* (in a song: the section's) */
+        for (i = 0; i < NSTEP; i++)
+            h = (h ^ ln->step[i]) * 16777619u;
+        h = (h ^ (ln->len | (uint32_t)fxt.idx[l] << 8 | (uint32_t)fxt.cur[l] << 16)) * 16777619u;
+    }
+    h = (h ^ (fxt.arm | (uint32_t)ui.fxt_sel << 4 | (uint32_t)ui.fxt_cur << 8 | (uint32_t)song.playing << 16 |
+              (uint32_t)fxt_follow() << 17)) * 16777619u;
+    return h;
+}
+static uint32_t fxt_icon(void) { return ICON_X_REPEAT; }   /* a punch-in's */
+/* REC: the selected lane's ARM, not the pattern's (armed only, PLAY starts it) */
+static int fxt_rec(uint32_t bit)
+{
+    (void)bit;
+    uint8_t lb = (uint8_t)(1u << (ui.fxt_sel % FXT_N));
+    if (chain_busy() && !(fxt.arm & lb)) {
+        ui_message("STOP TO RECORD");
+        return 0;
+    }
+    if (!(fxt.arm & lb)) record_begin(0, lb, 0, 0);
+    fxt.arm ^= lb;                                /* (M-Vave-OP1: armed only, PLAY starts it) */
+    ui.force = 1;
+    ui_message(fxt.arm & lb ? (ui.fxt_sel ? "FX2 ARMED: HOLD [FX]" : "FX1 ARMED: HOLD [FX]")
+                            : (ui.fxt_sel ? "FX2 DISARMED" : "FX1 DISARMED"));
+    return 1;
+}
+/* EDIT: the selected lane cleared, after the dialog */
+static void fxt_edit(void)
+{
+    if (chain_busy()) ui_message("STOP TO EDIT");
+    else if (!fxt_used(ui.fxt_sel)) ui_message("NOTHING TO CLEAR");
+    else confirm_open(CF_FXT_LANE, ui.fxt_sel);
+}
+static const page_ops_t FXT_OPS = {.flags = PG_LIST | PG_NO_MOM | PG_LANE_REC, .hot = 15u, .knob = fxt_knob,
+                                   .cards = fxt_cards, .draw = fxt_panel, .sig = fxt_sig, .icon = fxt_icon, .rec = fxt_rec,
+                                   .edit = fxt_edit};
