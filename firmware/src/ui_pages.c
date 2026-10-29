@@ -109,9 +109,23 @@ static void song_act_do(uint32_t c)
     if (song.playing || chain_busy() || seq_counting()) transport_req = 2;
     else chain_play_ui();
 }
-static const page_ops_t SONG_OPS = {.flags = PG_LIST | PG_K1, .acts = 1u, .act_col = 1u, .hot = 15u, .knob = song_knob,
-                                    .cards = song_cards, .draw = song_panel, .sig = song_sig, .act_name = song_act_name,
-                                    .act_ready = song_act_ready, .act_do = song_act_do};
+static uint32_t song_icon(void) { return ICON_X_SONG; }   /* the disc */
+/* REC: the keys type a chain (song_chain_key), the first key a new one; not the pattern's (a track recording: its) */
+static int song_rec(uint32_t bit)
+{
+    if (song.rec & bit)
+        return 0;
+    if (!ui.song_rec) record_begin(0, 0, 0, 1);
+    ui.song_rec ^= 1u;                            /* (song_chain_key), the first key a new one; not the pattern's */
+    ui.song_new = ui.song_rec;
+    ui.force = 1;
+    ui_message(ui.song_rec ? "NEW CHAIN: TAP A-D" : "CHAIN DONE");
+    return 1;
+}
+static const page_ops_t SONG_OPS = {.flags = PG_LIST | PG_K1 | PG_CHAIN_KEYS, .acts = 1u, .act_col = 1u, .hot = 15u,
+                                    .knob = song_knob, .cards = song_cards, .draw = song_panel, .sig = song_sig,
+                                    .act_name = song_act_name, .act_ready = song_act_ready, .act_do = song_act_do,
+                                    .icon = song_icon, .rec = song_rec, .play = chain_play_ui};
 
 /* ---------------------------------------------------------- SAVE > PHRASES --- */
 /* the pattern loader: KNOB 1 the pattern; LOAD, KNOB 2's column, the page's own (no knob picks it) */
@@ -158,9 +172,10 @@ static void pats_act_do(uint32_t c)
     else                                              /* empty, or a pattern loaded and untouched */
         pat_load_ui(TSEL, pat_pick());
 }
+static uint32_t pats_icon(void) { return ICON_X_PATTERN; }   /* the pattern loader's */
 static const page_ops_t PATS_OPS = {.flags = PG_LIST | PG_K1 | PG_ACT_FIXED, .acts = 2u, .act_col = 2u, .hot = 1u,
                                     .knob = pats_knob, .cards = pats_cards, .draw = pats_panel, .act_name = pats_act_name,
-                                    .act_ready = pats_act_ready, .act_do = pats_act_do};
+                                    .act_ready = pats_act_ready, .act_do = pats_act_do, .icon = pats_icon};
 
 /* -------------------------------------------------------- SEQ > AUTOMATION --- */
 /* ui_events.c's rows; no knob is an action, OCT+ by the row (ev_oct) */
@@ -278,7 +293,62 @@ static void ev_page_act_do(uint32_t c)
     (void)c;
     ev_oct();
 }
+/* #93: "AUTOMATION 6/6" -> "AUTO 6/6" in the footer where the sound's name would be cut (MENU > LARGE) */
+static void ev_title_short(char *ti, uint32_t n) { str_cpy(ti + 4, ti + 10, n - 4); }
+/* EDIT deletes the row's record; its key in the footer: dim on PLAY, QUANTIZE and + ADD (nothing to delete) */
+static uint32_t ev_edit_state(void)
+{
+    uint16_t rw[EV_ROWS];
+    uint32_t k = ev_cur(rw, 0) >> 8;
+    return k == EVK_TOP || k == EVK_QNT || k == EVK_ADD ? 1u : 2u;
+}
 static const page_ops_t EVENTS_OPS = {.flags = PG_LIST | PG_K1, .acts = 16u, .act_col = 5u, .knob = ev_knob,
                                       .enter = ev_enter, .cards = ev_cards, .draw = ev_panel, .sig = ev_page_sig,
                                       .act_name = ev_page_act_name, .act_ready = ev_page_act_ready,
-                                      .act_do = ev_page_act_do};
+                                      .act_do = ev_page_act_do, .icon = motion_icon, .title_short = ev_title_short,
+                                      .edit = ev_delete, .edit_state = ev_edit_state, .edit_word = "DELETE"};
+
+/* ---------------------------------------------------------- SAVE > PRESETS --- */
+/* the browser: KNOB 1 one preset, 2 the next / previous engine, 3 FAV, 4 LIST (the PRESETS knob: preset_step, as on
+ * every page without one of its own) */
+static void browse_knob(uint32_t slot, int32_t steps)
+{
+    if (slot == 0u) {
+        preset_step(steps);
+    } else if (slot == 1u) {
+        select_engine(eng_step(TSEL->eng_req, steps));
+    } else if (slot == 2u) {
+        preset_mark(steps > 0);
+    } else if (slot == 3u) {                          /* LIST: ALL FAV BASS .. OTHER (ui.c list_mode), no wrap */
+        uint32_t m = (uint32_t)clamp((int32_t)list_mode() + steps, 0, (int32_t)LIST_N - 1);
+        if (m != list_mode()) {
+            list_set(m);
+            ui.force = 1;
+            settings_later();                         /* (#197: not on every detent; ui.c) */
+        }
+    }
+}
+/* the cards: No. (of the list), ENG, FAV, LIST */
+static void browse_cards(void)
+{
+    char val[12];
+    uint32_t total, cur = preset_pos(&total);
+    char u[8];
+    if (cur < total) fmt_int(val, (int32_t)cur + 1);
+    else str_cpy(val, "--", 8);
+    str_cpy(u, "/", 8);
+    fmt_int(u + 1, (int32_t)total);
+    draw_column(0, "No.", val, u, VAL(0u), -1, ICON_NONE);
+    draw_column(1, "ENG", ENGINES[TSEL->eng_req]->name, "", VAL(1u), -1, engine_icon(ENGINES[TSEL->eng_req]->name));
+    draw_column(2, "FAV", preset_favorite() ? "ON" : "OFF", "", VAL(2u), -1, ICON_X_STAR);
+    draw_column(3, "LIST", list_name(list_mode()), "", VAL(3u), -1, ICON_X_FOLDER);
+}
+static void browse_panel(const track_t *t, uint16_t c)
+{
+    (void)t;
+    (void)c;
+    cv_oy = 0;
+    graph_browse();
+}
+static const page_ops_t BROWSE_OPS = {.flags = PG_LIST | PG_NO_MOM, .knob = browse_knob, .cards = browse_cards,
+                                      .draw = browse_panel};

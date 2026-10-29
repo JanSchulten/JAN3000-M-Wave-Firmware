@@ -3031,10 +3031,6 @@ static void draw_graph(void)
             cv_oy = 0;
             graph_mod(t, c);
             break;
-        case GR_BROWSE:
-            cv_oy = 0;
-            graph_browse();
-            break;
         case GR_DLANE:
             cv_oy = 0;
             graph_dlane(t);

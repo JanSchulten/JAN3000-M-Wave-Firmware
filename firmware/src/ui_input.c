@@ -82,7 +82,7 @@ static int mom_turn(uint32_t k, int32_t s)
         d = &TP[MIX_ID[k & 3u]];
     } else {
         if (act_cols() || lock_any() || !(pg->scope == SC_TRACK || pg->scope == SC_ENGINE || pg->scope == SC_GLOBAL) ||
-            pg->graph == GR_BROWSE || pg->graph == GR_USER || (pg->graph == GR_MOD && k == 0u) ||
+            (page_ops(pg)->flags & PG_NO_MOM) || pg->graph == GR_USER || (pg->graph == GR_MOD && k == 0u) ||
             pg->graph == GR_KEY || pg->graph == GR_FXT || pg->graph == GR_FX1 || pg->graph == GR_CLOUD)
             return 0;
         d = page_desc(pg, k, &vp);
@@ -792,14 +792,8 @@ static int rec_tap(void)                                /* 1: the arming changed
                                 : (ui.fxt_sel ? "FX2 DISARMED" : "FX1 DISARMED"));
         return 1;
     }
-    if (!ui.home && cur_page()->graph == GR_SONG && !(song.rec & bit)) {   /* SONG (M-Vave-OP1): REC types a chain */
-        if (!ui.song_rec) record_begin(0, 0, 0, 1);
-        ui.song_rec ^= 1u;                            /* (song_chain_key), the first key a new one; not the pattern's */
-        ui.song_new = ui.song_rec;
-        ui.force = 1;
-        ui_message(ui.song_rec ? "NEW CHAIN: TAP A-D" : "CHAIN DONE");
+    if (!ui.home && page_ops(cur_page())->rec && page_ops(cur_page())->rec(bit))   /* M-Vave-OP1: the page's (SONG) */
         return 1;
-    }
     if (chain_busy()) {
         ui_message("STOP TO RECORD");
         return 0;
@@ -1345,23 +1339,6 @@ static void edit_param(uint32_t slot, int32_t steps)
         tracks_edit(slot, steps);
         return;
     }
-    if (pg->graph == GR_BROWSE) {                         /* KNOB 1: one preset, KNOB 2: the next / previous engine */
-        if (slot == 0u) {
-            preset_step(steps);
-        } else if (slot == 1u) {
-            select_engine(eng_step(TSEL->eng_req, steps));
-        } else if (slot == 2u) {
-            preset_mark(steps > 0);
-        } else if (slot == 3u) {                          /* LIST: ALL FAV BASS .. OTHER (ui.c list_mode), no wrap */
-            uint32_t m = (uint32_t)clamp((int32_t)list_mode() + steps, 0, (int32_t)LIST_N - 1);
-            if (m != list_mode()) {
-                list_set(m);
-                ui.force = 1;
-                settings_later();                         /* (#197: not on every detent; ui.c) */
-            }
-        }
-        return;
-    }
     if (pg->graph == GR_DLANE) {                          /* M-Vave-OP1, EDIT > SOUNDS: the lane's TUNE DECAY TONE SOUND */
         if (drum_track(TSEL)) {
             uint32_t v = dl_get(TSEL->p, ui.lane, slot);
@@ -1603,7 +1580,7 @@ static void presets_turn(int32_t s)
             cursor_move(ui.cursor + s);
         return;
     }
-    if (ui.home || g == GR_BROWSE) {
+    if (ui.home) {                                        /* (PRESETS too: below, the default) */
         preset_step(s);
     } else if (g == GR_USER || g == GR_SLOTS) {
         return;                                         /* slots are picked by their keys only */
@@ -1680,8 +1657,8 @@ static int page_tap(uint32_t b)
             lock_clear(lock_held());
         return 1;
     }
-    if (b == B_EDIT && !ui.home && cur_page()->graph == GR_EVENTS) {   /* AUTOMATION: EDIT deletes the row's record */
-        ev_delete();
+    if (b == B_EDIT && !ui.home && page_ops(cur_page())->edit) {   /* M-Vave-OP1: the page's (AUTOMATION: the row's record) */
+        page_ops(cur_page())->edit();
         return 1;
     }
     if (b == B_EDIT && !ui.home && cur_page()->graph == GR_FXT) {
@@ -2000,8 +1977,8 @@ static void ui_input(void)
                 break;
             if (song.playing || chain_busy() || seq_counting())   /* (a count-in: PLAY stops it) */
                 transport_req = 2;
-            else if (!ui.home && cur_page()->graph == GR_SONG)
-                chain_play_ui();
+            else if (!ui.home && page_ops(cur_page())->play)   /* (M-Vave-OP1: the page's: SONG plays the chain) */
+                page_ops(cur_page())->play();
             else
                 transport_req = 1;
             break;

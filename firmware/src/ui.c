@@ -399,7 +399,7 @@ static uint32_t large_kind(void)
     if (ui.home)                                        /* (HOME > TRACKS: its rows need the panel, the cards as on */
         return home_tracks() ? LK_LABEL : LK_TALL;      /* a list page; the rows' names in M: draw_home_tracks) */
     g = cur_page()->graph;
-    return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_ROLL ||
+    return g == GR_SLOTS || g == GR_USER || g == GR_ROLL ||
            g == GR_KEY || g == GR_FXT || g == GR_FXT2 ||
            g == GR_FX1 || g == GR_CLOUD || (page_ops(cur_page())->flags & PG_LIST) ? LK_LABEL
                                                                                                           : LK_TALL;
@@ -618,7 +618,10 @@ static int detail_on(void)
 }
 /* GLO > SONG (1.2): the white keys A B C D (A3 B3 C4 D4, white places 2..5: seq.c song_key) set the selected cell's slot;
  * they do not sound there, the other keys play as anywhere (seq.c keyboard_block: song.grid 3) */
-static int song_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_SONG; }
+static int song_keys_on(void)
+{
+    return !ui.home && !ui.menu && !ui.confirm && !ui.layer && (page_ops(cur_page())->flags & PG_CHAIN_KEYS);   /* (SONG) */
+}
 /* M-Vave-OP1, GLO > KEY shown: the keys are roots (key.c), silent (seq.c keyboard_block: song.grid 4) */
 static int key_keys_on(void) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == GR_KEY; }
 /* M-Vave-OP1, SAVE > PROJECT: the keys pick the project (F3 G3 A3 B3: A..D), F#5 is NEW; OCT+ saves, OCT- loads */

@@ -48,7 +48,7 @@ Everything is `static`. Names are short and prefixed by subsystem (`key_`, `seq_
   parameters KNOB 1..4 edit; `0xFF` means the page handles the knob itself (`edit_param` in ui_input.c).
   `GR_*` selects the panel graphic; add new ones before `GR_N`. M-Vave-OP1: a page's own code goes through its
   `page_ops_t` (params.c; the row's `ops`) rather than tests of `pg->graph` in shared functions: flags, the action
-  columns, knobs, cards, panel and its hash, defined in `ui_pages.c` (EQ, SONG, PHRASES, AUTOMATION so far).
+  columns, knobs, cards, panel and its hash, defined in `ui_pages.c` (EQ, SONG, PHRASES, AUTOMATION, PRESETS so far).
   `tools/ui_pages.py` writes `docs/UI_PAGES.md`, the special cases still left.
 - **Screen layout:** header 0..24, four cards 28..72, the panel 76..198 (`Y_GRAPH`, `H_GRAPH` 122), footer 202..240.
   MENU > LARGE changes the cards and panel; `large_kind()` decides per graph.
