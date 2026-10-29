@@ -385,7 +385,7 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo
     mkdir -p build/scene_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/scene_test" tests/scene_test.c -lm
-    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT+ held copy, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
+    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT+ held copy, SEQ + OCT- held clear, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
     mkdir -p build/cset_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cset_test" tests/cset_test.c -lm
     run "SCL > CHORD's sets (after the J-6's): the data, the chords, the key input, MIDI IN, the page, STEP entry, recording, kept" "$OUT/cset_test" build/cset_shots

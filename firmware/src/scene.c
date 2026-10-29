@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
 /* SCENES (M-Vave-OP1): 16 patterns in a project, as the OP-Z's, picked while they play (SEQ held + a white key; SEQ +
- * OCT+ / OCT- the next / the one before; SEQ + OCT+ held a copy into the next free one: ui_layer.c). A scene is what
+ * OCT+ / OCT- the next / the one before; SEQ + OCT+ held a copy into the next free one, SEQ + OCT- held the one playing
+ * cleared: ui_layer.c). A scene is what
  * the SONG chain calls a pattern (song_chain.c chain_pattern_t): the four tracks' steps, their LEN DIV SWING GATE and
  * QUANTIZE, the automation and the locks, the two FX TRACKS, and GLO > KEY's run (key.c: a scene has one of its own when it
  * holds anything or its KEY was set for it, key_own; one without takes the KEY playing). The sounds, the mixer, ARP,
@@ -724,6 +725,61 @@ static uint32_t scene_copy(void)
     off = scb_resize(scn.cur, n);
     scn_encode(&v, scb.data + off, n);
     scn.cur = (uint8_t)f;
+    scn.moved = 1;                               /* (the UI drops what it kept of the scene: scene_switched_ui) */
+    return SC_OK;
+}
+/* SEQ + OCT- held (main loop, M-Vave-OP1): the scene playing cleared, and at once (playing or stopped) the nearest scene
+ * before it that holds something plays, from its step 1; none before: the nearest after; none at all: the cleared one
+ * stays, empty (its timing kept, as an empty scene reached from it takes it). One path for both: the scene that plays
+ * next (or an empty one) is unpacked into the buffer and swapped in with the interrupts off, as a pick stopped is
+ * (scene_swap: the notes released, the automated values back, every track and lane from step 1); the buffer, which then
+ * holds the scene cleared, is dropped instead of packed (scene_done never sees it), so that scene has no byte in the bank
+ * from here on. A pick waiting is taken back. Results: SC_OK, SC_EMPTY (nothing to clear:
+ * nothing changed), SC_SONG, SC_BAD (the next one would not unpack: nothing changed) */
+enum { SC_BAD = SC_SONG + 1 };
+static uint32_t scene_next_used(void)
+{
+    uint32_t k;
+    for (k = scn.cur; k-- > 0u;)                 /* (the one playing has no bytes in the bank: never itself) */
+        if (scb.len[k])
+            return k;
+    for (k = scn.cur + 1u; k < SCN_N; k++)
+        if (scb.len[k])
+            return k;
+    return scn.cur;
+}
+static uint32_t scene_clear(void)
+{
+    uint8_t tm[NTRK][5];
+    uint32_t k, j, was;
+    if (chain.running || chain.armed)
+        return SC_SONG;
+    scn_irq_off();                               /* (a pick waiting taken back: the ISR leaves the buffer alone) */
+    was = scn.req;
+    scn.req = SCN_IDLE;
+    scn_irq_on();
+    scene_done();
+    if (!scene_used(scn.cur)) {
+        scn.req = (uint8_t)was;                  /* (refused: a pick waiting still waits) */
+        return SC_EMPTY;
+    }
+    k = scene_next_used();
+    scn_timing_now(tm);
+    if (!scn_decode(scb.data + scb_off(k), k == scn.cur ? 0u : scb.len[k], SCN_BUF, tm)) {
+        scn.req = (uint8_t)was;
+        return SC_BAD;
+    }
+    for (j = 0; j < NTRK; j++)                   /* (a VDRUM track's lane notes as hits: kitlane.c) */
+        kit_steps_load(trk[j].eng_req, SCN_BUF->step[j]);
+    scn.room = 0xFFFFu;                          /* (the scene leaving is dropped: it needs no room) */
+    scn.next = (uint8_t)k;
+    scn.full = 0;
+    scn_irq_off();
+    scene_swap(0);                               /* (cannot refuse: no scene measures past the room) */
+    scn.done = 0;                                /* (the buffer, the scene cleared, is not packed) */
+    scn_irq_on();
+    scb_resize(scn.cur, 0);                      /* (the one now playing: in the tracks, out of the bank) */
+    scb.gen++;
     scn.moved = 1;                               /* (the UI drops what it kept of the scene: scene_switched_ui) */
     return SC_OK;
 }

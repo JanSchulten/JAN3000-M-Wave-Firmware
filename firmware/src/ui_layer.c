@@ -65,9 +65,9 @@ static const khint_t GLO_LOCK_FOOT[3] = {{KC_SAVE, "HOLD: UNDO"}, {0, 0}, {0, 0}
 #define fx_keys (&favorites.factory[15][14])
 #define fx_keys_b (&favorites.factory[15][0])  /* M-Vave-OP1 E2: MAP B's, the same 16 x 5 bits (0: its default) */
 /* E2: the footer names the map ALGORITHM turns to (three hints do not fit: the knob cards above name the macros) */
-/* M-Vave-OP1, SEQ held: SCENES' footer (SELECT to the SONG, OCT+ held the copy; OCT- / OCT+ step the scenes: the help
- * row) and SONG's (SELECT back, PLAY the song) */
-static const khint_t SEQ_FOOT[2][3] = {{{KC_SELECT, "SONG"}, {KC_OCTUP, "HOLD: COPY"}, {0, 0}},
+/* M-Vave-OP1, SEQ held: SCENES' footer (SELECT to the SONG, OCT+ held the copy, OCT- held the clear: "HOLD:" has no
+ * room for both, the help row says it; OCT- / OCT+ tapped step the scenes) and SONG's (SELECT back, PLAY the song) */
+static const khint_t SEQ_FOOT[2][3] = {{{KC_SELECT, "SONG"}, {KC_OCTUP, "COPY"}, {KC_OCTDN, "CLEAR"}},
                                        {{KC_SELECT, "SCENES"}, {KC_PLAY, "SONG"}, {0, 0}}};
 static const khint_t FX_FOOT[2][3] = {{{KC_KEYS, "EFFECTS"}, {KC_ALGO, "MAP B"}, {0, 0}},
                                       {{KC_KEYS, "EFFECTS"}, {KC_ALGO, "MAP A"}, {0, 0}}};
@@ -78,6 +78,8 @@ static struct {
     uint8_t cook;                      /* SEQ: COOK pressed since it opened */
     uint8_t cp;                        /* SEQ: OCT+ held into a copy (its release steps no scene) */
     uint32_t up_ms;                    /* SEQ: when OCT+ went down in the layer (fm1_ms) */
+    uint8_t cl;                        /* SEQ: OCT- held into a clear (its release steps no scene) */
+    uint32_t dn_ms;                    /* SEQ: when OCT- went down in the layer (fm1_ms) */
     uint8_t rp_dirty;                  /* REC: a setting changed (settings_save when the layer lets go); FX: the key map */
     uint8_t fxk;                       /* FX: the white key pressed last in the layer (+ 1; 0 none): PRESETS assigns it */
     uint32_t eqh;                      /* EDIT: the keys (bits 0..26) of the HOLD quick actions held */
@@ -388,6 +390,14 @@ static void tools_key(uint32_t p)
 static const uint8_t SEQ_TOOL[] = {TL_GAP, TL_REV, TL_LEFT, TL_RIGHT, TL_RANDOM, TL_COOK, TL_BEAT, TL_LCLR, TL_LREV,
                                    TL_LFILL, TL_LRND};
 #define SEQ_NTOOL ((uint32_t)sizeof SEQ_TOOL)
+/* black key place p's tool on the selected track: a track that is no kit has no lanes, so A#4 / C#5 (the lane's CLEAR
+ * and REVERSE) are the semitone down / up there (M-Vave-OP1, ui_tools.c TL_TDN TL_TUP) */
+static uint32_t seq_tool(uint32_t p)
+{
+    if (!kit_track(TSEL) && (SEQ_TOOL[p] == TL_LCLR || SEQ_TOOL[p] == TL_LREV))
+        return SEQ_TOOL[p] == TL_LCLR ? TL_TDN : TL_TUP;
+    return SEQ_TOOL[p];
+}
 static void layer_snap(void)
 {
     lys.trk = song.sel; lys.loaded = lys.cook = 0;
@@ -490,6 +500,27 @@ static void scene_copy_key(void)
     else
         ui_message(r == SC_EMPTY ? "NOTHING TO COPY" : r == SC_NONE ? "NO FREE SCENE" :
                    r == SC_FULL ? "SCENE MEMORY FULL" : "STOP THE SONG FIRST");
+    ui.force = 1;
+}
+
+/* SEQ + OCT- held (M-Vave-OP1): the scene playing cleared; the nearest one before it that holds something plays at
+ * once (none: the nearest after; none at all: the cleared one stays). scene.c scene_clear */
+static void scene_clear_key(void)
+{
+    char b[24], n[4];
+    uint32_t r, from = scn.cur;
+    ssong_off();                                        /* (by hand: the scene song ends) */
+    r = scene_clear();
+    if (scn.moved)
+        scene_switched_ui();
+    fmt_int(n, (int32_t)from + 1);
+    str_cpy(b, "SCENE ", sizeof b);
+    str_cpy(b + str_len(b), n, sizeof b - str_len(b));
+    str_cpy(b + str_len(b), " CLEARED", sizeof b - str_len(b));
+    if (r == SC_OK)
+        ui_message(b);
+    else
+        ui_message(r == SC_EMPTY ? "NOTHING TO CLEAR" : r == SC_SONG ? "STOP THE SONG FIRST" : "SCENE DAMAGED");
     ui.force = 1;
 }
 
@@ -755,7 +786,7 @@ static void layer_key(uint32_t l, uint32_t k)
         if (!key_black(k))
             scene_key(p);                               /* (M-Vave-OP1: the white keys pick scenes 1..16, scene.c) */
         else if (p < SEQ_NTOOL)
-            tools_key(SEQ_TOOL[p]);                     /* (.. the black keys the tools; the lane: PRESETS) */
+            tools_key(seq_tool(p));                     /* (.. the black keys the tools; the lane: PRESETS) */
     }
 }
 /* each pass: the keys the layer got now; then GLO's solo: the tracks of its keys still held (perform.c) */
@@ -862,24 +893,35 @@ static uint32_t layer_oct(uint32_t pressed, uint32_t oct)
         return oct & ~mine;
     }
     if (lys.l == LAYER_SEQ && layer_set_open()) {      /* M-Vave-OP1: SEQ + OCT+ held SEQ_COPY_MS (alone): the copy, */
-        if ((pressed >> up) & 1u) {                     /* once; its release then steps no scene */
-            lys.up_ms = fm1_ms;
+        if ((pressed >> up) & 1u) {                     /* once; its release then steps no scene. OCT- held as long */
+            lys.up_ms = fm1_ms;                         /* (alone): the clear, alike */
             lys.cp = 0;
+        }
+        if ((pressed >> dn) & 1u) {
+            lys.dn_ms = fm1_ms;
+            lys.cl = 0;
         }
         if ((lys.oct & 2u) && !lys.cp && ((fm1_in.buttons >> up) & 1u) && !((fm1_in.buttons >> dn) & 1u) &&
             fm1_ms - lys.up_ms >= SEQ_COPY_MS) {
             lys.cp = 1;
             scene_copy_key();
         }
+        if ((lys.oct & 1u) && !lys.cl && ((fm1_in.buttons >> dn) & 1u) && !((fm1_in.buttons >> up) & 1u) &&
+            fm1_ms - lys.dn_ms >= SEQ_COPY_MS) {
+            lys.cl = 1;
+            scene_clear_key();
+        }
     }
     mine = oct & lys.oct;
     if (lys.l == LAYER_SEQ && (mine & 3u)) {            /* .. OCT- / OCT+ tapped: the scene before / after */
-        if ((mine & 1u) || !lys.cp)
+        if ((mine & 1u) ? !lys.cl : !lys.cp)
             scene_step((mine & 1u) ? -1 : 1);
     }
     lys.oct &= (uint8_t)(((fm1_in.buttons >> dn) & 1u) | ((fm1_in.buttons >> up) & 1u) << 1);
     if (!((fm1_in.buttons >> up) & 1u))
         lys.cp = 0;
+    if (!((fm1_in.buttons >> dn) & 1u))
+        lys.cl = 0;
     return oct & ~mine;
 }
 
@@ -926,7 +968,7 @@ static uint32_t layer_leds(uint32_t *br)
                                                          * black keys' tools breathe (not while a song plays) */
             on = !b && (p == scn.cur ? (fm1_ms / SEQ_BLINK_MS) & 1u
                                      : p < SCN_N && !(scn.req == SCN_END && p == scn.next) && scene_used(p));
-            can = b ? p < SEQ_NTOOL && tl_cell(TSEL, SEQ_TOOL[p]) && !chain_busy()
+            can = b ? p < SEQ_NTOOL && tl_cell(TSEL, seq_tool(p)) && !chain_busy()
                     : scn.req == SCN_END && p == scn.next && p != scn.cur;
         } else if (l == LAYER_REC && !b && p < 4u) {    /* a setting on (LEVEL: the click on) lit, the rest breathe; */
             on = p == 1u ? rp_get(RP_CLICK) != 0u : p == 2u ? rp_get(RP_COUNTIN) != 0u :   /* CLEAR: something to */
@@ -1139,7 +1181,7 @@ static void layer_edit(void)                            /* the engines from F3, 
  * whole sequence's; on a DRUM track BEAT and the lane's, named with the lane). A cell of 54 px has no room for the
  * key's note beside a name (F# 15 px; the names up to 50: the lint) */
 static const char *const TL_NAME[TL_N] = {"CLEAR", "REVERSE", "SHIFT <", "SHIFT >", "RANDOM", "COOK", "BEAT", 0,
-    "CLR", "REV", "FILL", "RND"};
+    "CLR", "REV", "FILL", "RND", "TRN -1", "TRN +1"};
 #define LS_SC_W 25                                       /* a scene's cell: 25 px, 4 px apart, 8 a row (x 6 .. 234) */
 #define LS_SC_H 18
 #define LS_TL_Y 50                                       /* the tools' rows: from y 50, 18 px, 4 apart (.. 112) */
@@ -1198,13 +1240,13 @@ static void layer_seq(void)
         cv_text_in(x, y + CAP_IN(S, LS_SC_H), LS_SC_W, &AF_S, n, ink, fill);
     }
     for (p = 0; p < SEQ_NTOOL; p++) {                   /* the black keys' tools, the ones of this track */
-        uint32_t t = SEQ_TOOL[p];
+        uint32_t t = seq_tool(p);
         int32_t x = LC_X(c % 4u), y = LS_TL_Y + (LS_SC_H + 4) * (int32_t)(c / 4u);
         uint16_t ink, fill;
         if (!tl_cell(TSEL, t))
             continue;
         str_cpy(nm, TL_NAME[t], sizeof nm);
-        if (t >= TL_LCLR) {                             /* the lane's: "CLR BD" */
+        if (t >= TL_LCLR && t <= TL_LRND) {             /* the lane's: "CLR BD" */
             str_cpy(nm + str_len(nm), " ", 2);
             str_cpy(nm + str_len(nm), drum_lane_abbr(TSEL, ui.lane), sizeof nm - str_len(nm));
         }

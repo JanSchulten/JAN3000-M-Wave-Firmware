@@ -926,14 +926,15 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="sq-tools">
     <h3>Pattern tools</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F#3=CLEAR;G#3=REVERSE;A#3=SHIFT &lt;;C#4=SHIFT &gt;;D#4=RANDOM;F#4=COOK;G#4=BEAT;A#4=LANE CLR;C#5=LANE REV;D#5=LANE FILL;F#5=LANE RND" data-alt="SEQ layer: the tools on the black keys"></div></div>
-      <figcaption><kbd>SEQ</kbd> held: the black keys are tools. BEAT and the LANE tools are for drum tracks only. The white keys are the <a href="#scenes">scenes</a>.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F#3=CLEAR;G#3=REVERSE;A#3=SHIFT &lt;;C#4=SHIFT &gt;;D#4=RANDOM;F#4=COOK;G#4=BEAT;A#4=LANE CLR / TRN -1;C#5=LANE REV / TRN +1;D#5=LANE FILL;F#5=LANE RND" data-alt="SEQ layer: the tools on the black keys"></div></div>
+      <figcaption><kbd>SEQ</kbd> held: the black keys are tools. BEAT and the LANE tools are for drum tracks only; on any other track <kbd>A#4</kbd> and <kbd>C#5</kbd> transpose. The white keys are the <a href="#scenes">scenes</a>.</figcaption>
     </figure>
     <dl class="defs">
       <dt>KNOB 1–4</dt><dd>LEN (1 to 64 steps), DIV (step length, 4 bars to 1/32), SWG (swing), GATE.</dd>
       <dt>RANDOM</dt><dd>A new beat, or new notes in the scale on the same rhythm.</dd>
       <dt>COOK</dt><dd>Changes the pattern a little with each press.</dd>
       <dt>LANE …</dt><dd>Clear, reverse, fill or randomize one instrument; <kbd>PRESETS</kbd> picks it.</dd>
+      <dt>TRN −1 / TRN +1</dt><dd>On a track that is not a drum kit: every note of the sequence a semitone down (<kbd>A#4</kbd>) or up (<kbd>C#5</kbd>), all steps, chords whole, always chromatic (an active scale still snaps the notes as they play). Rhythm, accents, slides and automation stay. If one note would leave the MIDI range, nothing moves: HIGHEST NOTE REACHED / LOWEST NOTE REACHED.</dd>
       <dt><kbd>SEQ</kbd> <span class="plus">+</span> <kbd>EDIT</kbd></dt><dd>Puts the track back as it was when the layer opened. Each tool is also one undo step for holding SAVE.</dd>
     </dl>
   </section>
@@ -1025,6 +1026,17 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose">
       <p>Hold <kbd>SEQ</kbd> and hold <kbd>OCT+</kbd> for about 0.7 seconds: the scene playing is copied into the next free one (COPIED TO SCENE n), at once and without an audible jump. Every edit now changes the copy, while the original waits in its scene. The copy goes to the first empty scene after the one playing; <kbd>OCT−</kbd> picks the scene before it, which is the original when the copy landed right after it.</p>
       <p>Possible answers: NOTHING TO COPY (the scene is empty), NO FREE SCENE, SCENE MEMORY FULL.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="sc-clear">
+    <h3>Clearing a scene</h3>
+    <figure class="fig">
+      <div class="fig-scroll"><div data-panel data-hl="SEQ OCTM" data-hold="SEQ OCTM" data-num="SEQ:1 OCTM:2" data-screen="[SEQ] SCENES|LEN|DIV|SWG|GATE" data-alt="Hold SEQ and hold OCT−"></div></div>
+    </figure>
+    <div class="prose">
+      <p>Hold <kbd>SEQ</kbd> and hold <kbd>OCT−</kbd> for about 0.7 seconds: the scene playing is cleared (SCENE n CLEARED): its steps, automation, FX TRACKS and its own KEY. At once, playing too, the nearest scene before it that holds something plays from its step 1; if there is none before, the nearest after; if no other scene holds anything, the cleared scene stays. Letting go of OCT− then steps no scene.</p>
+      <p>Possible answers: NOTHING TO CLEAR (the scene is already empty), STOP THE SONG FIRST.</p>
     </div>
   </section>
 
@@ -1464,7 +1476,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td>Hold <kbd>EDIT</kbd> <span class="plus">+</span> white key</td><td>Pick the engine; F#5: initialize the sound</td></tr>
         <tr><td>Hold <kbd>EDIT</kbd> <span class="plus">+</span> black key</td><td>The engine's quick action (DRUM: mute an instrument)</td></tr>
         <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> white key</td><td>Scene 1–16</td></tr>
-        <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Previous or next scene; OCT+ held long: copy the scene</td></tr>
+        <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Previous or next scene; OCT+ held long: copy the scene; OCT− held long: clear it</td></tr>
         <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> black key</td><td>Pattern tool</td></tr>
         <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> <kbd>PRESETS</kbd></td><td>Pick the drum lane for the LANE tools</td></tr>
         <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> <kbd>EDIT</kbd></td><td>Put the track back as the layer found it</td></tr>
@@ -2103,14 +2115,15 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-seq-tools">
     <h3>Pattern-Werkzeuge</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F#3=CLEAR;G#3=REVERSE;A#3=SHIFT &lt;;C#4=SHIFT &gt;;D#4=RANDOM;F#4=COOK;G#4=BEAT;A#4=LANE CLR;C#5=LANE REV;D#5=LANE FILL;F#5=LANE RND" data-alt="SEQ-Ebene: die Werkzeuge auf den schwarzen Tasten"></div></div>
-      <figcaption><kbd>SEQ</kbd> gehalten: Die schwarzen Tasten sind Werkzeuge. BEAT und die LANE-Werkzeuge gibt es nur auf Drum-Spuren. Die weißen Tasten sind die <a href="#de-szenen">Szenen</a>.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F#3=CLEAR;G#3=REVERSE;A#3=SHIFT &lt;;C#4=SHIFT &gt;;D#4=RANDOM;F#4=COOK;G#4=BEAT;A#4=LANE CLR / TRN -1;C#5=LANE REV / TRN +1;D#5=LANE FILL;F#5=LANE RND" data-alt="SEQ-Ebene: die Werkzeuge auf den schwarzen Tasten"></div></div>
+      <figcaption><kbd>SEQ</kbd> gehalten: Die schwarzen Tasten sind Werkzeuge. BEAT und die LANE-Werkzeuge gibt es nur auf Drum-Spuren; auf allen anderen Spuren transponieren <kbd>A#4</kbd> und <kbd>C#5</kbd>. Die weißen Tasten sind die <a href="#de-szenen">Szenen</a>.</figcaption>
     </figure>
     <dl class="defs">
       <dt>KNOB 1–4</dt><dd>LEN (1 bis 64 Schritte), DIV (Schrittlänge, 4 Takte bis 1/32), SWG (Swing), GATE.</dd>
       <dt>RANDOM</dt><dd>Ein neuer Beat oder neue Noten in der Skala auf demselben Rhythmus.</dd>
       <dt>COOK</dt><dd>Ändert das Pattern bei jedem Druck ein wenig.</dd>
       <dt>LANE …</dt><dd>Löschen, umkehren, füllen, würfeln für ein Instrument; <kbd>PRESETS</kbd> wählt es.</dd>
+      <dt>TRN −1 / TRN +1</dt><dd>Auf einer Spur, die kein Drum-Kit ist: alle Noten der Sequenz einen Halbton tiefer (<kbd>A#4</kbd>) oder höher (<kbd>C#5</kbd>), alle Schritte, Akkorde bleiben ganz, immer chromatisch (eine aktive Skala rastet die Noten beim Spielen weiter ein). Rhythmus, Akzente, Slides und Automation bleiben. Würde eine Note den MIDI-Bereich verlassen, bewegt sich nichts: HIGHEST NOTE REACHED / LOWEST NOTE REACHED.</dd>
       <dt><kbd>SEQ</kbd> <span class="plus">+</span> <kbd>EDIT</kbd></dt><dd>Setzt die Spur zurück, wie sie beim Öffnen der Ebene war. Jedes Werkzeug ist außerdem ein Undo-Schritt für SAVE halten.</dd>
     </dl>
   </section>
@@ -2202,6 +2215,17 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose">
       <p><kbd>SEQ</kbd> halten und <kbd>OCT+</kbd> etwa 0,7 Sekunden halten: Die laufende Szene wird in die nächste freie kopiert (COPIED TO SCENE n), sofort und ohne hörbaren Sprung. Jede Änderung trifft ab jetzt die Kopie, das Original wartet in seiner Szene. Die Kopie landet in der ersten leeren Szene nach der laufenden; <kbd>OCT−</kbd> wählt die Szene davor, also das Original, wenn die Kopie direkt dahinter liegt.</p>
       <p>Mögliche Antworten: NOTHING TO COPY (die Szene ist leer), NO FREE SCENE, SCENE MEMORY FULL.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="de-sz-loeschen">
+    <h3>Eine Szene löschen</h3>
+    <figure class="fig">
+      <div class="fig-scroll"><div data-panel data-hl="SEQ OCTM" data-hold="SEQ OCTM" data-num="SEQ:1 OCTM:2" data-screen="[SEQ] SCENES|LEN|DIV|SWG|GATE" data-alt="SEQ halten und OCT− lange halten"></div></div>
+    </figure>
+    <div class="prose">
+      <p><kbd>SEQ</kbd> halten und <kbd>OCT−</kbd> etwa 0,7 Sekunden halten: Die laufende Szene wird geleert (SCENE n CLEARED): Schritte, Automation, FX TRACKS und ihr eigener KEY. Sofort, auch beim Spielen, läuft die nächste Szene davor, die etwas enthält, ab ihrem Schritt 1; gibt es davor keine, die nächste dahinter; enthält keine andere Szene etwas, bleibt die geleerte Szene. Das Loslassen von OCT− springt dann keine Szene weiter.</p>
+      <p>Mögliche Antworten: NOTHING TO CLEAR (die Szene ist schon leer), STOP THE SONG FIRST.</p>
     </div>
   </section>
 
@@ -2641,7 +2665,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td><kbd>EDIT</kbd> halten <span class="plus">+</span> weiße Taste</td><td>Engine wählen; F#5: Sound initialisieren</td></tr>
         <tr><td><kbd>EDIT</kbd> halten <span class="plus">+</span> schwarze Taste</td><td>Schnellaktion der Engine (DRUM: Instrument stumm)</td></tr>
         <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> weiße Taste</td><td>Szene 1–16</td></tr>
-        <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Vorige oder nächste Szene; OCT+ lange: Szene kopieren</td></tr>
+        <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Vorige oder nächste Szene; OCT+ lange: Szene kopieren; OCT− lange: Szene löschen</td></tr>
         <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> schwarze Taste</td><td>Pattern-Werkzeug</td></tr>
         <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> <kbd>PRESETS</kbd></td><td>Drum-Spur für die LANE-Werkzeuge wählen</td></tr>
         <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> <kbd>EDIT</kbd></td><td>Spur zurücksetzen, wie beim Öffnen der Ebene</td></tr>

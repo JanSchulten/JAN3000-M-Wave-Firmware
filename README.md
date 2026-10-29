@@ -130,8 +130,11 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   past 16 to 1) and goes on with the copy: COPIED TO SCENE n, while OCT+ is still held; letting go then steps no scene.
   It is at once, playing too, and nothing is heard: the music plays on where it was; from then on every edit changes
   the copy, the original waits in its scene, and OCT- goes back to it. A pick waiting is taken back. Else it says
-  NOTHING TO COPY (the scene is empty), NO FREE SCENE or SCENE MEMORY FULL. The footer: [OCT-/+] PREV NEXT,
-  [OCT+] HOLD: COPY.
+  NOTHING TO COPY (the scene is empty), NO FREE SCENE or SCENE MEMORY FULL.
+- **SEQ + OCT- held (0.7 s) clears the scene playing** (SCENE n CLEARED: its steps, automation, FX TRACKS, its own KEY)
+  and at once, playing too, the nearest scene before it that holds something plays from its step 1 (none before: the
+  nearest after; none at all: the cleared one stays). Letting go then steps no scene. NOTHING TO CLEAR when it is
+  empty. The footer: [SELECT] SONG, [OCT+] COPY, [OCT-] CLEAR (held, both; the help row says HOLD).
 - Stopped, a scene comes at once. **Playing, it comes at the end of the pattern**: the end of the loop of the longest
   track that plays something, on the grid, as a SONG section ends. **MENU > CONTROL > SCENE CHANGE**: AT END (that,
   the default) or **NEXT BAR**: the scene comes at the next bar line (4/4, the metronome's), whatever the tracks'
@@ -141,7 +144,9 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   filled (its key lit), one waiting ringed (its key breathing), one that holds something raised, an empty one
   dimmed.
 - The **tools are on the black keys** from G#3: REVERSE, SHIFT < >, RANDOM, COOK, on a DRUM track BEAT and the
-  lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane). F#3 is unassigned. Hold **SAVE** to undo all
+  lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane); on any other track **A#4 / C#5 are TRN -1 / +1**:
+  every note of the sequence (all steps, chords whole) a semitone down / up, chromatic, the rhythm and automation kept
+  (a note that would leave 0..127: none moves, HIGHEST / LOWEST NOTE REACHED). F#3 is unassigned. Hold **SAVE** to undo all
   edits in that opening, hold it again to redo. KNOB 1..4 are LEN DIV SWING GATE. **SELECT** switches to SONG, the
   scene song (see below).
 - **As on the KO-II:** a punch-in stays on while its key is held, also after FX is let go. Hold SEQ meanwhile and
