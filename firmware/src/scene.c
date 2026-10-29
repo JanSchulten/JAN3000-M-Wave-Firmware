@@ -735,7 +735,8 @@ static uint32_t scene_copy(void)
  * (scene_swap: the notes released, the automated values back, every track and lane from step 1); the buffer, which then
  * holds the scene cleared, is dropped instead of packed (scene_done never sees it), so that scene has no byte in the bank
  * from here on. A pick waiting is taken back. Results: SC_OK, SC_EMPTY (nothing to clear:
- * nothing changed), SC_SONG, SC_BAD (the next one would not unpack: nothing changed) */
+ * nothing changed), SC_SONG, SC_BAD (the next one would not unpack: the scene playing plays on; a pick waiting is
+ * dropped, as scene_queue drops one: the failed unpack has overwritten the buffer it waited in) */
 enum { SC_BAD = SC_SONG + 1 };
 static uint32_t scene_next_used(void)
 {
@@ -765,10 +766,8 @@ static uint32_t scene_clear(void)
     }
     k = scene_next_used();
     scn_timing_now(tm);
-    if (!scn_decode(scb.data + scb_off(k), k == scn.cur ? 0u : scb.len[k], SCN_BUF, tm)) {
-        scn.req = (uint8_t)was;
-        return SC_BAD;
-    }
+    if (!scn_decode(scb.data + scb_off(k), k == scn.cur ? 0u : scb.len[k], SCN_BUF, tm))
+        return SC_BAD;                           /* (scn.req stays SCN_IDLE: SCN_BUF holds no scene now) */
     for (j = 0; j < NTRK; j++)                   /* (a VDRUM track's lane notes as hits: kitlane.c) */
         kit_steps_load(trk[j].eng_req, SCN_BUF->step[j]);
     scn.room = 0xFFFFu;                          /* (the scene leaving is dropped: it needs no room) */
