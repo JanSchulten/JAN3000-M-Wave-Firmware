@@ -863,6 +863,39 @@ static void test_hall_alias(void)
     check(what, dbv[0] <= -35 && dbv[1] <= -20 && dbv[2] <= -40);
 }
 
+/* M-Vave-OP1, HALL QUIET TAIL: the lines are int16; a tail fading out ends in their rounding, broadband noise heard as
+ * a hiss. A 1 kHz sine for 0.5 s (SIZE 90, DAMP 0), then the first 0.1 s window of its tail whose RMS is below 20 (26 dB
+ * over one step): the noise at 6, 8 and 10 kHz against the tone there. ROOM's send level into the lines: -10 dB; HL_IN
+ * (x 2): -17 dB */
+static void test_hall_quiet(void)
+{
+    static int32_t x[FS / 2u];
+    const uint32_t w = FS / 10u, n = 6u * FS / CTL * CTL;
+    uint32_t i, t;
+    double tone = 0, hf = 0, db = 0;
+    char what[200];
+    host_tracks_init();
+    for (i = 0; i < FS / 2u; i++)
+        x[i] = (int32_t)(8000 * sin(2 * M_PI * 1000.0 * i / FS));
+    model_reset(M_HALL, 90, 0);
+    model_run(M_HALL, x, FS / 2u, n);
+    for (t = 6u * FS / 10u; t + w <= n; t += w / 4u) {
+        double e = 0;
+        for (i = t; i < t + w; i++)
+            e += (double)ir[i] * ir[i];
+        if (sqrt(e / w) < 20.0)
+            break;
+    }
+    if (t + w <= n) {
+        tone = band(ir, t, t + w, 1000);
+        hf = sqrt(pow(band(ir, t, t + w, 6000), 2) + pow(band(ir, t, t + w, 8000), 2) + pow(band(ir, t, t + w, 10000), 2));
+        db = 20 * log10(hf / (tone + 1e-9) + 1e-12);
+    }
+    snprintf(what, sizeof what, "HALL QUIET TAIL: at %.2f s (RMS below 20) the noise at 6, 8, 10 kHz %.1f dB from the tone",
+             (double)t / FS, db);
+    check(what, tone > 0 && db <= -15.0);
+}
+
 static void test_shimmer(void)
 {
     static int32_t in[CTL], out[CTL], bur[FS / 4];
@@ -1277,6 +1310,7 @@ int main(int argc, char **argv)
     test_spring_identical();
     test_hall();
     test_hall_alias();
+    test_hall_quiet();
     test_clear();
     test_switch();
     test_shimmer();
