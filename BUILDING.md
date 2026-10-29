@@ -43,11 +43,13 @@ On Linux x86-64 the toolchain runs natively and Docker is not needed.
 `JIELI_TOOLCHAIN` and `AC79_SDK` override the default locations
 (`~/.jieli/toolchain`, `~/fw-AC79_AIoT_SDK`).
 
-`./build.sh --release 1.0` makes a release build: the package identity becomes `FM-1_910`
-and the version string `v1.0`; the package is `build/felucca-1.0.fwsc`, and
-`build/release-1.0/` holds what a release ships: the package, the app
-(`felucca-1.0-app.bin`), `SHA256SUMS`, the sample attribution, `LICENSE`, `LICENSING.md` and
-`LICENSES/` (the package contains Apache-2.0 SDK files, so the licence texts travel with it).
+`./build.sh --release 1.0` makes a release build. M-Vave-OP1: it sets JAN3000's version string to `v1.0`
+(`JAN_VERSION`, shown on the splash and in ABOUT); the package identity stays `FM-1_900` and the Felucca version
+(`FELUCCA_VERSION`, "based on Felucca") stays Felucca's, so no M-Vave-OP1 release shares an identity with a Felucca
+release (Felucca's are `FM-1_9XY`). The package is `build/jan3000-1.0.fwsc`, and `build/release-1.0/` holds what a
+release ships: the package, the app (`jan3000-1.0-app.bin`), `SHA256SUMS`, the sample attribution, `LICENSE`,
+`LICENSING.md` and `LICENSES/` (the package contains Apache-2.0 SDK files, so the licence texts travel with it). The
+installer ZIP (`sh tools/make_installer_zip.sh`, built at the release tag) is what most people install.
 
 Build options (environment, `0` or `1`; defaults in `firmware/src/felucca.c`, `core.h` and `icons.c`):
 

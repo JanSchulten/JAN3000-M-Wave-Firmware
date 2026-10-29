@@ -340,7 +340,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <button type="button" data-a="green" style="--sw:#5fd08a" aria-label="GREEN" aria-pressed="false"></button>
       <span class="pal-name" id="pal-name">AMBER</span>
     </div>
-    <div class="rail-ver" data-en="JAN3000 v0.8 · October 2026 · GPL-3.0" data-de="JAN3000 v0.8 · Stand Oktober 2026 · GPL-3.0">JAN3000 v0.8 · October 2026 · GPL-3.0</div>
+    <div class="rail-ver" data-en="JAN3000 v1.0 · October 2026 · GPL-3.0" data-de="JAN3000 v1.0 · Stand Oktober 2026 · GPL-3.0">JAN3000 v1.0 · October 2026 · GPL-3.0</div>
   </div>
 </nav>
 <div class="scrim" id="scrim" hidden></div>
@@ -350,17 +350,17 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
 <div class="lang" lang="en">
 <header class="hero">
-  <p class="eyebrow">User guide · Firmware for the M-VAVE FM-1 · Version 0.8</p>
+  <p class="eyebrow">User guide · Firmware for the M-VAVE FM-1 · Version 1.0</p>
   <h1>JAN3000</h1>
   <p class="lede">JAN3000 is free firmware for the M-VAVE FM-1 pocket synthesizer. It turns the little device into a pocket studio: four tracks with their own sound engines, a step sequencer with 16 scenes, a KEY track for chord progressions and two tracks just for effects.</p>
   <div class="specs">
     <div><b>4</b><span>Tracks</span></div>
-    <div><b>16</b><span>Engines</span></div>
+    <div><b>17</b><span>Engines</span></div>
     <div><b>64</b><span>Steps per track</span></div>
     <div><b>16</b><span>Scenes per project</span></div>
     <div><b>27</b><span>Keys F3–G5</span></div>
   </div>
-  <p class="status">JAN3000 is in early development and has run on a real FM-1 since its first flash. Installing it is at your own risk. The open-source work it builds on is credited under <a href="#help-thanks">Licence and thanks</a>.</p>
+  <p class="status">JAN3000 v1.0 is the first release; every change in it ran on a real FM-1. Installing it is at your own risk. The open-source work it builds on is credited under <a href="#help-thanks">Licence and thanks</a>.</p>
 </header>
 
 <!-- ================================================================ 1 -->
@@ -399,7 +399,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="ov-glance">
     <h3>At a glance</h3>
     <dl class="defs">
-      <dt>Sound</dt><dd>16 engines: two virtual-analog engines, 6-operator FM, five macro-oscillator models, a lo-fi chip engine, samples, organ, granular, physical models, noise and two drum engines.</dd>
+      <dt>Sound</dt><dd>17 engines: two virtual-analog engines, 6-operator FM, five macro-oscillator models, a lo-fi chip engine, samples, organ, granular, physical models, noise, two drum engines and a TB-303 bass line.</dd>
       <dt>Sequencer</dt><dd>64 steps per track, chords of up to four notes, chance, ratchets, parameter locks and recorded knob moves.</dd>
       <dt>Structure</dt><dd>16 scenes per project, a KEY track for chord progressions, song chains of the project slots A–D.</dd>
       <dt>Effects</dt><dd>An insert per track, chorus, delay or a granular cloud, reverb, punch-ins in two maps and two FX tracks that record them.</dd>
@@ -465,7 +465,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="st-browser">
     <h3>Try it in the browser</h3>
-    <div class="prose"><p>The whole firmware also runs as WebAssembly in a browser: the panel on screen, played with mouse, touch and computer keyboard, with guided workflows (in German). It is a way to learn the features before you install anything. The page lives in the repository under <code>web/lab</code>.</p></div>
+    <div class="prose"><p>The whole firmware also runs as WebAssembly in a browser: the panel on screen, played with mouse, touch and computer keyboard, with guided workflows (in German). It is a way to learn the features before you install anything. The page lives in the repository under <code>web/lab</code>. The web editor's <b>No device</b> button runs the same firmware inside the editor (see <a href="#sv-editor">The web editor</a>).</p></div>
   </section>
 
   <section class="sub" id="st-back">
@@ -594,8 +594,8 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="tr-engine">
     <h3>Changing the engine</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F3=ANALOG;G3=ANLG2;A3=FM6;B3=WSHAPE;C4=HRMNC;D4=PRTCL;E4=WTABLE;F4=SWARM;G4=LOFI;A4=SAMPLE;B4=WHEEL;C5=GRAIN;D5=PHYS;E5=NOISE;F5=DRUM;G5=VDRUM;F#5=INIT" data-alt="EDIT layer: the 16 engines on the white keys"></div></div>
-      <figcaption><kbd>EDIT</kbd> held: the 16 white keys are the engines in the unit's order, F#5 is INIT.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F3=ANALOG;G3=ANLG2;A3=FM6;B3=WSHAPE;C4=HRMNC;D4=PRTCL;E4=WTABLE;F4=SWARM;G4=LOFI;A4=SAMPLE;B4=WHEEL;C5=GRAIN;D5=PHYS;E5=NOISE;F5=DRUM;G5=VDRUM;D#5=ACID;F#5=INIT" data-alt="EDIT layer: 16 engines on the white keys, ACID on D#5"></div></div>
+      <figcaption><kbd>EDIT</kbd> held: the 16 white keys are the engines in the unit's order, D#5 is ACID, F#5 is INIT.</figcaption>
     </figure>
     <div class="prose">
       <p>Hold <kbd>EDIT</kbd> and press a white key: the track gets that engine with its first sound. <kbd>F#5</kbd> asks INITIALIZE SOUND?; <kbd>OCT+</kbd> resets the engine to its defaults and its first sound. <kbd>OCT−</kbd> in the layer takes an engine choice back.</p>
@@ -627,7 +627,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 <!-- ================================================================ 5 -->
 <section class="chapter" id="engines">
   <div class="ch-head"><span class="ch-num" aria-hidden="true"></span><h2>Engines</h2>
-    <p class="lede">16 sound engines, each with its own factory sounds. The key next to the name picks the engine in the EDIT layer.</p></div>
+    <p class="lede">17 sound engines, each with its own factory sounds. The key next to the name picks the engine in the EDIT layer.</p></div>
 
   <section class="sub" id="en-all">
     <h3>All engines</h3>
@@ -641,13 +641,14 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <div class="eng"><h4>WTABLE <kbd>E4</kbd></h4><p>Wavetables: 4 banks of 64 waves, gliding or stepped.</p></div>
       <div class="eng"><h4>SWARM <kbd>F4</kbd></h4><p>A swarm: eight saws per voice under grain envelopes.</p></div>
       <div class="eng"><h4>LOFI <kbd>G4</kbd></h4><p>Chiptune: pulse, triangle, saw, noise, 4-bit wave RAM, stepped envelope, sweep and arpeggio.</p></div>
-      <div class="eng"><h4>SAMPLE <kbd>A4</kbd></h4><p>Multisampled PIANO, FLUTE and SAX, and a sample of your own (USR1, about 7 s).</p></div>
+      <div class="eng"><h4>SAMPLE <kbd>A4</kbd></h4><p>Multisampled PIANO, and a sample of your own (USR1, about 7 s). FLUTE and SAX come as slot files (see <a href="#sv-editor">The web editor</a>).</p></div>
       <div class="eng"><h4>WHEEL <kbd>B4</kbd></h4><p>Tonewheel organ: drawbar registrations, percussion, key click, drive and rotary.</p></div>
       <div class="eng"><h4>GRAIN <kbd>C5</kbd></h4><p>Granular textures from the built-in samples or your own slot.</p></div>
       <div class="eng"><h4>PHYS <kbd>D5</kbd></h4><p>Physical models: modal resonators, strings, struck membranes, sympathetic strings.</p></div>
       <div class="eng"><h4>NOISE <kbd>E5</kbd></h4><p>Noise from analog to digital: colours, crackle, shift registers and metallic tones.</p></div>
       <div class="eng"><h4>DRUM <kbd>F5</kbd></h4><p>A kit of eight synthesized instruments on the General MIDI map, six kits.</p></div>
       <div class="eng"><h4>VDRUM <kbd>G5</kbd></h4><p>Six drum parts of two layers each, running into a resonator.</p></div>
+      <div class="eng"><h4>ACID <kbd>D#5</kbd></h4><p>A TB-303 bass line: one oscillator into a diode-ladder filter, with accent and slide.</p></div>
     </div>
   </section>
 
@@ -723,6 +724,30 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt>EDIT 2 (titled KIT)</dt><dd>KIT, MIX, ACC, DRV.</dd>
       <dt>Editing a part</dt><dd>Strike its key, then EDIT &gt; LAYER, LAYER PITCH, LAYER ENV, PART, PART 2. The first edit makes the kit your own (KIT OWN); holding SAVE takes it back.</dd>
       <dt>Kits</dt><dd>INIT, ELECTRO, TUBES, STRINGS, METAL, DUB, CRUSH, WOOD.</dd>
+    </dl>
+  </section>
+
+  <section class="sub" id="en-acid">
+    <h3>ACID</h3>
+    <div class="prose">
+      <p>A bass line after Roland's TB-303, as Behringer's TD-3 plays it: one oscillator (SAW or SQR) into a four-pole diode-ladder low-pass, with its own envelope on the cutoff, and the accent and the slide as the 303 makes them. It is the last engine: hold <kbd>EDIT</kbd> and press <kbd>D#5</kbd>.</p>
+      <p>An accented note (a step's ACCENT, or a velocity of 110 and up) is louder, and its envelope is deeper and shorter. It also charges the accent sweep, so accents in a row open the filter further. A step's SLIDE glides into the next note without restarting the envelopes. The level is the engine's own: the track's ADSR does nothing here.</p>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>Page</th><th class="k">KNOB 1</th><th class="k">KNOB 2</th><th class="k">KNOB 3</th><th class="k">KNOB 4</th></tr></thead>
+      <tbody>
+        <tr><td class="m">EDIT 1 (ACID)</td><td class="m">WAVE</td><td class="m">TUNE</td><td class="m">CUT</td><td class="m">RES</td></tr>
+        <tr><td class="m">EDIT 2 (ENV)</td><td class="m">ENV</td><td class="m">DEC</td><td class="m">ACC</td><td class="m">DIST</td></tr>
+        <tr><td class="m">HOME</td><td class="m">CUT</td><td class="m">RES</td><td class="m">ENV</td><td class="m">DEC</td></tr>
+      </tbody>
+    </table></div>
+    <dl class="defs">
+      <dt>WAVE, TUNE</dt><dd>SAW or SQR; tuning in semitones, −12 to +12.</dd>
+      <dt>ENV, DEC</dt><dd>How far the envelope opens the filter, and how fast it closes.</dd>
+      <dt>ACC, DIST</dt><dd>How strong an accent is; distortion after the filter.</dd>
+      <dt>Sounds</dt><dd>ACID LINE, SQUELCH, SQR ACID, RUBBER, DIST 303, DEEP SUB, SCREAM, SOFT BASS. All are MONO, and each loads a 303 line with accents and slides (patterns ACID 2 to ACID 5).</dd>
+      <dt>A new line</dt><dd>Hold <kbd>SEQ</kbd> and press <kbd>D#4</kbd> (RANDOM): on an ACID track it rolls a new acid line in the track's scale, with rests, ties, accents and slides; step 1 is the accented root. COOK (<kbd>F#4</kbd>) also turns slides on and off.</dd>
+      <dt>In the web editor</dt><dd>The Sequencer tab shows an ACID track as a TD-3 grid: note, octave, time, ACC and SLD per step; "Roll acid" rolls a line as RANDOM does.</dd>
     </dl>
   </section>
 
@@ -1040,6 +1065,15 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose"><p>A punch-in effect stays on while its key is held, even after you let go of FX. So hold <kbd>FX</kbd> and an effect key, let go of FX, hold <kbd>SEQ</kbd> and pick the next scene. Release the key, and the effect stops.</p></div>
   </section>
 
+  <section class="sub" id="sc-song">
+    <h3>The scene song</h3>
+    <div class="prose">
+      <p>Scenes can be played one after another as a song. Hold <kbd>SEQ</kbd> and press <kbd>SELECT</kbd>: the layer turns to <b>[SEQ] SONG</b> (SELECT again goes back to SCENES; the next hold opens where you left it). The song is a chain of cells, four to a row: each cell is a scene and how many times it plays (x1 to x16; once is the scene's loop, its longest track).</p>
+      <p>The <b>white keys</b> add their scene to the end of the chain (the last cell's scene again adds one more pass). <b>KNOB 1</b> picks the cell, <b>KNOB 2</b> its scene, <b>KNOB 3</b> its REPS, <b>KNOB 4</b> END: LOOP (back to the first cell) or STOP. <kbd>OCT−</kbd> / <kbd>OCT+</kbd> go to the cell before or after, <kbd>EDIT</kbd> deletes the cell, <kbd>F#3</kbd> clears the whole song (<kbd>OCT+</kbd> confirms).</p>
+      <p><kbd>PLAY</kbd> plays the song from the selected cell; PLAY again stops it. It always changes at a scene's end. While it plays, every page edits and records into the scene playing. Picking a scene by hand, copying one, or STOP ends the song where it is. The song is saved with the project.</p>
+    </div>
+  </section>
+
   <section class="sub" id="sc-memory">
     <h3>Memory</h3>
     <div class="prose"><p>The 15 scenes not playing wait packed into 7.7 KB. A scene of four 16-step tracks takes about 250 to 500 bytes. If a pick does not fit, the display says SCENE MEMORY FULL and nothing changes. Scenes are saved with the project, the one playing included. An older project loads as scene 1.</p></div>
@@ -1136,7 +1170,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt>CHORUS</dt><dd>FLANGER sweeps a 0.5 to 6 ms comb, FDBK up to 0.87 for the jet. VIBRATO is all wet: CHO up and the track's LEVEL down for the vibrato alone.</dd>
       <dt>DELAY</dt><dd>TIME in tempo, dotted values too (1/4D, 1/8D, 1/16D), at most 1.49 s.</dd>
       <dt>REVERB</dt><dd>HALL is a smooth stereo reverb; SIZE sets its decay from 0.5 s to about 9 s. SHIMMER is the HALL with its tail fed back an octave up, each pass darker and quieter.</dd>
-      <dt>SLICER</dt><dd>A 16-step gate or stutter in tempo, 16 patterns.</dd>
+      <dt>SLICER</dt><dd>Rhythm in tempo, at the start of a track or at the end of the whole mix. SLCR picks the mode: <b>GATE</b> cuts the track to one of 16 step patterns (DEPTH: how far a step closes), <b>STUT</b> repeats it, <b>PUMP</b> ducks it on every step as a sidechain compressor keyed by a kick would. <b>GT END</b> and <b>PM END</b> do the same to the whole mix, after the reverb. For PUMP, DEPTH sets how far the level drops and PAT the curve back up: 1–4 SMOOTH, 5–8 PUNCH, 9–12 LINEAR, 13–16 HOLD, each over the whole step, ¾, ½ or ¼ of it. RATE sets the step length, 1/4 being the longest.</dd>
     </dl>
   </section>
 
@@ -1293,6 +1327,30 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <li><span><kbd>KNOB 4</kbd> to the right (SAVE), then <kbd>OCT+</kbd> (a used slot asks OVERWRITE? first): give it a name and a category, confirm with <kbd>OCT+</kbd>.</span></li>
     </ol>
     <div class="prose"><p><kbd>KNOB 2</kbd> (LOAD) loads and <kbd>KNOB 3</kbd> (ERASE) erases the same way, each with <kbd>OCT+</kbd>. A sound of your own keeps its effects, an FM6 sound its patch, a VDRUM sound its own kit.</p></div>
+  </section>
+
+  <section class="sub" id="sv-disk">
+    <h3>USB DISK: projects as files</h3>
+    <div class="prose">
+      <p><b>MENU &gt; SYSTEM &gt; USB DISK</b> (OCT+) turns the FM-1 into a USB drive for as long as that screen is up. Plugged into a phone (the Files app) or a computer, it shows up as <b>FM-1</b>, read-only, with <code>README.TXT</code> (the slots, their projects' names, the firmware), <code>CURRENT.FM1</code> (the music as it is now) and <code>PROJ_A.FM1</code> to <code>PROJ_D.FM1</code> for each slot that holds a project. Copy them wherever you like.</p>
+      <p>Any button or key ends it; USB is then MIDI and audio again. While the drive is up, the transport stops, and MIDI, USB audio, the editor and the console are off. A <code>.FM1</code> file holds the project exactly as the FM-1 keeps it: the project, its extras, its scenes, the settings, the user sample and the FM6 voice bank. Copying files onto the FM-1 is not possible yet.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="sv-bounce">
+    <h3>Bounce: projects as WAV</h3>
+    <div class="prose">
+      <p>The Bounce page (<code>web/bounce</code> in the repository) takes a <code>.FM1</code> file and renders it with the FM-1's own firmware in the browser, without the FM-1, about 30 to 100 times faster than real time. You get the mix as a 16-bit WAV (as USB audio sends it) and, if you want, the stems: T1 to T4 and the effects, as 32-bit float WAVs that add up to the mix. It plays a scene for a number of bars, the scene song to its end, or the SONG chain. The same file gives the same result every time.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="sv-editor">
+    <h3>The web editor</h3>
+    <div class="prose">
+      <p>The web editor (in the installer ZIP, opened from the installer page) edits sounds, patterns and settings over USB in Chrome or Edge. Its <b>No device</b> button runs the FM-1's firmware inside the page, so the editor also works without the FM-1, with the firmware's own sound; saves stay in that browser. The computer keyboard plays the selected track (A W S E D F T G Y H U J K O L P from the octave's C, Z / X octave, C / V velocity).</p>
+      <p><b>Presets as files:</b> Projects &gt; Presets on the device lists the user slots U01 to U32. Download one or all, replace one with a file, or upload several. <b>Library &gt; Export presets</b> saves the sounds shown as a preset file.</p>
+      <p><b>Samples:</b> the Samples tab uploads a sample into USR1 (the second and third sample slots hold the scenes and the extras). FLUTE and SAX are no longer built in; they come as slot files (<code>FLUTE.slot</code>, <code>SAX.slot</code> in the ZIP's <code>samples</code> folder), written into USR1 with <b>Slot file</b>. SAMPLE's SET USR1 then plays them.</p>
+    </div>
   </section>
 
   <section class="sub" id="sv-auto">
@@ -1532,23 +1590,23 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 </section>
 
 <footer class="foot">
-  <p>JAN3000 v0.8 · user guide · October 2026.</p>
+  <p>JAN3000 v1.0 · user guide · October 2026.</p>
 </footer>
 
 </div>
 <div class="lang" lang="de" hidden>
 <header class="hero">
-  <p class="eyebrow">Bedienungsanleitung · Firmware für das M-VAVE FM-1 · Version 0.8</p>
+  <p class="eyebrow">Bedienungsanleitung · Firmware für das M-VAVE FM-1 · Version 1.0</p>
   <h1>JAN3000</h1>
   <p class="lede">JAN3000 ist eine freie Firmware für den Taschen-Synthesizer M-VAVE FM-1. Sie macht das kleine Gerät zum Taschenstudio: vier Spuren mit eigener Klangerzeugung, ein Step-Sequencer mit 16 Szenen, eine KEY-Spur für Akkordfolgen und zwei Spuren nur für Effekte.</p>
   <div class="specs">
     <div><b>4</b><span>Spuren</span></div>
-    <div><b>16</b><span>Engines</span></div>
+    <div><b>17</b><span>Engines</span></div>
     <div><b>64</b><span>Schritte je Spur</span></div>
     <div><b>16</b><span>Szenen je Projekt</span></div>
     <div><b>27</b><span>Tasten F3–G5</span></div>
   </div>
-  <p class="status">JAN3000 ist in früher Entwicklung und läuft seit dem ersten Flash auf einem echten FM-1. Die Installation geschieht auf eigenes Risiko. Die Open-Source-Arbeit, auf der die Firmware aufbaut, steht unter <a href="#de-hilfe-dank">Lizenz und Dank</a>.</p>
+  <p class="status">JAN3000 v1.0 ist die erste Version; jede Änderung darin lief auf einem echten FM-1. Die Installation geschieht auf eigenes Risiko. Die Open-Source-Arbeit, auf der die Firmware aufbaut, steht unter <a href="#de-hilfe-dank">Lizenz und Dank</a>.</p>
 </header>
 
 <!-- ================================================================ 1 -->
@@ -1587,7 +1645,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-ueb-blick">
     <h3>Auf einen Blick</h3>
     <dl class="defs">
-      <dt>Klang</dt><dd>16 Engines: zwei virtuell-analoge, 6-Operator-FM, fünf Makro-Oszillator-Modelle, ein Lo-Fi-Chip-Klang, Samples, Orgel, Granular, physikalische Modelle, Rauschen und zwei Drum-Engines.</dd>
+      <dt>Klang</dt><dd>17 Engines: zwei virtuell-analoge, 6-Operator-FM, fünf Makro-Oszillator-Modelle, ein Lo-Fi-Chip-Klang, Samples, Orgel, Granular, physikalische Modelle, Rauschen, zwei Drum-Engines und eine TB-303-Basslinie.</dd>
       <dt>Sequencer</dt><dd>64 Schritte pro Spur, Akkorde bis vier Töne, Chance, Ratchets, Parameter-Locks und aufgenommene Reglerbewegungen.</dd>
       <dt>Struktur</dt><dd>16 Szenen pro Projekt, eine KEY-Spur für Akkordfolgen, Song-Ketten aus den Projekt-Slots A–D.</dd>
       <dt>Effekte</dt><dd>Insert pro Spur, Chorus, Delay oder Granular-Wolke, Hall, Punch-ins in zwei Belegungen und zwei FX-Spuren, die Punch-ins aufnehmen.</dd>
@@ -1653,7 +1711,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="de-start-browser">
     <h3>Im Browser ausprobieren</h3>
-    <div class="prose"><p>Die ganze Firmware läuft auch als WebAssembly im Browser: das Bedienfeld auf dem Bildschirm, bedienbar mit Maus, Touch und Computertastatur, dazu geführte Workflows auf Deutsch. So lernst du die Funktionen kennen, bevor du etwas installierst. Die Seite liegt im Repository unter <code>web/lab</code>.</p></div>
+    <div class="prose"><p>Die ganze Firmware läuft auch als WebAssembly im Browser: das Bedienfeld auf dem Bildschirm, bedienbar mit Maus, Touch und Computertastatur, dazu geführte Workflows auf Deutsch. So lernst du die Funktionen kennen, bevor du etwas installierst. Die Seite liegt im Repository unter <code>web/lab</code>. Der Knopf <b>No device</b> im Web-Editor startet dieselbe Firmware im Editor (siehe <a href="#de-sp-editor">Der Web-Editor</a>).</p></div>
   </section>
 
   <section class="sub" id="de-start-zurueck">
@@ -1782,8 +1840,8 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-sp-engine">
     <h3>Engine wechseln</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F3=ANALOG;G3=ANLG2;A3=FM6;B3=WSHAPE;C4=HRMNC;D4=PRTCL;E4=WTABLE;F4=SWARM;G4=LOFI;A4=SAMPLE;B4=WHEEL;C5=GRAIN;D5=PHYS;E5=NOISE;F5=DRUM;G5=VDRUM;F#5=INIT" data-alt="EDIT-Ebene: die 16 Engines auf den weißen Tasten"></div></div>
-      <figcaption><kbd>EDIT</kbd> gehalten: Die 16 weißen Tasten sind die Engines in der Reihenfolge des Geräts, F#5 ist INIT.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F3=ANALOG;G3=ANLG2;A3=FM6;B3=WSHAPE;C4=HRMNC;D4=PRTCL;E4=WTABLE;F4=SWARM;G4=LOFI;A4=SAMPLE;B4=WHEEL;C5=GRAIN;D5=PHYS;E5=NOISE;F5=DRUM;G5=VDRUM;D#5=ACID;F#5=INIT" data-alt="EDIT-Ebene: 16 Engines auf den weißen Tasten, ACID auf D#5"></div></div>
+      <figcaption><kbd>EDIT</kbd> gehalten: Die 16 weißen Tasten sind die Engines in der Reihenfolge des Geräts, D#5 ist ACID, F#5 ist INIT.</figcaption>
     </figure>
     <div class="prose">
       <p><kbd>EDIT</kbd> halten und eine weiße Taste drücken: Die Spur bekommt diese Engine mit ihrem ersten Sound. <kbd>F#5</kbd> fragt INITIALIZE SOUND?; <kbd>OCT+</kbd> setzt die Engine auf ihre Grundwerte und ihren ersten Sound zurück. <kbd>OCT−</kbd> in der Ebene nimmt eine Engine-Wahl zurück.</p>
@@ -1815,7 +1873,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 <!-- ================================================================ 5 -->
 <section class="chapter" id="de-engines">
   <div class="ch-head"><span class="ch-num" aria-hidden="true"></span><h2>Engines</h2>
-    <p class="lede">16 Klangerzeuger, jeder mit eigenen Werks-Sounds. Die Taste neben dem Namen wählt die Engine in der EDIT-Ebene.</p></div>
+    <p class="lede">17 Klangerzeuger, jeder mit eigenen Werks-Sounds. Die Taste neben dem Namen wählt die Engine in der EDIT-Ebene.</p></div>
 
   <section class="sub" id="de-eng-alle">
     <h3>Alle Engines</h3>
@@ -1829,13 +1887,14 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <div class="eng"><h4>WTABLE <kbd>E4</kbd></h4><p>Wavetables: 4 Bänke zu 64 Wellen, gleitend oder gestuft.</p></div>
       <div class="eng"><h4>SWARM <kbd>F4</kbd></h4><p>Ein Schwarm: acht Sägezähne pro Stimme unter Grain-Hüllkurven.</p></div>
       <div class="eng"><h4>LOFI <kbd>G4</kbd></h4><p>Chiptune: Puls, Dreieck, Säge, Rauschen, 4-Bit-Wave-RAM, gestufte Hüllkurve, Sweep und Arpeggio.</p></div>
-      <div class="eng"><h4>SAMPLE <kbd>A4</kbd></h4><p>Multisample-Instrumente PIANO, FLUTE, SAX und ein eigenes Sample (USR1, etwa 7 s).</p></div>
+      <div class="eng"><h4>SAMPLE <kbd>A4</kbd></h4><p>Multisample-Instrument PIANO und ein eigenes Sample (USR1, etwa 7 s). FLUTE und SAX gibt es als Slot-Dateien (siehe <a href="#de-sp-editor">Der Web-Editor</a>).</p></div>
       <div class="eng"><h4>WHEEL <kbd>B4</kbd></h4><p>Tonrad-Orgel: Zugriegel-Registrierungen, Perkussion, Key-Click, Drive und Rotor.</p></div>
       <div class="eng"><h4>GRAIN <kbd>C5</kbd></h4><p>Granulare Texturen aus den eingebauten Samples oder dem eigenen Slot.</p></div>
       <div class="eng"><h4>PHYS <kbd>D5</kbd></h4><p>Physikalische Modelle: Modal-Resonatoren, Saiten, angeschlagene Membranen, sympathische Saiten.</p></div>
       <div class="eng"><h4>NOISE <kbd>E5</kbd></h4><p>Rauschen von analog bis digital: Farben, Knistern, Schieberegister und metallische Töne.</p></div>
       <div class="eng"><h4>DRUM <kbd>F5</kbd></h4><p>Ein Kit aus acht synthetisierten Instrumenten auf der General-MIDI-Belegung, sechs Kits.</p></div>
       <div class="eng"><h4>VDRUM <kbd>G5</kbd></h4><p>Sechs Drum-Teile aus je zwei Schichten, die in einen Resonator laufen.</p></div>
+      <div class="eng"><h4>ACID <kbd>D#5</kbd></h4><p>Eine TB-303-Basslinie: ein Oszillator in ein Diodenleiter-Filter, mit Accent und Slide.</p></div>
     </div>
   </section>
 
@@ -1913,6 +1972,30 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt>EDIT 2 (Titel KIT)</dt><dd>KIT, MIX, ACC, DRV.</dd>
       <dt>Ein Teil bearbeiten</dt><dd>Seine Taste anschlagen, dann EDIT &gt; LAYER, LAYER PITCH, LAYER ENV, PART, PART 2. Die erste Änderung macht das Kit zum eigenen (KIT OWN); SAVE halten nimmt sie zurück.</dd>
       <dt>Kits</dt><dd>INIT, ELECTRO, TUBES, STRINGS, METAL, DUB, CRUSH, WOOD.</dd>
+    </dl>
+  </section>
+
+  <section class="sub" id="de-eng-acid">
+    <h3>ACID</h3>
+    <div class="prose">
+      <p>Eine Basslinie nach Rolands TB-303, so wie Behringers TD-3 sie spielt: ein Oszillator (SAW oder SQR) in einen vierpoligen Diodenleiter-Tiefpass, mit eigener Hüllkurve auf der Cutoff, Accent und Slide wie bei der 303. Sie ist die letzte Engine: <kbd>EDIT</kbd> halten und <kbd>D#5</kbd> drücken.</p>
+      <p>Ein betonter Ton (ACCENT eines Schritts oder Anschlagstärke ab 110) ist lauter, seine Hüllkurve tiefer und kürzer. Er lädt außerdem den Accent-Sweep auf: Accents hintereinander öffnen das Filter immer weiter. SLIDE auf einem Schritt gleitet in den nächsten Ton, ohne die Hüllkurven neu zu starten. Die Lautstärke macht die Engine selbst: die ADSR der Spur wirkt hier nicht.</p>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>Seite</th><th class="k">KNOB 1</th><th class="k">KNOB 2</th><th class="k">KNOB 3</th><th class="k">KNOB 4</th></tr></thead>
+      <tbody>
+        <tr><td class="m">EDIT 1 (ACID)</td><td class="m">WAVE</td><td class="m">TUNE</td><td class="m">CUT</td><td class="m">RES</td></tr>
+        <tr><td class="m">EDIT 2 (ENV)</td><td class="m">ENV</td><td class="m">DEC</td><td class="m">ACC</td><td class="m">DIST</td></tr>
+        <tr><td class="m">HOME</td><td class="m">CUT</td><td class="m">RES</td><td class="m">ENV</td><td class="m">DEC</td></tr>
+      </tbody>
+    </table></div>
+    <dl class="defs">
+      <dt>WAVE, TUNE</dt><dd>SAW oder SQR; Stimmung in Halbtönen, −12 bis +12.</dd>
+      <dt>ENV, DEC</dt><dd>Wie weit die Hüllkurve das Filter öffnet und wie schnell sie es wieder schließt.</dd>
+      <dt>ACC, DIST</dt><dd>Wie stark ein Accent wirkt; Verzerrung nach dem Filter.</dd>
+      <dt>Sounds</dt><dd>ACID LINE, SQUELCH, SQR ACID, RUBBER, DIST 303, DEEP SUB, SCREAM, SOFT BASS. Alle sind MONO, und jeder lädt eine 303-Linie mit Accents und Slides (Patterns ACID 2 bis ACID 5).</dd>
+      <dt>Eine neue Linie</dt><dd><kbd>SEQ</kbd> halten und <kbd>D#4</kbd> (RANDOM) drücken: auf einer ACID-Spur würfelt das eine neue Acid-Linie in der Skala der Spur, mit Pausen, Ties, Accents und Slides; Schritt 1 ist der betonte Grundton. COOK (<kbd>F#4</kbd>) schaltet auch Slides ein und aus.</dd>
+      <dt>Im Web-Editor</dt><dd>Der Sequencer-Tab zeigt eine ACID-Spur als TD-3-Raster: Ton, Oktave, Zeit, ACC und SLD pro Schritt; „Roll acid“ würfelt eine Linie wie RANDOM.</dd>
     </dl>
   </section>
 
@@ -2230,6 +2313,15 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose"><p>Ein Punch-in-Effekt bleibt an, solange seine Taste gehalten ist, auch wenn du FX schon losgelassen hast. Halte also <kbd>FX</kbd> und eine Effekt-Taste, lass FX los, halte <kbd>SEQ</kbd> und wähle die nächste Szene. Taste los, Effekt aus.</p></div>
   </section>
 
+  <section class="sub" id="de-sz-song">
+    <h3>Der Szenen-Song</h3>
+    <div class="prose">
+      <p>Szenen lassen sich als Song nacheinander spielen. <kbd>SEQ</kbd> halten und <kbd>SELECT</kbd> drücken: die Ebene wechselt zu <b>[SEQ] SONG</b> (SELECT noch einmal führt zurück zu SCENES; das nächste Halten öffnet dort, wo du warst). Der Song ist eine Kette von Feldern, vier pro Reihe: jedes Feld ist eine Szene und wie oft sie spielt (x1 bis x16; einmal ist ein Durchlauf der Szene, ihrer längsten Spur).</p>
+      <p>Die <b>weißen Tasten</b> hängen ihre Szene ans Ende der Kette (die Szene des letzten Felds noch einmal gibt einen Durchlauf mehr). <b>KNOB 1</b> wählt das Feld, <b>KNOB 2</b> seine Szene, <b>KNOB 3</b> seine REPS, <b>KNOB 4</b> END: LOOP (zurück zum ersten Feld) oder STOP. <kbd>OCT−</kbd> / <kbd>OCT+</kbd> gehen zum Feld davor oder danach, <kbd>EDIT</kbd> löscht das Feld, <kbd>F#3</kbd> leert den ganzen Song (<kbd>OCT+</kbd> bestätigt).</p>
+      <p><kbd>PLAY</kbd> spielt den Song ab dem gewählten Feld, PLAY noch einmal stoppt. Gewechselt wird immer am Ende einer Szene. Während er spielt, bearbeitet und nimmt jede Seite in die laufende Szene auf. Eine Szene von Hand wählen, kopieren oder STOP beendet den Song an seiner Stelle. Der Song wird mit dem Projekt gespeichert.</p>
+    </div>
+  </section>
+
   <section class="sub" id="de-sz-speicher">
     <h3>Speicher</h3>
     <div class="prose"><p>Die 15 Szenen, die gerade nicht spielen, liegen gepackt in 7,7 KB. Eine Szene aus vier Spuren mit 16 Schritten braucht etwa 250 bis 500 Bytes. Passt eine Wahl nicht mehr, sagt das Display SCENE MEMORY FULL, und nichts ändert sich. Die Szenen werden mit dem Projekt gespeichert, die laufende eingeschlossen. Ein älteres Projekt lädt als Szene 1.</p></div>
@@ -2326,7 +2418,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt>CHORUS</dt><dd>FLANGER fegt einen Kamm von 0,5 bis 6 ms, FDBK bis 0,87 für den Jet. VIBRATO ist ganz nass: CHO hoch und LEVEL der Spur herunter für das reine Vibrato.</dd>
       <dt>DELAY</dt><dd>TIME im Tempo, auch punktiert (1/4D, 1/8D, 1/16D), höchstens 1,49 s.</dd>
       <dt>REVERB</dt><dd>HALL ist ein weicher Stereo-Hall; SIZE stellt die Nachhallzeit von 0,5 s bis etwa 9 s. SHIMMER ist der HALL, dessen Fahne eine Oktave höher in sich selbst zurückläuft, jede Runde dunkler und leiser.</dd>
-      <dt>SLICER</dt><dd>Ein Gate oder Stotter-Effekt mit 16 Schritten im Tempo, 16 Muster.</dd>
+      <dt>SLICER</dt><dd>Rhythmus im Tempo, am Anfang einer Spur oder am Ende der ganzen Mischung. SLCR wählt die Art: <b>GATE</b> schneidet die Spur nach einem von 16 Schrittmustern (DEPTH: wie weit ein Schritt schließt), <b>STUT</b> wiederholt sie, <b>PUMP</b> duckt sie auf jedem Schritt wie ein Sidechain-Kompressor unter einer Kick. <b>GT END</b> und <b>PM END</b> machen dasselbe mit der ganzen Mischung, nach dem Hall. Bei PUMP stellt DEPTH ein, wie weit der Pegel fällt, und PAT die Kurve zurück: 1–4 SMOOTH, 5–8 PUNCH, 9–12 LINEAR, 13–16 HOLD, jeweils über den ganzen Schritt, ¾, ½ oder ¼ davon. RATE stellt die Schrittlänge, 1/4 ist die längste.</dd>
     </dl>
   </section>
 
@@ -2483,6 +2575,30 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <li><span><kbd>KNOB 4</kbd> nach rechts (SAVE), dann <kbd>OCT+</kbd> (ein belegter Platz fragt zuerst OVERWRITE?): Name und Kategorie vergeben, mit <kbd>OCT+</kbd> bestätigen.</span></li>
     </ol>
     <div class="prose"><p>Ebenso lädt <kbd>KNOB 2</kbd> (LOAD) und löscht <kbd>KNOB 3</kbd> (ERASE), jeweils mit <kbd>OCT+</kbd>. Ein eigener Sound speichert seine Effekte mit, ein FM6-Sound seinen Patch, ein VDRUM-Sound sein eigenes Kit.</p></div>
+  </section>
+
+  <section class="sub" id="de-sp-disk">
+    <h3>USB DISK: Projekte als Dateien</h3>
+    <div class="prose">
+      <p><b>MENU &gt; SYSTEM &gt; USB DISK</b> (OCT+) macht das FM-1 zum USB-Laufwerk, solange diese Anzeige offen ist. Am Handy (App „Dateien“) oder am Computer erscheint es als <b>FM-1</b>, nur lesbar, mit <code>README.TXT</code> (die Slots, die Namen ihrer Projekte, die Firmware), <code>CURRENT.FM1</code> (die Musik, wie sie gerade ist) und <code>PROJ_A.FM1</code> bis <code>PROJ_D.FM1</code> für jeden Slot mit einem Projekt. Kopiere sie, wohin du willst.</p>
+      <p>Jeder Knopf und jede Taste beendet es; danach ist USB wieder MIDI und Audio. Solange das Laufwerk offen ist, steht der Transport, und MIDI, USB-Audio, der Editor und die Konsole sind aus. Eine <code>.FM1</code>-Datei enthält das Projekt genau so, wie das FM-1 es speichert: das Projekt, seine Extras, seine Szenen, die Einstellungen, das eigene Sample und die FM6-Voice-Bank. Dateien auf das FM-1 kopieren geht noch nicht.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="de-sp-bounce">
+    <h3>Bounce: Projekte als WAV</h3>
+    <div class="prose">
+      <p>Die Bounce-Seite (im Repository unter <code>web/bounce</code>) nimmt eine <code>.FM1</code>-Datei und rendert sie mit der Firmware des FM-1 im Browser, ohne das FM-1, etwa 30- bis 100-mal schneller als Echtzeit. Heraus kommt die Mischung als 16-Bit-WAV (so wie USB-Audio sie sendet) und auf Wunsch die Stems: T1 bis T4 und die Effekte, als 32-Bit-Float-WAVs, die zusammen die Mischung ergeben. Sie spielt eine Szene für eine Anzahl Takte, den Szenen-Song bis zum Ende oder die SONG-Kette. Dieselbe Datei ergibt jedes Mal dasselbe Ergebnis.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="de-sp-editor">
+    <h3>Der Web-Editor</h3>
+    <div class="prose">
+      <p>Der Web-Editor (in der Installer-ZIP, von der Installer-Seite aus geöffnet) bearbeitet Sounds, Patterns und Einstellungen über USB in Chrome oder Edge. Sein Knopf <b>No device</b> startet die Firmware des FM-1 in der Seite: der Editor funktioniert also auch ohne FM-1, mit dem eigenen Klang der Firmware; Gespeichertes bleibt in diesem Browser. Die Computertastatur spielt die gewählte Spur (A W S E D F T G Y H U J K O L P ab dem C der Oktave, Z / X Oktave, C / V Anschlagstärke).</p>
+      <p><b>Presets als Dateien:</b> Projects &gt; Presets on the device zeigt die User-Slots U01 bis U32. Einen oder alle herunterladen, einen durch eine Datei ersetzen oder mehrere hochladen. <b>Library &gt; Export presets</b> speichert die angezeigten Sounds als Preset-Datei.</p>
+      <p><b>Samples:</b> Der Samples-Tab lädt ein Sample nach USR1 (der zweite und dritte Sample-Slot enthalten die Szenen und die Extras). FLUTE und SAX sind nicht mehr eingebaut; es gibt sie als Slot-Dateien (<code>FLUTE.slot</code>, <code>SAX.slot</code> im Ordner <code>samples</code> der ZIP), die <b>Slot file</b> nach USR1 schreibt. SET USR1 bei SAMPLE spielt sie dann.</p>
+    </div>
   </section>
 
   <section class="sub" id="de-sp-auto">
@@ -2722,7 +2838,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 </section>
 
 <footer class="foot">
-  <p>JAN3000 v0.8 · Bedienungsanleitung · Stand Oktober 2026.</p>
+  <p>JAN3000 v1.0 · Bedienungsanleitung · Stand Oktober 2026.</p>
 </footer>
 </div>
 
@@ -2801,7 +2917,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     var s = '<rect class="scr" x="270" y="42" width="204" height="204" rx="6"/>';
     if (!spec) {
       return s + '<text class="s-title" x="372" y="146" text-anchor="middle" font-size="34">JAN3000</text>' +
-        '<text class="s-sub" x="372" y="170" text-anchor="middle">v0.8</text>';
+        '<text class="s-sub" x="372" y="170" text-anchor="middle">v1.0</text>';
     }
     var p = spec.split("|"), title = p[0], cards = p.slice(1, 5);
     var fs = Math.min(32, 186 / (Math.max(title.length, 4) * 0.66));

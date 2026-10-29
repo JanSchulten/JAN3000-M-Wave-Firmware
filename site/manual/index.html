@@ -1,0 +1,111 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<!-- Copyright (C) 2026 M-Vave-OP1 contributors -->
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JAN3000 controls / Bedienung</title>
+<style>
+  :root { color-scheme: dark; font: 17px/1.65 system-ui,sans-serif; background:#161918; color:#e9eee9; }
+  body { max-width:760px; margin:48px auto; padding:0 24px 64px; }
+  a { color:#a9d4a3; } h1,h2,h3 { line-height:1.25; } h2 { margin-top:48px; }
+  kbd { font:inherit; font-weight:650; border:1px solid #526154; border-radius:4px; padding:1px 5px; }
+  article { border-top:1px solid #526154; margin-top:32px; }
+</style>
+<body>
+<h1>JAN3000</h1>
+<nav><a href="#controls">English</a> · <a href="#de-controls">Deutsch</a></nav>
+<p><a href="manual.html">Full manual / Ausführliches Handbuch</a> (every feature explained, English and German / alle Funktionen erklärt, auf Englisch und Deutsch)</p>
+<article lang="en" id="controls">
+  <h2>Controls</h2>
+  <section id="navigation"><h3>Pages and tempo</h3><p>SELECT browses the current family, in either direction.
+  On HOME it cycles HOME → MIXER → CLOCK → EQ → HOME. HOME always returns HOME. A page button opens its family;
+  the same button again returns HOME, including two quick taps. Hold the button to use its live layer.
+  Change tempo on CLOCK with KNOB 1, or hold GLO and tap F4. SELECT never changes tempo.</p></section>
+  <section id="mixer"><h3>Mixer and voices</h3><p>MIXER: KNOB 1 LEVEL, KNOB 2 PAN, KNOB 4 MUTE. REV is on FX → SEND.
+  VOICE 2 holds ALLOC, DTUNE and SPRD. HOME offers TRACKS and SCOPE; stored LEVELS becomes TRACKS.</p></section>
+  <section id="eq"><h3>EQ (four bands a track)</h3><p>HOME → SELECT to EQ, for the track picked with ALGORITHM. KNOB 1 BAND (1–4),
+  KNOB 2 FREQ (20 Hz–20 kHz), KNOB 3 GAIN (−12 to +12 dB; on LP and HP the resonance), KNOB 4 TYPE: L.SHF, BELL, H.SHF, LP, HP.
+  The EQ sits after the track's INSERT and before LEVEL, PAN and the sends. It starts flat, belongs to the track (a sound loaded keeps it)
+  and is saved with the project.</p></section>
+  <section id="scene-edit"><h3>Scenes: clear, and transpose</h3><p>Hold SEQ and hold OCT− for 0.7 s: the scene playing is cleared (SCENE n CLEARED) and
+  the nearest earlier scene that holds something plays at once; OCT+ held copies it. Hold SEQ and press A#4 / C#5 on a track that is not a drum kit:
+  TRN −1 / TRN +1 moves every note of the sequence a semitone down / up. Hold SAVE to undo.</p></section>
+  <section id="recording"><h3>Recording settings</h3><p>Hold REC: KNOB 1 CLICK, KNOB 2 COUNT-IN,
+  KNOB 3 CLICK LEVEL. These settings are kept after power-off and appear only in this layer.</p></section>
+  <section id="step-values"><h3>Step values</h3><p>SEQ → DETAIL: KNOB 1 CHANCE, KNOB 2 RATCH,
+  KNOB 3 NUDGE, KNOB 4 VEL. PRESETS chooses the step. AUTOMATION lists parameter locks and recorded knob moves.</p></section>
+  <section id="undo"><h3>Undo and redo</h3><p>Hold SAVE to undo; hold it again to redo. A layer's persistent changes form
+  one step, even after several edits. SAVE also works while the layer stays open. A recording is one step across its armed
+  tracks, automation, KEY, FX lanes or song entry; SAVE ends the recording arms before undoing it.
+  OCT keys move the octave in every live layer except SEQ, where they select scenes. REC has no BACK or OCT undo;
+  SEQ + EDIT has no put-back action. Temporary punch-in effects follow their held keys.</p></section>
+  <section id="storage"><h3>Projects and user sounds</h3><p>Open SAVE, then use SELECT to choose PROJECT or USER.
+  White keys select A–D on PROJECT, or slots 1–16 of the current USER bank. USER has two banks; KNOB 1 selects bank 1 or 2.
+  OCT+ saves, OCT− asks to load. Saving an occupied slot asks before overwriting; a new save opens NAME first.
+  F#3 opens the slot name, G#3 asks to delete it. OCT+ confirms and OCT− cancels. An empty slot cannot load.
+  PROJECT's F#5 starts a new project after confirmation. Deleting a stored project keeps the live music in RAM.</p></section>
+  <section id="clearing"><h3>Clearing</h3><p>Hold REC and press F3 to clear notes and automation on the selected track.
+  SEQ + F#3 has no action. On AUTOMATION, select PLAY / CLEAR and press OCT+ to clear automation only.
+  On FX TRACKS, EDIT asks before clearing the selected lane. On SONG, F#3 deletes the selected section and G#3 clears the song;
+  OCT+ confirms and OCT− cancels. Initialize a sound with EDIT held + F#5. SAVE has no TOOLS page.</p></section>
+  <section id="chords"><h3>Chords</h3><p>SCL → CHORD is the one chord page. KNOB 1 CHRD runs OFF, DIA3, DIA7, MAJ, MIN,
+  DOM7, MAJ7, MIN7, SUS4, POW and continues into the chord sets SET 1–100. KNOB 2 VOIC voices the shapes. KNOB 3 GENRE
+  jumps between the sets' genres and back to POW before SET 1. A set makes the track POLY; a shape gives its VOICE back.
+  SCL held: KNOB 3 is the same list. Projects saved with CSET on load with their set.</p></section>
+  <section id="octaves">
+    <h3>Octave and chord entry</h3>
+    <p><kbd>OCT+</kbd> and <kbd>OCT−</kbd> move the keyboard octave on STEP, stopped and playing.
+    They confirm or cancel a dialog or action; in the SEQ layer they select scenes.</p>
+    <p>To enter a chord one note at a time, set MENU → CONTROL → CHORD ENTRY to ADD, arm STEP with
+    <kbd>REC</kbd>, and press the note keys. Pressing a note again removes it; turn KNOB 1 to choose another step.</p>
+  </section>
+</article>
+<article lang="de" id="de-controls">
+  <h2>Bedienung</h2>
+  <section id="de-navigation"><h3>Seiten und Tempo</h3><p>SELECT blättert die aktuelle Familie in beide Richtungen.
+  Auf HOME: HOME → MIXER → CLOCK → EQ → HOME. HOME führt immer zu HOME. Eine Seitentaste öffnet ihre Familie;
+  dieselbe Taste erneut führt zu HOME, auch bei zwei schnellen Tipps. Halten öffnet die Live-Ebene.
+  Tempo: auf CLOCK mit KNOB 1 oder GLO halten und F4 tippen. SELECT ändert nie das Tempo.</p></section>
+  <section id="de-mixer"><h3>Mixer und Stimmen</h3><p>MIXER: KNOB 1 LEVEL, KNOB 2 PAN, KNOB 4 MUTE. REV liegt auf FX → SEND.
+  VOICE 2 enthält ALLOC, DTUNE und SPRD. HOME bietet TRACKS und SCOPE; gespeichertes LEVELS wird zu TRACKS.</p></section>
+  <section id="de-eq"><h3>EQ (vier Bänder pro Spur)</h3><p>HOME → SELECT bis EQ, für die mit ALGORITHM gewählte Spur. KNOB 1 BAND (1–4),
+  KNOB 2 FREQ (20 Hz–20 kHz), KNOB 3 GAIN (−12 bis +12 dB; bei LP und HP die Resonanz), KNOB 4 TYPE: L.SHF, BELL, H.SHF, LP, HP.
+  Der EQ sitzt nach dem INSERT der Spur und vor LEVEL, PAN und den Sends. Er startet flach, gehört zur Spur (ein geladener Sound behält ihn)
+  und wird mit dem Projekt gespeichert.</p></section>
+  <section id="de-scene-edit"><h3>Szenen: löschen und transponieren</h3><p>SEQ halten und OCT− 0,7 s halten: Die laufende Szene wird geleert (SCENE n CLEARED),
+  und die nächste frühere Szene mit Inhalt läuft sofort; OCT+ gehalten kopiert sie. SEQ halten und A#4 / C#5 auf einer Spur, die kein Drum-Kit ist:
+  TRN −1 / TRN +1 verschiebt alle Noten der Sequenz einen Halbton tiefer / höher. SAVE halten macht rückgängig.</p></section>
+  <section id="de-recording"><h3>Aufnahme-Einstellungen</h3><p>REC halten: KNOB 1 CLICK, KNOB 2 COUNT-IN,
+  KNOB 3 CLICK LEVEL. Diese Einstellungen bleiben nach dem Ausschalten erhalten und stehen nur in dieser Ebene.</p></section>
+  <section id="de-step-values"><h3>Schrittwerte</h3><p>SEQ → DETAIL: KNOB 1 CHANCE, KNOB 2 RATCH,
+  KNOB 3 NUDGE, KNOB 4 VEL. PRESETS wählt den Schritt. AUTOMATION listet Parameter-Locks und aufgenommene Reglerbewegungen.</p></section>
+  <section id="de-undo"><h3>Undo und Redo</h3><p>SAVE halten macht rückgängig; erneut halten stellt wieder her.
+  Die bleibenden Änderungen einer geöffneten Ebene sind ein Schritt, auch nach mehreren Eingriffen. SAVE funktioniert auch
+  bei noch offener Ebene. Eine Aufnahme ist ein Schritt für ihre scharfgestellten Spuren, Automation, KEY, FX-Spuren oder Song-Eingabe;
+  SAVE beendet die Aufnahmeschaltung vor dem Undo. OCT verschiebt in jeder Live-Ebene die Oktave, außer bei SEQ für Szenen.
+  REC hat weder BACK noch OCT-Undo; SEQ + EDIT setzt nichts zurück. Temporäre Effekte folgen ihren gehaltenen Tasten.</p></section>
+  <section id="de-storage"><h3>Projekte und eigene Klänge</h3><p>SAVE öffnen, mit SELECT PROJECT oder USER wählen.
+  Weiße Tasten wählen A–D auf PROJECT oder die Plätze 1–16 der aktuellen USER-Bank. KNOB 1 wählt auf USER Bank 1 oder 2.
+  OCT+ speichert, OCT− fragt vor dem Laden. Ein belegter Speicherplatz fragt vor dem Überschreiben; ein neuer öffnet zuerst NAME.
+  F#3 öffnet den Namen, G#3 fragt vor dem Löschen. OCT+ bestätigt, OCT− bricht ab. Ein leerer Platz kann nicht geladen werden.
+  F#5 auf PROJECT beginnt nach Rückfrage ein neues Projekt. Ein gespeichertes Projekt löschen lässt die laufende Musik im RAM stehen.</p></section>
+  <section id="de-clearing"><h3>Löschen</h3><p>REC halten und F3 drücken löscht Noten und Automation der gewählten Spur.
+  SEQ + F#3 hat keine Funktion. Auf AUTOMATION die Zeile PLAY / CLEAR wählen und OCT+ drücken, um nur Automation zu löschen.
+  Auf FX TRACKS fragt EDIT vor dem Löschen der gewählten FX-Spur. Auf SONG löscht F#3 den gewählten Abschnitt und G#3 den Song;
+  OCT+ bestätigt, OCT− bricht ab. EDIT halten + F#5 initialisiert den Klang. SAVE hat keine TOOLS-Seite.</p></section>
+  <section id="de-chords"><h3>Akkorde</h3><p>SCL → CHORD ist die einzige Akkordseite. KNOB 1 CHRD läuft OFF, DIA3, DIA7,
+  MAJ, MIN, DOM7, MAJ7, MIN7, SUS4, POW und weiter in die Akkord-Sets SET 1–100. KNOB 2 VOIC setzt die Akkordformen.
+  KNOB 3 GENRE springt zwischen den Genres der Sets und vor SET 1 zurück zu POW. Ein Set macht die Spur POLY; eine
+  Akkordform gibt ihr VOICE zurück. SCL halten: KNOB 3 ist dieselbe Liste. Projekte mit CSET an laden mit ihrem Set.</p></section>
+  <section id="de-octaves">
+    <h3>Oktave und Akkordeingabe</h3>
+    <p><kbd>OCT+</kbd> und <kbd>OCT−</kbd> verschieben auf STEP die Tastaturoktave, im Stopp und beim Abspielen.
+    In einem Dialog oder bei einer Aktion bestätigen sie oder brechen ab; in der SEQ-Ebene wählen sie Szenen.</p>
+    <p>Für Akkorde aus einzeln eingegebenen Noten MENU → CONTROL → CHORD ENTRY auf ADD stellen, STEP mit
+    <kbd>REC</kbd> scharfstellen und die Notentasten drücken. Eine Note erneut drücken entfernt sie;
+    KNOB 1 wählt den nächsten Schritt.</p>
+  </section>
+</article>
+</body>
+</html>
