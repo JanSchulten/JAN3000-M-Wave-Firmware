@@ -13,7 +13,8 @@ from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "firmware" / "src"
 # a function's first line: at column 0, a type and a name, '(' and no ';' (a prototype) on it
-FDEF = re.compile(r"^(?:static\s+|inline\s+|FM1_FPU\s+|__attribute__\(\([^)]*\)\)\s+)*[A-Za-z_][\w\s*]*?\b([A-Za-z_]\w*)\s*\(")
+FDEF = re.compile(r"^(?:static\s+|inline\s+|FM1_FPU\s+|__attribute__\(\([^)]*\)\)\s+)*"
+                  r"[A-Za-z_][\w\s*]*?\b([A-Za-z_]\w*)\s*\(")
 
 
 def kinds():
@@ -67,8 +68,8 @@ def report(names, where):
     L += ["", "## Each panel kind", "", "| Kind | References | Where |", "| --- | ---: | --- |"]
     for g in sorted(names, key=lambda g: -sum(where[g].values())):
         w = where[g]
-        L.append(f"| `{g}` | {sum(w.values())} | " +
-                 (", ".join(f"`{fn}` ({f}{' x' + str(n) if n > 1 else ''})" for (f, fn), n in w.most_common()) or "-") + " |")
+        at = ", ".join(f"`{fn}` ({f}{' x' + str(n) if n > 1 else ''})" for (f, fn), n in w.most_common())
+        L.append(f"| `{g}` | {sum(w.values())} | {at or '-'} |")
     return "\n".join(L) + "\n"
 
 
