@@ -352,3 +352,61 @@ static void browse_panel(const track_t *t, uint16_t c)
 }
 static const page_ops_t BROWSE_OPS = {.flags = PG_LIST | PG_NO_MOM, .knob = browse_knob, .cards = browse_cards,
                                       .draw = browse_panel};
+
+/* ------------------------------------------------- SAVE > PROJECT, SAVE > USER --- */
+/* the slot pages (PG_SLOTS): the keys pick a slot, OCT+ saves, OCT- loads, F#3 renames, G#3 erases (ui_input.c
+ * slots_keys, slots_oct, ui_name.c name_rename); PROJECT's four projects, USER's two banks of sixteen user presets
+ * (PG_USER_SLOTS: slots_user). PROJECT is SAVE's first (PG_ENTRY) and keeps F#5 NEW */
+/* the cards: USER's BANK, the SLOT, where SAVE and LOAD are */
+static void slots_cards(void)
+{
+    char val[12];
+    uint32_t user = slots_user();
+    if (user) {
+        draw_column(0, "BANK", ui.uslot & 16u ? "2" : "1", "/2", VAL(0u), ui.uslot & 16u ? 1000 : 0, ICON_AUTO);
+        up_slot_label(val, ui.uslot);
+    } else {
+        draw_column(0, "", "", "", T_THEME, -1, ICON_NONE);
+        val[0] = (char)('A' + (((uint32_t)song.g[G_SLOT] - 1u) & 3u)); val[1] = 0;
+    }
+    draw_column(1, "SLOT", val, "", T_THEME, -1, ICON_AUTO);
+    draw_column(2, "SAVE", "OCT+", "", T_THEME, -1, ICON_AUTO);
+    draw_column(3, "LOAD", "OCT-", "", T_THEME, -1, ICON_AUTO);
+}
+static void slots_knob(uint32_t slot, int32_t steps)   /* PROJECT: the keys pick, no knob does anything */
+{
+    (void)slot;
+    (void)steps;
+}
+static void slots_panel(const track_t *t, uint16_t c)
+{
+    (void)t;
+    (void)c;
+    cv_oy = 0;
+    graph_slots();
+}
+static uint32_t slots_sig(uint32_t h)
+{
+    uint32_t i;
+    for (i = 0; i < 4u; i++)
+        h ^= (uint32_t)graph_project_used(i) << (20u + i);
+    h += graph_pname_sig;
+    return h;
+}
+static const page_ops_t SLOTS_OPS = {.flags = PG_LIST | PG_SLOTS | PG_ENTRY, .knob = slots_knob, .cards = slots_cards,
+                                     .draw = slots_panel, .sig = slots_sig};
+/* USER: KNOB 1 picks one of the two banks; the keys its slots */
+static void user_knob(uint32_t slot, int32_t steps)
+{
+    if (slot == 0u)
+        ui.uslot = (uint8_t)((ui.uslot & 15u) + (steps > 0 ? 16u : 0u));
+}
+static void user_panel(const track_t *t, uint16_t c)
+{
+    (void)t;
+    (void)c;
+    cv_oy = 0;
+    graph_user();
+}
+static const page_ops_t USER_OPS = {.flags = PG_LIST | PG_SLOTS | PG_USER_SLOTS | PG_NO_MOM, .hot = 1u, .knob = user_knob,
+                                    .cards = slots_cards, .draw = user_panel};

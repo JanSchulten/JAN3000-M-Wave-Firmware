@@ -13,7 +13,8 @@ each optional (0: the shared default):
 
 - `flags`: `PG_LIST` (MENU > LARGE's list layout), `PG_K1` (the PRESETS knob turns KNOB 1), `PG_ACT_FIXED` (an action
   of the page's own: no knob picks one, OCT- goes back), `PG_NO_MOM` (no MOMENTARY on its knobs), `PG_CHAIN_KEYS`
-  (the keys type a song chain: SONG).
+  (the keys type a song chain: SONG), `PG_SLOTS` / `PG_USER_SLOTS` (a slot page: the keys pick, OCT+ saves, OCT- loads;
+  user presets or projects: PROJECT, USER), `PG_ENTRY` (the family's button opens it: PROJECT).
 - `acts`, `act_col`, `act_name`, `act_ready`, `act_do`: an action page (SONG, PHRASES, AUTOMATION are the models).
 - `hot`: the columns a turned knob lights; `desc`: KNOB 1..4's values when the page keeps its own (EQ); `knob`: the
   knobs handled whole (SONG); `enter`: the page opened.
