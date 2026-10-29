@@ -3,7 +3,8 @@
 # Copyright (C) 2026 M-Vave-OP1 contributors
 """M-Vave-OP1: where the UI code asks which page it is on. Every reference to a page's panel kind (GR_* in
 firmware/src, params.c's enum) outside its enum and PAGES[], grouped by the function that holds it: the places a page
-is special-cased, which the page's own code (params.c page_ops_t, ui_pages.c) takes over one page at a time. Writes Markdown: the functions by how many cases they hold, then each GR_* with its places.
+is special-cased, which the page's own code (params.c page_ops_t, ui_pages.c) takes over one page at a time.
+Writes Markdown: the functions by how many cases they hold, then each GR_* with its places.
   tools/ui_pages.py [OUT.md]          (default: print)"""
 import collections
 import re
