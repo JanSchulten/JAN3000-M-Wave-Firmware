@@ -810,6 +810,25 @@ static void test_clear(void)
           !scene_used(1) && trk[0].seq_pos == 0x7FFFFFFFu && blocks_to_switch(6000, 5) == 6000u && scn.cur == 0u;
     ck("  playing: at once, scene 1 from its step 1; the pick waiting (scene 6) taken back, nothing switches after", ok);
     stop_transport();
+    /* a damaged bank (the scene to play next cut short): refused, SCENE DAMAGED; the pick waiting dropped (its buffer
+     * took the failed unpack: the ISR must not swap it in at the pattern's end) */
+    scene_setup();
+    seq_pick(1);
+    melody(&trk[0], 66, 16);
+    capture(&s3);
+    transport_req = 1;
+    for (b = 0; b < 700u; b++)
+        blk();
+    seq_pick(5);
+    ok = scn.req == SCN_END && scn.next == 5u && scb.len[0] > 1u;
+    scb_resize(0, scb.len[0] - 1u);                    /* (scene 1's last byte gone) */
+    seq_clear();
+    ok &= msg_is("SCENE DAMAGED") && scn.cur == 1u && scn.req == SCN_IDLE;
+    blocks_to_switch(6000, 5);
+    capture(&pa);
+    ok &= scn.cur == 1u && same_pattern(&pa, &s3) && song.playing;
+    ck("  a damaged bank: SCENE DAMAGED, the scene playing plays on; the pick waiting dropped, nothing switches after", ok);
+    stop_transport();
     /* kept: a project saved after a clear loads without it */
     scene_setup();
     seq_pick(3);
