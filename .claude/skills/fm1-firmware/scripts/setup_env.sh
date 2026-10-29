@@ -39,6 +39,21 @@ python3 -c "import PIL, fontTools" 2>/dev/null || pip3 install -q Pillow fonttoo
 python3 -c "import mido, rtmidi" 2>/dev/null || pip3 install -q mido python-rtmidi > /dev/null 2>&1 || \
     echo "note: mido / python-rtmidi missing (only tools/fm1_install.py needs them; python-rtmidi needs ALSA headers)"
 
+# graphify (CLAUDE.md): the code's knowledge graph for Claude, built locally from the AST (no LLM, no key); not
+# needed to build or test, so a failure here only says so
+GRAPHIFY_VER=0.9.97
+if ! command -v graphify >/dev/null 2>&1; then
+    if command -v uv >/dev/null 2>&1; then uv tool install -q "graphifyy==$GRAPHIFY_VER"
+    elif command -v pipx >/dev/null 2>&1; then pipx install -q "graphifyy==$GRAPHIFY_VER"
+    else pip3 install -q "graphifyy==$GRAPHIFY_VER"; fi > /dev/null 2>&1 || true
+fi
+if command -v graphify >/dev/null 2>&1; then
+    { graphify extract . --code-only && graphify cluster-only . --no-label; } > /dev/null 2>&1 &&
+        echo "graphify: graphify-out/ (graph.json, GRAPH_REPORT.md)" || echo "note: graphify could not build the graph"
+else
+    echo "note: graphify missing (only Claude's code graph needs it: CLAUDE.md)"
+fi
+
 if [ "$1" = "--emsdk" ]; then
     if [ -f "$HOME/emsdk/emsdk_env.sh" ]; then
         echo "emsdk: $HOME/emsdk (kept)"

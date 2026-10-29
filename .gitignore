@@ -3,3 +3,4 @@ build/
 __pycache__/
 *.fwsc
 !vendor/m-vave/FM-1_015.fwsc
+graphify-out/
