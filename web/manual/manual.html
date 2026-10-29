@@ -350,17 +350,17 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
 <div class="lang" lang="en">
 <header class="hero">
-  <p class="eyebrow">User guide · Firmware for the M-VAVE FM-1 · Version 0.8</p>
+  <p class="eyebrow">User guide · Firmware for the M-VAVE FM-1 · Version 1.0</p>
   <h1>JAN3000</h1>
   <p class="lede">JAN3000 is free firmware for the M-VAVE FM-1 pocket synthesizer. It turns the little device into a pocket studio: four tracks with their own sound engines, a step sequencer with 16 scenes, a KEY track for chord progressions and two tracks just for effects.</p>
   <div class="specs">
     <div><b>4</b><span>Tracks</span></div>
-    <div><b>16</b><span>Engines</span></div>
+    <div><b>17</b><span>Engines</span></div>
     <div><b>64</b><span>Steps per track</span></div>
     <div><b>16</b><span>Scenes per project</span></div>
     <div><b>27</b><span>Keys F3–G5</span></div>
   </div>
-  <p class="status">JAN3000 is in early development and has run on a real FM-1 since its first flash. Installing it is at your own risk. The open-source work it builds on is credited under <a href="#help-thanks">Licence and thanks</a>.</p>
+  <p class="status">JAN3000 v1.0 is the first release; every change in it ran on a real FM-1. Installing it is at your own risk. The open-source work it builds on is credited under <a href="#help-thanks">Licence and thanks</a>.</p>
 </header>
 
 <!-- ================================================================ 1 -->
@@ -399,7 +399,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="ov-glance">
     <h3>At a glance</h3>
     <dl class="defs">
-      <dt>Sound</dt><dd>16 engines: two virtual-analog engines, 6-operator FM, five macro-oscillator models, a lo-fi chip engine, samples, organ, granular, physical models, noise and two drum engines.</dd>
+      <dt>Sound</dt><dd>17 engines: two virtual-analog engines, 6-operator FM, five macro-oscillator models, a lo-fi chip engine, samples, organ, granular, physical models, noise, two drum engines and a TB-303 bass line.</dd>
       <dt>Sequencer</dt><dd>64 steps per track, chords of up to four notes, chance, ratchets, parameter locks and recorded knob moves.</dd>
       <dt>Structure</dt><dd>16 scenes per project, a KEY track for chord progressions, song chains of the project slots A–D.</dd>
       <dt>Effects</dt><dd>An insert per track, chorus, delay or a granular cloud, reverb, punch-ins in two maps and two FX tracks that record them.</dd>
@@ -594,8 +594,8 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="tr-engine">
     <h3>Changing the engine</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F3=ANALOG;G3=ANLG2;A3=FM6;B3=WSHAPE;C4=HRMNC;D4=PRTCL;E4=WTABLE;F4=SWARM;G4=LOFI;A4=SAMPLE;B4=WHEEL;C5=GRAIN;D5=PHYS;E5=NOISE;F5=DRUM;G5=VDRUM;F#5=INIT" data-alt="EDIT layer: the 16 engines on the white keys"></div></div>
-      <figcaption><kbd>EDIT</kbd> held: the 16 white keys are the engines in the unit's order, F#5 is INIT.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F3=ANALOG;G3=ANLG2;A3=FM6;B3=WSHAPE;C4=HRMNC;D4=PRTCL;E4=WTABLE;F4=SWARM;G4=LOFI;A4=SAMPLE;B4=WHEEL;C5=GRAIN;D5=PHYS;E5=NOISE;F5=DRUM;G5=VDRUM;D#5=ACID;F#5=INIT" data-alt="EDIT layer: 16 engines on the white keys, ACID on D#5"></div></div>
+      <figcaption><kbd>EDIT</kbd> held: the 16 white keys are the engines in the unit's order, D#5 is ACID, F#5 is INIT.</figcaption>
     </figure>
     <div class="prose">
       <p>Hold <kbd>EDIT</kbd> and press a white key: the track gets that engine with its first sound. <kbd>F#5</kbd> asks INITIALIZE SOUND?; <kbd>OCT+</kbd> resets the engine to its defaults and its first sound. <kbd>OCT−</kbd> in the layer takes an engine choice back.</p>
@@ -627,7 +627,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 <!-- ================================================================ 5 -->
 <section class="chapter" id="engines">
   <div class="ch-head"><span class="ch-num" aria-hidden="true"></span><h2>Engines</h2>
-    <p class="lede">16 sound engines, each with its own factory sounds. The key next to the name picks the engine in the EDIT layer.</p></div>
+    <p class="lede">17 sound engines, each with its own factory sounds. The key next to the name picks the engine in the EDIT layer.</p></div>
 
   <section class="sub" id="en-all">
     <h3>All engines</h3>
@@ -1596,17 +1596,17 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 </div>
 <div class="lang" lang="de" hidden>
 <header class="hero">
-  <p class="eyebrow">Bedienungsanleitung · Firmware für das M-VAVE FM-1 · Version 0.8</p>
+  <p class="eyebrow">Bedienungsanleitung · Firmware für das M-VAVE FM-1 · Version 1.0</p>
   <h1>JAN3000</h1>
   <p class="lede">JAN3000 ist eine freie Firmware für den Taschen-Synthesizer M-VAVE FM-1. Sie macht das kleine Gerät zum Taschenstudio: vier Spuren mit eigener Klangerzeugung, ein Step-Sequencer mit 16 Szenen, eine KEY-Spur für Akkordfolgen und zwei Spuren nur für Effekte.</p>
   <div class="specs">
     <div><b>4</b><span>Spuren</span></div>
-    <div><b>16</b><span>Engines</span></div>
+    <div><b>17</b><span>Engines</span></div>
     <div><b>64</b><span>Schritte je Spur</span></div>
     <div><b>16</b><span>Szenen je Projekt</span></div>
     <div><b>27</b><span>Tasten F3–G5</span></div>
   </div>
-  <p class="status">JAN3000 ist in früher Entwicklung und läuft seit dem ersten Flash auf einem echten FM-1. Die Installation geschieht auf eigenes Risiko. Die Open-Source-Arbeit, auf der die Firmware aufbaut, steht unter <a href="#de-hilfe-dank">Lizenz und Dank</a>.</p>
+  <p class="status">JAN3000 v1.0 ist die erste Version; jede Änderung darin lief auf einem echten FM-1. Die Installation geschieht auf eigenes Risiko. Die Open-Source-Arbeit, auf der die Firmware aufbaut, steht unter <a href="#de-hilfe-dank">Lizenz und Dank</a>.</p>
 </header>
 
 <!-- ================================================================ 1 -->
@@ -1645,7 +1645,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-ueb-blick">
     <h3>Auf einen Blick</h3>
     <dl class="defs">
-      <dt>Klang</dt><dd>16 Engines: zwei virtuell-analoge, 6-Operator-FM, fünf Makro-Oszillator-Modelle, ein Lo-Fi-Chip-Klang, Samples, Orgel, Granular, physikalische Modelle, Rauschen und zwei Drum-Engines.</dd>
+      <dt>Klang</dt><dd>17 Engines: zwei virtuell-analoge, 6-Operator-FM, fünf Makro-Oszillator-Modelle, ein Lo-Fi-Chip-Klang, Samples, Orgel, Granular, physikalische Modelle, Rauschen, zwei Drum-Engines und eine TB-303-Basslinie.</dd>
       <dt>Sequencer</dt><dd>64 Schritte pro Spur, Akkorde bis vier Töne, Chance, Ratchets, Parameter-Locks und aufgenommene Reglerbewegungen.</dd>
       <dt>Struktur</dt><dd>16 Szenen pro Projekt, eine KEY-Spur für Akkordfolgen, Song-Ketten aus den Projekt-Slots A–D.</dd>
       <dt>Effekte</dt><dd>Insert pro Spur, Chorus, Delay oder Granular-Wolke, Hall, Punch-ins in zwei Belegungen und zwei FX-Spuren, die Punch-ins aufnehmen.</dd>
@@ -1840,8 +1840,8 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-sp-engine">
     <h3>Engine wechseln</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F3=ANALOG;G3=ANLG2;A3=FM6;B3=WSHAPE;C4=HRMNC;D4=PRTCL;E4=WTABLE;F4=SWARM;G4=LOFI;A4=SAMPLE;B4=WHEEL;C5=GRAIN;D5=PHYS;E5=NOISE;F5=DRUM;G5=VDRUM;F#5=INIT" data-alt="EDIT-Ebene: die 16 Engines auf den weißen Tasten"></div></div>
-      <figcaption><kbd>EDIT</kbd> gehalten: Die 16 weißen Tasten sind die Engines in der Reihenfolge des Geräts, F#5 ist INIT.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F3=ANALOG;G3=ANLG2;A3=FM6;B3=WSHAPE;C4=HRMNC;D4=PRTCL;E4=WTABLE;F4=SWARM;G4=LOFI;A4=SAMPLE;B4=WHEEL;C5=GRAIN;D5=PHYS;E5=NOISE;F5=DRUM;G5=VDRUM;D#5=ACID;F#5=INIT" data-alt="EDIT-Ebene: 16 Engines auf den weißen Tasten, ACID auf D#5"></div></div>
+      <figcaption><kbd>EDIT</kbd> gehalten: Die 16 weißen Tasten sind die Engines in der Reihenfolge des Geräts, D#5 ist ACID, F#5 ist INIT.</figcaption>
     </figure>
     <div class="prose">
       <p><kbd>EDIT</kbd> halten und eine weiße Taste drücken: Die Spur bekommt diese Engine mit ihrem ersten Sound. <kbd>F#5</kbd> fragt INITIALIZE SOUND?; <kbd>OCT+</kbd> setzt die Engine auf ihre Grundwerte und ihren ersten Sound zurück. <kbd>OCT−</kbd> in der Ebene nimmt eine Engine-Wahl zurück.</p>
@@ -1873,7 +1873,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 <!-- ================================================================ 5 -->
 <section class="chapter" id="de-engines">
   <div class="ch-head"><span class="ch-num" aria-hidden="true"></span><h2>Engines</h2>
-    <p class="lede">16 Klangerzeuger, jeder mit eigenen Werks-Sounds. Die Taste neben dem Namen wählt die Engine in der EDIT-Ebene.</p></div>
+    <p class="lede">17 Klangerzeuger, jeder mit eigenen Werks-Sounds. Die Taste neben dem Namen wählt die Engine in der EDIT-Ebene.</p></div>
 
   <section class="sub" id="de-eng-alle">
     <h3>Alle Engines</h3>
