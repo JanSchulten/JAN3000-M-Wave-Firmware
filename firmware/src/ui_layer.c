@@ -1430,3 +1430,6 @@ static void draw_layer(void)
         ui.foot_sig = 0;
     }
 }
+
+/* M-Vave-OP1: the pages' own code (params.c page_ops_t), last: it uses every part of the UI above */
+#include "ui_pages.c"

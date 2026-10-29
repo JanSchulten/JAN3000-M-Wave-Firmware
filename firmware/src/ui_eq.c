@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 M-Vave-OP1 contributors */
 /* M-Vave-OP1: HOME > EQ's panel (the page: params.c PAGES "EQ", its knobs eq_page_desc; the sound: eq.c). Included by
- * ui_graph.c, whose GRAPH_OPS hands it draw_graph's panel and graph_signature's state. */
+ * ui_pages.c (EQ_OPS: its knobs, draw_graph's panel and graph_signature's state). */
 /* M-Vave-OP1, HOME > EQ: the selected track's response, 20 Hz .. 20 kHz over the panel (a point a FREQ step, 121), +-12 dB
  * around the 0 dB line (beyond: at the edge); the grid at 100 Hz, 1 kHz, 10 kHz; the band picked (KNOB 1) as its own
  * curve, thin, the sum of the four in the theme's colour, thick; each band a numbered point at its FREQ and its own
@@ -85,4 +85,12 @@ static uint32_t eq_sig(uint32_t h)
         h = (h ^ ((uint32_t)(uint16_t)bd[i].f | (uint32_t)(uint16_t)bd[i].g << 8 | (uint32_t)bd[i].ty << 16 |
                   (uint32_t)bd[i].q << 24)) * 16777619u;
     return h;
+}
+/* the EQ page's knobs (page_ops_t desc): BAND, then the band's FREQ, GAIN (a LP / HP: RESO), TYPE */
+static const param_desc_t *eq_page_desc(uint32_t slot, int16_t **valp)
+{
+    eq_band_t *b = &eq_set[song.sel % NTRK][eq_ui_band & 3];
+    int16_t *const v[4] = {&eq_ui_band, &b->f, eq_pass(b) ? &b->q : &b->g, &b->ty};
+    *valp = v[slot & 3u];
+    return &EQ_DESC[slot == 2u && eq_pass(b) ? 4u : slot & 3u];
 }

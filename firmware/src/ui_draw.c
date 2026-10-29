@@ -688,7 +688,7 @@ static void foot_hint(char *a, char *b)
     uint32_t c = act_col();
     str_cpy(a, "OCT+ ", 8);
     str_cpy(a + 5, c ? act_name(c - 1u) : "--", 8);
-    str_cpy(b, ui.act && cur_page()->graph != GR_PATS ? "OCT- CANCEL" : "OCT- BACK", 16);
+    str_cpy(b, ui.act && !(page_ops(cur_page())->flags & PG_ACT_FIXED) ? "OCT- CANCEL" : "OCT- BACK", 16);
 }
 
 /* SAVE > USER / PROJECT: EDIT renames the selected slot (ui_name.c); SEQ > AUTOMATION: EDIT deletes the row's
@@ -888,112 +888,8 @@ static void draw_columns(void)
         }
         return;
     }
-    if (cur_page()->graph == GR_SONG) {             /* SECTION, TRACK, its PAT (A..D, -), REPS (the section's) */
-        uint32_t row = ui.song_row < CHAIN_ROWS ? ui.song_row : CHAIN_ROWS - 1u, k = ui.song_trk % NTRK, sl;
-        int used = row < chain_config.count;
-        fmt_int(val, (int32_t)row + 1);
-        draw_column(0, "SEC", val, "", VAL(0u), -1, ICON_X_SONG);
-        val[0] = 'T';
-        val[1] = (char)('1' + k);
-        val[2] = 0;
-        draw_column(1, "TRACK", val, "", VAL(1u), -1, trk_icon(k, 1));
-        sl = used ? chain_config.row[row].slot[k] : CHAIN_SILENT;
-        if (used) { val[0] = sl < 4u ? (char)('A' + sl) : '-'; val[1] = 0; }
-        else str_cpy(val, "--", sizeof val);
-        draw_column(2, "PAT", val, "", used ? VAL(2u) : T_DIM, -1, ICON_X_PATTERN);
-        if (!used) {                                 /* + ADD (M-Vave-OP1): the song's END, LOOP or STOP */
-            draw_column(3, "END", chain_config.rsv[0] & CHAIN_LOOP ? "LOOP" : "STOP", "", VAL(3u), -1, ICON_LOOP);
-            return;
-        }
-        fmt_int(val, chain_config.row[row].repeat);
-        draw_column(3, "REPS", val, "", VAL(3u), -1, ICON_AUTO);
-        return;
-    }
-    if (cur_page()->graph == GR_EVENTS) {              /* AUTOMATION (ui_events.c): ROW STEP PARAM VALUE */
-        const track_t *t = TSEL;
-        uint16_t rw[EV_ROWS];
-        uint32_t n, c = ev_cur(rw, &n), r = ev_row(n), k = c >> 8, step, id;
-        int16_t v;
-        char nm[12];
-        const param_desc_t *d;
-        if (k == EVK_TOP) {                            /* PLAY: the counts, PLAY ON / OFF (OCT+: CLEAR) */
-            draw_column(0, "ROW", "ALL", "", VAL(0u), -1, ICON_AUTO);
-            fmt_int(val, (int32_t)(motion_count(t) - motion_lock_count(t)));
-            draw_column(1, "EVENT", val, "", T_MID, -1, ICON_NONE);
-            fmt_int(val, (int32_t)motion_lock_count(t));   /* parameter locks (SEQ > STEP: a step held, a knob) */
-            draw_column(2, "LOCK", val, "", T_MID, -1, ICON_NONE);
-            draw_column(3, "PLAY", motion_enabled(t) ? "ON" : "OFF", "", VAL(3u), -1, motion_icon());
-            return;
-        }
-        if (k == EVK_QNT) {                            /* QUANTIZE (1.2): the steps with a NUDGE, QNTZ ON / OFF */
-            draw_column(0, "ROW", "ALL", "", VAL(0u), -1, ICON_AUTO);
-            fmt_int(val, (int32_t)ev_nudged(t));
-            draw_column(1, "NUDGED", val, "", T_MID, -1, ICON_NONE);
-            draw_column(2, "", "", "", T_THEME, -1, ICON_NONE);
-            draw_column(3, "QNTZ", t->p[P_SQNT] ? "ON" : "OFF", "", VAL(3u), -1, ICON_QUANTIZE);
-            return;
-        }
-        if (k == EVK_ADD) {
-            ev_fix();
-            str_cpy(val, "ADD", sizeof val);
-        } else {                                       /* "3/7": the rows between QUANTIZE and + ADD */
-            fmt_int(val, (int32_t)r - 1);
-            str_cpy(val + str_len(val), "/", 4);
-            fmt_int(val + str_len(val), (int32_t)n - 3);
-        }
-        step = ev_step_of(c);
-        id = k == EVK_REC ? MOTION_ID(&motion.event[c & 0xFFu]) : k == EVK_ADD ? ui.ev_id :
-             k == EVK_CHANCE ? EV_CHANCE : k == EVK_RATCH ? EV_RATCH : k == EVK_VEL ? EV_VEL : EV_NUDGE;
-        draw_column(0, "ROW", val, "", VAL(0u), -1, ICON_AUTO);
-        fmt_int(val, (int32_t)step + 1);
-        draw_column(1, "STEP", val, "", k != EVK_ADD || step < (uint32_t)t->p[P_SLEN] ? VAL(1u) : T_DIM, -1, ICON_AUTO);
-        if (!ev_id_ok(t, id)) {
-            draw_column(2, "PARAM", "--", "", T_DIM, -1, ICON_AUTO);
-            draw_column(3, "VALUE", "--", "", T_DIM, -1, ICON_AUTO);
-            return;
-        }
-        ev_name(t, id, nm);
-        draw_column(2, "PARAM", nm, "", k == EVK_REC || k == EVK_ADD ? VAL(2u) : T_MID, -1, ICON_AUTO);
-        if (id == EV_NUDGE) {                          /* a step's NUDGE (1.2): "+3 /16", DIM where it does not play */
-            const step_t *cs = &t->step[step % NSTEP];
-            int32_t sv = k == EVK_ADD ? ev_sadd(EVK_NUDGE) : step_nudge(cs);
-            ev_nudge_fmt(val, sv);
-            draw_column(3, "VALUE", val, "/16", k != EVK_ADD && ev_nudge_plays(t, cs) ? VAL(3u) : T_DIM, (sv + 8) * 66,
-                        ICON_AUTO);
-            return;
-        }
-        if (id == EV_VEL) {                            /* a step's VEL (1.5): 1..127, DIM where it does not play; */
-            const step_t *cs = &t->step[step % NSTEP];  /* + ADD: the rows shown or not */
-            int32_t sv = ev_sval(cs, EVK_VEL);
-            if (k == EVK_ADD) {
-                draw_column(3, "ROWS", ui.ev_vel ? "SHOWN" : "HIDDEN", "", T_DIM, -1, ICON_AUTO);
-                return;
-            }
-            fmt_int(val, sv);
-            draw_column(3, "VALUE", val, "", ev_vel_plays(cs) ? VAL(3u) : T_DIM, sv * 1000 / 127, ICON_LEVEL);
-            return;
-        }
-        if (id == EV_CHANCE || id == EV_RATCH) {       /* a step's CHANCE (the die) / RATCH; + ADD: what it adds */
-            const step_t *cs = &t->step[step % NSTEP];
-            uint32_t sk = ev_skind(id), sv = (uint32_t)(k == EVK_ADD ? ev_sadd(sk) : ev_sval(cs, sk));
-            int plays = sk == EVK_CHANCE || (cs->time == ST_NOTE && (cs->n || cs->hit));   /* (RATCH does nothing on a
-                                                                                            * REST, a TIE, empty: DIM) */
-            if (sk == EVK_CHANCE) {
-                fmt_int(val, (int32_t)sv);
-            } else {
-                val[0] = 'x';                          /* x1 .. x4 */
-                val[1] = (char)('0' + sv);
-                val[2] = 0;
-            }
-            draw_column(3, "VALUE", val, sk == EVK_CHANCE ? "%" : "", k != EVK_ADD && plays ? VAL(3u) : T_DIM,
-                        sk == EVK_CHANCE ? (int32_t)sv * 10 : ((int32_t)sv - 1) * 333, sk == EVK_CHANCE ? ICON_PROB : ICON_X_REPEAT);
-            return;
-        }
-        v = k == EVK_REC ? motion.event[c & 0xFFu].value : motion_base_value(t, id);
-        d = track_desc(t, id);
-        param_format(d, v, val, &unit);
-        draw_column(3, k == EVK_ADD ? "VALUE" : (motion.event[c & 0xFFu].param & MOTION_LOCK) ? "LOCK" : "AUTO", val, unit,
-                    k != EVK_ADD ? VAL(3u) : T_DIM, RATIO(d, enum_rank(d, v)), param_icon(d, v));
+    if (page_ops(cur_page())->cards) {                /* M-Vave-OP1: the page's (SONG, AUTOMATION, PHRASES: ui_pages.c) */
+        page_ops(cur_page())->cards();
         return;
     }
     if (cur_page()->graph == GR_KEY) {                /* M-Vave-OP1, GLO > KEY (key.c): BAR, its ROOT (the chord it
@@ -1129,16 +1025,6 @@ static void draw_columns(void)
         draw_column(1, "ENG", ENGINES[TSEL->eng_req]->name, "", VAL(1u), -1, engine_icon(ENGINES[TSEL->eng_req]->name));
         draw_column(2, "FAV", preset_favorite() ? "ON" : "OFF", "", VAL(2u), -1, ICON_X_STAR);
         draw_column(3, "LIST", list_name(list_mode()), "", VAL(3u), -1, ICON_X_FOLDER);
-        return;
-    }
-    if (cur_page()->graph == GR_PATS) {                  /* PAT, then LOAD (a GO button) */
-        uint32_t n = pat_count(), k = pat_pick();
-        char tag[4], nm[13];
-        pat_label(k, tag, nm);
-        draw_column(0, "PAT", tag, "", VAL(0u), (int32_t)k * 1000 / (int32_t)(n > 1u ? n - 1u : 1u), ICON_X_PATTERN);
-        draw_act_column(1, "LOAD", T_THEME, ICON_AUTO);
-        draw_column(2, "", "", "", T_THEME, -1, ICON_AUTO);
-        draw_column(3, "", "", "", T_THEME, -1, ICON_AUTO);
         return;
     }
     if (cur_page()->graph == GR_USER || cur_page()->graph == GR_SLOTS) {
