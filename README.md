@@ -9,7 +9,8 @@ through a chord progression, and from the OP-Z two FX tracks with recordable pun
 switched while they play, pattern chains, a switchable FX1 with a granular CLOUD, the Roland J-6's 100 chord
 sets on SCL > CHORD and patterns of up to 64 steps. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
-> **Status:** early development, running on a real FM-1 since the first flash (JAN3000 v0.8: the name on its splash).
+> **Status:** JAN3000 v1.0, the first release ([release notes](docs/RELEASE_NOTES.md); JAN3000 is the name on its
+> splash). Each of its changes ran in the host tests and the browser emulator first, then on a real FM-1.
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
 > recovery button; if an install fails and the unit will not start, recovery needs extra
 > hardware (FM-1 Transporter with an RP2040). Develop and try changes in the host tests and the
@@ -368,7 +369,7 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   scenes share it, it is not automated; it is kept with the project (its extras; projects of before load flat). The
   bands are RBJ cookbook biquads on the chip's FPU; a change glides in over a few ms.
 
-- **JAN3000 v0.8 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
+- **JAN3000 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
   like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
   the accent and theme colour beside it and a band torn sideways now and then. Then the version with a blinking block
   cursor, a sine settling under it, "based on Felucca" below.
@@ -544,6 +545,8 @@ more). Felucca projects load as before (with empty FX TRACKS, as scene 1).
 
 ## Documents
 
+- **Release notes:** [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) (JAN3000 v1.0). The release's installer ZIP is on
+  the repository's GitHub releases page and in `dist/`.
 - **First flash on a real FM-1** (German checklists): [docs/ERSTER_FLASH.md](docs/ERSTER_FLASH.md), then
   [docs/TESTLISTE.md](docs/TESTLISTE.md). The installer as a ZIP to start on your computer:
   `dist/M-Vave-OP1-Installer.zip` (`sh tools/make_installer_zip.sh`); it can return the FM-1 to M-VAVE's official

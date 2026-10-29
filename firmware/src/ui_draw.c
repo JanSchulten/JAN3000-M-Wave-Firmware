@@ -1169,7 +1169,10 @@ static void draw_columns(void)
  * boot's wait); draw_splash, the screen cleared and the band at its end (the emulator's first frame, the tests). In
  * the saved palette */
 #define JAN_NAME "JAN3000"
-#define JAN_VERSION "v0.8"
+#ifndef JAN_VERSION
+#define JAN_VERSION "v1.0"                          /* M-Vave-OP1's own version (build.py --release X.Y; the Felucca it is
+                                                     * based on: FELUCCA_VERSION) */
+#endif
 #define SPL_H 120                                   /* the band (the canvas holds 124 rows) */
 #define SPL_Y ((240u - SPL_H) / 2u)
 #define SPL_WIPE 360u                               /* the name's boot: the last glyph locks */
