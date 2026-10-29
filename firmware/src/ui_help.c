@@ -67,6 +67,7 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"AUTOMATION", "[K1]ROW[OCT+]DO[EDIT]DELETE"},
     {"MIXER", "[K4]MUTE[ALGO]TRACK[SELECT]CLOCK"},
     {"CLOCK", "[K1]BPM[GLO]HOLD: TAP"},
+    {"EQ", "[K1]BAND[K2]FREQ[K4]TYPE"},
 };
 #define H_HOME "[PRESETS]SOUND[HOME]HOLD: MENU"
 #define H_LEVELS "[K1-4]T1-T4 LEVEL[HOME]MIXER"
@@ -74,8 +75,9 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
 /* a layer's (LAYER_*): what its footer row (LAYERS[].foot) does not say */
 static const char *const HELP_LAYER[LAYER_N] = {
     "", "[KEYS]BLACK: MUTES[FX]HOLD", "[KEYS]SOLO MUTE TAP[K1-4]LEVELS", "[KEYS]ROOT[K1-4]ROOT SCL CHORD",
-    "[K1]ENGINE[K2]SOUND[K3]FAV", "[KEYS]BLACK: TOOLS[SAVE]HOLD: UNDO", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",   /* (M-Vave-OP1:
-                                                     * SEQ's white keys are the scenes, the footer says so) */
+    "[K1]ENGINE[K2]SOUND[K3]FAV", "[OCT-/+]HOLD[SAVE]HOLD: UNDO", "[K1]CLICK[K2]COUNT-IN[K3]LEVEL",   /* (M-Vave-OP1:
+                                                     * SEQ's white keys are the scenes, the footer says so; its tools
+                                                     * name themselves; the footer says what OCT- / OCT+ held do) */
 };
 static const char *const HELP_SSONG = "[KEYS]ADD SCENE[EDIT]DELETE";   /* (M-Vave-OP1: SEQ held > SONG) */
 

@@ -496,8 +496,8 @@ static int test_ssong_store(void)
     reset();
     ssong.count = 2; ssong.scene[0] = 0; ssong.repeat[0] = 2; ssong.scene[1] = 0; ssong.repeat[1] = 1;
     ssong.flags = SSG_LOOP;
-    ok = project_save(1) == 0 && st_current(OBJ_XPROJ0 + 1, &h) >= 0 && h.len == XTRA_V8;
-    bad += check("scene song: SAVE to B, its extras one object of XTRA_V8", ok);
+    ok = project_save(1) == 0 && st_current(OBJ_XPROJ0 + 1, &h) >= 0 && h.len == XTRA_V9;
+    bad += check("scene song: SAVE to B, its extras one object of XTRA_V9 (the EQ after it)", ok);
     power_on();
     ssong_clear();
     project_load(1);
@@ -507,6 +507,15 @@ static int test_ssong_store(void)
     ssong_clear();
     project_load(1);
     bad += check("  .. a RENAME: it stays the project's", ssong.count == 2u && str_eq(proj_name, "SONG"));
+    eq_set[2][1] = (eq_band_t){60, -9, EQT_BELL, 2};   /* (M-Vave-OP1, HOME > EQ: after the song, XTRA_V9) */
+    eq_set[0][3] = (eq_band_t){110, 0, EQT_LP, 14};
+    ok = project_save(1) == 0;
+    power_on();
+    eq_defaults();
+    project_load(1);
+    ok &= eq_set[2][1].f == 60 && eq_set[2][1].g == -9 && eq_set[0][3].ty == EQT_LP && eq_set[0][3].q == 14 &&
+          !memcmp(eq_set[1], EQ_DEF, sizeof EQ_DEF);
+    bad += check("  HOME > EQ: SAVE, power-on, LOAD B: every band back (from the flash)", ok);
     return bad;
 }
 static int test_project_erase(void)

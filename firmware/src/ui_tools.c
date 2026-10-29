@@ -6,6 +6,8 @@
  *   F#3 CLEAR   G#3 REVERSE  A#3 SHIFT <  C#4 SHIFT >     the whole sequence
  *   D#4 RANDOM  F#4 COOK     G#4 BEAT (DRUM)               new / a little changed
  *   A#4 CLEAR   C#5 REVERSE  D#5 FILL     F#5 RANDOM      the selected lane (DRUM: ui.lane, PRESETS picks it)
+ *   A#4 TRN -1  C#5 TRN +1                                 M-Vave-OP1: a track that is no kit (it has no lanes) has
+ *                                                          the semitone down / up there instead (ui_layer.c seq_tool)
  * M-Vave-OP1: VDRUM is a kit as DRUM is (BEAT, the lane row, RANDOM and COOK as beats: kitlane.c; VDRUM's six
  * lanes its parts)
  * Each works on the selected track's steps 1..LEN (the steps past LEN stay) and is one undo: SAVE held swaps back
@@ -17,14 +19,17 @@
  * differs. A sequence of ties reversed keeps its note first: N T T -> N T T at the mirrored place. M-Vave-OP1: on an
  * ACID track RANDOM rolls a whole acid line (tl_random_acid) and COOK also slides. */
 enum { TL_CLEAR, TL_REV, TL_LEFT, TL_RIGHT, TL_RANDOM, TL_COOK, TL_BEAT, TL_GAP, TL_LCLR, TL_LREV, TL_LFILL, TL_LRND,
-       TL_N };
+       TL_TDN, TL_TUP, TL_N };
 
 static uint32_t tl_len(const track_t *t) { return (uint32_t)clamp(t->p[P_SLEN], 1, NSTEP); }
 static uint32_t tl_rnd(uint32_t n) { return n ? rng() % n : 0u; }
 static int tl_gate(const step_t *s) { return s->time == ST_NOTE && s->n; }
 static uint32_t tl_lane(const track_t *t, const step_t *s, uint32_t l) { return (step_lanes(t->eng_req, s) >> l) & 1u; }
-/* place p's action is there for this track (the lane row and BEAT: a kit's, DRUM VDRUM) */
-static int tl_cell(const track_t *t, uint32_t p) { return p < TL_N && p != TL_GAP && (p < TL_BEAT || kit_track(t)); }
+/* place p's action is there for this track (the lane row and BEAT: a kit's, DRUM VDRUM; the semitones: any other's) */
+static int tl_cell(const track_t *t, uint32_t p)
+{
+    return p < TL_N && p != TL_GAP && (p >= TL_TDN ? !kit_track(t) : p < TL_BEAT || kit_track(t));
+}
 
 /* the undo copy of t as it is now (ui.c load_begin, but the automation is copied and stays): one action */
 static void tl_undo_take(track_t *t)
@@ -389,6 +394,30 @@ static void tl_cook_notes(track_t *t, uint32_t len, uint32_t g)
     }
 }
 
+/* M-Vave-OP1, TRN -1 / +1: every note of t's steps a semitone down (d -1) / up, all NSTEP of them (not only 1..LEN: a
+ * LEN made longer after brings back the melody whole), chromatic whatever the scale (SCL's QUANT snaps it as it plays,
+ * as it does the notes recorded). The timing, velocity, accents, slides and the automation stay. A note that would
+ * leave 0..127 moves none (a chord keeps its shape): said why, 0 */
+static int tl_transpose(track_t *t, int32_t d)
+{
+    uint32_t i, k, n = 0;
+    for (i = 0; i < NSTEP; i++)
+        for (k = 0; k < t->step[i].n && k < 4u; k++, n++)
+            if ((int32_t)t->step[i].note[k] + d < 0 || (int32_t)t->step[i].note[k] + d > 127) {
+                ui_message(d > 0 ? "HIGHEST NOTE REACHED" : "LOWEST NOTE REACHED");
+                return 0;
+            }
+    if (!n) {
+        ui_message("NOTHING TO TRANSPOSE");
+        return 0;
+    }
+    tl_undo_take(t);
+    for (i = 0; i < NSTEP; i++)
+        for (k = 0; k < t->step[i].n && k < 4u; k++)
+            t->step[i].note[k] = (uint8_t)(t->step[i].note[k] + d);
+    return 1;
+}
+
 /* ------------------------------------------------------------ actions --- */
 /* the action of place p on track t (lane l): its message; 0 = nothing done (said why) */
 static const char *tl_do(track_t *t, uint32_t p, uint32_t l)
@@ -399,6 +428,8 @@ static const char *tl_do(track_t *t, uint32_t p, uint32_t l)
     uint32_t drum = kit_track(t);                       /* (a kit's lanes, 0: notes) */
     const char *msg = 0;
     l = drum ? (l < drum ? l : drum - 1u) : l % NLANE;   /* (a lane past the kit's: its last, as ui_input.c's clamp) */
+    if (p == TL_TDN || p == TL_TUP)                     /* (the steps keep their kind: no locks to drop) */
+        return tl_transpose(t, p == TL_TUP ? 1 : -1) ? (p == TL_TUP ? "TRANSPOSED +1" : "TRANSPOSED -1") : 0;
     if (p == TL_COOK) {                                 /* (nothing there: nothing to cook, no undo copy) */
         for (i = 0; i < len; i++)
             n += drum ? (uint32_t)__builtin_popcount(step_lanes(t->eng_req, &t->step[i]))

@@ -212,6 +212,7 @@ static void ui_power_on(void)
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
     key_defaults();                               /* (.. GLO > KEY: none, the scene's own neither) */
     key_own = 0;
+    eq_power_on();                                /* (.. HOME > EQ: every track flat) */
     key_cur = 0;
     memset(&chain.source, 0, sizeof chain.source);
     for (i = 0; i < G_COUNT; i++)
@@ -2751,7 +2752,8 @@ static int test_page_cycles(void)
         ok &= f != FAM_SEQ || PAGES[i].graph == GR_ROLL || PAGES[i].graph == GR_EVENTS;
         ok &= f != FAM_GLO || PAGES[i].graph == GR_SONG ||   /* (1.2: GLO's only page; M-Vave-OP1: KEY */
               PAGES[i].graph == GR_KEY;                       /* before it) */
-        ok &= f != FAM_TRK || PAGES[i].graph == GR_TRK || str_eq(PAGES[i].title, "CLOCK");   /* HOME's: MIXER CLOCK */
+        ok &= f != FAM_TRK || PAGES[i].graph == GR_TRK || str_eq(PAGES[i].title, "CLOCK") ||   /* HOME's: MIXER CLOCK */
+              PAGES[i].graph == GR_EQ;                        /* (M-Vave-OP1: and EQ) */
         ok &= PAGES[i].graph != GR_TRK || f == FAM_TRK;
         ui_power_on(); ui.home = 0; ui.page = (uint8_t)i; page_entered();
         ok &= FAM_BTN[cur_fam()] == (f == FAM_TRK ? B_HOME : f == FAM_GLO ? B_GLO : f == FAM_SEQ ? B_SEQ :
@@ -2759,7 +2761,7 @@ static int test_page_cycles(void)
     }
     for (i = 0; i < NPAGES; i++)
         ok &= !str_eq(PAGES[i].title, "PATTERN") && !str_eq(PAGES[i].title, "CHANCE") && !str_eq(PAGES[i].title, "AUTO LIST");
-    bad += check("1.2: SEQ has STEP and AUTOMATION only; GLO's TAPE, TAPE 2 and SONG, PHRASES SAVE's, MIXER and CLOCK "
+    bad += check("1.2: SEQ has STEP and AUTOMATION only; GLO's TAPE, TAPE 2 and SONG, PHRASES SAVE's, MIXER CLOCK EQ "
                  "HOME's (their LED HOME)", ok);
     {   /* 1.2: GLOBAL and SYSTEM are gone; their knobs: BPM SWG CLK on HOME > CLOCK, TUNE and ROUT on no page (the MENU's),
          * MIDI SYNC CPU on none (INFO shows the USB state and the CPU) */
@@ -6424,6 +6426,7 @@ static int tl_lock_at(uint32_t step) { int16_t v; return motion_lock_get(TSEL, s
 static void tl_key(uint32_t tl)                         /* tool tl (TL_*): its black key (M-Vave-OP1 scenes: the white */
 {                                                       /* keys pick the scenes; Felucca's tools from F3 on them) */
     uint32_t i;
+    tl = tl == TL_TDN ? TL_LCLR : tl == TL_TUP ? TL_LREV : tl;   /* (M-Vave-OP1: the semitones, a lane's keys elsewhere) */
     for (i = 0; i < SEQ_NTOOL && SEQ_TOOL[i] != tl; i++)
         ;
     key_down(black(i)); frame(); key_up(black(i)); frame();
@@ -6724,14 +6727,83 @@ static int test_seq_tools(void)
     btn_down(B_SEQ); frames(500);                       /* (the map: a peek) */
     memcpy(ref, TSEL->step, sizeof ref);
     a = leds_at(0); b2 = leds_at(250);
-    ok &= ((a ^ b2) >> black(5)) & 1u && !(((a | b2) >> black(6)) & 1u) && !(((a | b2) >> black(7)) & 1u) &&
-          !(((a | b2) >> black(10)) & 1u);
+    ok &= ((a ^ b2) >> black(5)) & 1u && !(((a | b2) >> black(6)) & 1u) && ((a ^ b2) >> black(7)) & 1u &&
+          ((a ^ b2) >> black(8)) & 1u && !(((a | b2) >> black(9)) & 1u) && !(((a | b2) >> black(10)) & 1u);
     tl_key(TL_BEAT); tl_key(TL_LFILL);
     pg = TSEL->preset;
     turn(EN_PRESET, 1); frame();                        /* (PRESETS in the layer: a DRUM track's lane, nothing here) */
     ok &= !memcmp(TSEL->step, ref, sizeof ref) && ui.lane == 0u && !gates() && TSEL->preset == pg;
     btn_up(B_SEQ); frame();
-    bad += check("  LEDs: the tools breathe (DRUM: ten, F#3 dark); a melodic track: no BEAT, no lane tools; PRESETS no sound", ok);
+    bad += check("  LEDs: the tools breathe (DRUM: ten, F#3 dark); a melodic track: no BEAT, no lane tools (A#4 C#5: TRN); "
+                 "PRESETS no sound", ok);
+
+    /* M-Vave-OP1, TRN -1 / +1 (A#4 / C#5 on a track that is no kit): every note of all the steps a semitone, chords
+     * whole, the rest of the step and the locks kept; at 0 / 127 none moves; the layer's one undo; a kit's: the lanes' */
+    ui_power_on();
+    tl_melody();
+    TSEL->step[5].n = 3;                                /* (G4 a chord: G4 B4 D5, accented, a slide) */
+    TSEL->step[5].note[1] = 71;
+    TSEL->step[5].note[2] = 74;
+    TSEL->step[5].flags = SF_ACCENT | SF_SLIDE;
+    TSEL->step[NSTEP - 1u].time = ST_NOTE;                     /* (a note far past LEN) */
+    TSEL->step[NSTEP - 1u].n = 1;
+    TSEL->step[NSTEP - 1u].note[0] = 40;
+    TSEL->p[P_QUANT] = 1;                               /* (a scale: still a semitone) */
+    memcpy(ref, TSEL->step, sizeof ref);
+    go_page(GR_ROLL); frame();
+    btn_down(B_SEQ); frame();
+    tl_key(TL_TUP);                                     /* C#5: +1 */
+    ok = msg_is("TRANSPOSED +1") && TSEL->step[0].note[0] == 61 && TSEL->step[3].note[0] == 65 &&
+         TSEL->step[5].note[0] == 68 && TSEL->step[5].note[1] == 72 && TSEL->step[5].note[2] == 75 &&
+         TSEL->step[5].note[3] == ref[5].note[3] && TSEL->step[20].note[0] == 73 && TSEL->step[NSTEP - 1u].note[0] == 41 &&
+         tl_times_are(TSEL, ref, NSTEP) && TSEL->step[5].flags == (SF_ACCENT | SF_SLIDE) &&
+         TSEL->step[3].vel == ref[3].vel && tl_lock_at(3) && !gates();
+    memcpy(mid, TSEL->step, sizeof mid);
+    tl_key(TL_TDN); tl_key(TL_TDN);                     /* A#4: -1 twice */
+    ok &= msg_is("TRANSPOSED -1") && TSEL->step[0].note[0] == 59 && TSEL->step[5].note[2] == 73 &&
+          TSEL->step[NSTEP - 1u].note[0] == 39;
+    bad += check("  A#4 / C#5 TRN -1 / +1: every note of all the steps a semitone (chords whole, past LEN too), the "
+                 "rhythm, accents, slides and locks kept", ok);
+    btn_up(B_SEQ); frame();
+    hold(B_SAVE);                                       /* (the layer's opening is one undo: all three back) */
+    ok = TSEL->step[0].note[0] == 60 && TSEL->step[5].note[1] == 71 && TSEL->step[NSTEP - 1u].note[0] == 40;
+    btn_down(B_SEQ); frame();
+    tl_key(TL_TUP); tl_key(TL_TUP);
+    btn_up(B_SEQ); frame();
+    ok &= TSEL->step[0].note[0] == 62;
+    hold(B_SAVE);
+    ok &= TSEL->step[0].note[0] == 60 && TSEL->step[5].note[1] == 71;
+    bad += check("  SAVE held: every press since SEQ went down undone at once (the layer's opening is one undo)", ok);
+    TSEL->step[5].note[2] = 127;                        /* at the top: none moves up, down still */
+    memcpy(ref, TSEL->step, sizeof ref);
+    btn_down(B_SEQ); frame();
+    tl_key(TL_TUP);
+    ok = msg_is("HIGHEST NOTE REACHED") && !memcmp(TSEL->step, ref, sizeof ref);
+    tl_key(TL_TDN);
+    ok &= msg_is("TRANSPOSED -1") && TSEL->step[5].note[2] == 126;
+    TSEL->step[0].note[0] = 0;
+    memcpy(ref, TSEL->step, sizeof ref);
+    tl_key(TL_TDN);
+    ok &= msg_is("LOWEST NOTE REACHED") && !memcmp(TSEL->step, ref, sizeof ref);
+    for (i = 0; i < NSTEP; i++)
+        step_clear(&TSEL->step[i]);
+    tl_key(TL_TUP);
+    ok &= msg_is("NOTHING TO TRANSPOSE");
+    btn_up(B_SEQ); frame();
+    bad += check("  at 127 / 0: none moves (HIGHEST / LOWEST NOTE REACHED), the other way still; no notes: NOTHING TO "
+                 "TRANSPOSE", ok);
+    ui_power_on();
+    tl_drum();
+    go_page(GR_ROLL); frame();
+    btn_down(B_SEQ); frame();
+    tl_key(TL_BEAT);
+    ok = !tl_cell(TSEL, TL_TDN) && !tl_cell(TSEL, TL_TUP) && tl_cell(TSEL, TL_LCLR) && seq_tool(7) == TL_LCLR &&
+         seq_tool(8) == TL_LREV;
+    ui.lane = DV_KICK;
+    tl_key(TL_LCLR);                                    /* (A#4 on a kit: CLEAR the lane, no transposing) */
+    ok &= msg_is("KICK CLEARED") && !tl_lanes_of(TSEL, DV_KICK);
+    btn_up(B_SEQ); frame();
+    bad += check("  a kit (DRUM): A#4 / C#5 the lane's CLEAR / REVERSE, no TRN", ok);
 
     /* A song still guards every mutation in the held layer. */
     ui_power_on(); tl_melody(); go_page(GR_ROLL); frame();

@@ -375,7 +375,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <figcaption>Hover over a line of the legend to see its group in the drawing.</figcaption>
     </figure>
     <ol class="legend">
-      <li data-g="1"><span class="no">1</span><span><b>Knobs</b><kbd>MASTER</kbd> volume (a pot with end stops). <kbd>SELECT</kbd> turns the pages; on HOME it sets the tempo. <kbd>PRESETS</kbd> changes the sound. <kbd>ALGORITHM</kbd> picks track T1–T4.</span></li>
+      <li data-g="1"><span class="no">1</span><span><b>Knobs</b><kbd>MASTER</kbd> volume (a pot with end stops). <kbd>SELECT</kbd> turns the pages (it never changes the tempo). <kbd>PRESETS</kbd> changes the sound. <kbd>ALGORITHM</kbd> picks track T1–T4.</span></li>
       <li data-g="2"><span class="no">2</span><span><b>KNOB 1–4</b>The page's four values. The four cards at the bottom of the display show which.</span></li>
       <li data-g="3"><span class="no">3</span><span><b>Display</b>240 × 240 pixels. Track, project slot, play state and tempo at the top, the four knob cards at the bottom.</span></li>
       <li data-g="4"><span class="no">4</span><span><b>Page buttons</b>FX, SCL, ENV, LFO, EDIT, GLO, HOME, SAVE, ARP, SEQ. A tap opens pages. Held, FX, SCL, EDIT, GLO and SEQ open a layer, HOME the menu, SAVE undoes, LFO makes a knob MOMENTARY.</span></li>
@@ -486,7 +486,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt><kbd>F3</kbd></dt><dd>A key of the keyboard, by its note. The lowest is F3, the highest G5.</dd>
       <dt><kbd>KNOB 1</kbd></dt><dd>A knob.</dd>
       <dt>Hold <kbd>FX</kbd> <span class="plus">+</span> <kbd>F3</kbd></dt><dd>Hold FX and press F3.</dd>
-      <dt>SCL &gt; CSET</dt><dd>The CSET page of the SCL button.</dd>
+      <dt>SCL &gt; CHORD</dt><dd>The CHORD page of the SCL button.</dd>
       <dt>ON, LEN, CUT</dt><dd>Words in capitals appear like that on the display.</dd>
     </dl>
     <p class="note"><span class="tag">In the drawings</span>Controls in use light up in the accent colour. A dashed ring means hold, an arc around a knob means turn, numbers give the order.</p>
@@ -499,18 +499,18 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     </figure>
     <div class="prose">
       <p>Each page button opens a family of pages, at the page you used there last; SAVE always opens PROJECT. <kbd>SELECT</kbd> turns through the family's pages, round and round. The same button again takes you back to HOME. Page buttons act when released.</p>
-      <p><kbd>HOME</kbd> itself goes round: HOME, MIXER, CLOCK. When you change tracks with <kbd>ALGORITHM</kbd>, the page on screen stays and every other family starts again at its first page.</p>
+      <p><kbd>HOME</kbd> itself goes round: HOME, MIXER, CLOCK, EQ. When you change tracks with <kbd>ALGORITHM</kbd>, the page on screen stays and every other family starts again at its first page.</p>
     </div>
     <div class="tbl"><table>
       <thead><tr><th>Button</th><th>Pages (SELECT turns)</th><th>Hold</th></tr></thead>
       <tbody>
-        <tr><td class="m">HOME</td><td>HOME · MIXER · CLOCK <span class="d">tapping goes round</span></td><td><a href="#menu">Menu</a></td></tr>
+        <tr><td class="m">HOME</td><td>HOME · MIXER · CLOCK · EQ <span class="d">SELECT goes round</span></td><td><a href="#menu">Menu</a></td></tr>
         <tr><td class="m">SEQ</td><td>STEP · DETAIL · AUTOMATION</td><td><a href="#scenes">SEQ layer</a>: scenes, tools</td></tr>
         <tr><td class="m">GLO</td><td>KEY · SONG</td><td><a href="#mx-glo">GLO layer</a>: mute, solo, levels, tap</td></tr>
-        <tr><td class="m">SAVE</td><td>PROJECT · USER · PRESETS · PHRASES · TOOLS</td><td><a href="#ba-undo">Undo</a></td></tr>
-        <tr><td class="m">FX</td><td>FX (the sends) · INSERT · CHORUS · DELAY · REVERB · SLICER · FX TRACKS</td><td><a href="#fx-punch">FX layer</a>: punch-ins</td></tr>
-        <tr><td class="m">SCL</td><td>SCL · CHORD · CSET</td><td><a href="#sd-scale">SCL layer</a>: root by key</td></tr>
-        <tr><td class="m">EDIT</td><td>EDIT 1 · EDIT 2 · the engine's pages · VOICE · VOICE 2 · VOICE 3 <span class="d">EDIT 1 and 2 are titled by the engine, such as OSC and FLT</span></td><td><a href="#tr-engine">EDIT layer</a>: pick the engine</td></tr>
+        <tr><td class="m">SAVE</td><td>PROJECT · USER · PRESETS · PHRASES</td><td><a href="#ba-undo">Undo</a></td></tr>
+        <tr><td class="m">FX</td><td>FX (the sends) · INSERT · INSERT 2 · CHORUS · SHIMMER · DELAY · REVERB · SLICER · FX TRACKS</td><td><a href="#fx-punch">FX layer</a>: punch-ins</td></tr>
+        <tr><td class="m">SCL</td><td>SCL · CHORD</td><td><a href="#sd-scale">SCL layer</a>: root by key</td></tr>
+        <tr><td class="m">EDIT</td><td>EDIT 1 · EDIT 2 · the engine's pages · VOICE · VOICE 2 <span class="d">EDIT 1 and 2 are titled by the engine, such as OSC and FLT</span></td><td><a href="#tr-engine">EDIT layer</a>: pick the engine</td></tr>
         <tr><td class="m">ENV</td><td>ENV · ENV DEST</td><td>–</td></tr>
         <tr><td class="m">LFO</td><td>LFO · LFO 2 · LFO DEST · MOD</td><td><a href="#ba-momentary">MOMENTARY</a> with a knob</td></tr>
         <tr><td class="m">ARP</td><td>ARP · ARP 2 <span class="d">one screen, two rows</span></td><td>–</td></tr>
@@ -540,9 +540,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="ba-undo">
     <h3>Undo</h3>
     <dl class="defs">
-      <dt>Hold <kbd>SAVE</kbd></dt><dd>Takes back the last step: a sound or pattern loaded, a tool, a recording, a step turned off. Hold again to bring it back.</dd>
-      <dt>Hold <kbd>REC</kbd> <span class="plus">+</span> <kbd>F#5</kbd></dt><dd>BACK: the same from the REC layer. A second time says ALREADY UNDONE.</dd>
-      <dt>Hold <kbd>REC</kbd> <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></dt><dd>Undoes or redoes what was recorded since the track was armed.</dd>
+      <dt>Hold <kbd>SAVE</kbd></dt><dd>Takes back the last step: a sound or pattern loaded, a tool, a recording, a step turned off. Everything done in one opening of a layer (GLO, SCL, EDIT, SEQ, REC) is a single step. Hold again to bring it back.</dd>
     </dl>
   </section>
 
@@ -557,8 +555,8 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="ba-tempo">
     <h3>Tempo</h3>
     <div class="prose">
-      <p><kbd>SELECT</kbd> sets the tempo while you are on HOME, the MIXER or CLOCK; BPM lights up in the header. On every other page SELECT turns pages.</p>
-      <p>HOME &gt; CLOCK has <b>BPM</b>, <b>SWG</b> (swing) and <b>CLK</b>, the clock source: INT, USB or TRS. Hold <kbd>GLO</kbd> <span class="plus">+</span> <kbd>F4</kbd> to tap the tempo. MENU &gt; CONTROL &gt; BPM LOCK keeps SELECT from changing it by accident.</p>
+      <p><kbd>SELECT</kbd> only turns pages, on HOME, the MIXER, CLOCK and EQ as everywhere else; it never changes the tempo. Set the tempo on CLOCK with <kbd>KNOB 1</kbd>.</p>
+      <p>HOME &gt; CLOCK has <b>BPM</b>, <b>SWG</b> (swing) and <b>CLK</b>, the clock source: INT, USB or TRS. Hold <kbd>GLO</kbd> <span class="plus">+</span> <kbd>F4</kbd> to tap the tempo.</p>
     </div>
   </section>
 
@@ -614,8 +612,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <thead><tr><th>Page</th><th class="k">KNOB 1</th><th class="k">KNOB 2</th><th class="k">KNOB 3</th><th class="k">KNOB 4</th></tr></thead>
       <tbody>
         <tr><td class="m">VOICE</td><td class="m">VCE<span class="d">POLY, MONO, LEG, UNI</span></td><td class="m">GLD<span class="d">glide</span></td><td class="m">GLMOD</td><td class="m">PRIO</td></tr>
-        <tr><td class="m">VOICE 2</td><td class="m">ALLOC</td><td class="m">DTUNE</td><td class="m">PAN</td><td class="m">MUTE</td></tr>
-        <tr><td class="m">VOICE 3</td><td class="m">SPRD</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td class="m">VOICE 2</td><td class="m">ALLOC</td><td class="m">DTUNE</td><td class="m">SPRD</td><td>–</td></tr>
       </tbody>
     </table></div>
     <div class="prose"><p>LEG and UNI play legato: a key pressed while the one before is still held starts no new envelope, only a glide if GLD is set. SPRD spreads the voices of a POLY or UNI track alternately left and right.</p></div>
@@ -792,18 +789,18 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   </section>
 
   <section class="sub" id="sd-cset">
-    <h3>Chord sets (CSET)</h3>
+    <h3>Chord sets (SCL &gt; CHORD)</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-panel data-hl="SCL SELECT K1 K2 K3 F3-E4" data-turn="SELECT K1 K2 K3" data-num="SCL:1 K1:2 K2:3 KEYS:4" data-screen="CSET|CSET:ON|SET:1|GENRE:POP|-" data-alt="SCL, CSET with KNOB 1 to 3"></div></div>
-      <figcaption>SCL &gt; CSET: every key is a chord. From F3 to E4 the twelve chords sound in the set's own voicing.</figcaption>
+      <div class="fig-scroll"><div data-panel data-hl="SCL SELECT K1 K2 K3 F3-E4" data-turn="SELECT K1 K2 K3" data-num="SCL:1 K1:2 K2:3 KEYS:4" data-screen="CHORD|CHRD:SET 1|VOIC|GENRE:POP|-" data-alt="SCL, CHORD with KNOB 1 to 3"></div></div>
+      <figcaption>SCL &gt; CHORD, in the sets: every key is a chord. From F3 to E4 the twelve chords sound in the set's own voicing.</figcaption>
     </figure>
     <div class="prose">
-      <p>100 chord sets in genres: POP, JAZZ, BLUES, UTILITY, SYNTHWAVE, HOUSE, EDM, NEO SOUL, BOSSA NOVA, CLASSICAL and more. Each track turns CSET on for itself and has its own set.</p>
+      <p>100 chord sets in genres: POP, JAZZ, BLUES, UTILITY, SYNTHWAVE, HOUSE, EDM, NEO SOUL, BOSSA NOVA, CLASSICAL and more. The sets continue the chord shapes of KNOB 1; each track has its own.</p>
     </div>
     <ol class="steps">
-      <li><span><kbd>SCL</kbd>, then <kbd>SELECT</kbd> to CSET.</span></li>
-      <li><span><kbd>KNOB 1</kbd> to ON. The track turns POLY; OFF gives back its previous VOICE.</span></li>
-      <li><span><kbd>KNOB 2</kbd> SET picks 1 to 100, <kbd>KNOB 3</kbd> GENRE jumps to the next genre's first set.</span></li>
+      <li><span><kbd>SCL</kbd>, then <kbd>SELECT</kbd> to CHORD.</span></li>
+      <li><span><kbd>KNOB 1</kbd> CHRD runs OFF, DIA3, DIA7, MAJ, MIN, DOM7, MAJ7, MIN7, SUS4, POW and on into SET 1 to 100. A set makes the track POLY; a shape gives its VOICE back. <kbd>KNOB 2</kbd> VOIC voices the shapes.</span></li>
+      <li><span><kbd>KNOB 3</kbd> GENRE jumps between the genres of the sets and back to POW before SET 1.</span></li>
       <li><span>Play: the key C … B plays the set's chord on that note. The display shows the twelve chords, the one played last lit, and its notes below.</span></li>
     </ol>
     <div class="prose"><p>Each octave above or below plays the chord an octave higher or lower. TRN moves the chords, and MIDI notes play the chord of their key. Recording and step entry write up to four notes a step; the arpeggiator plays them broken up.</p></div>
@@ -881,16 +878,14 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="sq-reclayer">
     <h3>The REC layer</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F3=CLEAR;G3=CLICK;A3=COUNT-IN;B3=CLICK LEVEL;F#3=CLR FXT;G#3=CLR AUTO;F#5=BACK" data-alt="REC layer: what the keys do"></div></div>
-      <figcaption><kbd>REC</kbd> held. <kbd>OCT−</kbd> / <kbd>OCT+</kbd> undo and redo the recording.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F3=CLEAR;G3=CLICK;A3=COUNT-IN;B3=CLICK LEVEL" data-alt="REC layer: what the keys do"></div></div>
+      <figcaption><kbd>REC</kbd> held. Hold <kbd>SAVE</kbd> to undo the recording, and again to redo it.</figcaption>
     </figure>
     <dl class="defs">
       <dt><kbd>F3</kbd> CLEAR</dt><dd>Clears the track's notes and automation.</dd>
       <dt><kbd>G3</kbd> CLICK</dt><dd>OFF, REC (only while armed) or ON. A click on every beat, the bar's first higher.</dd>
       <dt><kbd>A3</kbd> COUNT-IN</dt><dd>OFF, 1 BAR or 2 BARS before recording from stop. A note in the last half beat lands on step 1.</dd>
       <dt><kbd>B3</kbd> CLICK LEVEL</dt><dd>LOW, MID or HIGH. The click goes to the speaker and headphones only, never to USB or into the pattern.</dd>
-      <dt><kbd>F#3</kbd> · <kbd>G#3</kbd></dt><dd>Clear both FX tracks or the track's automation, each after <kbd>OCT+</kbd>. The notes stay.</dd>
-      <dt><kbd>F#5</kbd> BACK</dt><dd>One step back, as holding SAVE.</dd>
     </dl>
   </section>
 
@@ -926,15 +921,16 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="sq-tools">
     <h3>Pattern tools</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F#3=CLEAR;G#3=REVERSE;A#3=SHIFT &lt;;C#4=SHIFT &gt;;D#4=RANDOM;F#4=COOK;G#4=BEAT;A#4=LANE CLR;C#5=LANE REV;D#5=LANE FILL;F#5=LANE RND" data-alt="SEQ layer: the tools on the black keys"></div></div>
-      <figcaption><kbd>SEQ</kbd> held: the black keys are tools. BEAT and the LANE tools are for drum tracks only. The white keys are the <a href="#scenes">scenes</a>.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F#3=CLEAR;G#3=REVERSE;A#3=SHIFT &lt;;C#4=SHIFT &gt;;D#4=RANDOM;F#4=COOK;G#4=BEAT;A#4=LANE CLR / TRN -1;C#5=LANE REV / TRN +1;D#5=LANE FILL;F#5=LANE RND" data-alt="SEQ layer: the tools on the black keys"></div></div>
+      <figcaption><kbd>SEQ</kbd> held: the black keys are tools. BEAT and the LANE tools are for drum tracks only; on any other track <kbd>A#4</kbd> and <kbd>C#5</kbd> transpose. The white keys are the <a href="#scenes">scenes</a>.</figcaption>
     </figure>
     <dl class="defs">
       <dt>KNOB 1–4</dt><dd>LEN (1 to 64 steps), DIV (step length, 4 bars to 1/32), SWG (swing), GATE.</dd>
       <dt>RANDOM</dt><dd>A new beat, or new notes in the scale on the same rhythm.</dd>
       <dt>COOK</dt><dd>Changes the pattern a little with each press.</dd>
       <dt>LANE …</dt><dd>Clear, reverse, fill or randomize one instrument; <kbd>PRESETS</kbd> picks it.</dd>
-      <dt><kbd>SEQ</kbd> <span class="plus">+</span> <kbd>EDIT</kbd></dt><dd>Puts the track back as it was when the layer opened. Each tool is also one undo step for holding SAVE.</dd>
+      <dt>TRN −1 / TRN +1</dt><dd>On a track that is not a drum kit: every note of the sequence a semitone down (<kbd>A#4</kbd>) or up (<kbd>C#5</kbd>), all steps, chords whole, always chromatic (an active scale still snaps the notes as they play). Rhythm, accents, slides and automation stay. If one note would leave the MIDI range, nothing moves: HIGHEST NOTE REACHED / LOWEST NOTE REACHED.</dd>
+      <dt><kbd>SEQ</kbd> <span class="plus">+</span> <kbd>EDIT</kbd></dt><dd>Does nothing. Hold <kbd>SAVE</kbd> instead: it undoes everything done since SEQ went down, and again redoes it.</dd>
     </dl>
   </section>
 
@@ -1025,6 +1021,17 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose">
       <p>Hold <kbd>SEQ</kbd> and hold <kbd>OCT+</kbd> for about 0.7 seconds: the scene playing is copied into the next free one (COPIED TO SCENE n), at once and without an audible jump. Every edit now changes the copy, while the original waits in its scene. The copy goes to the first empty scene after the one playing; <kbd>OCT−</kbd> picks the scene before it, which is the original when the copy landed right after it.</p>
       <p>Possible answers: NOTHING TO COPY (the scene is empty), NO FREE SCENE, SCENE MEMORY FULL.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="sc-clear">
+    <h3>Clearing a scene</h3>
+    <figure class="fig">
+      <div class="fig-scroll"><div data-panel data-hl="SEQ OCTM" data-hold="SEQ OCTM" data-num="SEQ:1 OCTM:2" data-screen="[SEQ] SCENES|LEN|DIV|SWG|GATE" data-alt="Hold SEQ and hold OCT−"></div></div>
+    </figure>
+    <div class="prose">
+      <p>Hold <kbd>SEQ</kbd> and hold <kbd>OCT−</kbd> for about 0.7 seconds: the scene playing is cleared (SCENE n CLEARED): its steps, automation, FX TRACKS and its own KEY. At once, playing too, the nearest scene before it that holds something plays from its step 1; if there is none before, the nearest after; if no other scene holds anything, the cleared scene stays. Letting go of OCT− then steps no scene.</p>
+      <p>Possible answers: NOTHING TO CLEAR (the scene is already empty), STOP THE SONG FIRST.</p>
     </div>
   </section>
 
@@ -1214,7 +1221,21 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="mx-mixer">
     <h3>MIXER</h3>
-    <div class="prose"><p><kbd>HOME</kbd>, then <kbd>HOME</kbd> again: the MIXER. <kbd>KNOB 1</kbd> LEVEL, <kbd>KNOB 2</kbd> PAN, <kbd>KNOB 3</kbd> REV (reverb send), <kbd>KNOB 4</kbd> MUTE, each for the track picked with <kbd>ALGORITHM</kbd>. MOMENTARY works here too.</p></div>
+    <div class="prose"><p><kbd>HOME</kbd>, then <kbd>HOME</kbd> again: the MIXER. <kbd>KNOB 1</kbd> LEVEL, <kbd>KNOB 2</kbd> PAN, <kbd>KNOB 3</kbd> shows REV but does not turn it (the reverb send is on FX &gt; FX), <kbd>KNOB 4</kbd> MUTE, each for the track picked with <kbd>ALGORITHM</kbd>. MOMENTARY works here too.</p></div>
+  </section>
+
+  <section class="sub" id="mx-eq">
+    <h3>EQ</h3>
+    <div class="prose">
+      <p>From HOME, <kbd>SELECT</kbd> steps MIXER, CLOCK, then EQ: four bands for the track picked with <kbd>ALGORITHM</kbd>, after its INSERT and before LEVEL, PAN and the sends. The panel shows the track's curve from 20 Hz to 20 kHz (±12 dB), the band picked on its own, and the four bands as numbered points.</p>
+    </div>
+    <dl class="defs">
+      <dt><kbd>KNOB 1</kbd> BAND</dt><dd>Picks band 1 to 4.</dd>
+      <dt><kbd>KNOB 2</kbd> FREQ</dt><dd>20 Hz to 20 kHz in 121 steps of about 1/12 octave (100 Hz, 500 Hz, 2 kHz and 8 kHz are steps).</dd>
+      <dt><kbd>KNOB 3</kbd> GAIN / RESO</dt><dd>−12 to +12 dB in half dB. On LP and HP it is the resonance (Q 0.50 to 9.51); each type keeps its own value.</dd>
+      <dt><kbd>KNOB 4</kbd> TYPE</dt><dd>L.SHF (low shelf), BELL, H.SHF (high shelf), LP (low pass), HP (high pass). Shelves and bells have a fixed width.</dd>
+    </dl>
+    <div class="prose"><p>The bands start flat: L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF 8 kHz, all at 0 dB. The EQ belongs to the track like LEVEL and PAN: loading a sound keeps it, all scenes share it, and it is saved with the project.</p></div>
   </section>
 
   <section class="sub" id="mx-glo">
@@ -1230,7 +1251,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt><kbd>D4</kbd></dt><dd>MIDI LEARN (see <a href="#midi-learn">MIDI LEARN</a>).</dd>
       <dt><kbd>F4</kbd></dt><dd>Tap the tempo.</dd>
       <dt><kbd>PLAY</kbd></dt><dd>Restart from the top.</dd>
-      <dt><kbd>OCT−</kbd></dt><dd>Undoes the layer's changes.</dd>
+      <dt><kbd>SAVE</kbd> held</dt><dd>Undoes the layer's changes in one step.</dd>
     </dl>
   </section>
 
@@ -1272,11 +1293,6 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <li><span><kbd>KNOB 4</kbd> to the right (SAVE), then <kbd>OCT+</kbd> (a used slot asks OVERWRITE? first): give it a name and a category, confirm with <kbd>OCT+</kbd>.</span></li>
     </ol>
     <div class="prose"><p><kbd>KNOB 2</kbd> (LOAD) loads and <kbd>KNOB 3</kbd> (ERASE) erases the same way, each with <kbd>OCT+</kbd>. A sound of your own keeps its effects, an FM6 sound its patch, a VDRUM sound its own kit.</p></div>
-  </section>
-
-  <section class="sub" id="sv-tools">
-    <h3>TOOLS</h3>
-    <div class="prose"><p>SAVE &gt; TOOLS has four actions: <kbd>KNOB 1</kbd> PAT clears the selected track's pattern, <kbd>KNOB 2</kbd> SOUND resets its sound to the engine's defaults and first sound, <kbd>KNOB 3</kbd> SEC deletes the section picked on SONG, <kbd>KNOB 4</kbd> SONG clears the song. Turn a knob right to pick its action; <kbd>OCT+</kbd> asks, <kbd>OCT+</kbd> again does it.</p></div>
   </section>
 
   <section class="sub" id="sv-auto">
@@ -1387,7 +1403,6 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td class="m">HOLD</td><td>How long a layer's button is held before its map shows</td></tr>
         <tr><td class="m">KNOB ACCEL</td><td>OFF or ON: a fast turn jumps 2 to 8 steps</td></tr>
         <tr><td class="m">FX LATCH</td><td>OFF or ON: effects toggle instead of being held</td></tr>
-        <tr><td class="m">BPM LOCK</td><td>OFF or ON: SELECT no longer changes the tempo</td></tr>
         <tr><td class="m">SCALE LEDS</td><td>OFF or ON: the scale on the keys all the time</td></tr>
         <tr><td class="m">STEP PREVIEW</td><td>OFF or ON: the cursor plays the step</td></tr>
         <tr><td class="m">CHORD ENTRY</td><td>HOLD or ADD (see <a href="#sq-entry">Entering steps</a>)</td></tr>
@@ -1464,18 +1479,16 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td>Hold <kbd>EDIT</kbd> <span class="plus">+</span> white key</td><td>Pick the engine; F#5: initialize the sound</td></tr>
         <tr><td>Hold <kbd>EDIT</kbd> <span class="plus">+</span> black key</td><td>The engine's quick action (DRUM: mute an instrument)</td></tr>
         <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> white key</td><td>Scene 1–16</td></tr>
-        <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Previous or next scene; OCT+ held long: copy the scene</td></tr>
+        <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Previous or next scene; OCT+ held long: copy the scene; OCT− held long: clear it</td></tr>
         <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> black key</td><td>Pattern tool</td></tr>
         <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> <kbd>PRESETS</kbd></td><td>Pick the drum lane for the LANE tools</td></tr>
-        <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> <kbd>EDIT</kbd></td><td>Put the track back as the layer found it</td></tr>
-        <tr><td>Hold <kbd>REC</kbd> <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Undo or redo the recording</td></tr>
-        <tr><td>Hold <kbd>REC</kbd> <span class="plus">+</span> <kbd>F3</kbd> · <kbd>F#3</kbd> · <kbd>G#3</kbd></td><td>Clear the track · clear the FX tracks · clear the automation</td></tr>
+        <tr><td>Hold <kbd>SEQ</kbd> <span class="plus">+</span> <kbd>EDIT</kbd></td><td>Nothing (hold <kbd>SAVE</kbd> to undo)</td></tr>
+        <tr><td>Hold <kbd>REC</kbd> <span class="plus">+</span> <kbd>F3</kbd></td><td>Clear the selected track</td></tr>
         <tr><td>Hold <kbd>REC</kbd> <span class="plus">+</span> <kbd>G3</kbd> · <kbd>A3</kbd> · <kbd>B3</kbd></td><td>CLICK · COUNT-IN · CLICK LEVEL</td></tr>
-        <tr><td>Hold <kbd>REC</kbd> <span class="plus">+</span> <kbd>F#5</kbd></td><td>BACK: one step back</td></tr>
         <tr><td>Hold a step <span class="plus">+</span> a knob</td><td>Parameter lock; EDIT clears the step's locks</td></tr>
         <tr><td><kbd>OCT−</kbd> <span class="plus">+</span> <kbd>OCT+</kbd></td><td>Reset the octave</td></tr>
         <tr><td>Double-tap a layer button</td><td>The layer stays open</td></tr>
-        <tr><td><kbd>OCT−</kbd> in the GLO, SCL or EDIT layer</td><td>Put back what the layer changed</td></tr>
+        <tr><td>Hold <kbd>SAVE</kbd></td><td>Undo the last step (a layer's changes are one); again: redo</td></tr>
         <tr><td>Hold <kbd>OCT−</kbd> <span class="plus">+</span> <kbd>OCT+</kbd> for 5 s</td><td>Update mode (a countdown shows from 2 s; letting go cancels)</td></tr>
         <tr><td><kbd>OCT−</kbd> <span class="plus">+</span> <kbd>OCT+</kbd> at power-on</td><td>Calibrate buttons and knobs</td></tr>
       </tbody>
@@ -1661,7 +1674,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt><kbd>F3</kbd></dt><dd>Eine Taste der Klaviatur, mit Notenname. Die tiefste ist F3, die höchste G5.</dd>
       <dt><kbd>KNOB 1</kbd></dt><dd>Ein Drehregler.</dd>
       <dt><kbd>FX</kbd> halten <span class="plus">+</span> <kbd>F3</kbd></dt><dd>FX gedrückt halten und dabei F3 drücken.</dd>
-      <dt>SCL &gt; CSET</dt><dd>Die Seite CSET der Seitentaste SCL.</dd>
+      <dt>SCL &gt; CHORD</dt><dd>Die Seite CHORD der Seitentaste SCL.</dd>
       <dt>ON, LEN, CUT</dt><dd>Großgeschriebenes steht so auf dem Display.</dd>
     </dl>
     <p class="note"><span class="tag">In den Bildern</span>Hervorgehobene Bedienelemente leuchten in der Akzentfarbe. Ein gestrichelter Ring heißt halten, ein Bogen um einen Regler heißt drehen, Zahlen geben die Reihenfolge an.</p>
@@ -1674,18 +1687,18 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     </figure>
     <div class="prose">
       <p>Jede Seitentaste öffnet eine Familie von Seiten, und zwar die Seite, die du dort zuletzt benutzt hast; SAVE öffnet immer PROJECT. <kbd>SELECT</kbd> blättert durch die Seiten der Familie, rundherum. Dieselbe Taste noch einmal führt zurück auf HOME. Seitentasten wirken beim Loslassen.</p>
-      <p><kbd>HOME</kbd> selbst geht reihum: HOME, MIXER, CLOCK. Wechselst du mit <kbd>ALGORITHM</kbd> die Spur, bleibt die angezeigte Seite, und jede andere Familie beginnt wieder bei ihrer ersten Seite.</p>
+      <p><kbd>HOME</kbd> selbst geht reihum: HOME, MIXER, CLOCK, EQ. Wechselst du mit <kbd>ALGORITHM</kbd> die Spur, bleibt die angezeigte Seite, und jede andere Familie beginnt wieder bei ihrer ersten Seite.</p>
     </div>
     <div class="tbl"><table>
       <thead><tr><th>Taste</th><th>Seiten (SELECT blättert)</th><th>Halten</th></tr></thead>
       <tbody>
-        <tr><td class="m">HOME</td><td>HOME · MIXER · CLOCK <span class="d">Tippen geht reihum</span></td><td><a href="#de-menue">Menü</a></td></tr>
+        <tr><td class="m">HOME</td><td>HOME · MIXER · CLOCK · EQ <span class="d">SELECT geht reihum</span></td><td><a href="#de-menue">Menü</a></td></tr>
         <tr><td class="m">SEQ</td><td>STEP · DETAIL · AUTOMATION</td><td><a href="#de-szenen">SEQ-Ebene</a>: Szenen, Werkzeuge</td></tr>
         <tr><td class="m">GLO</td><td>KEY · SONG</td><td><a href="#de-mix-glo">GLO-Ebene</a>: Mute, Solo, Pegel, Tap</td></tr>
-        <tr><td class="m">SAVE</td><td>PROJECT · USER · PRESETS · PHRASES · TOOLS</td><td><a href="#de-gr-undo">Rückgängig</a></td></tr>
-        <tr><td class="m">FX</td><td>FX (die Sends) · INSERT · CHORUS · DELAY · REVERB · SLICER · FX TRACKS</td><td><a href="#de-fx-punch">FX-Ebene</a>: Punch-ins</td></tr>
-        <tr><td class="m">SCL</td><td>SCL · CHORD · CSET</td><td><a href="#de-kl-skala">SCL-Ebene</a>: Grundton per Taste</td></tr>
-        <tr><td class="m">EDIT</td><td>EDIT 1 · EDIT 2 · Seiten der Engine · VOICE · VOICE 2 · VOICE 3 <span class="d">EDIT 1 und 2 tragen Titel der Engine, etwa OSC und FLT</span></td><td><a href="#de-sp-engine">EDIT-Ebene</a>: Engine wählen</td></tr>
+        <tr><td class="m">SAVE</td><td>PROJECT · USER · PRESETS · PHRASES</td><td><a href="#de-gr-undo">Rückgängig</a></td></tr>
+        <tr><td class="m">FX</td><td>FX (die Sends) · INSERT · INSERT 2 · CHORUS · SHIMMER · DELAY · REVERB · SLICER · FX TRACKS</td><td><a href="#de-fx-punch">FX-Ebene</a>: Punch-ins</td></tr>
+        <tr><td class="m">SCL</td><td>SCL · CHORD</td><td><a href="#de-kl-skala">SCL-Ebene</a>: Grundton per Taste</td></tr>
+        <tr><td class="m">EDIT</td><td>EDIT 1 · EDIT 2 · Seiten der Engine · VOICE · VOICE 2 <span class="d">EDIT 1 und 2 tragen Titel der Engine, etwa OSC und FLT</span></td><td><a href="#de-sp-engine">EDIT-Ebene</a>: Engine wählen</td></tr>
         <tr><td class="m">ENV</td><td>ENV · ENV DEST</td><td>–</td></tr>
         <tr><td class="m">LFO</td><td>LFO · LFO 2 · LFO DEST · MOD</td><td><a href="#de-gr-momentary">MOMENTARY</a> mit einem Regler</td></tr>
         <tr><td class="m">ARP</td><td>ARP · ARP 2 <span class="d">ein Bildschirm, zwei Reihen</span></td><td>–</td></tr>
@@ -1715,9 +1728,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-gr-undo">
     <h3>Rückgängig</h3>
     <dl class="defs">
-      <dt><kbd>SAVE</kbd> halten</dt><dd>Nimmt den letzten Schritt zurück: einen geladenen Sound oder ein Pattern, ein Werkzeug, eine Aufnahme, einen ausgeschalteten Schritt. Noch einmal halten stellt ihn wieder her.</dd>
-      <dt><kbd>REC</kbd> halten <span class="plus">+</span> <kbd>F#5</kbd></dt><dd>BACK: dasselbe aus der REC-Ebene. Ein zweites Mal sagt ALREADY UNDONE.</dd>
-      <dt><kbd>REC</kbd> halten <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></dt><dd>Nimmt zurück oder stellt wieder her, was seit dem Scharfschalten aufgenommen wurde.</dd>
+      <dt><kbd>SAVE</kbd> halten</dt><dd>Nimmt den letzten Schritt zurück: einen geladenen Sound oder ein Pattern, ein Werkzeug, eine Aufnahme, einen ausgeschalteten Schritt. Alles, was in einer Öffnung einer Ebene (GLO, SCL, EDIT, SEQ, REC) geschieht, ist ein einziger Schritt. Noch einmal halten stellt ihn wieder her.</dd>
     </dl>
   </section>
 
@@ -1732,8 +1743,8 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-gr-tempo">
     <h3>Tempo</h3>
     <div class="prose">
-      <p><kbd>SELECT</kbd> stellt das Tempo, solange du auf HOME, im MIXER oder auf CLOCK bist; oben leuchtet kurz BPM auf. Auf allen anderen Seiten blättert SELECT.</p>
-      <p>HOME &gt; CLOCK hat <b>BPM</b>, <b>SWG</b> (Swing) und <b>CLK</b>, die Taktquelle: INT, USB oder TRS. <kbd>GLO</kbd> halten <span class="plus">+</span> <kbd>F4</kbd> tippt das Tempo. MENU &gt; CONTROL &gt; BPM LOCK sperrt SELECT gegen versehentliches Verstellen.</p>
+      <p><kbd>SELECT</kbd> blättert nur die Seiten, auf HOME, im MIXER, auf CLOCK und EQ wie überall; das Tempo ändert es nie. Das Tempo stellst du auf CLOCK mit <kbd>KNOB 1</kbd>.</p>
+      <p>HOME &gt; CLOCK hat <b>BPM</b>, <b>SWG</b> (Swing) und <b>CLK</b>, die Taktquelle: INT, USB oder TRS. <kbd>GLO</kbd> halten <span class="plus">+</span> <kbd>F4</kbd> tippt das Tempo.</p>
     </div>
   </section>
 
@@ -1789,8 +1800,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <thead><tr><th>Seite</th><th class="k">KNOB 1</th><th class="k">KNOB 2</th><th class="k">KNOB 3</th><th class="k">KNOB 4</th></tr></thead>
       <tbody>
         <tr><td class="m">VOICE</td><td class="m">VCE<span class="d">POLY, MONO, LEG, UNI</span></td><td class="m">GLD<span class="d">Glide</span></td><td class="m">GLMOD</td><td class="m">PRIO</td></tr>
-        <tr><td class="m">VOICE 2</td><td class="m">ALLOC</td><td class="m">DTUNE</td><td class="m">PAN</td><td class="m">MUTE</td></tr>
-        <tr><td class="m">VOICE 3</td><td class="m">SPRD</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td class="m">VOICE 2</td><td class="m">ALLOC</td><td class="m">DTUNE</td><td class="m">SPRD</td><td>–</td></tr>
       </tbody>
     </table></div>
     <div class="prose"><p>LEG und UNI spielen legato: Eine Taste, die du drückst, während die vorige noch liegt, startet keine neue Hüllkurve, nur einen Glide, wenn GLD gesetzt ist. SPRD verteilt die Stimmen einer POLY- oder UNI-Spur abwechselnd links und rechts.</p></div>
@@ -1969,18 +1979,18 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   </section>
 
   <section class="sub" id="de-kl-cset">
-    <h3>Chord-Sets (CSET)</h3>
+    <h3>Chord-Sets (SCL &gt; CHORD)</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-panel data-hl="SCL SELECT K1 K2 K3 F3-E4" data-turn="SELECT K1 K2 K3" data-num="SCL:1 K1:2 K2:3 KEYS:4" data-screen="CSET|CSET:ON|SET:1|GENRE:POP|-" data-alt="SCL, CSET mit KNOB 1 bis 3"></div></div>
-      <figcaption>SCL &gt; CSET: Jede Taste ist ein Akkord. Zwischen F3 und E4 klingen die zwölf Akkorde im Voicing des Sets.</figcaption>
+      <div class="fig-scroll"><div data-panel data-hl="SCL SELECT K1 K2 K3 F3-E4" data-turn="SELECT K1 K2 K3" data-num="SCL:1 K1:2 K2:3 KEYS:4" data-screen="CHORD|CHRD:SET 1|VOIC|GENRE:POP|-" data-alt="SCL, CHORD mit KNOB 1 bis 3"></div></div>
+      <figcaption>SCL &gt; CHORD, in den Sets: Jede Taste ist ein Akkord. Zwischen F3 und E4 klingen die zwölf Akkorde im Voicing des Sets.</figcaption>
     </figure>
     <div class="prose">
-      <p>100 Chord-Sets in Genres: POP, JAZZ, BLUES, UTILITY, SYNTHWAVE, HOUSE, EDM, NEO SOUL, BOSSA NOVA, CLASSICAL und mehr. Jede Spur schaltet CSET für sich ein und hat ihr eigenes Set.</p>
+      <p>100 Chord-Sets in Genres: POP, JAZZ, BLUES, UTILITY, SYNTHWAVE, HOUSE, EDM, NEO SOUL, BOSSA NOVA, CLASSICAL und mehr. Die Sets setzen die Akkordformen von KNOB 1 fort; jede Spur hat ihr eigenes.</p>
     </div>
     <ol class="steps">
-      <li><span><kbd>SCL</kbd>, dann <kbd>SELECT</kbd> bis CSET.</span></li>
-      <li><span><kbd>KNOB 1</kbd> auf ON. Die Spur wird POLY; OFF gibt ihr das vorige VOICE zurück.</span></li>
-      <li><span><kbd>KNOB 2</kbd> SET wählt 1 bis 100, <kbd>KNOB 3</kbd> GENRE springt zum ersten Set des nächsten Genres.</span></li>
+      <li><span><kbd>SCL</kbd>, dann <kbd>SELECT</kbd> bis CHORD.</span></li>
+      <li><span><kbd>KNOB 1</kbd> CHRD läuft OFF, DIA3, DIA7, MAJ, MIN, DOM7, MAJ7, MIN7, SUS4, POW und weiter in SET 1 bis 100. Ein Set macht die Spur POLY; eine Akkordform gibt ihr VOICE zurück. <kbd>KNOB 2</kbd> VOIC setzt die Akkordformen.</span></li>
+      <li><span><kbd>KNOB 3</kbd> GENRE springt zwischen den Genres der Sets und vor SET 1 zurück zu POW.</span></li>
       <li><span>Spielen: Die Taste C … B spielt den Akkord des Sets auf diesem Ton. Das Display zeigt die zwölf Akkorde, den zuletzt gespielten hell, darunter seine Töne.</span></li>
     </ol>
     <div class="prose"><p>Jede Oktave darüber oder darunter spielt den Akkord eine Oktave höher oder tiefer. TRN verschiebt die Akkorde, MIDI-Noten spielen den Akkord ihrer Taste. Aufnahme und Schritt-Eingabe schreiben bis zu vier Töne pro Schritt, der Arpeggiator spielt sie aufgelöst.</p></div>
@@ -2058,16 +2068,14 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-seq-reclayer">
     <h3>Die REC-Ebene</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F3=CLEAR;G3=CLICK;A3=COUNT-IN;B3=CLICK LEVEL;F#3=CLR FXT;G#3=CLR AUTO;F#5=BACK" data-alt="REC-Ebene: Belegung der Tasten"></div></div>
-      <figcaption><kbd>REC</kbd> gehalten. <kbd>OCT−</kbd> / <kbd>OCT+</kbd> sind Undo und Redo der Aufnahme.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F3=CLEAR;G3=CLICK;A3=COUNT-IN;B3=CLICK LEVEL" data-alt="REC-Ebene: Belegung der Tasten"></div></div>
+      <figcaption><kbd>REC</kbd> gehalten. <kbd>SAVE</kbd> halten nimmt die Aufnahme zurück, noch einmal stellt sie wieder her.</figcaption>
     </figure>
     <dl class="defs">
       <dt><kbd>F3</kbd> CLEAR</dt><dd>Löscht die Noten und die Automation der Spur.</dd>
       <dt><kbd>G3</kbd> CLICK</dt><dd>OFF, REC (nur bei scharfer Spur) oder ON. Ein Klick auf jedem Schlag, der erste des Takts höher.</dd>
       <dt><kbd>A3</kbd> COUNT-IN</dt><dd>OFF, 1 BAR oder 2 BARS vor der Aufnahme aus dem Stopp. Eine Note im letzten halben Schlag landet auf Schritt 1.</dd>
       <dt><kbd>B3</kbd> CLICK LEVEL</dt><dd>LOW, MID oder HIGH. Der Klick geht nur auf Lautsprecher und Kopfhörer, nie auf USB oder ins Pattern.</dd>
-      <dt><kbd>F#3</kbd> · <kbd>G#3</kbd></dt><dd>Löschen beide FX-Spuren beziehungsweise die Automation der Spur, jeweils nach <kbd>OCT+</kbd>. Die Noten bleiben.</dd>
-      <dt><kbd>F#5</kbd> BACK</dt><dd>Ein Schritt zurück, wie SAVE halten.</dd>
     </dl>
   </section>
 
@@ -2103,15 +2111,16 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-seq-tools">
     <h3>Pattern-Werkzeuge</h3>
     <figure class="fig">
-      <div class="fig-scroll"><div data-keymap data-labels="F#3=CLEAR;G#3=REVERSE;A#3=SHIFT &lt;;C#4=SHIFT &gt;;D#4=RANDOM;F#4=COOK;G#4=BEAT;A#4=LANE CLR;C#5=LANE REV;D#5=LANE FILL;F#5=LANE RND" data-alt="SEQ-Ebene: die Werkzeuge auf den schwarzen Tasten"></div></div>
-      <figcaption><kbd>SEQ</kbd> gehalten: Die schwarzen Tasten sind Werkzeuge. BEAT und die LANE-Werkzeuge gibt es nur auf Drum-Spuren. Die weißen Tasten sind die <a href="#de-szenen">Szenen</a>.</figcaption>
+      <div class="fig-scroll"><div data-keymap data-labels="F#3=CLEAR;G#3=REVERSE;A#3=SHIFT &lt;;C#4=SHIFT &gt;;D#4=RANDOM;F#4=COOK;G#4=BEAT;A#4=LANE CLR / TRN -1;C#5=LANE REV / TRN +1;D#5=LANE FILL;F#5=LANE RND" data-alt="SEQ-Ebene: die Werkzeuge auf den schwarzen Tasten"></div></div>
+      <figcaption><kbd>SEQ</kbd> gehalten: Die schwarzen Tasten sind Werkzeuge. BEAT und die LANE-Werkzeuge gibt es nur auf Drum-Spuren; auf allen anderen Spuren transponieren <kbd>A#4</kbd> und <kbd>C#5</kbd>. Die weißen Tasten sind die <a href="#de-szenen">Szenen</a>.</figcaption>
     </figure>
     <dl class="defs">
       <dt>KNOB 1–4</dt><dd>LEN (1 bis 64 Schritte), DIV (Schrittlänge, 4 Takte bis 1/32), SWG (Swing), GATE.</dd>
       <dt>RANDOM</dt><dd>Ein neuer Beat oder neue Noten in der Skala auf demselben Rhythmus.</dd>
       <dt>COOK</dt><dd>Ändert das Pattern bei jedem Druck ein wenig.</dd>
       <dt>LANE …</dt><dd>Löschen, umkehren, füllen, würfeln für ein Instrument; <kbd>PRESETS</kbd> wählt es.</dd>
-      <dt><kbd>SEQ</kbd> <span class="plus">+</span> <kbd>EDIT</kbd></dt><dd>Setzt die Spur zurück, wie sie beim Öffnen der Ebene war. Jedes Werkzeug ist außerdem ein Undo-Schritt für SAVE halten.</dd>
+      <dt>TRN −1 / TRN +1</dt><dd>Auf einer Spur, die kein Drum-Kit ist: alle Noten der Sequenz einen Halbton tiefer (<kbd>A#4</kbd>) oder höher (<kbd>C#5</kbd>), alle Schritte, Akkorde bleiben ganz, immer chromatisch (eine aktive Skala rastet die Noten beim Spielen weiter ein). Rhythmus, Akzente, Slides und Automation bleiben. Würde eine Note den MIDI-Bereich verlassen, bewegt sich nichts: HIGHEST NOTE REACHED / LOWEST NOTE REACHED.</dd>
+      <dt><kbd>SEQ</kbd> <span class="plus">+</span> <kbd>EDIT</kbd></dt><dd>Hat keine Funktion. Halte stattdessen <kbd>SAVE</kbd>: Das nimmt alles zurück, was seit dem Drücken von SEQ geschah, und stellt es beim erneuten Halten wieder her.</dd>
     </dl>
   </section>
 
@@ -2202,6 +2211,17 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose">
       <p><kbd>SEQ</kbd> halten und <kbd>OCT+</kbd> etwa 0,7 Sekunden halten: Die laufende Szene wird in die nächste freie kopiert (COPIED TO SCENE n), sofort und ohne hörbaren Sprung. Jede Änderung trifft ab jetzt die Kopie, das Original wartet in seiner Szene. Die Kopie landet in der ersten leeren Szene nach der laufenden; <kbd>OCT−</kbd> wählt die Szene davor, also das Original, wenn die Kopie direkt dahinter liegt.</p>
       <p>Mögliche Antworten: NOTHING TO COPY (die Szene ist leer), NO FREE SCENE, SCENE MEMORY FULL.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="de-sz-loeschen">
+    <h3>Eine Szene löschen</h3>
+    <figure class="fig">
+      <div class="fig-scroll"><div data-panel data-hl="SEQ OCTM" data-hold="SEQ OCTM" data-num="SEQ:1 OCTM:2" data-screen="[SEQ] SCENES|LEN|DIV|SWG|GATE" data-alt="SEQ halten und OCT− lange halten"></div></div>
+    </figure>
+    <div class="prose">
+      <p><kbd>SEQ</kbd> halten und <kbd>OCT−</kbd> etwa 0,7 Sekunden halten: Die laufende Szene wird geleert (SCENE n CLEARED): Schritte, Automation, FX TRACKS und ihr eigener KEY. Sofort, auch beim Spielen, läuft die nächste Szene davor, die etwas enthält, ab ihrem Schritt 1; gibt es davor keine, die nächste dahinter; enthält keine andere Szene etwas, bleibt die geleerte Szene. Das Loslassen von OCT− springt dann keine Szene weiter.</p>
+      <p>Mögliche Antworten: NOTHING TO CLEAR (die Szene ist schon leer), STOP THE SONG FIRST.</p>
     </div>
   </section>
 
@@ -2391,7 +2411,21 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="de-mix-mixer">
     <h3>MIXER</h3>
-    <div class="prose"><p><kbd>HOME</kbd>, dann <kbd>HOME</kbd> noch einmal: der MIXER. <kbd>KNOB 1</kbd> LEVEL, <kbd>KNOB 2</kbd> PAN, <kbd>KNOB 3</kbd> REV (Hall-Send), <kbd>KNOB 4</kbd> MUTE, jeweils für die mit <kbd>ALGORITHM</kbd> gewählte Spur. MOMENTARY funktioniert auch hier.</p></div>
+    <div class="prose"><p><kbd>HOME</kbd>, dann <kbd>HOME</kbd> noch einmal: der MIXER. <kbd>KNOB 1</kbd> LEVEL, <kbd>KNOB 2</kbd> PAN, <kbd>KNOB 3</kbd> zeigt REV, verstellt es aber nicht (der Hall-Send liegt auf FX &gt; FX), <kbd>KNOB 4</kbd> MUTE, jeweils für die mit <kbd>ALGORITHM</kbd> gewählte Spur. MOMENTARY funktioniert auch hier.</p></div>
+  </section>
+
+  <section class="sub" id="de-mix-eq">
+    <h3>EQ</h3>
+    <div class="prose">
+      <p>Von HOME aus schaltet <kbd>SELECT</kbd> zu MIXER, CLOCK und dann zum EQ: vier Bänder für die mit <kbd>ALGORITHM</kbd> gewählte Spur, nach ihrem INSERT und vor LEVEL, PAN und den Sends. Das Panel zeigt die Kurve der Spur von 20 Hz bis 20 kHz (±12 dB), das gewählte Band einzeln und die vier Bänder als nummerierte Punkte.</p>
+    </div>
+    <dl class="defs">
+      <dt><kbd>KNOB 1</kbd> BAND</dt><dd>Wählt Band 1 bis 4.</dd>
+      <dt><kbd>KNOB 2</kbd> FREQ</dt><dd>20 Hz bis 20 kHz in 121 Schritten von etwa 1/12 Oktave (100 Hz, 500 Hz, 2 kHz und 8 kHz sind Schritte).</dd>
+      <dt><kbd>KNOB 3</kbd> GAIN / RESO</dt><dd>−12 bis +12 dB in halben dB. Bei LP und HP ist es die Resonanz (Q 0,50 bis 9,51); jeder Typ behält seinen eigenen Wert.</dd>
+      <dt><kbd>KNOB 4</kbd> TYPE</dt><dd>L.SHF (Low Shelf), BELL, H.SHF (High Shelf), LP (Tiefpass), HP (Hochpass). Shelves und Bells haben eine feste Breite.</dd>
+    </dl>
+    <div class="prose"><p>Die Bänder starten flach: L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF 8 kHz, alle auf 0 dB. Der EQ gehört zur Spur wie LEVEL und PAN: Ein geladener Sound behält ihn, alle Szenen teilen ihn, und er wird mit dem Projekt gespeichert.</p></div>
   </section>
 
   <section class="sub" id="de-mix-glo">
@@ -2407,7 +2441,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt><kbd>D4</kbd></dt><dd>MIDI LEARN (siehe <a href="#de-midi-learn">MIDI LEARN</a>).</dd>
       <dt><kbd>F4</kbd></dt><dd>Tempo tippen.</dd>
       <dt><kbd>PLAY</kbd></dt><dd>Neustart von vorn.</dd>
-      <dt><kbd>OCT−</kbd></dt><dd>Nimmt die Änderungen der Ebene zurück.</dd>
+      <dt><kbd>SAVE</kbd> halten</dt><dd>Nimmt die Änderungen der Ebene in einem Schritt zurück.</dd>
     </dl>
   </section>
 
@@ -2449,11 +2483,6 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <li><span><kbd>KNOB 4</kbd> nach rechts (SAVE), dann <kbd>OCT+</kbd> (ein belegter Platz fragt zuerst OVERWRITE?): Name und Kategorie vergeben, mit <kbd>OCT+</kbd> bestätigen.</span></li>
     </ol>
     <div class="prose"><p>Ebenso lädt <kbd>KNOB 2</kbd> (LOAD) und löscht <kbd>KNOB 3</kbd> (ERASE), jeweils mit <kbd>OCT+</kbd>. Ein eigener Sound speichert seine Effekte mit, ein FM6-Sound seinen Patch, ein VDRUM-Sound sein eigenes Kit.</p></div>
-  </section>
-
-  <section class="sub" id="de-sp-tools">
-    <h3>TOOLS</h3>
-    <div class="prose"><p>SAVE &gt; TOOLS hat vier Aktionen: <kbd>KNOB 1</kbd> PAT leert das Pattern der gewählten Spur, <kbd>KNOB 2</kbd> SOUND setzt ihren Sound auf die Grundwerte und den ersten Sound der Engine, <kbd>KNOB 3</kbd> SEC löscht den auf SONG gewählten Abschnitt, <kbd>KNOB 4</kbd> SONG leert den Song. Einen Regler nach rechts drehen wählt seine Aktion; <kbd>OCT+</kbd> fragt nach, <kbd>OCT+</kbd> noch einmal führt aus.</p></div>
   </section>
 
   <section class="sub" id="de-sp-auto">
@@ -2564,7 +2593,6 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td class="m">HOLD</td><td>Wie lange eine Ebenen-Taste gehalten wird, bis ihre Karte erscheint</td></tr>
         <tr><td class="m">KNOB ACCEL</td><td>OFF oder ON: schnelles Drehen springt 2 bis 8 Schritte</td></tr>
         <tr><td class="m">FX LATCH</td><td>OFF oder ON: Effekte schalten statt zu halten</td></tr>
-        <tr><td class="m">BPM LOCK</td><td>OFF oder ON: SELECT ändert das Tempo nicht mehr</td></tr>
         <tr><td class="m">SCALE LEDS</td><td>OFF oder ON: die Skala dauerhaft auf der Tastatur</td></tr>
         <tr><td class="m">STEP PREVIEW</td><td>OFF oder ON: der Cursor spielt den Schritt an</td></tr>
         <tr><td class="m">CHORD ENTRY</td><td>HOLD oder ADD (siehe <a href="#de-seq-eingabe">Schritte eingeben</a>)</td></tr>
@@ -2641,18 +2669,16 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td><kbd>EDIT</kbd> halten <span class="plus">+</span> weiße Taste</td><td>Engine wählen; F#5: Sound initialisieren</td></tr>
         <tr><td><kbd>EDIT</kbd> halten <span class="plus">+</span> schwarze Taste</td><td>Schnellaktion der Engine (DRUM: Instrument stumm)</td></tr>
         <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> weiße Taste</td><td>Szene 1–16</td></tr>
-        <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Vorige oder nächste Szene; OCT+ lange: Szene kopieren</td></tr>
+        <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Vorige oder nächste Szene; OCT+ lange: Szene kopieren; OCT− lange: Szene löschen</td></tr>
         <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> schwarze Taste</td><td>Pattern-Werkzeug</td></tr>
         <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> <kbd>PRESETS</kbd></td><td>Drum-Spur für die LANE-Werkzeuge wählen</td></tr>
-        <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> <kbd>EDIT</kbd></td><td>Spur zurücksetzen, wie beim Öffnen der Ebene</td></tr>
-        <tr><td><kbd>REC</kbd> halten <span class="plus">+</span> <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Aufnahme rückgängig oder wiederherstellen</td></tr>
-        <tr><td><kbd>REC</kbd> halten <span class="plus">+</span> <kbd>F3</kbd> · <kbd>F#3</kbd> · <kbd>G#3</kbd></td><td>Spur löschen · FX-Spuren löschen · Automation löschen</td></tr>
+        <tr><td><kbd>SEQ</kbd> halten <span class="plus">+</span> <kbd>EDIT</kbd></td><td>Nichts (<kbd>SAVE</kbd> halten macht rückgängig)</td></tr>
+        <tr><td><kbd>REC</kbd> halten <span class="plus">+</span> <kbd>F3</kbd></td><td>Gewählte Spur löschen</td></tr>
         <tr><td><kbd>REC</kbd> halten <span class="plus">+</span> <kbd>G3</kbd> · <kbd>A3</kbd> · <kbd>B3</kbd></td><td>CLICK · COUNT-IN · CLICK LEVEL</td></tr>
-        <tr><td><kbd>REC</kbd> halten <span class="plus">+</span> <kbd>F#5</kbd></td><td>BACK: ein Schritt zurück</td></tr>
         <tr><td>Schritt halten <span class="plus">+</span> Regler</td><td>Parameter-Lock; EDIT löscht die Locks des Schritts</td></tr>
         <tr><td><kbd>OCT−</kbd> <span class="plus">+</span> <kbd>OCT+</kbd></td><td>Oktave zurücksetzen</td></tr>
         <tr><td>Ebenen-Taste zweimal tippen</td><td>Ebene bleibt offen</td></tr>
-        <tr><td><kbd>OCT−</kbd> in der GLO-, SCL- oder EDIT-Ebene</td><td>Änderungen der Ebene zurücknehmen</td></tr>
+        <tr><td><kbd>SAVE</kbd> halten</td><td>Letzten Schritt zurücknehmen (die Änderungen einer Ebene sind einer); noch einmal: wiederherstellen</td></tr>
         <tr><td><kbd>OCT−</kbd> <span class="plus">+</span> <kbd>OCT+</kbd> 5 s halten</td><td>Update-Modus (ab 2 s läuft ein Countdown; Loslassen bricht ab)</td></tr>
         <tr><td><kbd>OCT−</kbd> <span class="plus">+</span> <kbd>OCT+</kbd> beim Einschalten</td><td>Knöpfe und Regler kalibrieren</td></tr>
       </tbody>

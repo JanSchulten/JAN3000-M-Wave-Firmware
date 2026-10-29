@@ -130,8 +130,11 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   past 16 to 1) and goes on with the copy: COPIED TO SCENE n, while OCT+ is still held; letting go then steps no scene.
   It is at once, playing too, and nothing is heard: the music plays on where it was; from then on every edit changes
   the copy, the original waits in its scene, and OCT- goes back to it. A pick waiting is taken back. Else it says
-  NOTHING TO COPY (the scene is empty), NO FREE SCENE or SCENE MEMORY FULL. The footer: [OCT-/+] PREV NEXT,
-  [OCT+] HOLD: COPY.
+  NOTHING TO COPY (the scene is empty), NO FREE SCENE or SCENE MEMORY FULL.
+- **SEQ + OCT- held (0.7 s) clears the scene playing** (SCENE n CLEARED: its steps, automation, FX TRACKS, its own KEY)
+  and at once, playing too, the nearest scene before it that holds something plays from its step 1 (none before: the
+  nearest after; none at all: the cleared one stays). Letting go then steps no scene. NOTHING TO CLEAR when it is
+  empty. The footer: [SELECT] SONG, [OCT+] COPY, [OCT-] CLEAR (held, both; the help row says HOLD).
 - Stopped, a scene comes at once. **Playing, it comes at the end of the pattern**: the end of the loop of the longest
   track that plays something, on the grid, as a SONG section ends. **MENU > CONTROL > SCENE CHANGE**: AT END (that,
   the default) or **NEXT BAR**: the scene comes at the next bar line (4/4, the metronome's), whatever the tracks'
@@ -141,7 +144,9 @@ the mixer, ARP, SCL, FX1 and the song stay the project's.
   filled (its key lit), one waiting ringed (its key breathing), one that holds something raised, an empty one
   dimmed.
 - The **tools are on the black keys** from G#3: REVERSE, SHIFT < >, RANDOM, COOK, on a DRUM track BEAT and the
-  lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane). F#3 is unassigned. Hold **SAVE** to undo all
+  lane's CLEAR, REVERSE, FILL, RANDOM (**PRESETS** picks the lane); on any other track **A#4 / C#5 are TRN -1 / +1**:
+  every note of the sequence (all steps, chords whole) a semitone down / up, chromatic, the rhythm and automation kept
+  (a note that would leave 0..127: none moves, HIGHEST / LOWEST NOTE REACHED). F#3 is unassigned. Hold **SAVE** to undo all
   edits in that opening, hold it again to redo. KNOB 1..4 are LEN DIV SWING GATE. **SELECT** switches to SONG, the
   scene song (see below).
 - **As on the KO-II:** a punch-in stays on while its key is held, also after FX is let go. Hold SEQ meanwhile and
@@ -349,9 +354,19 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 
 ## Other changes to Felucca's workflow
 
-- **SELECT turns every family's pages**, including HOME → MIXER → CLOCK → HOME. A page button opens its family;
+- **SELECT turns every family's pages**, including HOME → MIXER → CLOCK → EQ → HOME. A page button opens its family;
   the same button again returns HOME. HOME always returns HOME. Hold a button for its live layer. Tempo is CLOCK's
   BPM knob or GLO + F4 TAP. SELECT never sets tempo; the old BPM LOCK bit remains reserved.
+
+- **HOME > EQ: four bands a track** (SELECT from HOME: MIXER, CLOCK, EQ), after the track's INSERT and before LEVEL,
+  PAN and the sends, for the track ALGORITHM picks. KNOB 1 picks the band, KNOB 2 its FREQ (20 Hz .. 20 kHz in 121
+  steps of about 1/12 octave, the R40 numbers: 100 Hz, 500 Hz, 2 kHz, 8 kHz are steps), KNOB 3 its GAIN (-12 .. +12 dB
+  in half dB; on a LP / HP its RESO, a Q of 0.50 .. 9.51, kept apart), KNOB 4 its TYPE: L.SHF, BELL, H.SHF, LP, HP.
+  Shelves and bells have a fixed width (shelf slope 1, bell Q 1). The panel draws the track's curve, the band picked on
+  its own and the four bands as numbered points. Each band starts flat (L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF
+  8 kHz, 0 dB), and a flat band costs nothing. The EQ is the track's, like LEVEL and PAN: a sound loaded keeps it,
+  scenes share it, it is not automated; it is kept with the project (its extras; projects of before load flat). The
+  bands are RBJ cookbook biquads on the chip's FPU; a change glides in over a few ms.
 
 - **JAN3000 v0.8 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
   like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
@@ -580,7 +595,7 @@ PLAY / CLEAR row clears automation only; FX TRACKS + EDIT asks before clearing t
 F#3 deletes the selected section and G#3 clears the song, both with confirmation. SAVE no longer has TOOLS;
 initialize a sound with EDIT held + F#5.
 
-SELECT browses the current family everywhere, including HOME → MIXER → CLOCK → HOME (and backwards).
+SELECT browses the current family everywhere, including HOME → MIXER → CLOCK → EQ → HOME (and backwards).
 HOME always returns HOME. Pressing any other page button opens its family; pressing it again returns HOME,
 including two quick taps. Hold the button for its live layer. Tempo is CLOCK's BPM knob or GLO held + F4 TAP;
 SELECT never changes tempo, and the old BPM LOCK bit remains reserved in stored settings.

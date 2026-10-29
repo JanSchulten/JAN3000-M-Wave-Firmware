@@ -401,7 +401,7 @@ static uint32_t large_kind(void)
     g = cur_page()->graph;
     return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_PATS || g == GR_SONG || g == GR_ROLL ||
            g == GR_EVENTS || g == GR_KEY || g == GR_FXT || g == GR_FXT2 ||
-           g == GR_FX1 || g == GR_CLOUD ? LK_LABEL
+           g == GR_FX1 || g == GR_CLOUD || g == GR_EQ ? LK_LABEL
                                                                                                           : LK_TALL;
 }
 /* the geometry of the page shown: the cards' height, the panel's top and height */

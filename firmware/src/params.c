@@ -325,6 +325,9 @@ static int32_t param_turn(const param_desc_t *d, int32_t v, int32_t steps)
     return enum_step(d, v, clamp(v + steps, d->min, d->max));
 }
 
+#define EQ_NB 4u                         /* M-Vave-OP1, HOME > EQ: bands a track, FREQ steps, RESO steps (eq_set below) */
+#define EQ_NF 121
+#define EQ_NQ 18
 static uint8_t fmt_named;        /* the last param_format was a name (F_ENUM, even "4"): ui_draw.c's digits do not roll it */
 
 /* value string (<= 5 chars) and unit for a parameter value */
@@ -420,6 +423,36 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         fmt_int(val, v);
         *unit = v < 100 ? "STEP" : "";               /* (M-Vave-OP1: LEN 100..128 fills a card on its own) */
         break;
+    case F_EQHZ: {                                   /* M-Vave-OP1, EQ: 21.2 Hz, 106 Hz, 1.06 kHz, 10.6 kHz */
+        uint32_t h = EQ_HZ_X10[clamp(v, 0, EQ_NF - 1)];
+        if (h < 1000u)
+            fmt_fix(val, (int32_t)h, 1);
+        else if (h < 10000u)
+            fmt_int(val, (int32_t)(h / 10u));
+        else if (h < 100000u)
+            fmt_fix(val, (int32_t)(h / 100u), 2);
+        else
+            fmt_fix(val, (int32_t)(h / 1000u), 1);
+        *unit = h < 10000u ? "Hz" : "kHz";
+        break;
+    }
+    case F_HDB: {                                    /* .. half dB: -12.0 .. +12.0, 0.0 (fmt_fix: .5) */
+        int32_t a = (v < 0 ? -v : v) * 5;
+        char *p = val;
+        if (v)
+            *p++ = v < 0 ? '-' : '+';
+        fmt_int(p, a / 10);
+        p += str_len(p);
+        *p++ = '.';
+        *p++ = (char)('0' + a % 10);
+        *p = 0;
+        *unit = "dB";
+        break;
+    }
+    case F_EQQ:                                      /* .. a Q: 0.71 */
+        fmt_fix(val, EQ_Q_X100[clamp(v, 0, EQ_NQ - 1)], 2);
+        *unit = "Q";
+        break;
     default:
         if (d->names) {                               /* F_INT with a 0-terminated name list: the range */
             uint32_t k = 0;                           /* split evenly over the names (engine desc hooks) */
@@ -448,7 +481,8 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_CSET,                                 /* .. (retired: SCL > CSET, now SCL > CHORD's sets) */
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
        GR_DLANE,                                /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
-       GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2, GR_SHIM };   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
+       GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2, GR_SHIM,   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
+       GR_EQ };                                 /* .. HOME > EQ: the selected track's four bands (eq.c, graph_eq) */
 
 typedef struct {
     const char *title;
@@ -463,6 +497,31 @@ static const param_desc_t SHIM_DESC[4] = {
     PD("SIZE", F_PCT, 0, 127, 90), PD("DAMP", F_PCT, 0, 127, 60),
     PD("PITCH", F_SEMI, -12, 24, 12), PD("FDBK", F_PCT, 0, 127, 127)
 };
+/* M-Vave-OP1, HOME > EQ (the tap after CLOCK): each track's four bands, the track's (as LEVEL and PAN: a sound loaded
+ * keeps them) and the project's (its extras, opstore.c XTRA_V9), not automated. A band: FREQ, one of the 121 steps of
+ * gen_tables.py EQ_HZ_X10 (20 Hz .. 20 kHz); GAIN in half dB (-24..24: -12 .. +12 dB) of a shelf or a bell; TYPE (EQT_*:
+ * stored, append-only); RESO, a LP / HP's Q (EQ_QV, 18 steps; 2: 0.71), its own value so a type changed and back
+ * keeps both. Main loop only: eq.c eq_poll hands what changed to the audio ISR as coefficients. The defaults: a
+ * LOW SHELF at 100 Hz, BELLs at 500 Hz and 2 kHz, a HIGH SHELF at 8 kHz, all at 0 dB (flat: the ISR does nothing) */
+enum { EQT_LSHF, EQT_BELL, EQT_HSHF, EQT_LP, EQT_HP, EQT_N };
+typedef struct { int16_t f, g, ty, q; } eq_band_t;
+#define EQ_DEF_INIT {{28, 0, EQT_LSHF, 2}, {56, 0, EQT_BELL, 2}, {80, 0, EQT_BELL, 2}, {104, 0, EQT_HSHF, 2}}
+static const eq_band_t EQ_DEF[EQ_NB] = EQ_DEF_INIT;
+static eq_band_t eq_set[NTRK][EQ_NB] = {EQ_DEF_INIT, EQ_DEF_INIT, EQ_DEF_INIT, EQ_DEF_INIT};
+static int16_t eq_ui_band;                           /* KNOB 1: the band KNOB 2..4 edit (0..3) */
+static const char *const N_EQBAND[] = {"1", "2", "3", "4"};
+static const char *const N_EQT[] = {"L.SHF", "BELL", "H.SHF", "LP", "HP"};
+static const param_desc_t EQ_DESC[5] = {
+    {"BAND", F_ENUM, 0, EQ_NB - 1, 0, N_EQBAND, 0}, PD("FREQ", F_EQHZ, 0, EQ_NF - 1, 56),
+    PD("GAIN", F_HDB, -24, 24, 0), {"TYPE", F_ENUM, 0, EQT_N - 1, EQT_BELL, N_EQT, 0}, PD("RESO", F_EQQ, 0, EQ_NQ - 1, 2)
+};
+static void eq_defaults(void)                        /* (a new project; one without them) */
+{
+    uint32_t k;
+    for (k = 0; k < NTRK; k++)
+        memcpy(eq_set[k], EQ_DEF, sizeof EQ_DEF);
+}
+static int eq_pass(const eq_band_t *b) { return b->ty == EQT_LP || b->ty == EQT_HP; }   /* (KNOB 3: RESO, not GAIN) */
 static const page_t PAGES[] = {
     {"ENV", FAM_ENV, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},
     {"ENV DEST", FAM_ENV, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (P_ED_FX: nothing reads it);
@@ -537,6 +596,7 @@ static const page_t PAGES[] = {
      * GLO > GLOBAL; its TUNE is MENU > AUDIO's now), again HOME (ui.c home_tap) */
     {"MIXER", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},
     {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, 0xFF}},
+    {"EQ", FAM_TRK, SC_GLOBAL, GR_EQ, {0xFF, 0xFF, 0xFF, 0xFF}},   /* M-Vave-OP1: the selected track's (eq_set) */
 };
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
 static uint8_t mod_ui_slot;      /* the MOD page: the matrix slot (0..3) KNOB 2..4 edit */
@@ -547,6 +607,12 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
     if (pg->graph == GR_SHIM) {
         *valp = &shim_p[slot];
         return &SHIM_DESC[slot];
+    }
+    if (pg->graph == GR_EQ) {                         /* BAND, then the band's FREQ, GAIN (a LP / HP: RESO), TYPE */
+        eq_band_t *b = &eq_set[song.sel % NTRK][eq_ui_band & 3];
+        int16_t *const v[4] = {&eq_ui_band, &b->f, eq_pass(b) ? &b->q : &b->g, &b->ty};
+        *valp = v[slot & 3u];
+        return &EQ_DESC[slot == 2u && eq_pass(b) ? 4u : slot & 3u];
     }
     if (id == 0xFFu) {
         *valp = 0;

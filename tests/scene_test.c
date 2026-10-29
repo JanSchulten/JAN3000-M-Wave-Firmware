@@ -26,6 +26,9 @@
  *            while held, its release steps no scene; a pick waiting taken back; refused (nothing changed, a pick waiting
  *            still waits): an empty scene, none free, the bank full, a song; the copy kept with the project, the
  *            autosave told.
+ *   CLEAR    SEQ + OCT- held 0.7 s: the scene playing emptied, at once (playing too: from step 1) the nearest scene
+ *            before it that holds something plays (none: the nearest after; none at all: the cleared one stays);
+ *            once while held, its release steps none; refused (nothing changed): an empty scene, a song; kept.
  *   LAYER    SEQ held: the white keys pick scenes 1..16, OCT+ / OCT- the next / the one before (none past 16 or before 1,
  *            their LEDs lit where there is one), OCT+ held the copy (once, while held; its release steps none),
  *            the black keys are the tools (CLEAR .. lane RANDOM), EDIT puts the track back, PRESETS picks a DRUM lane; the
@@ -694,6 +697,137 @@ static void test_copy(void)
     ck("  kept: a project saved after a copy loads with both, the copy playing", ok);
 }
 
+/* ----------------------------------------------------------- CLEAR --- */
+static void seq_clear(void)                          /* SEQ held + OCT- held past SEQ_COPY_MS, let go */
+{
+    btn_down(B_SEQ);
+    frame();
+    btn_down(B_OCTDN);
+    frames(SEQ_COPY_MS + 64u);
+    btn_up(B_OCTDN);
+    frame();
+    btn_up(B_SEQ);
+    frame();
+}
+static void test_clear(void)
+{
+    chain_pattern_t s1, s3;
+    project_store_t slot;
+    uint32_t ok, b, used, gen, sig;
+    /* stopped: scene 3 cleared, scene 1 (the nearest before that holds something, past an empty 2) plays */
+    scene_setup();
+    capture(&s1);
+    seq_pick(2);
+    melody(&trk[0], 70, 8);
+    capture(&s3);
+    sig = autosave_sig();
+    undo.trk = 1;
+    seq_clear();
+    capture(&pa);
+    ok = msg_is("SCENE 3 CLEARED") && scn.cur == 0u && same_pattern(&pa, &s1) && !scene_used(1) && !scene_used(2) &&
+         !scb.len[0] && !scb.len[2] && !scb.used && !undo.trk && autosave_sig() != sig;
+    ck("CLEAR: stopped, SEQ + OCT- held: SCENE 3 CLEARED, scene 1 plays (as it was), scene 3 empty, the bank empty", ok);
+    seq_pick(2);
+    ok = scn.cur == 2u && !scene_used(2) && seq_is_empty(&trk[0]) && motion_count(&trk[0]) == 0u &&
+         trk[1].p[P_SDIV] == 3 && trk[2].p[P_SSWING] == 30;
+    ck("  the scene cleared: empty when picked again (its steps, automation), the timing of the one it is reached from", ok);
+    /* none before: the nearest after; none at all: the cleared one stays, empty */
+    scene_setup();
+    seq_pick(4);
+    melody(&trk[1], 40, 4);
+    capture(&s3);
+    seq_pick(0);
+    seq_clear();
+    capture(&pa);
+    ok = msg_is("SCENE 1 CLEARED") && scn.cur == 4u && same_pattern(&pa, &s3) && !scene_used(0) && !scb.used;
+    seq_clear();
+    ok &= msg_is("SCENE 5 CLEARED") && scn.cur == 4u && !scene_used(4) && !scb.used && seq_is_empty(&trk[1]) &&
+          motion_count(&trk[0]) == 0u && motion_count(&trk[1]) == 0u && !fxt_lane[0].step[0] && !fxt_lane[1].step[3];
+    ck("  none before: the nearest after (scene 5); none at all: the cleared one stays, empty (steps, automation, lanes)", ok);
+    /* the gesture: once while held, its release steps no scene; tapped: the one before; with OCT+ down: nothing */
+    scene_setup();
+    seq_pick(1);
+    melody(&trk[0], 50, 8);
+    seq_pick(2);
+    melody(&trk[0], 55, 8);
+    btn_down(B_SEQ);
+    frame();
+    btn_down(B_OCTDN);
+    frames(SEQ_COPY_MS - 64u);
+    ok = scn.cur == 2u && scene_used(2);              /* (not yet) */
+    frames(128);
+    ok &= msg_is("SCENE 3 CLEARED") && scn.cur == 1u;
+    frames(1500);                                      /* (held on: once) */
+    ok &= scn.cur == 1u && scene_used(1) && scene_used(0);
+    btn_up(B_OCTDN);
+    frame();
+    ok &= scn.cur == 1u && !scn.req;                  /* (let go: no step) */
+    btn_down(B_OCTDN);
+    frame();
+    btn_up(B_OCTDN);
+    frame();
+    ok &= scn.cur == 0u && msg_is("SCENE 1");
+    btn_down(B_OCTUP);                                 /* (OCT- held with OCT+ down: no clear, no copy) */
+    frame();
+    btn_down(B_OCTDN);
+    frames(SEQ_COPY_MS + 200u);
+    btn_up(B_OCTDN);
+    btn_up(B_OCTUP);
+    frame();
+    ok &= scn.cur == 0u && scene_used(0) && scene_used(1) && song.octave == 0;
+    btn_up(B_SEQ);
+    frame();
+    ok &= !ui.layer;
+    ck("  OCT- held 0.7 s: the clear once, while still held; let go: no step; tapped: the one before; with OCT+: nothing", ok);
+    /* refused, nothing changed: an empty scene, a song */
+    seq_pick(9);
+    used = scb.used;
+    gen = scb.gen;
+    seq_clear();
+    ok = msg_is("NOTHING TO CLEAR") && scn.cur == 9u && scb.used == used && scb.gen == gen;
+    seq_pick(0);
+    capture(&s1);
+    used = scb.used;
+    chain.armed = 1;
+    seq_clear();
+    capture(&pa);
+    ok &= msg_is("STOP THE SONG FIRST") && scn.cur == 0u && same_pattern(&pa, &s1) && scb.used == used;
+    chain.armed = 0;
+    ck("  refused, nothing changed: NOTHING TO CLEAR (an empty scene), STOP THE SONG FIRST", ok);
+    /* playing: at once, the scene before from its step 1, no notes left hanging; a pick waiting taken back */
+    scene_setup();
+    capture(&s1);
+    seq_pick(1);
+    melody(&trk[0], 66, 16);
+    transport_req = 1;
+    for (b = 0; b < 700u; b++)
+        blk();
+    seq_pick(5);
+    ok = scn.req == SCN_END && scn.next == 5u;
+    seq_clear();
+    capture(&pa);
+    ok &= msg_is("SCENE 2 CLEARED") && scn.cur == 0u && scn.req == SCN_IDLE && song.playing && same_pattern(&pa, &s1) &&
+          !scene_used(1) && trk[0].seq_pos == 0x7FFFFFFFu && blocks_to_switch(6000, 5) == 6000u && scn.cur == 0u;
+    ck("  playing: at once, scene 1 from its step 1; the pick waiting (scene 6) taken back, nothing switches after", ok);
+    stop_transport();
+    /* kept: a project saved after a clear loads without it */
+    scene_setup();
+    seq_pick(3);
+    melody(&trk[2], 44, 4);
+    seq_clear();
+    capture(&s1);
+    ok = msg_is("SCENE 4 CLEARED") && scn.cur == 0u && project_save_as(1, "CLR") == 0;
+    slot = proj_slot[1];
+    scene_setup();                                     /* (another project now; the slot kept) */
+    proj_slot[1] = slot;
+    seq_pick(3);
+    melody(&trk[2], 46, 4);
+    project_load(1);
+    capture(&pa);
+    ok &= msg_is("LOADED") && scn.cur == 0u && same_pattern(&pa, &s1) && !scene_used(3);
+    ck("  kept: a project saved after a clear loads with the scene empty", ok);
+}
+
 /* ------------------------------------------------------------ LAYER --- */
 static void test_seq_layer(const char *dir)
 {
@@ -1048,6 +1182,7 @@ int main(int argc, char **argv)
     test_kept();
     test_key();
     test_copy();
+    test_clear();
     test_seq_layer(argc > 1 ? argv[1] : 0);
     test_ko();
     if (bad) {

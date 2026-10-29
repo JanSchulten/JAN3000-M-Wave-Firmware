@@ -1818,6 +1818,7 @@ static void ui_input(void)
     fx_usb_fixed = (ui_prefs & PREF_USB_FIXED) != 0u;   /* (MENU > USB LEVEL: fx.c, audio.c) */
     scope_mix = (ui_prefs2 & (PREF_SCOPE_MIX >> 16)) != 0u;   /* (MENU > SCOPE: fx.c, audio.c) */
     rp_apply();                                         /* (REC: CLICK, CLICK LEVEL, COUNT-IN, click.c and seq.c) */
+    eq_poll();                                          /* (M-Vave-OP1: HOME > EQ's settings to the audio: eq.c) */
     {   /* M-Vave-OP1: a scene the ISR switched to (scene.c): packed away, said; a pick dropped (memory) said */
         uint32_t r = scene_poll();
         if (scn.moved) {

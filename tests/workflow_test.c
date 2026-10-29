@@ -130,8 +130,9 @@ static void wf_navigation(void)
     bpm = song.g[G_BPM];
     turn(EN_SELECT, 1); ok &= !ui.home && cur_page()->graph == GR_TRK;
     turn(EN_SELECT, 1); ok &= !ui.home && str_eq(cur_page()->title, "CLOCK");
+    turn(EN_SELECT, 1); ok &= !ui.home && str_eq(cur_page()->title, "EQ");   /* (M-Vave-OP1: HOME > EQ) */
     turn(EN_SELECT, 1); ok &= ui.home;
-    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "CLOCK") && !ui.home;
+    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "EQ") && !ui.home;
     press(B_HOME); ok &= ui.home;
     for (f = FAM_ENV; f < FAM_TRK; f++) {
         go_home(); frames(400);
@@ -148,7 +149,7 @@ static void wf_navigation(void)
     }
     ok &= !menu_visible(MI_BPMLOCK);
     press_raw = 0;
-    wf_check("SELECT pages every family including HOME/MIXER/CLOCK, never BPM; every page button toggles HOME", ok);
+    wf_check("SELECT pages every family including HOME/MIXER/CLOCK/EQ, never BPM; every page button toggles HOME", ok);
 }
 
 static void wf_storage(void)

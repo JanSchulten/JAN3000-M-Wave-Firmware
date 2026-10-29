@@ -292,6 +292,7 @@ static uint32_t div_samples(uint32_t div)
 #include "click.c"                                   /* the metronome's click (after the master: audio.c) */
 static uint32_t delay_samples(void);
 #include "fx1.c"                                     /* M-Vave-OP1: FX1's CLOUD, the TYPE switch (the delay's line) */
+#include "eq.c"                                      /* M-Vave-OP1: HOME > EQ, each track's four bands */
 
 /* the delay's TIME (params.c N_DTIME): N_DIV's ten (div_samples), then 1.5.1's dotted 1/8D 1/16D 1/4D (10, 11, 12: 3/4,
  * 3/8, 3/2 of a quarter); at most DLY_LEN - 1 samples (1.486 s): 1/4D clamps at 60 BPM and below (1/2 below 81) */
@@ -967,7 +968,7 @@ static __attribute__((noinline)) void track_insert(track_t *t, int32_t *b, uint3
 }
 
 /* one block of the whole mix (shared with hostsim.c): events -> each part (with its modulation matrix)
- * -> SLICER (START) -> dist -> INSERT -> level / pan / sends -> buses -> SLICER (END) -> master; out: stereo Q15 */
+ * -> SLICER (START) -> dist -> INSERT -> EQ (M-Vave-OP1) -> level / pan / sends -> buses -> SLICER (END) -> master; out: stereo Q15 */
 static void events_block(uint32_t n);                    /* seq.c */
 static int32_t send_c[CTL], send_d[CTL], send_r[CTL], send_sh[CTL], wet[CTL], mix_l[CTL], mix_r[CTL];
 
@@ -1048,6 +1049,8 @@ static __attribute__((noinline)) void mix_spread(track_t *t, int32_t *b, uint32_
     track_dist(t, b, n);
     if (t->p[P_ITYPE] | t->ins_run)
         track_insert(t, b, n);                          /* (the mono sum, as DIST) */
+    if (eqa.run[t - trk] | eqx.req[t - trk])
+        track_eq(t, b, d, n);                           /* (M-Vave-OP1: the EQ, the side too) */
     if ((pf.mute >> (t - trk)) & 1u)
         perf_mute_sd((uint32_t)(t - trk), b, d, n);
     for (i = 0; i < n; i++) {
@@ -1078,8 +1081,10 @@ static void mix_part(track_t *t, uint32_t n)
     if (track_render(t, b, n))
         t->tail = t->p[P_ITYPE] ? 64 : 16;              /* blocks of DIST / INSERT state to run out after the last
                                                          * voice (the INSERT's: 46 ms, a flanger's feedback) */
-    else if ((!t->tail || !(t->p[P_DIST] | t->p[P_ITYPE]) || !--t->tail) && !slicer_busy(t)) {
+    else if ((!t->tail || !(t->p[P_DIST] | t->p[P_ITYPE] | eqa.run[t - trk]) || !--t->tail) && !slicer_busy(t)) {
         slicer_track(t, 0, n);                          /* (the SLICER's step clock runs on) */
+        if (eqa.live[t - trk] | eqx.req[t - trk])
+            eq_rest(t);                                 /* (M-Vave-OP1: the EQ from rest at the next note) */
         if (t->ins_run && !t->p[P_ITYPE])
             ins_rest(t);                                /* TYPE OFF while silent: no fade-out left for the next note */
         if (mod.on)
@@ -1093,6 +1098,8 @@ static void mix_part(track_t *t, uint32_t n)
         track_dist(t, b, n);
         if (t->p[P_ITYPE] | t->ins_run)
             track_insert(t, b, n);                      /* the INSERT (1.5): off, nothing */
+        if (eqa.run[t - trk] | eqx.req[t - trk])
+            track_eq(t, b, 0, n);                       /* M-Vave-OP1: the EQ (flat: nothing) */
         if ((pf.mute >> (t - trk)) & 1u)
             perf_mute((uint32_t)(t - trk), b, n);       /* perform.c: a black key in the FX layer */
     }

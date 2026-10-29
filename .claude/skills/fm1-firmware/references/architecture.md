@@ -165,3 +165,18 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
 - Scenes: a scene with anything past step 64 packs with `SCN_F_WIDE` (16-byte masks, two-byte places); every other
   scene packs byte for byte as before.
 - The editor's INFO keeps its step byte at 64 (a 7-bit byte); block `58 01 lo hi` says 128.
+
+## HOME > EQ (four bands a track)
+
+- Settings `eq_set[NTRK][EQ_NB]` (params.c, beside `shim_p`): int16 FREQ step (R40, `EQ_HZ_X10`), GAIN in half dB,
+  TYPE (`EQT_*`, stored), RESO (LP / HP Q step). The page is `GR_EQ` in FAM_TRK after CLOCK; `page_desc` hands KNOB 1..4
+  `eq_ui_band` and the band's values (KNOB 3: RESO on LP / HP). New formats `F_EQHZ`, `F_HDB`, `F_EQQ` (appended).
+- `eq.c` (included by fx.c after fx1.c): RBJ biquads in single float on the FPU (`FM1_FPU`), TDF-II. `eq_poll` (main,
+  every ui_input pass) computes a changed track's coefficients from gen_tables.py's `EQ_COS/SIN/A/SQA/QV` and hands them
+  over through `eqx.req[k]` (written only while 0; the ISR takes and clears). The ISR glides a quarter a block; flat
+  bands are skipped, a track with all flat costs one load (`eqa.run | eqx.req`) in mix_part / mix_spread after the
+  INSERT. A silent part (tail run out) calls `eq_rest`: state dropped. The EQ counts for the part's tail.
+- Kept in the project extras' tail (`xtra_hi_t.eq`, `XTRA_V9`, 4 bytes a band, validated on load); `autosave_sig`
+  hashes `eq_set`; `project_new` and extras of before: `eq_defaults`. Host tests reset with `eq_power_on`.
+- The panel (`graph_eq`) draws |H| from RBJ's sin^2(w/2) form (`EQ_PHI`): the cos w form cancels in float near 0 Hz.
+- Cost (this change): image +6.4 KB, RAM +1.6 KB, `fm1_alnk0_irq` static cost +171. `tests/eq_test.c`.

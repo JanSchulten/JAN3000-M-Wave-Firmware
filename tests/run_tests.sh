@@ -78,6 +78,11 @@
 #                   a slot's scenes with its project and the autosave's (copies taking turns, a
 #                   write cut short, damaged, unsound, another project's or slot's, a rename); USR2 and USR3 read as empty
 #                   sample slots.
+# EQ (tests/eq_test.c, M-Vave-OP1): HOME > EQ, four bands a track after its INSERT (eq.c): flat at power-on (no band
+#                   runs, a block untouched), each TYPE measured with sines against the RBJ cookbook in double, four bands
+#                   adding up, the glide (a quarter a block), flat again stops, a silent part drops its state, the page
+#                   (SELECT's place, KNOB 1..4, RESO for LP / HP, the cards' text, each track its own, a sound loaded
+#                   keeps it), kept with the project (damaged: defaults; extras of before: flat; a new project: flat).
 # SCENES (tests/scene_test.c, M-Vave-OP1): 16 scenes a project (scene.c, the SEQ layer): the packed form (3000 random
 #                   scenes round-trip, the densest fits, damaged bytes refused), a pick stopped at once and playing at the
 #                   pattern's end (the longest track's loop, the remainder carried), taken back, the bank full (refused,
@@ -385,7 +390,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo
     mkdir -p build/scene_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/scene_test" tests/scene_test.c -lm
-    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT+ held copy, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
+    run "SCENES: 16 a project, packed (round trip, damage), picked at the pattern's end, memory, kept, SEQ + OCT+ held copy, SEQ + OCT- held clear, the SEQ layer, KO-II" "$OUT/scene_test" build/scene_shots
+    mkdir -p build/eq_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/eq_test" tests/eq_test.c -lm
+    run "HOME > EQ: four bands a track (each TYPE's response against the cookbook), the glide, the page, kept with the project" "$OUT/eq_test" build/eq_shots
     mkdir -p build/cset_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cset_test" tests/cset_test.c -lm
     run "SCL > CHORD's sets (after the J-6's): the data, the chords, the key input, MIDI IN, the page, STEP entry, recording, kept" "$OUT/cset_test" build/cset_shots
