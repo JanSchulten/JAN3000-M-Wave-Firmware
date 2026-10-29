@@ -262,16 +262,15 @@ static uint32_t motion_icon(void) { return rec_on(TSEL) ? ICON_X_MOTION_REC : IC
 /* the icon beside a page's title in the footer (the pages that have one of their own; else ICON_NONE) */
 static uint32_t page_icon(const page_t *pg)
 {
+    if (page_ops(pg)->icon)                   /* M-Vave-OP1: the page's (ui_pages.c: PHRASES, SONG, AUTOMATION) */
+        return page_ops(pg)->icon();
     switch (pg->graph) {
     case GR_TRK: return ICON_X_MIXER;         /* MIXER (HOME): vertical faders */
-    case GR_PATS: return ICON_X_PATTERN;      /* SAVE > PHRASES: the pattern loader */
-    case GR_SONG: return ICON_X_SONG;         /* SONG: the disc */
     case GR_KEY: return ICON_SCALE;           /* KEY (M-Vave-OP1): the chord progression */
     case GR_FXT:
     case GR_FXT2: return ICON_X_REPEAT;       /* FX TRACKS (M-Vave-OP1): a punch-in's */
     case GR_FX1: return fx1s.type == FX1_CLOUD ? ICON_GRAIN : ICON_DELAY;   /* FX1 (M-Vave-OP1): its TYPE's */
     case GR_CLOUD: return ICON_GRAIN;         /* CLOUD: granular */
-    case GR_EVENTS: return motion_icon();     /* AUTOMATION */
     default: return ICON_NONE;
     }
 }

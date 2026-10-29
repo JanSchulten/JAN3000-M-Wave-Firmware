@@ -12,11 +12,15 @@ so every UI function is there; a bigger page in a file of its own included from 
 each optional (0: the shared default):
 
 - `flags`: `PG_LIST` (MENU > LARGE's list layout), `PG_K1` (the PRESETS knob turns KNOB 1), `PG_ACT_FIXED` (an action
-  of the page's own: no knob picks one, OCT- goes back).
+  of the page's own: no knob picks one, OCT- goes back), `PG_NO_MOM` (no MOMENTARY on its knobs), `PG_CHAIN_KEYS`
+  (the keys type a song chain: SONG).
 - `acts`, `act_col`, `act_name`, `act_ready`, `act_do`: an action page (SONG, PHRASES, AUTOMATION are the models).
 - `hot`: the columns a turned knob lights; `desc`: KNOB 1..4's values when the page keeps its own (EQ); `knob`: the
   knobs handled whole (SONG); `enter`: the page opened.
 - `cards` (draw_columns), `draw` (the panel), `sig` (everything the panel draws, for lazy drawing).
+- The footer and the buttons: `icon` (before the title), `title_short` (the title cut where the sound's name would be),
+  `edit` / `edit_state` / `edit_word` (EDIT and its key in the footer: AUTOMATION's DELETE), `rec` (REC: SONG's chain),
+  `play` (PLAY while stopped: SONG plays its chain).
 
 Then `sh tools/ui_compare.sh` on any move of existing code: every screen byte for byte as on `origin/main`. A
 build without the drawing and input files (the storage tests) sees the ops as zero (tentative definitions).

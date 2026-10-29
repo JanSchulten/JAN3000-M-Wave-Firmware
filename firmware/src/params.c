@@ -511,13 +511,22 @@ typedef struct page_ops {
     const char *(*act_name)(uint32_t c);           /* action column c's name (ui.c act_name) */
     int (*act_ready)(uint32_t c);                  /* .. it can run (act_ready) */
     void (*act_do)(uint32_t c);                    /* .. OCT+ (ui_input.c act_do) */
+    uint32_t (*icon)(void);                        /* the icon before the title in the footer (icons.c page_icon) */
+    void (*title_short)(char *ti, uint32_t n);     /* the footer's title cut where the sound's name would be (ui_draw.c) */
+    void (*edit)(void);                            /* EDIT tapped (ui_input.c page_tap) */
+    uint32_t (*edit_state)(void);                  /* .. its footer key: 0 none, 1 dim, 2 lit (ui_draw.c foot_rename) */
+    const char *edit_word;                         /* .. its word there (0: "NAME") */
+    int (*rec)(uint32_t bit);                      /* REC tapped for track bit: 1 done (ui_input.c rec_tap) */
+    void (*play)(void);                            /* PLAY tapped, stopped (ui_input.c) */
 } page_ops_t;
 enum {
     PG_LIST = 1,                 /* MENU > LARGE keeps the cards and the panel as on a list page (ui.c large_kind) */
     PG_K1 = 2,                   /* the PRESETS knob turns KNOB 1 (ui_input.c presets_turn) */
-    PG_ACT_FIXED = 4             /* the action is the page's, no knob picks one: OCT- goes back (ui_input.c, ui_draw.c) */
+    PG_ACT_FIXED = 4,            /* the action is the page's, no knob picks one: OCT- goes back (ui_input.c, ui_draw.c) */
+    PG_CHAIN_KEYS = 8,           /* the keys type a song chain (ui.c song_keys_on) */
+    PG_NO_MOM = 16               /* its knobs are its own: no MOMENTARY on them (ui_input.c mom_turn) */
 };
-static const page_ops_t EQ_OPS, SONG_OPS, PATS_OPS, EVENTS_OPS;   /* (ui_pages.c) */
+static const page_ops_t EQ_OPS, SONG_OPS, PATS_OPS, EVENTS_OPS, BROWSE_OPS;   /* (ui_pages.c) */
 static const page_ops_t *page_ops(const page_t *pg)
 {
     static const page_ops_t none;
@@ -616,7 +625,7 @@ static const page_t PAGES[] = {
      * sounds one tap on; up to 1.4.1 the last), PHRASES, PROJECT, TOOLS */
     {"PROJECT", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {G_SLOT, 0xFF, G_LOAD, G_SAVE}},   /* M-Vave-OP1: SAVE's first (the keys pick) */
     {"USER", FAM_SAVE, SC_GLOBAL, GR_USER, {0xFF, 0xFF, 0xFF, 0xFF}},       /* user presets: SLOT LOAD ERASE SAVE */
-    {"PRESETS", FAM_SAVE, SC_GLOBAL, GR_BROWSE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* browser: PRESETS knob / KNOB 1 */
+    {"PRESETS", FAM_SAVE, SC_GLOBAL, GR_BROWSE, {0xFF, 0xFF, 0xFF, 0xFF}, &BROWSE_OPS},   /* browser: PRESETS knob / KNOB 1 */
     {"PHRASES", FAM_SAVE, SC_GLOBAL, GR_PATS, {0xFF, 0xFF, 0xFF, 0xFF}, &PATS_OPS},    /* pattern loader: PAT LOAD (ui.c pat_load);
                                                                              * the tap after PRESETS (up to 1.1.5 SEQ's) */
     {"ARP", FAM_ARP, SC_TRACK, GR_ARP, {P_AMODE, P_ARATE, P_AOCT, P_AGATE}},
