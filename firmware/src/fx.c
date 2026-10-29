@@ -105,7 +105,7 @@ _Static_assert(sizeof rev_comb / 2u >= SP_LEN && sizeof rev_u.sp / 4u >= 4u * (S
  * Lines 0, 3, 5, 6, read at their ends, go through a one-pole low-pass (DAMP: the mixing takes every echo
  * through them); every
  * line through its gain (from its length: all decay alike; RT60 below the damping 0.5 s at SIZE 0, 4 s at
- * 90, 9 s at 127; ~2.4 s heard at 90 with DAMP 60); then the 8 x 8 mixing: a conference matrix (Paley,
+ * 90, 9 s at 127; ~2.9 s heard at 90 with DAMP 60, M-Vave-OP1: 2.4 before HL_IN, the quiet lines' rounding cut it); then the 8 x 8 mixing: a conference matrix (Paley,
  * order 8: every line feeds the 7 others, +-1 each, none itself: no flutter at a line's own length), with
  * the send added. Stereo: left lines 0 3 4 -7, right 1 2 5 6 (sums spread over the matrix's rows); the wet
  * bus (mono) gets left + right, rev_side left - right, which mix_block adds to the left and takes from the
@@ -121,7 +121,10 @@ _Static_assert(sizeof rev_comb / 2u >= SP_LEN && sizeof rev_u.sp / 4u >= 4u * (S
 #define HL_LPM 0x69u                     /* the lines with a low-pass */
 #define HL_KD(d) (32767 - (d) * 180)     /* its coefficient (Q15) for DAMP d: none at 0 .. ~1 kHz at 127 */
 #define HL_LOUD 32                       /* a line this loud (two samples' sum) rounds its gain to the nearest */
-#define HL_OUT 4                         /* the outputs' gain: the level of ROOM's tail */
+#define HL_IN 5160                       /* the send into the lines, Q15 (M-Vave-OP1: ROOM's 2580 x 2, +6 dB: the lines'
+                                          * int16 carried the tail 11 .. 23 dB below full scale in the demos, its last
+                                          * second in the rounding's noise; the loudest demo now peaks 5 dB below) */
+#define HL_OUT 2                         /* the outputs' gain: the level of ROOM's tail (M-Vave-OP1: 4 / 2, for HL_IN) */
 static const uint16_t HL_LEN[HL_NL] = {467, 509, 547, 593, 631, 673, 709, 743};   /* (+1 each: the mirror) */
 static const uint16_t HL_AP[HL_NAP] = {131, 307};
 static const int16_t HL_APG[HL_NAP] = {11469, 10240};               /* Q14: 0.7, 0.625 */
@@ -602,7 +605,7 @@ static __attribute__((noinline)) void hall_block(hall_t *h, int16_t *comb, int16
     xp = rev_in[CTL - 1u];                              /* (the shimmer bus: still fed) */
     for (i = 0; i < HL_NC; i++) {
         int32_t x = hw.bx[i], v;
-        x = mulq15(clamp(x, -262143, 262143), 2580) + h->sh[i];   /* (ROOM's level; SHIMMER's octave, 0 in a HALL:
+        x = mulq15(clamp(x, -262143, 262143), HL_IN) + h->sh[i];   /* (ROOM's level x 2; SHIMMER's octave, 0 in a HALL:
                                                                      * through the low cut too, no rumble round it) */
         v = x - hp + he;                                /* the low cut, its step's remainder kept */
         he = v & 31;
