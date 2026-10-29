@@ -21,6 +21,7 @@ recover. So the working order is always: **host tests → browser emulator → c
 | How the code is put together: unity build, audio ISR vs main loop, tracks, pages, lazy drawing | [references/architecture.md](references/architecture.md) |
 | Step-by-step recipes: a page, an ISR feature, an engine, an icon, a confirm dialog, persistence | [references/recipes.md](references/recipes.md) |
 | Host tests, the UI test harness, lints, budgets, emulator, Playwright, the Artifact page | [references/testing.md](references/testing.md) |
+| Who calls what, what a change reaches (the code graph: `graphify query / path / explain / affected`) | `CLAUDE.md` |
 | OP-1 → FM-1 mapping and the rebuild plan | [references/op1-mapping.md](references/op1-mapping.md), `docs/OP1_COMPARISON.md`, `docs/reference/op1-manual.md` |
 
 Read the reference that matches the task before editing code; they record the traps that cost time.
