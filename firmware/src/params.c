@@ -482,13 +482,18 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_CHO,                                  /* .. FX > CHORUS: TYPE and FDBK of its own (fx.c chos) */
        GR_DLANE,                                /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
        GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2, GR_SHIM,   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
-       GR_EQ };                                 /* .. HOME > EQ: the selected track's four bands (eq.c, graph_eq) */
+       GR_EQ,                                   /* .. HOME > EQ: the selected track's four bands (eq.c, ui_eq.c) */
+       GR_N };                                  /* (the count: new kinds go before it) */
 
 typedef struct {
     const char *title;
     uint8_t fam, scope, graph;
     uint8_t id[4];               /* param ids; 0xFF = empty slot */
+    uint8_t flags;               /* M-Vave-OP1: PG_* */
+    const param_desc_t *(*desc)(uint32_t slot, int16_t **valp);   /* .. KNOB slot's value and its descriptor, when the page
+                                                                     * keeps its own (page_desc); 0: id[] says */
 } page_t;
+enum { PG_LIST = 1 };            /* M-Vave-OP1: MENU > LARGE keeps the cards and the panel as on a list page (ui.c large_kind) */
 
 /* Global SHIMMER settings live in the project extras; G_* ids stay fixed on the wire. */
 static int16_t shim_p[4] = {90, 60, 12, 127};          /* SIZE, DAMP, semitones, feedback */
@@ -522,6 +527,14 @@ static void eq_defaults(void)                        /* (a new project; one with
         memcpy(eq_set[k], EQ_DEF, sizeof EQ_DEF);
 }
 static int eq_pass(const eq_band_t *b) { return b->ty == EQT_LP || b->ty == EQT_HP; }   /* (KNOB 3: RESO, not GAIN) */
+/* the EQ page's knobs (page_t desc): BAND, then the band's FREQ, GAIN (a LP / HP: RESO), TYPE */
+static const param_desc_t *eq_page_desc(uint32_t slot, int16_t **valp)
+{
+    eq_band_t *b = &eq_set[song.sel % NTRK][eq_ui_band & 3];
+    int16_t *const v[4] = {&eq_ui_band, &b->f, eq_pass(b) ? &b->q : &b->g, &b->ty};
+    *valp = v[slot & 3u];
+    return &EQ_DESC[slot == 2u && eq_pass(b) ? 4u : slot & 3u];
+}
 static const page_t PAGES[] = {
     {"ENV", FAM_ENV, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},
     {"ENV DEST", FAM_ENV, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (P_ED_FX: nothing reads it);
@@ -596,7 +609,8 @@ static const page_t PAGES[] = {
      * GLO > GLOBAL; its TUNE is MENU > AUDIO's now), again HOME (ui.c home_tap) */
     {"MIXER", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},
     {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, 0xFF}},
-    {"EQ", FAM_TRK, SC_GLOBAL, GR_EQ, {0xFF, 0xFF, 0xFF, 0xFF}},   /* M-Vave-OP1: the selected track's (eq_set) */
+    {"EQ", FAM_TRK, SC_GLOBAL, GR_EQ, {0xFF, 0xFF, 0xFF, 0xFF}, PG_LIST, eq_page_desc},   /* M-Vave-OP1: the selected
+                                                                                            * track's (eq_set) */
 };
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
 static uint8_t mod_ui_slot;      /* the MOD page: the matrix slot (0..3) KNOB 2..4 edit */
@@ -608,12 +622,8 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         *valp = &shim_p[slot];
         return &SHIM_DESC[slot];
     }
-    if (pg->graph == GR_EQ) {                         /* BAND, then the band's FREQ, GAIN (a LP / HP: RESO), TYPE */
-        eq_band_t *b = &eq_set[song.sel % NTRK][eq_ui_band & 3];
-        int16_t *const v[4] = {&eq_ui_band, &b->f, eq_pass(b) ? &b->q : &b->g, &b->ty};
-        *valp = v[slot & 3u];
-        return &EQ_DESC[slot == 2u && eq_pass(b) ? 4u : slot & 3u];
-    }
+    if (pg->desc)                                     /* M-Vave-OP1: a page with values of its own (EQ) */
+        return pg->desc(slot, valp);
     if (id == 0xFFu) {
         *valp = 0;
         return 0;
