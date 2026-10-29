@@ -354,9 +354,19 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 
 ## Other changes to Felucca's workflow
 
-- **SELECT turns every family's pages**, including HOME → MIXER → CLOCK → HOME. A page button opens its family;
+- **SELECT turns every family's pages**, including HOME → MIXER → CLOCK → EQ → HOME. A page button opens its family;
   the same button again returns HOME. HOME always returns HOME. Hold a button for its live layer. Tempo is CLOCK's
   BPM knob or GLO + F4 TAP. SELECT never sets tempo; the old BPM LOCK bit remains reserved.
+
+- **HOME > EQ: four bands a track** (SELECT from HOME: MIXER, CLOCK, EQ), after the track's INSERT and before LEVEL,
+  PAN and the sends, for the track ALGORITHM picks. KNOB 1 picks the band, KNOB 2 its FREQ (20 Hz .. 20 kHz in 121
+  steps of about 1/12 octave, the R40 numbers: 100 Hz, 500 Hz, 2 kHz, 8 kHz are steps), KNOB 3 its GAIN (-12 .. +12 dB
+  in half dB; on a LP / HP its RESO, a Q of 0.50 .. 9.51, kept apart), KNOB 4 its TYPE: L.SHF, BELL, H.SHF, LP, HP.
+  Shelves and bells have a fixed width (shelf slope 1, bell Q 1). The panel draws the track's curve, the band picked on
+  its own and the four bands as numbered points. Each band starts flat (L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF
+  8 kHz, 0 dB), and a flat band costs nothing. The EQ is the track's, like LEVEL and PAN: a sound loaded keeps it,
+  scenes share it, it is not automated; it is kept with the project (its extras; projects of before load flat). The
+  bands are RBJ cookbook biquads on the chip's FPU; a change glides in over a few ms.
 
 - **JAN3000 v0.8 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
   like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
@@ -585,7 +595,7 @@ PLAY / CLEAR row clears automation only; FX TRACKS + EDIT asks before clearing t
 F#3 deletes the selected section and G#3 clears the song, both with confirmation. SAVE no longer has TOOLS;
 initialize a sound with EDIT held + F#5.
 
-SELECT browses the current family everywhere, including HOME → MIXER → CLOCK → HOME (and backwards).
+SELECT browses the current family everywhere, including HOME → MIXER → CLOCK → EQ → HOME (and backwards).
 HOME always returns HOME. Pressing any other page button opens its family; pressing it again returns HOME,
 including two quick taps. Hold the button for its live layer. Tempo is CLOCK's BPM knob or GLO held + F4 TAP;
 SELECT never changes tempo, and the old BPM LOCK bit remains reserved in stored settings.

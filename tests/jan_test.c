@@ -202,11 +202,13 @@ static void test_select(void)
     turn(EN_SELECT, 1); frame();
     ok &= !ui.home && str_eq(cur_page()->title, "CLOCK") && song.g[G_BPM] == b0;
     turn(EN_K1, 1); ok &= song.g[G_BPM] == b0 + 1;
-    press(B_HOME); ok &= ui.home;
-    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "CLOCK");
+    turn(EN_SELECT, 1); ok &= str_eq(cur_page()->title, "EQ") && song.g[G_BPM] == b0 + 1;   /* (M-Vave-OP1: EQ) */
+    turn(EN_K1, 1); ok &= song.g[G_BPM] == b0 + 1;
+    turn(EN_SELECT, 1); ok &= ui.home;
+    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "EQ");
     press(B_HOME); ok &= ui.home;
     press_raw = 0;
-    ck("HOME always HOME; SELECT cycles HOME MIXER CLOCK; only CLOCK KNOB 1 changes BPM", ok);
+    ck("HOME always HOME; SELECT cycles HOME MIXER CLOCK EQ; only CLOCK KNOB 1 changes BPM", ok);
 }
 
 static void rec_hold_oct(uint32_t b)                  /* REC held (its layer), OCT- or OCT+, let go */

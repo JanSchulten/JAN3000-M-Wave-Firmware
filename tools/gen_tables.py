@@ -71,8 +71,39 @@ def main(path):
     L += arr("DECAY_K", "uint16_t", [min(65535, int(65536 * math.exp(-6.9 / (m / 1000 * FS)))) for m in dms])
     # soft clip curve for |x| in 0..2 (Q12 in, Q15 out): tanh
     L += arr("TANH_Q15", "int16_t", [int(32767 * math.tanh(i / 256 * 2)) for i in range(257)])
+    L += eq_tables()
     L += fm6_tables()
     Path(path).write_text("\n".join(L) + "\n")
+
+
+def farr(name, vals, per=6):
+    """a float table (the FPU's: eq.c); repr round-trips a double, the f suffix rounds it to single"""
+    return arr(name, "float", [repr(float(v)) + "f" for v in vals], per)
+
+
+def eq_tables():
+    """M-Vave-OP1, the track EQ (src/eq.c): a band's FREQ is one of 121 steps from 20 Hz to 20 kHz, the Renard R40
+    preferred numbers (40 a decade, ~1/12 octave: 100, 500, 2k, 8k are steps), its GAIN -12 .. +12 dB in half dB,
+    the LP / HP resonance a Q of 0.5 * 2^(i / 4) (18 steps, 0.5 .. 9.5; 2: 0.71). The RBJ cookbook's terms the
+    coefficients need without a sine, power or square root on the target: cos w0, sin w0, A = 10^(dB / 40), sqrt A;
+    and sin^2(w0 / 2) for the response the panel draws"""
+    r40 = [1.00, 1.06, 1.12, 1.18, 1.25, 1.32, 1.40, 1.50, 1.60, 1.70, 1.80, 1.90, 2.00, 2.12, 2.24, 2.36, 2.50, 2.65,
+           2.80, 3.00, 3.15, 3.35, 3.55, 3.75, 4.00, 4.25, 4.50, 4.75, 5.00, 5.30, 5.60, 6.00, 6.30, 6.70, 7.10, 7.50,
+           8.00, 8.50, 9.00, 9.50]
+    hz = [round(r40[(i + 12) % 40] * 10 ** (1 + (i + 12) // 40), 3) for i in range(121)]
+    assert hz[0] == 20 and hz[28] == 100 and hz[56] == 500 and hz[80] == 2000 and hz[104] == 8000 and hz[120] == 20000
+    w = [2 * math.pi * f / FS for f in hz]
+    db = [g / 2 for g in range(-24, 25)]
+    L = arr("EQ_HZ_X10", "uint32_t", [int(round(f * 10)) for f in hz], 10)
+    L += farr("EQ_COS", [math.cos(x) for x in w])
+    L += farr("EQ_SIN", [math.sin(x) for x in w])
+    L += farr("EQ_PHI", [math.sin(x / 2) ** 2 for x in w])   # (the panel's |H|: 1 - cos w in float cancels at 20 Hz)
+    L += farr("EQ_A", [10 ** (d / 40) for d in db])
+    L += farr("EQ_SQA", [10 ** (d / 80) for d in db])
+    q = [0.5 * 2 ** (i / 4) for i in range(18)]
+    L += farr("EQ_QV", q)
+    L += arr("EQ_Q_X100", "uint16_t", [int(round(v * 100)) for v in q])
+    return L
 
 
 # FM6 (src/fm6_core.c, a C port of msfa, Apache-2.0): the tables msfa built with double math at start-up,

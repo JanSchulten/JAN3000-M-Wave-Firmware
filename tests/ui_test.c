@@ -212,6 +212,7 @@ static void ui_power_on(void)
     scene_reset();                                /* (M-Vave-OP1 scenes: one scene, as at power-on) */
     key_defaults();                               /* (.. GLO > KEY: none, the scene's own neither) */
     key_own = 0;
+    eq_power_on();                                /* (.. HOME > EQ: every track flat) */
     key_cur = 0;
     memset(&chain.source, 0, sizeof chain.source);
     for (i = 0; i < G_COUNT; i++)
@@ -2751,7 +2752,8 @@ static int test_page_cycles(void)
         ok &= f != FAM_SEQ || PAGES[i].graph == GR_ROLL || PAGES[i].graph == GR_EVENTS;
         ok &= f != FAM_GLO || PAGES[i].graph == GR_SONG ||   /* (1.2: GLO's only page; M-Vave-OP1: KEY */
               PAGES[i].graph == GR_KEY;                       /* before it) */
-        ok &= f != FAM_TRK || PAGES[i].graph == GR_TRK || str_eq(PAGES[i].title, "CLOCK");   /* HOME's: MIXER CLOCK */
+        ok &= f != FAM_TRK || PAGES[i].graph == GR_TRK || str_eq(PAGES[i].title, "CLOCK") ||   /* HOME's: MIXER CLOCK */
+              PAGES[i].graph == GR_EQ;                        /* (M-Vave-OP1: and EQ) */
         ok &= PAGES[i].graph != GR_TRK || f == FAM_TRK;
         ui_power_on(); ui.home = 0; ui.page = (uint8_t)i; page_entered();
         ok &= FAM_BTN[cur_fam()] == (f == FAM_TRK ? B_HOME : f == FAM_GLO ? B_GLO : f == FAM_SEQ ? B_SEQ :
@@ -2759,7 +2761,7 @@ static int test_page_cycles(void)
     }
     for (i = 0; i < NPAGES; i++)
         ok &= !str_eq(PAGES[i].title, "PATTERN") && !str_eq(PAGES[i].title, "CHANCE") && !str_eq(PAGES[i].title, "AUTO LIST");
-    bad += check("1.2: SEQ has STEP and AUTOMATION only; GLO's TAPE, TAPE 2 and SONG, PHRASES SAVE's, MIXER and CLOCK "
+    bad += check("1.2: SEQ has STEP and AUTOMATION only; GLO's TAPE, TAPE 2 and SONG, PHRASES SAVE's, MIXER CLOCK EQ "
                  "HOME's (their LED HOME)", ok);
     {   /* 1.2: GLOBAL and SYSTEM are gone; their knobs: BPM SWG CLK on HOME > CLOCK, TUNE and ROUT on no page (the MENU's),
          * MIDI SYNC CPU on none (INFO shows the USB state and the CPU) */

@@ -1229,6 +1229,20 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose"><p><kbd>HOME</kbd>, then <kbd>HOME</kbd> again: the MIXER. <kbd>KNOB 1</kbd> LEVEL, <kbd>KNOB 2</kbd> PAN, <kbd>KNOB 3</kbd> REV (reverb send), <kbd>KNOB 4</kbd> MUTE, each for the track picked with <kbd>ALGORITHM</kbd>. MOMENTARY works here too.</p></div>
   </section>
 
+  <section class="sub" id="mx-eq">
+    <h3>EQ</h3>
+    <div class="prose">
+      <p>From HOME, <kbd>SELECT</kbd> steps MIXER, CLOCK, then EQ: four bands for the track picked with <kbd>ALGORITHM</kbd>, after its INSERT and before LEVEL, PAN and the sends. The panel shows the track's curve from 20 Hz to 20 kHz (±12 dB), the band picked on its own, and the four bands as numbered points.</p>
+    </div>
+    <dl class="defs">
+      <dt><kbd>KNOB 1</kbd> BAND</dt><dd>Picks band 1 to 4.</dd>
+      <dt><kbd>KNOB 2</kbd> FREQ</dt><dd>20 Hz to 20 kHz in 121 steps of about 1/12 octave (100 Hz, 500 Hz, 2 kHz and 8 kHz are steps).</dd>
+      <dt><kbd>KNOB 3</kbd> GAIN / RESO</dt><dd>−12 to +12 dB in half dB. On LP and HP it is the resonance (Q 0.50 to 9.51); each type keeps its own value.</dd>
+      <dt><kbd>KNOB 4</kbd> TYPE</dt><dd>L.SHF (low shelf), BELL, H.SHF (high shelf), LP (low pass), HP (high pass). Shelves and bells have a fixed width.</dd>
+    </dl>
+    <div class="prose"><p>The bands start flat: L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF 8 kHz, all at 0 dB. The EQ belongs to the track like LEVEL and PAN: loading a sound keeps it, all scenes share it, and it is saved with the project.</p></div>
+  </section>
+
   <section class="sub" id="mx-glo">
     <h3>The GLO layer</h3>
     <figure class="fig">
@@ -2416,6 +2430,20 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-mix-mixer">
     <h3>MIXER</h3>
     <div class="prose"><p><kbd>HOME</kbd>, dann <kbd>HOME</kbd> noch einmal: der MIXER. <kbd>KNOB 1</kbd> LEVEL, <kbd>KNOB 2</kbd> PAN, <kbd>KNOB 3</kbd> REV (Hall-Send), <kbd>KNOB 4</kbd> MUTE, jeweils für die mit <kbd>ALGORITHM</kbd> gewählte Spur. MOMENTARY funktioniert auch hier.</p></div>
+  </section>
+
+  <section class="sub" id="de-mix-eq">
+    <h3>EQ</h3>
+    <div class="prose">
+      <p>Von HOME aus schaltet <kbd>SELECT</kbd> zu MIXER, CLOCK und dann zum EQ: vier Bänder für die mit <kbd>ALGORITHM</kbd> gewählte Spur, nach ihrem INSERT und vor LEVEL, PAN und den Sends. Das Panel zeigt die Kurve der Spur von 20 Hz bis 20 kHz (±12 dB), das gewählte Band einzeln und die vier Bänder als nummerierte Punkte.</p>
+    </div>
+    <dl class="defs">
+      <dt><kbd>KNOB 1</kbd> BAND</dt><dd>Wählt Band 1 bis 4.</dd>
+      <dt><kbd>KNOB 2</kbd> FREQ</dt><dd>20 Hz bis 20 kHz in 121 Schritten von etwa 1/12 Oktave (100 Hz, 500 Hz, 2 kHz und 8 kHz sind Schritte).</dd>
+      <dt><kbd>KNOB 3</kbd> GAIN / RESO</dt><dd>−12 bis +12 dB in halben dB. Bei LP und HP ist es die Resonanz (Q 0,50 bis 9,51); jeder Typ behält seinen eigenen Wert.</dd>
+      <dt><kbd>KNOB 4</kbd> TYPE</dt><dd>L.SHF (Low Shelf), BELL, H.SHF (High Shelf), LP (Tiefpass), HP (Hochpass). Shelves und Bells haben eine feste Breite.</dd>
+    </dl>
+    <div class="prose"><p>Die Bänder starten flach: L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF 8 kHz, alle auf 0 dB. Der EQ gehört zur Spur wie LEVEL und PAN: Ein geladener Sound behält ihn, alle Szenen teilen ihn, und er wird mit dem Projekt gespeichert.</p></div>
   </section>
 
   <section class="sub" id="de-mix-glo">
