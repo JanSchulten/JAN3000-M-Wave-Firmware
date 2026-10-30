@@ -820,14 +820,14 @@ static void graph_pedal(const track_t *t, uint32_t part)
         graph_sends(t, part);
         return;
     } else if (str_eq(ti, "INSERT 2")) {
-        pedal_t q = {"INSERT", "PRE DRIVE", 0xB8201E, 0x141414, 0x141414, 0xF2F2F2, t->p[P_DIST] != 0 || t->p[P_ITYPE] != 0};
+        pedal_t q = {"INSERT", "PRE DRIVE", 0xD43C2C, 0x141414, 0x141414, 0xF2F2F2, t->p[P_DIST] != 0 || t->p[P_ITYPE] != 0};
         p = q;
     } else if (str_eq(ti, "SHIMMER")) {
         pedal_t q = {"SHIMMER", "PITCH", 0xEDE8F4, 0x6B46B8, 0xD9CCF0, 0x3A2470, t->p[P_SHIM] != 0};
         p = q;
     } else if (str_eq(ti, "INSERT")) {
         uint32_t ty = (uint32_t)clamp(t->p[P_ITYPE], 0, IT_N - 1);
-        pedal_t q = {N_ITYPE[ty], "INSERT", 0xB8201E, 0x141414, 0x141414, 0xF2F2F2, ty != 0u};
+        pedal_t q = {N_ITYPE[ty], "INSERT", 0xD43C2C, 0x141414, 0x141414, 0xF2F2F2, ty != 0u};
         if (!ty)
             q.name = "DRIVE";
         p = q;
