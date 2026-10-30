@@ -199,9 +199,11 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
 
 /* master: peak limiter in front of the soft clipper. Fast attack (~0.1 ms),
  * ~150 ms release, threshold where tanh is still nearly linear, so chords
- * get quieter instead of crushed. */
+ * get quieter instead of crushed. M-Vave-OP1: the threshold is HOME > MASTER's LIMIT (lim_t, dyn.c dyn_poll; the main
+ * loop writes the word, the ISR reads it), LIM_T its default: the threshold as it always was */
 #define LIM_T 18000
 static int32_t lim_env = LIM_T;
+static int32_t lim_t = LIM_T;
 /* MENU > USB LEVEL FIXED (for #42: record over USB with the speaker turned down): the mix goes to master_out at the
  * full MASTER level, USB audio takes that (audio.c uac_tap), and only then does MASTER scale what the DAC gets
  * (usb_fixed_dac). MASTER (0, the default): MASTER before master_out, as always (USB follows the knob) */
@@ -268,9 +270,9 @@ static inline int32_t spk_bass(int32_t m)
     return sb_hl + (sb_hl >> 1);      /* x1.5 (#180: x3 peaked at 1.5 .. 3.5 x a full-scale kick, the limiter */
 }                                     /* pulled the mix down up to 16 dB on each hit and the buzz took over) */
 
-static inline void master_out(int32_t *l, int32_t *r)
+/* the master's first half: the DC blocker, SPEAKER EQ */
+static inline void master_pre(int32_t *l, int32_t *r)
 {
-    int32_t al, ar, a;
     *l = dc_block(*l, &dc_l, &dce_l);
     *r = dc_block(*r, &dc_r, &dce_r);
     if (fx_lowcut) {                  /* two one-pole high-passes, error feedback as dc_block (the */
@@ -281,22 +283,31 @@ static inline void master_out(int32_t *l, int32_t *r)
         *r = lowcut1(*r, &lc_r1, &lce[2], sh);
         *r = lowcut1(*r, &lc_r2, &lce[3], sh) + b;
     }
+}
+/* .. its second: the limiter (at lim_t), the soft clip. HOME > MASTER's compressor goes between the two (dyn.c) */
+static inline void master_lim(int32_t *l, int32_t *r)
+{
+    int32_t al, ar, a, lt = lim_t;
     al = *l < 0 ? -*l : *l;
     ar = *r < 0 ? -*r : *r;
     a = al > ar ? al : ar;
     if (a > lim_env)
         lim_env += (a - lim_env) >> 2;
-    else if (lim_env > LIM_T)
-        lim_env -= ((lim_env - LIM_T) >> 12) + 1;
-    if (lim_env > LIM_T) {
-        int32_t g = (int32_t)(((uint32_t)LIM_T << 15) / (uint32_t)lim_env);   /* < 32768 */
+    else if (lim_env > lt)
+        lim_env -= ((lim_env - lt) >> 12) + 1;
+    if (lim_env > lt) {
+        int32_t g = (int32_t)(((uint32_t)lt << 15) / (uint32_t)lim_env);   /* < 32768 */
         *l = ((*l >> 4) * g) >> 11;                      /* >> 4 first: |l| may be far above Q15 */
         *r = ((*r >> 4) * g) >> 11;
     }
     *l = softclip(*l);
     *r = softclip(*r);
 }
-
+static inline void master_out(int32_t *l, int32_t *r)
+{
+    master_pre(l, r);
+    master_lim(l, r);
+}
 /* length of one division (N_DIV order) in samples at the song tempo */
 static const uint8_t DIV_DEN[6] = {1, 2, 4, 8, 3, 6};    /* original IDs stay fixed; slow rates append */
 static uint32_t midi_beat_samples;                    /* zero until an external clock has a measured tempo */
@@ -1213,22 +1224,21 @@ static __attribute__((noinline)) void scope_take_mix(uint32_t n)
         scope_buf[scope_w++ & (SCOPE_N - 1u)] = (int16_t)clamp(mix_l[i] + wet[i], -32767, 32767);
 }
 
-/* the master with the FX layer's effects between its level and master_out (perform.c) */
+#include "dyn.c"                                     /* M-Vave-OP1: HOME > MASTER, the compressor (master_block) */
+
+/* the master with the FX layer's effects before it (perform.c): the buses' returns in the mix (wet 0 after), the layer
+ * on the sum at the full level, then master_block. (M-Vave-OP1: the layer took the sum after MASTER until HOME >
+ * MASTER put the knob at the end) */
 static __attribute__((noinline)) void perf_master(int32_t *out, uint32_t n)
 {
     uint32_t i;
-    int32_t mg = fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12;   /* (USB LEVEL FIXED: MASTER after) */
     for (i = 0; i < n; i++) {
-        mix_l[i] = (((mix_l[i] + wet[i]) >> 2) * mg) >> 10;
-        mix_r[i] = (((mix_r[i] + wet[i]) >> 2) * mg) >> 10;
+        mix_l[i] += wet[i];
+        mix_r[i] += wet[i];
+        wet[i] = 0;
     }
     perf_block(mix_l, mix_r, n);
-    for (i = 0; i < n; i++) {
-        int32_t l = mix_l[i], r = mix_r[i];
-        master_out(&l, &r);
-        out[2u * i] = l;
-        out[2u * i + 1u] = r;
-    }
+    master_block(out, n);
 }
 
 /* M-Vave-OP1: the SLICER at the END (slicer.c): the whole stereo sum after the reverb (dry + wet, HALL's and the CLOUD's
@@ -1258,7 +1268,6 @@ static void mix_block(int32_t *out, uint32_t n)
 {
     uint32_t i;
     int perf;
-    int32_t mg = fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12;   /* (USB LEVEL FIXED: MASTER after) */
     for (i = 0; i < n; i++)
         send_c[i] = send_d[i] = send_r[i] = send_sh[i] = shim_wet[i] = mix_l[i] = mix_r[i] = 0;
     events_block(n);
@@ -1289,13 +1298,7 @@ static void mix_block(int32_t *out, uint32_t n)
 #endif
         return;
     }
-    for (i = 0; i < n; i++) {
-        int32_t l = (((mix_l[i] + wet[i]) >> 2) * mg) >> 10;
-        int32_t r = (((mix_r[i] + wet[i]) >> 2) * mg) >> 10;
-        master_out(&l, &r);
-        out[2u * i] = l;
-        out[2u * i + 1u] = r;
-    }
+    master_block(out, n);
 #ifdef FX_MIX_TAP
     FX_MIX_TAP(out, n, 0);                              /* (mix_l / mix_r the parts', the HALL's side; wet the buses') */
 #endif

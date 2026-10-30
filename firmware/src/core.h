@@ -44,7 +44,8 @@
 enum {
     F_INT, F_PCT, F_BIPCT, F_TIME, F_LFOHZ, F_CUTOFF, F_DB, F_SEMI, F_ENUM, F_BPM, F_NOTE,
     F_ONOFF, F_OCT, F_STEPS,
-    F_EQHZ, F_HDB, F_EQQ        /* M-Vave-OP1, HOME > EQ (eq.c): a FREQ step, half dB, a Q step (no track parameter's) */
+    F_EQHZ, F_HDB, F_EQQ,       /* M-Vave-OP1, HOME > EQ (eq.c): a FREQ step, half dB, a Q step (no track parameter's) */
+    F_DYNMS, F_LIMDB            /* .. HOME > MASTER (dyn.c): RELEASE's time, LIMIT's threshold in dBFS */
 };
 
 typedef struct {

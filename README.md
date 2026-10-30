@@ -355,7 +355,7 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 
 ## Other changes to Felucca's workflow
 
-- **SELECT turns every family's pages**, including HOME → MIXER → CLOCK → EQ → HOME. A page button opens its family;
+- **SELECT turns every family's pages**, including HOME → MIXER → CLOCK → EQ → MASTER → HOME. A page button opens its family;
   the same button again returns HOME. HOME always returns HOME. Hold a button for its live layer. Tempo is CLOCK's
   BPM knob or GLO + F4 TAP. SELECT never sets tempo; the old BPM LOCK bit remains reserved.
 
@@ -368,6 +368,21 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   8 kHz, 0 dB), and a flat band costs nothing. The EQ is the track's, like LEVEL and PAN: a sound loaded keeps it,
   scenes share it, it is not automated; it is kept with the project (its extras; projects of before load flat). The
   bands are RBJ cookbook biquads on the chip's FPU; a change glides in over a few ms.
+
+- **HOME > MASTER: a compressor and a limiter on the whole mix** (SELECT from HOME: MIXER, CLOCK, EQ, MASTER), after
+  SPEAKER EQ and before the MASTER knob, which now comes last: it only turns the result down, so the mix is squeezed the
+  same at any volume (USB LEVEL FIXED still takes the master before the knob). KNOB 1 COMP (0 .. 100 %: threshold and
+  ratio together, 50 % -12 dB at 3.5:1, 100 % -24 dB at 6:1, a 6 dB soft knee; 0 off), KNOB 2 RELEASE (20 ms .. 1 s,
+  the attack a twentieth), KNOB 3 LIMIT (the limiter's ceiling, -15.2 .. -0.2 dBFS; -5.2 the limiter of before), KNOB 4
+  GAIN (make-up, 0 .. +12 dB). The panel draws the static curve with the ceiling and meters of both reductions. The
+  defaults (COMP 0, RELEASE 141 ms, LIMIT -5.2 dB, GAIN 0) are bit for bit the master of before at the knob's top; kept
+  with the project (its extras; projects of before load the defaults).
+
+- **The drum keys (DRUM, VDRUM):** the black keys are the lanes as on SEQ > STEP's grid (DRUM's eight, VDRUM's six
+  parts): a black key strikes its lane as designed and picks it. The white keys strike the lane picked at a pitch, a
+  semitone a key: F4 as designed, F3 -7 .. G5 +8, OCT -/+ an octave each (past TUNE's range: the whole drum moves, on
+  VDRUM every part). The header says the lane and the pitch (SNARE +3). Live recording writes the lane's hit, not the
+  pitch; MIDI notes still play the GM map; SEQ > STEP's grid is unchanged.
 
 - **JAN3000 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
   like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
@@ -598,7 +613,7 @@ PLAY / CLEAR row clears automation only; FX TRACKS + EDIT asks before clearing t
 F#3 deletes the selected section and G#3 clears the song, both with confirmation. SAVE no longer has TOOLS;
 initialize a sound with EDIT held + F#5.
 
-SELECT browses the current family everywhere, including HOME → MIXER → CLOCK → EQ → HOME (and backwards).
+SELECT browses the current family everywhere, including HOME → MIXER → CLOCK → EQ → MASTER → HOME (and backwards).
 HOME always returns HOME. Pressing any other page button opens its family; pressing it again returns HOME,
 including two quick taps. Hold the button for its live layer. Tempo is CLOCK's BPM knob or GLO held + F4 TAP;
 SELECT never changes tempo, and the old BPM LOCK bit remains reserved in stored settings.

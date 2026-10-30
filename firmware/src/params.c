@@ -328,6 +328,10 @@ static int32_t param_turn(const param_desc_t *d, int32_t v, int32_t steps)
 #define EQ_NB 4u                         /* M-Vave-OP1, HOME > EQ: bands a track, FREQ steps, RESO steps (eq_set below) */
 #define EQ_NF 121
 #define EQ_NQ 18
+#define DYN_NLIM 31                      /* M-Vave-OP1, HOME > MASTER: LIMIT's steps, -15.2 .. -0.2 dBFS (dyn_set below) */
+#define DYN_LIM_DEF 20                   /* .. its default, -5.2 dBFS: fx.c LIM_T's 18000 */
+#define DYN_GMAX 24                      /* .. GAIN's top, +12 dB in half dB */
+FM1_FPU static int32_t dyn_rel_ms(int32_t r);   /* .. RELEASE r (0..100) in ms: 20 x 50^(r / 100), 141 at 50 */
 static uint8_t fmt_named;        /* the last param_format was a name (F_ENUM, even "4"): ui_draw.c's digits do not roll it */
 
 /* value string (<= 5 chars) and unit for a parameter value */
@@ -453,6 +457,22 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         fmt_fix(val, EQ_Q_X100[clamp(v, 0, EQ_NQ - 1)], 2);
         *unit = "Q";
         break;
+    case F_DYNMS:                                    /* M-Vave-OP1, MASTER: RELEASE, 20 .. 1000 ms */
+        fmt_int(val, dyn_rel_ms(v));
+        *unit = "ms";
+        break;
+    case F_LIMDB: {                                  /* .. LIMIT: -15.2 .. -0.2 dBFS in half dB, -5.2 (LIM_T) */
+        int32_t a = 52 - 5 * (clamp(v, 0, DYN_NLIM - 1) - DYN_LIM_DEF);   /* (tenths of a dB under full scale) */
+        char *p = val;
+        *p++ = '-';
+        fmt_int(p, a / 10);
+        p += str_len(p);
+        *p++ = '.';
+        *p++ = (char)('0' + a % 10);
+        *p = 0;
+        *unit = "dB";
+        break;
+    }
     default:
         if (d->names) {                               /* F_INT with a 0-terminated name list: the range */
             uint32_t k = 0;                           /* split evenly over the names (engine desc hooks) */
@@ -485,6 +505,7 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_DLANE,                                /* .. EDIT > SOUNDS: a DRUM lane's own values (eng_drum.c dl_get) */
        GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2, GR_SHIM,   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
        GR_EQ,                                   /* .. HOME > EQ: the selected track's four bands (eq.c, ui_eq.c) */
+       GR_DYN,                                  /* .. HOME > MASTER: the master's dynamics (dyn.c, ui_dyn.c) */
        GR_N };                                  /* (the count: new kinds go before it) */
 
 typedef struct {
@@ -536,7 +557,7 @@ enum {
     PG_ROOT_KEYS = 256,          /* the keys play the roots of a key run, REC arms its recording (ui.c key_keys_on: KEY) */
     PG_LANE_REC = 512            /* REC arms the selected FX lane, its LED says so (ui.c fxt_page: FX TRACKS) */
 };
-static const page_ops_t EQ_OPS, SONG_OPS, PATS_OPS, EVENTS_OPS, BROWSE_OPS, SLOTS_OPS, USER_OPS, KEY_OPS, FXT_OPS;
+static const page_ops_t EQ_OPS, DYN_OPS, SONG_OPS, PATS_OPS, EVENTS_OPS, BROWSE_OPS, SLOTS_OPS, USER_OPS, KEY_OPS, FXT_OPS;
                                  /* (ui_pages.c) */
 static const page_ops_t *page_ops(const page_t *pg)
 {
@@ -576,6 +597,24 @@ static void eq_defaults(void)                        /* (a new project; one with
         memcpy(eq_set[k], EQ_DEF, sizeof EQ_DEF);
 }
 static int eq_pass(const eq_band_t *b) { return b->ty == EQT_LP || b->ty == EQT_HP; }   /* (KNOB 3: RESO, not GAIN) */
+/* M-Vave-OP1, HOME > MASTER (the tap after EQ): the master's dynamics (dyn.c), the project's (its extras, opstore.c
+ * XTRA_V10), not automated. COMP 0..100 % (0: no compressor), RELEASE 0..100 (20 ms .. 1 s, dyn_rel_ms; the attack
+ * follows), LIMIT the limiter's threshold in half-dB steps (DYN_LIM_DEF: fx.c LIM_T, the threshold of before), GAIN
+ * the make-up in half dB (0 .. +12 dB). Main loop only: dyn.c dyn_poll hands what changed to the audio ISR. The
+ * defaults (and every project of before): no compressor, the limiter as it always was */
+enum { DYN_COMP, DYN_REL, DYN_LIM, DYN_GAIN, DYN_N };
+#define DYN_DEF_INIT {0, 50, DYN_LIM_DEF, 0}
+static const int16_t DYN_DEF[DYN_N] = DYN_DEF_INIT;
+static int16_t dyn_set[DYN_N] = DYN_DEF_INIT;
+static const param_desc_t DYN_DESC[DYN_N] = {
+    PD("COMP", F_PCT, 0, 100, 0), PD("RELEASE", F_DYNMS, 0, 100, 50), PD("LIMIT", F_LIMDB, 0, DYN_NLIM - 1, DYN_LIM_DEF),
+    PD("GAIN", F_HDB, 0, DYN_GMAX, 0)
+};
+static void dyn_defaults(void) { memcpy(dyn_set, DYN_DEF, sizeof DYN_DEF); }   /* (a new project; one without them) */
+FM1_FPU static int32_t dyn_rel_ms(int32_t r)
+{
+    return (int32_t)(20.0f * acid_exp2((float)clamp(r, 0, 100) * 0.05643856f) + 0.5f);
+}
 static const page_t PAGES[] = {
     {"ENV", FAM_ENV, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},
     {"ENV DEST", FAM_ENV, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (P_ED_FX: nothing reads it);
@@ -647,10 +686,11 @@ static const page_t PAGES[] = {
     {"AUTOMATION", FAM_SEQ, SC_TRACK, GR_EVENTS, {0xFF, 0xFF, 0xFF, 0xFF}, &EVENTS_OPS},  /* the locks, events, CHANCE and RATCH as a
                                                                              * list, PLAY and CLEAR (ui_events.c) */
     /* HOME's pages (1.2): HOME tapped on HOME the MIXER (up to 1.1.5 GLO's; LEVEL PAN REV MUTE), again CLOCK (up to 1.1.5
-     * GLO > GLOBAL; its TUNE is MENU > AUDIO's now), again HOME (ui.c home_tap) */
+     * GLO > GLOBAL; its TUNE is MENU > AUDIO's now), again HOME (ui.c home_tap). M-Vave-OP1: EQ and MASTER after CLOCK */
     {"MIXER", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},
     {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, 0xFF}},
     {"EQ", FAM_TRK, SC_GLOBAL, GR_EQ, {0xFF, 0xFF, 0xFF, 0xFF}, &EQ_OPS},   /* M-Vave-OP1: the selected track's (eq_set) */
+    {"MASTER", FAM_TRK, SC_GLOBAL, GR_DYN, {0xFF, 0xFF, 0xFF, 0xFF}, &DYN_OPS},   /* M-Vave-OP1: the project's (dyn_set) */
 };
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
 static uint8_t mod_ui_slot;      /* the MOD page: the matrix slot (0..3) KNOB 2..4 edit */

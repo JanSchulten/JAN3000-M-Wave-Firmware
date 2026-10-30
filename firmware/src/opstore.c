@@ -59,6 +59,7 @@ typedef struct {
     ssong_t song;                                /* (XTRA_V8) SEQ > SCENE SONG (scene.c) */
     uint8_t eq[NTRK][EQ_NB][4];                  /* (XTRA_V9) HOME > EQ (params.c eq_set): each band's FREQ, GAIN + 24,
                                                   * TYPE, RESO */
+    uint8_t dyn[DYN_N];                          /* (XTRA_V10) HOME > MASTER (params.c dyn_set): COMP RELEASE LIMIT GAIN */
 } xtra_hi_t;
 #define XTRA_V1 (12u + FXT_N * (uint32_t)sizeof(fxt_lane64_t))   /* the first extras: the FX TRACKS only */
 #define XTRA_V2 (XTRA_V1 + 8u)                   /* .. and FX1's (E1) */
@@ -70,11 +71,12 @@ typedef struct {
                  NTRK * (NSTEP - NSTEP_FMT) / 8u + (uint32_t)sizeof(motion_disk_t))   /* .. steps 65..128 (xtra_hi_t) */
 #define XTRA_V8 (XTRA_V7 + (uint32_t)sizeof(ssong_t))   /* .. the scene song */
 #define XTRA_V9 (XTRA_V8 + NTRK * EQ_NB * 4u)    /* .. the EQ */
-_Static_assert(XTRA_V6 == 224u && sizeof(proj_xtra_t) == XTRA_V6 && sizeof(xtra_hi_t) == XTRA_V9 - XTRA_V6 &&
-               XTRA_V9 <= PROJ_STORE_SIZE && KEY_BARS == 16u &&
+#define XTRA_V10 (XTRA_V9 + DYN_N)               /* .. the MASTER's dynamics */
+_Static_assert(XTRA_V6 == 224u && sizeof(proj_xtra_t) == XTRA_V6 && sizeof(xtra_hi_t) == XTRA_V10 - XTRA_V6 &&
+               XTRA_V10 <= PROJ_STORE_SIZE && KEY_BARS == 16u && DYN_N == 4u &&
                NSTEP % 8u == 0u && NSTEP >= NSTEP_FMT, "project extras layout (stored, append-only)");
 static proj_xtra_t xtra_slot[4] __attribute__((section(".pool")));   /* each project slot's (magic 0: none) */
-static uint8_t xtra_buf[XTRA_V9] __attribute__((aligned(4), section(".pool")));   /* an object as written (main loop) */
+static uint8_t xtra_buf[XTRA_V10] __attribute__((aligned(4), section(".pool")));   /* an object as written (main loop) */
 #if !FELUCCA_FLASH
 static xtra_hi_t xtra_hi_ram[4] __attribute__((section(".pool")));   /* (host builds without the flash: each slot's
                                                   * steps 65..128, as the flash would hold them) */
@@ -106,7 +108,7 @@ static void xtra_capture(proj_xtra_t *x, xtra_hi_t *h, uint32_t proj)
     memset(x, 0, sizeof *x);
     memset(h, 0, sizeof *h);
     x->magic = XTRA_MAGIC;
-    x->size = XTRA_V9;
+    x->size = XTRA_V10;
     x->ver = 1;
     x->proj = proj;
     for (l = 0; l < FXT_N; l++) {                   /* (steps 1..64 and a LEN of at most 64 where firmware of 64 steps */
@@ -162,6 +164,8 @@ static void xtra_capture(proj_xtra_t *x, xtra_hi_t *h, uint32_t proj)
             h->eq[k][i][2] = (uint8_t)b->ty;
             h->eq[k][i][3] = (uint8_t)b->q;
         }
+    for (i = 0; i < DYN_N; i++)
+        h->dyn[i] = (uint8_t)dyn_set[i];
 }
 static int xtra_ok(const proj_xtra_t *x, uint32_t proj)
 {
@@ -328,6 +332,12 @@ static void xtra_apply(const proj_xtra_t *x, uint32_t proj, const xtra_hi_t *hi)
                 if (e[0] < EQ_NF && e[1] <= 48u && e[2] < EQT_N && e[3] < EQ_NQ)
                     eq_set[k][f] = (eq_band_t){e[0], (int16_t)(e[1] - 24), e[2], e[3]};
             }
+    dyn_defaults();                                /* (XTRA_V10: the MASTER's dynamics; extras of before: no compressor,
+                                                    * the limiter as before. A value out of range: its default) */
+    if (hi && x->size >= XTRA_V10)
+        for (f = 0; f < DYN_N; f++)
+            if (hi->dyn[f] >= DYN_DESC[f].min && hi->dyn[f] <= DYN_DESC[f].max)
+                dyn_set[f] = hi->dyn[f];
 }
 /* persist_boot: every slot's extras from flash */
 static void xtra_boot(void)
@@ -346,7 +356,7 @@ static int xtra_saved(uint32_t s, uint32_t id)
     xtra_capture((proj_xtra_t *)xtra_buf, h, id);
     memcpy(x, xtra_buf, sizeof *x);
 #if FELUCCA_FLASH
-    if (flash_ok && st_save(OBJ_XPROJ0 + (s & 3u), xtra_buf, XTRA_V9))
+    if (flash_ok && st_save(OBJ_XPROJ0 + (s & 3u), xtra_buf, XTRA_V10))
         return 1;
 #else
     xtra_hi_ram[s & 3u] = *h;
@@ -382,7 +392,7 @@ static int xtra_autosaved(uint32_t id)
 {
 #if FELUCCA_FLASH
     xtra_capture((proj_xtra_t *)xtra_buf, (xtra_hi_t *)(xtra_buf + XTRA_V6), id);
-    return st_save(OBJ_XAUTO, xtra_buf, XTRA_V9);
+    return st_save(OBJ_XAUTO, xtra_buf, XTRA_V10);
 #else
     (void)id;
     return 0;

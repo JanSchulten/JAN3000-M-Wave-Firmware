@@ -213,6 +213,7 @@ static void ui_power_on(void)
     key_defaults();                               /* (.. GLO > KEY: none, the scene's own neither) */
     key_own = 0;
     eq_power_on();                                /* (.. HOME > EQ: every track flat) */
+    dyn_power_on();                               /* (.. HOME > MASTER: no compressor, the limiter as before) */
     key_cur = 0;
     memset(&chain.source, 0, sizeof chain.source);
     for (i = 0; i < G_COUNT; i++)
@@ -2753,7 +2754,7 @@ static int test_page_cycles(void)
         ok &= f != FAM_GLO || PAGES[i].graph == GR_SONG ||   /* (1.2: GLO's only page; M-Vave-OP1: KEY */
               PAGES[i].graph == GR_KEY;                       /* before it) */
         ok &= f != FAM_TRK || PAGES[i].graph == GR_TRK || str_eq(PAGES[i].title, "CLOCK") ||   /* HOME's: MIXER CLOCK */
-              PAGES[i].graph == GR_EQ;                        /* (M-Vave-OP1: and EQ) */
+              PAGES[i].graph == GR_EQ || PAGES[i].graph == GR_DYN;   /* (M-Vave-OP1: and EQ, MASTER) */
         ok &= PAGES[i].graph != GR_TRK || f == FAM_TRK;
         ui_power_on(); ui.home = 0; ui.page = (uint8_t)i; page_entered();
         ok &= FAM_BTN[cur_fam()] == (f == FAM_TRK ? B_HOME : f == FAM_GLO ? B_GLO : f == FAM_SEQ ? B_SEQ :

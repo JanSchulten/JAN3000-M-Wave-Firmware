@@ -6,7 +6,7 @@
  * each lane's note (kit_notes) on any engine; a kit has a lane per drum:
  *   DRUM   8  KICK SNARE CLAP HATCL HATOP TOM RIM BELL: DRUM_LANE_NOTE, 36 38 39 42 46 45 37 56
  *   VDRUM  6  its parts KICK SNARE CLAP HATCL HATOP TOM (eng_vdrum.c VD_PART_OF) on the same first six notes; black keys
- *             7 and 8 do nothing. Hits stored in lanes 7 and 8 (a DRUM beat's RIM 37 and BELL 56) play as always, on
+ *             7 and 8 do nothing. Outside the grid the black keys are the lanes too (seq.c kit_key: the drum keys). Hits stored in lanes 7 and 8 (a DRUM beat's RIM 37 and BELL 56) play as always, on
  *             the CLAP and HATOP parts, and show there (kit_fold); an edit of that lane makes them its own (ui.c grid_own)
  * (DBOX, retired, had a grid of eight lanes too.) A hit in lane l stays lane l on another engine, so a beat moves between
  * DRUM and VDRUM (a synth plays the lanes' notes as pitches). A step's notes show on the lane of the drum they strike

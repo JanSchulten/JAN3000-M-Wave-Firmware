@@ -133,7 +133,7 @@ static void test_sounds(void)
     sn0 = dl_hit(38);
     go_title("SOUNDS");
     frame();
-    ks = (uint32_t)(38 - 29 - 12 * song.octave);     /* (the snare's key: eng_drum.c drum_keys) */
+    ks = key_at(1, DV_SNARE);                        /* (the snare's key: black key 2, the drum keys: seq.c kit_key) */
     key_down(ks); frame(); key_up(ks); frame();
     ok = ui.lane == DV_SNARE && cur_page()->graph == GR_DLANE;
     turn(EN_K1, 3); turn(EN_K2, -1); turn(EN_K2, -1); turn(EN_K2, -1); turn(EN_K3, 2);   /* (a detent a step) */
@@ -142,7 +142,7 @@ static void test_sounds(void)
     sn1 = dl_hit(38);
     kk1 = dl_hit(36);
     ok &= sn1 < sn0 * 95u / 100u && kk1 > kk0 * 99u / 100u && kk1 < kk0 * 101u / 100u;   /* (DECAY -20: shorter) */
-    ck("  a key (D: SNARE) picks the lane; KNOB 1..3 its TUNE DECAY TONE: the snare sounds other, the kick as before", ok);
+    ck("  a key (black 2: SNARE) picks the lane; KNOB 1..3 its TUNE DECAY TONE: the snare sounds other, the kick as before", ok);
     turn(EN_K4, 1); turn(EN_K4, 1); turn(EN_K4, 1);
     {
         int32_t st;
@@ -204,11 +204,12 @@ static void test_select(void)
     turn(EN_K1, 1); ok &= song.g[G_BPM] == b0 + 1;
     turn(EN_SELECT, 1); ok &= str_eq(cur_page()->title, "EQ") && song.g[G_BPM] == b0 + 1;   /* (M-Vave-OP1: EQ) */
     turn(EN_K1, 1); ok &= song.g[G_BPM] == b0 + 1;
+    turn(EN_SELECT, 1); ok &= str_eq(cur_page()->title, "MASTER") && song.g[G_BPM] == b0 + 1;   /* (.. and MASTER) */
     turn(EN_SELECT, 1); ok &= ui.home;
-    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "EQ");
+    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "MASTER");
     press(B_HOME); ok &= ui.home;
     press_raw = 0;
-    ck("HOME always HOME; SELECT cycles HOME MIXER CLOCK EQ; only CLOCK KNOB 1 changes BPM", ok);
+    ck("HOME always HOME; SELECT cycles HOME MIXER CLOCK EQ MASTER; only CLOCK KNOB 1 changes BPM", ok);
 }
 
 static void rec_hold_oct(uint32_t b)                  /* REC held (its layer), OCT- or OCT+, let go */

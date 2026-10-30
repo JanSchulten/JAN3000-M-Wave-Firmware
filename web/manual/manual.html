@@ -499,7 +499,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     </figure>
     <div class="prose">
       <p>Each page button opens a family of pages, at the page you used there last; SAVE always opens PROJECT. <kbd>SELECT</kbd> turns through the family's pages, round and round. The same button again takes you back to HOME. Page buttons act when released.</p>
-      <p><kbd>HOME</kbd> itself goes round: HOME, MIXER, CLOCK, EQ. When you change tracks with <kbd>ALGORITHM</kbd>, the page on screen stays and every other family starts again at its first page.</p>
+      <p><kbd>HOME</kbd> itself goes round: HOME, MIXER, CLOCK, EQ, MASTER. When you change tracks with <kbd>ALGORITHM</kbd>, the page on screen stays and every other family starts again at its first page.</p>
     </div>
     <div class="tbl"><table>
       <thead><tr><th>Button</th><th>Pages (SELECT turns)</th><th>Hold</th></tr></thead>
@@ -555,7 +555,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="ba-tempo">
     <h3>Tempo</h3>
     <div class="prose">
-      <p><kbd>SELECT</kbd> only turns pages, on HOME, the MIXER, CLOCK and EQ as everywhere else; it never changes the tempo. Set the tempo on CLOCK with <kbd>KNOB 1</kbd>.</p>
+      <p><kbd>SELECT</kbd> only turns pages, on HOME, the MIXER, CLOCK, EQ and MASTER as everywhere else; it never changes the tempo. Set the tempo on CLOCK with <kbd>KNOB 1</kbd>.</p>
       <p>HOME &gt; CLOCK has <b>BPM</b>, <b>SWG</b> (swing) and <b>CLK</b>, the clock source: INT, USB or TRS. Hold <kbd>GLO</kbd> <span class="plus">+</span> <kbd>F4</kbd> to tap the tempo.</p>
     </div>
   </section>
@@ -709,16 +709,16 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="en-drum">
     <h3>DRUM</h3>
-    <div class="prose"><p>Eight instruments on the General MIDI map, the kick on the first C: KICK, SNARE, CLAP, HATCL, HATOP, TOM, RIM, BELL (some kits call TOM, RIM or BELL CONGA, CLAVE or CYM). All synthesized, no samples. <b>KIT</b> picks STD, 808, 10, 66, 55 or 77; the numbers nod to classic drum machines. DRUM starts with the 808 kit.</p></div>
+    <div class="prose"><p>Eight instruments: KICK, SNARE, CLAP, HATCL, HATOP, TOM, RIM, BELL (some kits call TOM, RIM or BELL CONGA, CLAVE or CYM). On the keys, the black keys 1–8 are the instruments, as on the sequencer's grid: a black key plays its instrument and picks it. The white keys then play the instrument picked at a pitch, a semitone per key: <kbd>F4</kbd> as designed, <kbd>F3</kbd> −7 up to <kbd>G5</kbd> +8, <kbd>OCT−</kbd> / <kbd>OCT+</kbd> an octave each. The header says what you played (SNARE +3). Live recording writes the hit, not the pitch; MIDI notes still play the General MIDI map. All synthesized, no samples. <b>KIT</b> picks STD, 808, 10, 66, 55 or 77; the numbers nod to classic drum machines. DRUM starts with the 808 kit.</p></div>
     <dl class="defs">
       <dt>LANES, LANES 2</dt><dd>Each instrument's level.</dd>
-      <dt>SOUNDS</dt><dd>A key picks the instrument, KNOB 1–4 set TUNE (±12 semitones), DECAY, TONE and SOUND: KIT, or that instrument from another kit, such as an 808 kick under a 10 snare.</dd>
+      <dt>SOUNDS</dt><dd>A black key picks the instrument (a white key keeps the one picked), KNOB 1–4 set TUNE (±12 semitones), DECAY, TONE and SOUND: KIT, or that instrument from another kit, such as an 808 kick under a 10 snare.</dd>
     </dl>
   </section>
 
   <section class="sub" id="en-vdrum">
     <h3>VDRUM</h3>
-    <div class="prose"><p>Six parts (KICK, SNARE, CLAP, HATCL, HATOP, TOM) of two layers each: a source (sine, saw or filtered noise), a pitch modulator and an envelope. Each part has BIT, FOLD, DRV, GAIN, its send into the resonator and a choke group.</p></div>
+    <div class="prose"><p>Six parts (KICK, SNARE, CLAP, HATCL, HATOP, TOM) of two layers each: a source (sine, saw or filtered noise), a pitch modulator and an envelope. Each part has BIT, FOLD, DRV, GAIN, its send into the resonator and a choke group. The keys work as on DRUM: black keys 1–6 play and pick the parts, the white keys play the part picked a semitone per key from <kbd>F4</kbd>.</p></div>
     <dl class="defs">
       <dt>Resonator</dt><dd>TUBE (odd harmonics, a shell) or STRNG (a plucked string). HOME: TYPE, DECAY, BODY, TUNE.</dd>
       <dt>EDIT 2 (titled KIT)</dt><dd>KIT, MIX, ACC, DRV.</dd>
@@ -1272,6 +1272,20 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose"><p>The bands start flat: L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF 8 kHz, all at 0 dB. The EQ belongs to the track like LEVEL and PAN: loading a sound keeps it, all scenes share it, and it is saved with the project.</p></div>
   </section>
 
+  <section class="sub" id="mx-master">
+    <h3>MASTER</h3>
+    <div class="prose">
+      <p>After EQ, <kbd>SELECT</kbd> reaches MASTER: the dynamics at the end of the whole mix, a compressor and then a limiter, after SPEAKER EQ and before the MASTER knob. The knob only turns the result down, so the sound is squeezed the same at any volume. The panel shows the curve (input level across, output up, the limiter's ceiling as a red line) and two meters: how many dB the compressor and the limiter take off right now.</p>
+    </div>
+    <dl class="defs">
+      <dt><kbd>KNOB 1</kbd> COMP</dt><dd>How hard the compressor works, 0 to 100 %: threshold and ratio together (50 %: −12 dB at 3.5:1; 100 %: −24 dB at 6:1), a soft knee. 0 % is off.</dd>
+      <dt><kbd>KNOB 2</kbd> RELEASE</dt><dd>20 ms to 1 s; the attack follows at a twentieth of it.</dd>
+      <dt><kbd>KNOB 3</kbd> LIMIT</dt><dd>The limiter's ceiling, −15.2 to −0.2 dBFS in half dB. −5.2 dB is the limiter as it always was.</dd>
+      <dt><kbd>KNOB 4</kbd> GAIN</dt><dd>Make-up gain after the compressor, 0 to +12 dB, into the limiter.</dd>
+    </dl>
+    <div class="prose"><p>It starts as COMP 0 %, RELEASE 141 ms, LIMIT −5.2 dB, GAIN 0 dB: exactly the master of before with the knob all the way up. The settings are saved with the project; projects of before load with these defaults.</p></div>
+  </section>
+
   <section class="sub" id="mx-glo">
     <h3>The GLO layer</h3>
     <figure class="fig">
@@ -1738,7 +1752,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     </figure>
     <div class="prose">
       <p>Jede Seitentaste öffnet eine Familie von Seiten, und zwar die Seite, die du dort zuletzt benutzt hast; SAVE öffnet immer PROJECT. <kbd>SELECT</kbd> blättert durch die Seiten der Familie, rundherum. Dieselbe Taste noch einmal führt zurück auf HOME. Seitentasten wirken beim Loslassen.</p>
-      <p><kbd>HOME</kbd> selbst geht reihum: HOME, MIXER, CLOCK, EQ. Wechselst du mit <kbd>ALGORITHM</kbd> die Spur, bleibt die angezeigte Seite, und jede andere Familie beginnt wieder bei ihrer ersten Seite.</p>
+      <p><kbd>HOME</kbd> selbst geht reihum: HOME, MIXER, CLOCK, EQ, MASTER. Wechselst du mit <kbd>ALGORITHM</kbd> die Spur, bleibt die angezeigte Seite, und jede andere Familie beginnt wieder bei ihrer ersten Seite.</p>
     </div>
     <div class="tbl"><table>
       <thead><tr><th>Taste</th><th>Seiten (SELECT blättert)</th><th>Halten</th></tr></thead>
@@ -1950,16 +1964,16 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="de-eng-drum">
     <h3>DRUM</h3>
-    <div class="prose"><p>Acht Instrumente auf der General-MIDI-Belegung, die Kick auf dem ersten C: KICK, SNARE, CLAP, HATCL, HATOP, TOM, RIM, BELL (einige Kits nennen TOM, RIM oder BELL CONGA, CLAVE oder CYM). Alles ist synthetisiert, es gibt keine Samples. <b>KIT</b> wählt STD, 808, 10, 66, 55 oder 77; die Zahlen spielen auf klassische Drumcomputer an. Ab Werk startet DRUM mit dem 808-Kit.</p></div>
+    <div class="prose"><p>Acht Instrumente: KICK, SNARE, CLAP, HATCL, HATOP, TOM, RIM, BELL (einige Kits nennen TOM, RIM oder BELL CONGA, CLAVE oder CYM). Auf der Tastatur sind die schwarzen Tasten 1–8 die Instrumente, wie im Grid des Sequencers: Eine schwarze Taste spielt ihr Instrument und wählt es aus. Die weißen Tasten spielen dann das gewählte Instrument gepitcht, einen Halbton je Taste: <kbd>F4</kbd> in Originalhöhe, <kbd>F3</kbd> −7 bis <kbd>G5</kbd> +8, <kbd>OCT−</kbd> / <kbd>OCT+</kbd> je eine Oktave. Die Kopfzeile zeigt, was gespielt wurde (SNARE +3). Live-Aufnahme schreibt den Schlag, nicht die Tonhöhe; MIDI-Noten spielen weiter die General-MIDI-Belegung. Alles ist synthetisiert, es gibt keine Samples. <b>KIT</b> wählt STD, 808, 10, 66, 55 oder 77; die Zahlen spielen auf klassische Drumcomputer an. Ab Werk startet DRUM mit dem 808-Kit.</p></div>
     <dl class="defs">
       <dt>LANES, LANES 2</dt><dd>Der Pegel jedes Instruments.</dd>
-      <dt>SOUNDS</dt><dd>Eine Taste wählt das Instrument, KNOB 1–4 stellen TUNE (±12 Halbtöne), DECAY, TONE und SOUND: KIT oder das Instrument eines anderen Kits, etwa eine 808-Kick unter einer 10-Snare.</dd>
+      <dt>SOUNDS</dt><dd>Eine schwarze Taste wählt das Instrument (eine weiße behält das gewählte), KNOB 1–4 stellen TUNE (±12 Halbtöne), DECAY, TONE und SOUND: KIT oder das Instrument eines anderen Kits, etwa eine 808-Kick unter einer 10-Snare.</dd>
     </dl>
   </section>
 
   <section class="sub" id="de-eng-vdrum">
     <h3>VDRUM</h3>
-    <div class="prose"><p>Sechs Teile (KICK, SNARE, CLAP, HATCL, HATOP, TOM) aus je zwei Schichten: eine Quelle (Sinus, Säge oder gefiltertes Rauschen), ein Tonhöhen-Modulator und eine Hüllkurve. Pro Teil gibt es BIT, FOLD, DRV, GAIN, den Send in den Resonator und eine Choke-Gruppe.</p></div>
+    <div class="prose"><p>Sechs Teile (KICK, SNARE, CLAP, HATCL, HATOP, TOM) aus je zwei Schichten: eine Quelle (Sinus, Säge oder gefiltertes Rauschen), ein Tonhöhen-Modulator und eine Hüllkurve. Pro Teil gibt es BIT, FOLD, DRV, GAIN, den Send in den Resonator und eine Choke-Gruppe. Die Tasten arbeiten wie bei DRUM: Die schwarzen Tasten 1–6 spielen und wählen die Teile, die weißen Tasten spielen das gewählte Teil einen Halbton je Taste ab <kbd>F4</kbd>.</p></div>
     <dl class="defs">
       <dt>Resonator</dt><dd>TUBE (ungerade Obertöne, ein Kessel) oder STRNG (eine gezupfte Saite). HOME: TYPE, DECAY, BODY, TUNE.</dd>
       <dt>EDIT 2 (Titel KIT)</dt><dd>KIT, MIX, ACC, DRV.</dd>
@@ -2511,6 +2525,20 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt><kbd>KNOB 4</kbd> TYPE</dt><dd>L.SHF (Low Shelf), BELL, H.SHF (High Shelf), LP (Tiefpass), HP (Hochpass). Shelves und Bells haben eine feste Breite.</dd>
     </dl>
     <div class="prose"><p>Die Bänder starten flach: L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF 8 kHz, alle auf 0 dB. Der EQ gehört zur Spur wie LEVEL und PAN: Ein geladener Sound behält ihn, alle Szenen teilen ihn, und er wird mit dem Projekt gespeichert.</p></div>
+  </section>
+
+  <section class="sub" id="de-mix-master">
+    <h3>MASTER</h3>
+    <div class="prose">
+      <p>Nach dem EQ kommt mit <kbd>SELECT</kbd> MASTER: die Dynamik am Ende des ganzen Mixes, ein Kompressor und danach ein Limiter, hinter SPEAKER EQ und vor dem MASTER-Poti. Das Poti macht das Ergebnis nur leiser, der Sound wird also bei jeder Lautstärke gleich verdichtet. Das Panel zeigt die Kennlinie (Eingangspegel nach rechts, Ausgang nach oben, die Obergrenze des Limiters als rote Linie) und zwei Anzeigen: wie viele dB Kompressor und Limiter gerade wegnehmen.</p>
+    </div>
+    <dl class="defs">
+      <dt><kbd>KNOB 1</kbd> COMP</dt><dd>Wie stark der Kompressor arbeitet, 0 bis 100 %: Schwelle und Ratio zusammen (50 %: −12 dB bei 3,5:1; 100 %: −24 dB bei 6:1), mit weichem Knie. 0 % ist aus.</dd>
+      <dt><kbd>KNOB 2</kbd> RELEASE</dt><dd>20 ms bis 1 s; der Attack folgt mit einem Zwanzigstel davon.</dd>
+      <dt><kbd>KNOB 3</kbd> LIMIT</dt><dd>Die Obergrenze des Limiters, −15,2 bis −0,2 dBFS in halben dB. −5,2 dB ist der Limiter wie bisher.</dd>
+      <dt><kbd>KNOB 4</kbd> GAIN</dt><dd>Make-up nach dem Kompressor, 0 bis +12 dB, in den Limiter.</dd>
+    </dl>
+    <div class="prose"><p>Ab Werk: COMP 0 %, RELEASE 141 ms, LIMIT −5,2 dB, GAIN 0 dB, also genau der bisherige Master bei voll aufgedrehtem Poti. Die Werte werden mit dem Projekt gespeichert; ältere Projekte laden mit diesen Werten.</p></div>
   </section>
 
   <section class="sub" id="de-mix-glo">

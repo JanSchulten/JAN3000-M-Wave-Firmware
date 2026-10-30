@@ -36,6 +36,7 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "po_render",                                       # .. M-Vave-OP1: SYNC OUT PO's pulses (click.c), while on
          "mod_begin", "mod_voice", "mod_end",                 # the modulation matrix (mod.c), called when active
          "perf_begin", "perf_mute", "perf_pre", "perf_block", "perf_master",   # the FX layer (perform.c), when busy
+         "master_dyn",                                     # M-Vave-OP1: HOME > MASTER's compressor (dyn.c), when on
          "perf_flanger", "perf_phaser",                     # .. FLANGER, PHASER (1.2), while held or fading
          "perf_throw",                                      # .. REV / ECHO THROW (1.5.1): per part, while held or gliding
          "perf_duck", "perf_stereo",                        # .. DUCK, STEREO (M-Vave-OP1 E2), while held or fading

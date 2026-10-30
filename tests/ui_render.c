@@ -758,7 +758,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_DLY_DOT, S_DLY_DOT16, S_FX_THROW,
        S_DETAIL, S_DETAIL_PLAYING, S_DETAIL_REST, S_DETAIL_DRUM, S_ROLL_MARKS, S_DRUM_MARKS, S_HELP_DETAIL,
        S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_KEY, S_KEY_PLAY, S_KEY_LIVE, S_KEY_REC,
-       S_STEP128, S_AUTO128, S_FXT128, S_HOME_TRACKS128, S_SEQ128, S_SSONG, S_SHIM, S_INS_EXTRA, S_EQ, S_EQ_PASS, S_COUNT };
+       S_STEP128, S_AUTO128, S_FXT128, S_HOME_TRACKS128, S_SEQ128, S_SSONG, S_SHIM, S_INS_EXTRA, S_EQ, S_EQ_PASS, S_MASTER, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
@@ -789,7 +789,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "dly_dotted", "dly_dotted_16", "perform_throw",
     "detail", "detail_playing", "detail_rest", "detail_drum", "roll_marks", "drum_marks", "help_detail",
     "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec",
-    "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song", "shimmer_send", "insert_extra", "eq", "eq_pass"};
+    "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song", "shimmer_send", "insert_extra", "eq", "eq_pass", "master"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -1133,6 +1133,10 @@ static void setup(int s)
         eq_set[song.sel][0].ty = EQT_HP; eq_set[song.sel][0].f = 40; eq_set[song.sel][0].q = 10;
         eq_set[song.sel][3].ty = EQT_LP; eq_set[song.sel][3].f = 100; eq_set[song.sel][2].g = -8; eq_ui_band = 0;
         go_title("EQ");
+        break;
+    case S_MASTER:                                       /* (M-Vave-OP1: COMP and GAIN up, LIMIT lower, both meters) */
+        dyn_set[DYN_COMP] = 70; dyn_set[DYN_LIM] = 14; dyn_set[DYN_GAIN] = 8; dyn_mtr[0] = 13; dyn_mtr[1] = 4;
+        go_title("MASTER");
         break;
     case S_SLICER: TSEL->p[P_SLCR] = 1; go_title("SLICER"); break;
     case S_DLY: go_title("DELAY"); break;   /* (M-Vave-OP1: FX's DELAY card) */

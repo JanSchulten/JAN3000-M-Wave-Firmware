@@ -69,6 +69,11 @@
 #                   DRUM beat's RIM / BELL), live recording as hits, the EDIT layer's lane mutes, SEQ TOOLS' BEAT and lane
 #                   row, notes as hits when a project / scene / phrase loads (the output bit for bit the same), a user
 #                   preset's grid; screens in build/kitgrid_shots/.
+# DRUM KEYS (tests/drumkeys_test.c, M-Vave-OP1): on a DRUM and a VDRUM track the black keys are the grid's lanes (a lane
+#                   struck as designed and picked, the ones past the lanes silent), the white keys strike the lane picked
+#                   a semitone a key from F4 (OCT -/+ an octave; DRUM's oscillator at 2^(st/12), past TUNE's range;
+#                   VDRUM's every part), again with its black key held, other hits as designed, REC the hit (not the
+#                   pitch), the message, EDIT > SOUNDS' lane, SEQ > STEP's grid as before.
 # JAN (tests/jan_test.c, M-Vave-OP1 JAN3000 v0.8): another track (ALGORITHM) opens each family at its first page; REC
 #                   armed takes the track's copy, REC held + OCT- undoes the recording, OCT+ redoes it; SAVE > PROJECT >
 #                   NEW (asked first, not while playing): the power-on sounds, empty steps, no song / extras / slot.
@@ -83,6 +88,11 @@
 #                   adding up, the glide (a quarter a block), flat again stops, a silent part drops its state, the page
 #                   (SELECT's place, KNOB 1..4, RESO for LP / HP, the cards' text, each track its own, a sound loaded
 #                   keeps it), kept with the project (damaged: defaults; extras of before: flat; a new project: flat).
+# MASTER (tests/dyn_test.c, M-Vave-OP1): HOME > MASTER, the master's compressor and limiter before the MASTER knob
+#                   (dyn.c): the defaults bit for bit the master of before at the knob's top, the knob last (half the knob
+#                   exactly half), USB LEVEL FIXED, COMP's reduction against the gain computer in double, GAIN, the
+#                   attack and release times, LIMIT's steps, the meters, the page (SELECT's place, KNOB 1..4, the
+#                   cards' text), kept with the project (damaged: defaults; extras of before and a new project: defaults).
 # SCENES (tests/scene_test.c, M-Vave-OP1): 16 scenes a project (scene.c, the SEQ layer): the packed form (3000 random
 #                   scenes round-trip, the densest fits, damaged bytes refused), a pick stopped at once and playing at the
 #                   pattern's end (the longest track's loop, the remainder carried), taken back, the bank full (refused,
@@ -378,6 +388,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/kitgrid_test" tests/kitgrid_test.c -lm
     mkdir -p build/kitgrid_shots
     run "KIT GRID: VDRUM (6 parts) and DBOX (8 lanes) on the grid as DRUM, REC, mutes, BEAT, notes as hits on load" "$OUT/kitgrid_test" build/kitgrid_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/drumkeys_test" tests/drumkeys_test.c -lm
+    run "DRUM KEYS: black keys the lanes, white keys the lane picked a semitone a key from F4 (DRUM, VDRUM), REC the hit" "$OUT/drumkeys_test"
     run "KEY: the move in the scale, a pattern under KEY bar by bar, the arp, live keys, the page" "$OUT/key_test"
     mkdir -p build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
@@ -394,6 +406,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     mkdir -p build/eq_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/eq_test" tests/eq_test.c -lm
     run "HOME > EQ: four bands a track (each TYPE's response against the cookbook), the glide, the page, kept with the project" "$OUT/eq_test" build/eq_shots
+    mkdir -p build/dyn_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/dyn_test" tests/dyn_test.c -lm
+    run "HOME > MASTER: compressor + limiter before the knob (as before at the defaults, the curve, times, LIMIT, meters), the page, kept" "$OUT/dyn_test" build/dyn_shots
     mkdir -p build/cset_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cset_test" tests/cset_test.c -lm
     run "SCL > CHORD's sets (after the J-6's): the data, the chords, the key input, MIDI IN, the page, STEP entry, recording, kept" "$OUT/cset_test" build/cset_shots

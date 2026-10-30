@@ -4,8 +4,10 @@
  * BELL. Before 1.0 it was PHYS's MODEL DRUM; projects and user presets saved then load as this engine
  * (drum_from_phys in core.h).
  *
- * Keys and notes: the keys play the General MIDI drum map with the kick on the first C (C KICK, C# RIM,
- * D SNARE, D# CLAP, F# HAT CL, A# HAT OP, F G A B C D TOMS, C# CYM, G# BELL; OCT -/+ move it), and a note
+ * Keys and notes: M-Vave-OP1: the keys are the drum keys (seq.c kit_key; kit_sel below): the black keys the
+ * grid's lanes (KICK SNARE CLAP HATCL HATOP TOM RIM BELL on black keys 1..8, a lane struck as designed and picked),
+ * the white keys the lane picked a semitone a key from F4, OCT -/+ an octave (Felucca's keys played the General
+ * MIDI drum map with the kick on the first C; drum_keys still names it, for the arp and the chord tests). A note
  * plays its GM drum (35..81: kicks, snares, toms, hats, cymbals, bells, congas, claves; other notes as
  * their octave of 36..47), so GM patterns and MIDI parts play as they did on SAMPLE PERC (retired: its sounds
  * load as this engine, core.h drum_from_perc).
@@ -56,7 +58,7 @@ typedef struct {
     uint8_t owner;               /* the voice playing the lane: index + 1, 0 = none */
     uint8_t role;                /* the drum struck (DVT_*) */
     int8_t st;                   /* its semitones from the designed pitch (the GM map) */
-    uint8_t pad;
+    int8_t kp;                   /* M-Vave-OP1: .. and the drum keys' (kit_kp), past TUNE's range */
 } drum_lane_t;
 
 ENG_MEM_FITS("DRUM", sizeof(drum_lane_t) * DV_NLANE);
@@ -153,6 +155,15 @@ static const uint8_t DRUM_LANE_NOTE[NLANE] = {36, 38, 39, 42, 46, 45, 37, 56};
 /* M-Vave-OP1: the grid lanes each track's drums hit since the UI looked (bit l: lane l, DRUM_LANE_NOTE), set by the ISR
  * as a lane plays (drum_note_on), taken by the DRUM grid's LEDs (ui_input.c grid_leds: its black key flashes) */
 static volatile uint8_t drum_lit[NTRK];
+/* M-Vave-OP1, the drum keys (seq.c kit_key): on a kit track (DRUM, VDRUM) the black keys are the grid's lanes, a black
+ * key strikes its lane as designed and picks it (kit_sel, each track's, 0: KICK), the white keys strike the lane picked
+ * at a pitch, a semitone a key from F4 (the lane as designed), OCT -/+ an octave each. kit_kp: the semitones of the
+ * hit a key strikes, set by the ISR's key loop around key_on and read by the engines' note_on in that call (drum_note_on,
+ * vd_note_on); 0 for every other hit (the sequencer, MIDI, the arp's). kit_ev: the last key's lane and pitch for the
+ * UI's message (ui_input.c kit_msg), n counted up last */
+static volatile uint8_t kit_sel[NTRK];
+static int8_t kit_kp;
+static volatile struct { uint8_t n, trk, lane, black; int8_t st; } kit_ev;
 
 /* the lane a note strikes (KIT-proof: a kit plays its own piece inside the lane) */
 static uint32_t drum_lane(uint32_t note)
@@ -243,6 +254,7 @@ static void drum_note_on(track_t *t, voice_t *v)
         L->role = (uint8_t)role;
     }
     L->st = (int8_t)st;
+    L->kp = kit_kp;
     L->owner = (uint8_t)(i + 1u);                        /* (its last voice, if another, ends: drum_amp) */
     v->s[0] = (int32_t)lane;
     v->env_out = v->vel * 258;                           /* the hit starts at its level (no ramp from 0) */
@@ -305,10 +317,12 @@ static void drum_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         k.tone = (uint8_t)clamp(k.tone + p[P_E2] - 64 + ((int32_t)dl_get(p, ln, DL_TONE) - 6) * 10, 0, 127);
         k.tune = (int16_t)(L->st * 16 + (p[P_E1] - 64) * 3 + ((int32_t)dl_get(p, ln, DL_TUNE) - 12) * 16);   /* +-12 st, each */
     }
+    k.key = (int16_t)(L->kp * 16);                       /* (M-Vave-OP1: the drum keys' pitch) */
     k.extra = (uint8_t)clamp(k.extra + p[P_E4] - 64, 0, 127);
     k.accent = (uint8_t)clamp(acc >> 9, 0, 127);         /* (Q16 -> 0..127) */
     if (((const uint32_t *)&k)[0] != ((const uint32_t *)&L->key)[0] ||
-        ((const uint32_t *)&k)[1] != ((const uint32_t *)&L->key)[1]) {
+        ((const uint32_t *)&k)[1] != ((const uint32_t *)&L->key)[1] ||
+        ((const uint32_t *)&k)[2] != ((const uint32_t *)&L->key)[2]) {
         dv_setup(&L->c, &k);                             /* (a parameter moved) */
         L->key = k;
         if (dv_uses_metal(L->c.type))
@@ -331,7 +345,8 @@ static void drum_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     }
 }
 
-/* the GM drum map, the first C (key 7) is the kick (C2, 36) */
+/* the GM drum map, the first C (key 7) is the kick (C2, 36): the engine's key map for what asks for one (the arp's
+ * latched keys, chord.c); the keys themselves play the drum keys (M-Vave-OP1: seq.c kit_key) */
 static int32_t drum_keys(const track_t *t, uint32_t k)
 {
     (void)t;

@@ -10,6 +10,10 @@
 #include "ui_eq.c"
 static const page_ops_t EQ_OPS = {.flags = PG_LIST, .desc = eq_page_desc, .draw = graph_eq, .sig = eq_sig};
 
+/* --------------------------------------------------------- HOME > MASTER --- */
+#include "ui_dyn.c"
+static const page_ops_t DYN_OPS = {.flags = PG_LIST, .desc = dyn_page_desc, .draw = graph_dyn, .sig = dyn_sig};
+
 /* ------------------------------------------------------------- GLO > SONG --- */
 /* the knobs: KNOB 1 SECTION, 2 TRACK, 3 PAT (A..D, -), 4 REPS */
 static void song_knob(uint32_t slot, int32_t steps)

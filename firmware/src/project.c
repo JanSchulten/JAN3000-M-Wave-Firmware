@@ -1221,6 +1221,7 @@ static void project_new(uint32_t slot)
     xtra_fx1(&none, 0);
     xtra_misc(&none, 0);
     eq_defaults();                                      /* (M-Vave-OP1: HOME > EQ flat) */
+    dyn_defaults();                                     /* (.. HOME > MASTER: no compressor, the limiter as before) */
     fx_serial = 1;
     np_sounds();
     for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
@@ -1470,6 +1471,7 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, shim_p, sizeof shim_p);
     h = as_mix(h, &fx_serial, sizeof fx_serial);
     h = as_mix(h, eq_set, sizeof eq_set);           /* (M-Vave-OP1: HOME > EQ, the extras') */
+    h = as_mix(h, dyn_set, sizeof dyn_set);         /* (.. HOME > MASTER's) */
     h = as_mix(h, cset_set, sizeof cset_set);       /* SCL > CSET's ON, SETs and VOICEs too; */
     h = as_mix(h, cset_voice, sizeof cset_voice);
     h = as_mix(h, &cset_en, 1);
