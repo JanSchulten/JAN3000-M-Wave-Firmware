@@ -68,7 +68,7 @@ perf_block 842
 perf_master 32
 perf_flanger 368
 perf_phaser 448
-perf_throw 52
+perf_throw 67
 perf_duck 33
 perf_stereo 60
 rev_room 235

@@ -14,7 +14,8 @@
  * reverb of these renders) began to round towards zero (fx.c rev_room: no hum, an exact end): with ROOM's old
  * rounding every one of them still matched the file before, so the switches sound as they did. M-Vave-OP1 rewrote
  * the 424 that play GRAIN's CLOUD PAD or GLITCH (part 3 plays them alongside) when FLUTE and SAX left the firmware:
- * their SRC is PIANO now.
+ * their SRC is PIANO now. M-Vave-OP1 rewrote the 330 that play DRUM (on part 1, or on part 3 alongside) when the 808 KIT
+ * preset moved to TONE 94, SNAP 100 after 1.0: with its old 70 and 64 every one still matched the file.
  * env: GOLDEN_UPDATE=1 rewrites GOLDEN_FILE (only with a reason: a switch is to sound as it did). */
 #define main hostsim_main
 #include "hostsim.c"
