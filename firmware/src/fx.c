@@ -1233,12 +1233,12 @@ static __attribute__((noinline)) void perf_master(int32_t *out, uint32_t n)
 {
     uint32_t i;
     for (i = 0; i < n; i++) {
-        mix_l[i] += wet[i];
-        mix_r[i] += wet[i];
+        mix_l[i] = (mix_l[i] + wet[i]) & ~3;            /* (dyn.c master_block says why ~3) */
+        mix_r[i] = (mix_r[i] + wet[i]) & ~3;
         wet[i] = 0;
     }
     perf_block(mix_l, mix_r, n);
-    master_block(out, n);
+    master_block(out, n, ~0);
 }
 
 /* M-Vave-OP1: the SLICER at the END (slicer.c): the whole stereo sum after the reverb (dry + wet, HALL's and the CLOUD's
@@ -1298,7 +1298,7 @@ static void mix_block(int32_t *out, uint32_t n)
 #endif
         return;
     }
-    master_block(out, n);
+    master_block(out, n, ~3);
 #ifdef FX_MIX_TAP
     FX_MIX_TAP(out, n, 0);                              /* (mix_l / mix_r the parts', the HALL's side; wet the buses') */
 #endif

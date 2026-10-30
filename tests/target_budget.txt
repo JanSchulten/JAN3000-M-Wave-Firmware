@@ -54,7 +54,7 @@ wtb_model 367
 swm_model 457
 acid_render 145
 acid_model 86
-fm1_alnk0_irq 40658
+fm1_alnk0_irq 40659
 fm1_timer5_irq 33499
 click_render 30
 po_render 17
@@ -65,8 +65,8 @@ perf_begin 28
 perf_mute 21
 perf_pre 26
 perf_block 842
-perf_master 10
-master_dyn 47
+perf_master 14
+master_dyn 50
 perf_flanger 368
 perf_phaser 448
 perf_throw 51

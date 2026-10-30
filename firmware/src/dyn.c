@@ -102,7 +102,7 @@ static void dyn_power_on(void)
 
 /* the master with the compressor (dynx.on): the block's gain from the block before's peak, then each sample through the
  * DC blocker and SPEAKER EQ, the gain, the limiter and the soft clip, scaled by post (MASTER) */
-FM1_FPU static __attribute__((noinline)) void master_dyn(int32_t *out, uint32_t n, int32_t post)
+FM1_FPU static __attribute__((noinline)) void master_dyn(int32_t *out, uint32_t n, int32_t post, int32_t q)
 {
     uint32_t i;
     int32_t pk = 0;
@@ -116,7 +116,7 @@ FM1_FPU static __attribute__((noinline)) void master_dyn(int32_t *out, uint32_t 
         dyn_gr_pk = dyna.grs;
     dg = (acid_exp2((dyna.grs + dynx.mk) * 0.16609640f) - g) * (1.0f / CTL);   /* (dB / 6.02: a power of 2) */
     for (i = 0; i < n; i++) {
-        int32_t l = mix_l[i] + wet[i], r = mix_r[i] + wet[i], al, ar;
+        int32_t l = (mix_l[i] + wet[i]) & q, r = (mix_r[i] + wet[i]) & q, al, ar;
         master_pre(&l, &r);
         al = l < 0 ? -l : l;
         ar = r < 0 ? -r : r;
@@ -135,16 +135,18 @@ FM1_FPU static __attribute__((noinline)) void master_dyn(int32_t *out, uint32_t 
 
 /* the master of a block (fx.c mix_block, perf_master): mix_l / mix_r + wet at the full level through it, MASTER after
  * (USB LEVEL FIXED: the full level out, audio.c scales the DAC's after USB took it). |out| <= 32767 after the soft clip:
- * x MASTER (<= 4096) >> 12 fits */
-static void master_block(int32_t *out, uint32_t n)
+ * x MASTER (<= 4096) >> 12 fits. q: the mix's two lowest bits cleared (~3) as MASTER at its top cleared them before
+ * ((x >> 2) x 4096 >> 10), so the master's output is bit for bit the old one's there; the FX layer's (perf_master)
+ * cleared them before its effects: ~0 */
+static void master_block(int32_t *out, uint32_t n, int32_t q)
 {
     uint32_t i;
     int32_t post = fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12;
     if (dynx.on) {
-        master_dyn(out, n, post);
+        master_dyn(out, n, post, q);
     } else {
         for (i = 0; i < n; i++) {
-            int32_t l = mix_l[i] + wet[i], r = mix_r[i] + wet[i];
+            int32_t l = (mix_l[i] + wet[i]) & q, r = (mix_r[i] + wet[i]) & q;
             master_out(&l, &r);
             out[2u * i] = (l * post) >> 12;
             out[2u * i + 1u] = (r * post) >> 12;

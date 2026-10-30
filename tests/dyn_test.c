@@ -40,13 +40,13 @@ static void set(int16_t comp, int16_t rel, int16_t lim, int16_t gain)
     dyn_set[DYN_COMP] = comp, dyn_set[DYN_REL] = rel, dyn_set[DYN_LIM] = lim, dyn_set[DYN_GAIN] = gain;
     dyn_poll();
 }
-/* a sine of amplitude a at f Hz into the mix, block by block from sample s0 (multiples of 4: the old master's x >> 2 x 4
- * keeps them) */
+/* a sine of amplitude a at f Hz into the mix, block by block from sample s0 (any sample: the old master's x >> 2 x 4
+ * cleared the two lowest bits, master_block's q does) */
 static void fill(double a, double f, uint32_t s0)
 {
     uint32_t i;
     for (i = 0; i < CTL; i++) {
-        int32_t x = (int32_t)lrint(a * sin(2 * M_PI * f * (s0 + i) / FS) / 4.0) * 4;
+        int32_t x = (int32_t)lrint(a * sin(2 * M_PI * f * (s0 + i) / FS)) + (int32_t)(i % 3u);   /* (odd ones too) */
         mix_l[i] = x;
         mix_r[i] = x;
         wet[i] = 0;
@@ -60,7 +60,7 @@ static int32_t run(double a, double f, uint32_t nb)
     int32_t pk = 0;
     for (b = 0; b < nb; b++) {
         fill(a, f, b * CTL);
-        master_block(o, CTL);
+        master_block(o, CTL, ~3);
         if (b >= nb / 2u)
             for (i = 0; i < 2u * CTL; i++)
                 pk = abs(o[i]) > pk ? abs(o[i]) : pk;
@@ -96,7 +96,7 @@ static void test_before(void)
     master_rest();
     for (b = 0; b < 400u; b++) {
         fill(b < 200u ? 40000.0 : 9000.0, 220.0 + (b & 7u), b * CTL);
-        master_block(o, CTL);
+        master_block(o, CTL, ~3);
         same &= !memcmp(o, ref[b], sizeof o);
     }
     ck("  at MASTER's top the output is bit for bit the master of before (the limiter at work, then not)", same);
@@ -104,7 +104,7 @@ static void test_before(void)
     song.master_q12 = 2048;
     for (b = 0; b < 400u; b++) {
         fill(b < 200u ? 40000.0 : 9000.0, 220.0 + (b & 7u), b * CTL);
-        master_block(o, CTL);
+        master_block(o, CTL, ~3);
         for (i = 0; i < 2u * CTL; i++)
             half &= o[i] == (ref[b][i] * 2048) >> 12;
     }
@@ -114,7 +114,7 @@ static void test_before(void)
     song.master_q12 = 1000;
     for (b = 0; b < 400u; b++) {
         fill(b < 200u ? 40000.0 : 9000.0, 220.0 + (b & 7u), b * CTL);
-        master_block(o, CTL);
+        master_block(o, CTL, ~3);
         fixed &= !memcmp(o, ref[b], sizeof o);
     }
     ck("  USB LEVEL FIXED: the full output whatever the knob (audio.c scales the DAC's after USB took it)", fixed);
@@ -184,7 +184,7 @@ static double time_ms(double a0, double a1, int16_t rel, double frac)
     for (b = 0; b < 3000u; b++) {
         static int32_t o[2 * CTL];
         fill(a1, 1000.0, b * CTL);
-        master_block(o, CTL);
+        master_block(o, CTL, ~3);
         if (fabs(dyna.grs - g0) >= frac * fabs(g1 - g0))
             break;
     }
