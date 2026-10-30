@@ -531,7 +531,9 @@ static void test_spread(void)
     b = spread_run(127, 0, V_POLY, ONE, 1, NREND / 2);
     snprintf(msg, sizeof msg, "SPRD 127: the first note hard left (R peak %d of L's %d), at its level (L %.3f of SPRD 0's)",
              b.rmax, b.lmax, sqrt(b.l / a.l));
-    check(msg, b.rmax <= 2 && fabs(sqrt(b.l / a.l) - 1) < 0.01);
+    check(msg, b.rmax <= 4 && fabs(sqrt(b.l / a.l) - 1) < 0.01);   /* (4: the master's rounding, dyn.c master_block q;
+                                                                     * MASTER 1024 after it took it down to 1 until
+                                                                     * HOME > MASTER put the knob last) */
     b = spread_run(127, 0, V_POLY, TWO, 2, NREND / 2);
     {
         lr_t r1 = spread_run(127, 0, V_POLY, TWO + 1, 1, NREND / 2);   /* (67 alone: left, the first) */
