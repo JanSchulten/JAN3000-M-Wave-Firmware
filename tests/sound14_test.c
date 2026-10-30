@@ -481,7 +481,10 @@ static lr_t spread_run(int32_t sp, int32_t pan, uint32_t mode, const uint8_t *no
     uint32_t k, i;
     fresh(0, preset_by_name(0, "SOFT PAD"));
     dry(t);
-    song.master_q12 = 1024;                               /* below the limiter: the levels as mixed */
+    song.master_q12 = MASTER_FULL;                        /* below the limiter: the levels as mixed, the track's LEVEL a */
+    for (k = (uint32_t)t->p[P_LEVEL], i = k; i > 0u && LEVEL_Q12[i] * 4u > LEVEL_Q12[k]; i--)   /* quarter (M-Vave-OP1: */
+        ;                                                 /* the limiter works before MASTER now, HOME > MASTER, dyn.c; */
+    t->p[P_LEVEL] = (int16_t)i;                           /* MASTER 1024 did this until then) */
     t->p[P_VOICE] = (int16_t)mode;
     t->p[P_SPRD] = (int16_t)sp;
     t->p[P_PAN] = (int16_t)pan;
