@@ -1324,20 +1324,21 @@ static int test_grid(void)
     keyboard_block();
     ok &= t->step[7].time == ST_REST && !t->rh_n;
     bad += check("REC on the grid: lane keys record hits, quantised (the next step late), no TIE holds", ok);
-    /* live recording elsewhere (HOME): the GM keys; a lane's note a hit, another GM drum a note */
+    /* live recording elsewhere (HOME): the drum keys (M-Vave-OP1, seq.c kit_key; Felucca's GM keys until then); a black
+     * key its lane's hit, a white key the lane picked's hit (its pitch not recorded) */
     go_home();
     frame();
     t->seq_idx = 9;
     t->seq_pos = 0;
-    fm1_in.notes = (1u << 7) | (1u << 13) | (1u << 6);   /* C 36 KICK, F# 42 HAT CL, E 35 (a kick 2 st down) */
+    fm1_in.notes = (1u << key_at(1, 0)) | (1u << key_at(1, 3)) | (1u << key_at(0, 9));   /* KICK, HAT CL (picked), A4 +2 */
     keyboard_block();
     fm1_in.notes = 0;
     keyboard_block();
-    ok = !song.grid && t->step[9].hit == ((1u << DV_KICK) | (1u << DV_HATC)) && t->step[9].n == 1 && t->step[9].note[0] == 35 &&
+    ok = !song.grid && t->step[9].hit == ((1u << DV_KICK) | (1u << DV_HATC)) && !t->step[9].n && kit_sel[song.sel] == DV_HATC &&
          step_lanes(t->eng_req, &t->step[9]) == ((1u << DV_KICK) | (1u << DV_HATC));
     song.rec = 0;
     song.playing = 0;
-    bad += check("REC on HOME: GM keys quantised into the grid (35 a note on the KICK lane)", ok);
+    bad += check("REC on HOME: the drum keys quantised into the grid (black keys their lanes, a white key the lane picked)", ok);
     /* SAVE > PHRASES: 12 BEAT into the DRUM track fills the grid */
     track_defaults_steps(t);
     pat_sig[0] = steps_sig(t);
