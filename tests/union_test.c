@@ -18,7 +18,8 @@
  * DIST a SOFT DRIVE since, hostsim.c host_preset_values): with DIST taken out of the presets, every one of the 546
  * rendered bit for bit as before. M-Vave-OP1 rewrote all 546 for the serial FX chain (CHORUS -> SHIMMER -> DELAY ->
  * REVERB; the power-on CHO send 0): with the presets' REVERB sends alone (CHO SHIM DLY 0) every one rendered bit for bit
- * as before.
+ * as before. M-Vave-OP1 rewrote the 330 that play DRUM (on part 1, or on part 3 alongside) when the 808 KIT preset
+ * moved to TONE 94, SNAP 100: with its old 70 and 64 every one still matched the file.
  * env: GOLDEN_UPDATE=1 rewrites GOLDEN_FILE (only with a reason: a switch is to sound as it did). */
 #define main hostsim_main
 #include "hostsim.c"

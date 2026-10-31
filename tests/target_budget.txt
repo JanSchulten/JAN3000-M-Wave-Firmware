@@ -67,7 +67,7 @@ perf_master 14
 master_dyn 50
 perf_flanger 368
 perf_phaser 448
-perf_throw 51
+perf_throw 67
 perf_duck 33
 perf_stereo 60
 rev_room 245

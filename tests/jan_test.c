@@ -94,7 +94,8 @@ static void test_slots(void)
     ck("  OCT- asks LOAD PROJECT B? (OCT- no, OCT+ loads); OCT+ on a used one: OVERWRITE?", ok && !ui.confirm);
 }
 
-/* track 1's hit of GM note `note`, 60 blocks: its energy (>> 10 a sample; the sends off, so no tail of another hit) */
+/* track 1's hit of GM note `note`, 60 blocks: its energy (>> 10 a sample; the sends off and 1.45 s between hits, so no
+ * tail of another hit: the 808's kick and snare ring longer than 145 ms since they were retuned after 1.0) */
 static uint64_t dl_hit(uint32_t note)
 {
     static int32_t o[2 * CTL];
@@ -103,7 +104,7 @@ static uint64_t dl_hit(uint32_t note)
     trk[0].p[P_ITYPE] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;   /* (the power-on DRIVE too) */
     song.master_q12 = 4096;                           /* (the harness: no MASTER knob read) */
     panic_req = 0xFF;
-    for (b = 0; b < 200u; b++)
+    for (b = 0; b < 2000u; b++)
         mix_block(o, CTL);
     trk_note_on(&trk[0], note, 110);
     for (b = 0; b < 60u; b++) {
