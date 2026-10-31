@@ -4775,12 +4775,17 @@ static int test_bughunt_ui2(void)
 static int test_large_face(void)
 {
     static const char *const FIXED[] = {JAN_NAME, "0123456789"};   /* main.c, ui_menu.c (ABOUT); ui_draw.c draw_uboot */
+    static const char *const PEDAL[] = {"DRIVE", "CHORUS", "FLANGER", "VIBRATO", "SHIMMER", "DELAY", "CLOUD", "REVERB",
+                                        "SLICER"};                  /* ui_graph.c graph_pedal (and N_ITYPE: the DRIVE's) */
     uint32_t i, missing = 0;
     const char *s;
     for (i = 0; i < NB + NE + 2u; i++)                              /* ui_input.c setup_show: the control names */
         for (s = i < NB ? B_NAME[i] : i < NB + NE ? E_NAME[i - NB] : FIXED[i - NB - NE]; *s; s++)
             missing += glyph_at(&AF_L, (uint8_t)*s) < 0;
-    return check("the L face holds every glyph of the strings drawn in it", !missing);
+    for (i = 0; i < NELEM(PEDAL) + NELEM(N_ITYPE); i++)           /* M-Vave-OP1: the pedals' names (FUZZ drew as FU) */
+        for (s = i < NELEM(PEDAL) ? PEDAL[i] : N_ITYPE[i - NELEM(PEDAL)]; *s; s++)
+            missing += glyph_at(&AF_L, (uint8_t)*s) < 0;
+    return check("the L face holds every glyph of the strings drawn in it (the pedals' names too)", !missing);
 }
 
 #if FELUCCA_FM4

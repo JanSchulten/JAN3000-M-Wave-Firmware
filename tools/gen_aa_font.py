@@ -43,11 +43,12 @@ PHASES, PHASES_L = 4, 2                # horizontal phases per glyph (aa_raster.
 # 2 px per byte, so the labels draw at full speed
 HUFF = [("M", "L")]
 # L draws only "FELUCCA", the UPDATE MODE countdown digit, the calibration's control names (panel.c
-# B_NAME / E_NAME) and MENU > LARGE's card values and page titles (ui_draw.c draw_column_tall, ui_graph.c
-# graph_title: # . / J W too; a value with another character is set in M): a sparse face of those glyphs, the
-# space as its range and the rest as extras
+# B_NAME / E_NAME), MENU > LARGE's card values and page titles (ui_draw.c draw_column_tall, ui_graph.c
+# graph_title: # . / J W too; a value with another character is set in M) and the FX pedals' names (ui_graph.c
+# graph_pedal; M-Vave-OP1: Z for the DRIVE's FUZZ, which drew as FU): a sparse face of those glyphs, the space as
+# its range and the rest as extras
 # (ui_test.c checks that every L string is covered)
-L_CHARS = " #+-./0123456789ABCDEFGHIJKLMNOPQRSTUVWXY"
+L_CHARS = " #+-./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 def preset(name):
