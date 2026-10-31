@@ -900,8 +900,8 @@ static const char *const LANEN[DV_NLANE] = {"KICK", "SNARE", "CLAP", "HATCL", "H
  * the STD kit's terms (KICK -14.5, SNARE -18.2, CLAP -24.2, HAT CL -27.4, HAT OP -23.8, TOM -13.6, RIM -22.5,
  * BELL -21 dBFS) */
 static const float KTGT[DV_NKIT][DV_NLANE][2] = {
-    {{0.300, 1304}, {0.100, 5785}, {0.150, 4339}, {0.060, 10712},   /* 80 */
-     {0.350, 9524}, {0.200, 402}, {0.020, 4241}, {0.220, 1590}},
+    {{0.240, 3123}, {0.180, 5679}, {0.150, 4339}, {0.040, 13451},   /* 80 (M-Vave-OP1: KICK SNARE HATS retuned after 1.0) */
+     {0.360, 11203}, {0.200, 402}, {0.020, 4241}, {0.220, 1590}},
     {{0.620, 1863}, {0.350, 7962}, {2.120, 9100}, {0.280, 7787},   /* 10 */
      {2.000, 7902}, {0.420, 392}, {0.020, 1823}, {2.830, 5233}},
     {{0.180, 505}, {0.050, 10507}, {0.160, 8175}, {0.210, 9473},   /* 66 */
@@ -912,6 +912,9 @@ static const float KTGT[DV_NKIT][DV_NLANE][2] = {
      {1.630, 8771}, {0.420, 1151}, {0.110, 3517}, {1.090, 9998}},
 };
 static const float KLVL[DV_NLANE] = {-14.5f, -18.2f, -24.2f, -27.4f, -23.8f, -13.6f, -22.5f, -21.0f};
+/* M-Vave-OP1: the 808's KICK SNARE HATS as tuned by ear after 1.0 (the 808 Drum Lab), louder than STD's; 0: KLVL */
+static const float KLVL_808[DV_NLANE] = {-9.1f, -14.0f, 0, -18.7f, -12.5f, 0, 0, 0};
+#define KLEV(k, l) ((k) == 0 && KLVL_808[l] != 0 ? KLVL_808[l] : KLVL[l])
 
 /* every kit: every lane against its targets, DC, its end; DECAY / TUNE / TONE / SNAP each move it; the corners
  * (DECAY TONE SNAP 0 / 127, TUNE +-25 st, LEVEL 127, full accent) under full scale; a retrigger renders the same */
@@ -939,8 +942,8 @@ static void kits(void)
                 snprintf(why + strlen(why), sizeof why - strlen(why), " t-30 %.3f (target %.3f);", t3, KTGT[k][l][0]);
             if (fabs(ce / KTGT[k][l][1] - 1) > 0.2)
                 snprintf(why + strlen(why), sizeof why - strlen(why), " centroid %.0f (target %.0f);", ce, KTGT[k][l][1]);
-            if (fabs(lv - KLVL[l]) > 1.5)
-                snprintf(why + strlen(why), sizeof why - strlen(why), " level %.1f (target %.1f);", lv, KLVL[l]);
+            if (fabs(lv - KLEV(k, l)) > 1.5)
+                snprintf(why + strlen(why), sizeof why - strlen(why), " level %.1f (target %.1f);", lv, KLEV(k, l));
             if (dc > 0.01)
                 snprintf(why + strlen(why), sizeof why - strlen(why), " DC %.2f %%;", dc * 100);
             if (!B.stop || B.stop > (uint32_t)((4 * t3 + 0.5) * FS))

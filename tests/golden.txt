@@ -39,7 +39,7 @@ preset/PHYS/05_HAND_DRUM 3abaa47d8cb4c25c
 preset/PHYS/06_TOMS e07ba61d1022c948
 preset/PHYS/07_DRONE_STRING 44eb269465c014ee
 preset/PHYS/08_HARP aab06cc9831bc806
-preset/DRUM/00_808_KIT 19372fe41e2384e4
+preset/DRUM/00_808_KIT 4db2f608e0666318
 preset/NOISE/00_WIND 66f75f73a4cd8a14
 preset/NOISE/01_RAIN 1caf3247cf3eeff4
 preset/NOISE/02_ARCADE 4c2ecfeedc5a57dc
@@ -116,12 +116,12 @@ preset/ACID/04_DIST_303 7e9c3f266553c16c
 preset/ACID/05_DEEP_SUB 7fd7adc96d81f428
 preset/ACID/06_SCREAM 6575eede0dce35c8
 preset/ACID/07_SOFT_BASS f943f3ad5d6c4188
-drums/drum_gm_kit a5712ba65561b4cc
-drums/kit_808 a8a910c6da2d9de8
-drums/kit_10 27a4f390f6918454
-drums/kit_66 992f454e51e794e8
-drums/kit_55 370d0ef5ed8fa01c
-drums/kit_77 9cc777d9b39891a0
+drums/drum_gm_kit 3198affbeb2569a8
+drums/kit_808 5705186f57caf5b4
+drums/kit_10 4e31a5d341a6875c
+drums/kit_66 8bfe468871b27f04
+drums/kit_55 840dde7725f405dc
+drums/kit_77 5da57c4510f1d268
 mode/ANALOG/POLY d0de748192183c81
 mode/ANALOG/MONO ce3e27df2735e286
 mode/ANALOG/LEGATO 6c0a001d5d5b2b76
@@ -136,6 +136,6 @@ sends/ANALOG/delay 16f096cb7645f1e8
 sends/ANALOG/reverb e0349c16e0df7ef8
 sends/ANALOG/all e359b8ffa0ac258d
 sends/ANALOG/dist cb9f869db25a4f30
-song/4track_mix 8b9faca43eecff45
+song/4track_mix 5bff098d36e6a035
 slicer/gate/ANALOG_ACID 5655732c85fe53d0
-slicer/song_gate_stut b3d21502dca6b2b4
+slicer/song_gate_stut 2b0346382819c5bc

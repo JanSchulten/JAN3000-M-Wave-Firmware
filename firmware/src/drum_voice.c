@@ -39,8 +39,9 @@
  *           band-passes (TONE: high / low balance; TUNE moves both) under a strike (STRIKE) and a ring
  * The model kits (KIT 80 10 66 55 77): each lane a kit's own voice, played through the runs above with that kit's
  * numbers (DV_KIT: pitches, sweeps, decays, the noise's colour, the metal clusters, the clap's bursts, the accent):
- *   80  a deep sine kick with a small drop and a long decay, a snare of two shells and bright noise, a 1 kHz clap of
- *       three bursts and a tail, the six-square hats, a low-noise tom, a rim's crack, a two-square bell
+ *   80  (808; M-Vave-OP1, after 1.0: kick, snare and hats tuned by ear) a kick of a fast drop, a beater sweep and a click, a
+ *       snare of one gliding shell and bright noise, a 1 kHz clap of three bursts and a tail, noise hats, a low-noise
+ *       tom, a rim's crack, a two-square bell
  *   10  a small kit: a kick swept down from 90 Hz, one shell over white noise, three slow claps and a long tail,
  *       hats and a cymbal (on BELL) of four squares; TOM and RIM stand-ins built from its body and shell
  *   66  an early rhythm box: a kick that swells in, a bright noisy snare with a short shell, hats of noise in a
@@ -186,16 +187,20 @@ typedef struct {
 static const uint8_t DV_KIT_ACC[DV_NKIT] = {120, 45, 100, 40, 40};
 static const dv_kit_t DV_KIT[DV_NKIT][DV_NLANE] = {
     {   /* 80 */
-        /* deep sine, a small drop, long decay */
-        {DVT_PUNCH, 64, 499, 198, 3124, {26, 150, 0, 300, 0, 0, 0, 4096, 12, 0, 0, 0, 0}},
-        /* shells 173 / 336 Hz, noise 2.7 .. 7 kHz, tau 30 ms */
-        {DVT_SNARE, 40, 845, 125, 5690, {241, 0, 100, 53, 32767, 11000, 1678, 6827, 30, 0, 28000, 0, 1828}},
+        /* 48 Hz under a fast drop of 21 semitones (x TONE / 64), a beater sweep of 17 more, an 11 kHz click, the 2nd
+         * harmonic at 11 %: the attack and the upper bass carry on a small speaker (M-Vave-OP1, after JAN3000 1.0: tuned by
+         * ear in the 808 Drum Lab; until 1.0 a deep sine with a 1.6-semitone drop, no click) */
+        {DVT_PUNCH, 52, 488, 198, 6933, {329, 153, 268, 3627, 0, 2000, 32767, 4096, 12, 0, 0, 0, 0}},
+        /* one shell 173 Hz gliding down from 8 semitones above (4 ms), its ring 40 % of the noise's, noise 2.7 .. 7 kHz,
+         * tau 77 ms (until 1.0: shells 173 / 336 Hz, tau 30 ms) */
+        {DVT_SNARE, 40, 845, 321, 6825, {0, 130, 42, 25, 32767, 9960, 1678, 6827, 30, 0, 19769, 0, 1828}},
         /* band 1 kHz, 3 teeth 10 ms, tail 90 ms */
         {DVT_CLAP, 48, 1331, 316, 13485, {0, 4096, 1678, 0, 2000, 30000, 35, 441, 3, 0, 0, 0, 0}},
-        /* six squares, band 7.1 kHz, tau 16 ms */
-        {DVT_HATC, 45, 893, 60, 9017, {1874, 5120, 2020, 2042, 7209, 32767, 0, 3, 0, 0, 0, 0, 0}},
-        /* tau 75 ms */
-        {DVT_HATO, 63, 893, 253, 13955, {1874, 5120, 1934, 2042, 1147, 32767, 0, 3, 0, 0, 0, 0, 0}},
+        /* noise through a band at 7.3 kHz and a high-pass at 14 kHz, a 2 ms rise, tau 9.5 ms (until 1.0 the six
+         * squares). The squares stand still (row 6) and their level is 0: no constant into the filters */
+        {DVT_HATC, 25, 893, 55, 9017, {1882, 5120, 2068, 2042, 8306, 0, 21775, 20, 6, 0, 0, 0, 0}},
+        /* noise, the band at 7.1 kHz, a high-pass at 3.3 kHz, tau 75 ms (until 1.0 the six squares) */
+        {DVT_HATO, 63, 893, 253, 13955, {1874, 5120, 1657, 2042, 2003, 0, 16425, 8, 6, 0, 0, 0, 0}},
         /* mid tom 139 Hz, tau 58 ms, a little bend */
         {DVT_TOM, 53, 785, 182, 4055, {8, 100, 1302, 1200, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
         /* 455 + 1667 Hz into a hard clip */

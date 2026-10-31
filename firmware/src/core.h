@@ -159,7 +159,8 @@ static int drum_from_phys(uint32_t engine, int16_t *e)
 #define DRUM_KIT_E {0, 64, 70, 64, 64, 100, 0, 0}   /* {KIT STD, TUNE, TONE, DECY, SNAP, ACC, KICK PUNCH, DRV} */
 /* M-Vave-OP1: a new DRUM sound (power-on, the engine picked, its preset) is the 808 model kit (KIT 80, eng_drum.c DK_80);
  * old data converted as before keeps DRUM_KIT_E (STD) */
-#define DRUM_808_E {4, 64, 70, 64, 64, 100, 0, 0}
+#define DRUM_808_E {4, 64, 94, 64, 100, 100, 0, 0}   /* (after 1.0: TONE 94, SNAP 100, as the kit was tuned; until
+                                                    * 1.0 70 and 64) */
 static int drum_from_perc(uint32_t engine, int16_t *e)
 {
     static const int16_t KIT[8] = DRUM_KIT_E;

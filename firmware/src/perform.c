@@ -498,14 +498,17 @@ static __attribute__((noinline)) void perf_throw(const track_t *t, const int32_t
 {
     uint32_t i;
     int32_t lvl = LEVEL_Q12[t->p[P_LEVEL] & 127];
-    int32_t rg = 32766 - t->p[P_REV] * 258, dg = 32766 - t->p[P_DLY] * 258;   /* full (127 * 258) less its own */
+    int32_t c = t->p[P_CHOR] * 258, d = t->p[P_DLY] * 258, r = t->p[P_REV] * 258, xo = c > d ? c : d;
     int32_t rw = pf.rw, ew = pf.ew, r1 = pf.rw1, e1 = pf.ew1;
+    xo = 0x7FFFFFFF / ((xo > r ? xo : r) | 1);          /* the clamp mix_part gave the track's own sends */
     for (i = 0; i < n; i++) {
-        int32_t x = clamp(((b[i] >> 2) * lvl) >> 10, -65536, 65536);   /* (mix_part's xs at a full send) */
+        int32_t x = ((b[i] >> 2) * lvl) >> 10, xs = clamp(x, -xo, xo), xf = mulq15(clamp(x, -65538, 65538), 32766);
+        /* (M-Vave-OP1: full less its own, each through its own clamp, so a track above twice full scale sends
+         * as at 127, not more; until 1.0 the full send's clamp on the difference) */
         rw += clamp(r1 - rw, -THR_SLOPE, THR_SLOPE);
         ew += clamp(e1 - ew, -THR_SLOPE, THR_SLOPE);
-        sr[i] += mulq15(x, mulq16(rg, (uint32_t)rw << 1));
-        sd[i] += mulq15(x, mulq16(dg, (uint32_t)ew << 1));
+        sr[i] += mulq16(xf - mulq15(xs, r), (uint32_t)rw << 1);
+        sd[i] += mulq16(xf - mulq15(xs, d), (uint32_t)ew << 1);
     }
 }
 
