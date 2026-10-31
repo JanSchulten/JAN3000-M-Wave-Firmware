@@ -10,7 +10,7 @@
  *            without the CHORUS left and right are equal.
  *   BOUNDS   four loud tracks, every send and level full: the levels' Q16 multiply keeps the sign and never grows
  *            (chain_scale, chain_reverb); the mix bounded.
- *   STORED   the levels with the project (extras XTRA_V9) and in the autosave's signature; extras of before: full.
+ *   STORED   the levels with the project (extras XTRA_V11) and in the autosave's signature; extras of before: full.
  *   PAGE     MIX 2 after the sends: KNOB 1 2 4 the levels, KNOB 3 the DELAY's MIX; its signature follows them.
  * Built and run by tests/run_tests.sh (a directory argument: the screen). */
 #define UI_TEST_NO_MAIN 1
@@ -212,12 +212,12 @@ static void test_stored(void)
     project_load(0);
     ck("STORED: and loads the levels (CHR 11, SHR 23, REV 33)", fx_lvl[0] == 11 && fx_lvl[1] == 23 && fx_lvl[3] == 33);
     xtra_capture(&x, &xh, 7);
-    ck("STORED: the extras grow by the levels (XTRA_V9 = XTRA_V8 + 4), each byte 0x80 | the level",
-       x.size == XTRA_V9 && XTRA_V9 == XTRA_V8 + 4u && xh.lvl[0] == (0x80u | 11u) && xh.lvl[1] == (0x80u | 23u) &&
+    ck("STORED: the extras grow by the levels (XTRA_V11 = XTRA_V10 + 4), each byte 0x80 | the level",
+       x.size == XTRA_V11 && XTRA_V11 == XTRA_V10 + 4u && xh.lvl[0] == (0x80u | 11u) && xh.lvl[1] == (0x80u | 23u) &&
        xh.lvl[3] == (0x80u | 33u));
-    x.size = XTRA_V8;                                   /* extras of before: the levels full */
+    x.size = XTRA_V10;                                  /* extras of before: the levels full */
     xtra_apply(&x, 7, &xh);
-    ck("STORED: extras of before (XTRA_V8): the levels full, as the chain played", fx_lvl[0] == FX_LVL_DEF &&
+    ck("STORED: extras of before (XTRA_V10): the levels full, as the chain played", fx_lvl[0] == FX_LVL_DEF &&
        fx_lvl[1] == FX_LVL_DEF && fx_lvl[3] == FX_LVL_DEF);
 }
 
