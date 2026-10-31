@@ -15,6 +15,18 @@
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
 
+/* M-Vave-OP1: the buses as mix_block chains them, without the SHIMMER: the CHORUS (cho_bus), its wet into the DELAY,
+ * then the DELAY and the REVERB (fx_buses: the CHORUS's and the DELAY's wet into the REVERB) */
+static void buses(const int32_t *c, const int32_t *d, const int32_t *r, int32_t *w, uint32_t n)
+{
+    int32_t dd[CTL];
+    uint32_t i;
+    cho_bus(c, n);
+    for (i = 0; i < n; i++)
+        dd[i] = d[i] + cho_wet[i];
+    fx_buses(dd, r, w, n);
+}
+
 static int bad;
 static int ck(const char *what, int ok)
 {
@@ -32,7 +44,7 @@ static void bus(const int32_t *in)
     memset(sc, 0, sizeof sc);
     memset(sr, 0, sizeof sr);
     memcpy(sd, in, sizeof sd);
-    fx_buses(sc, sd, sr, w, CTL);
+    buses(sc, sd, sr, w, CTL);
     if (hl.side)
         memcpy(side, hl.sd, sizeof side);
     else
@@ -40,7 +52,8 @@ static void bus(const int32_t *in)
 }
 static void bus_reset(void)
 {
-    fx_serial = 0;                              /* isolate FX1 from downstream reverb; chain tested in shimmer_send_test */
+    fx_lvl[3] = 0;                              /* isolate FX1 from the reverb after it (MIX 2's REVERB level 0); the
+                                                 * chain is tested in shimmer_send_test */
     memset(dly_buf, 0, sizeof dly_buf);
     memset(rev_comb, 0, sizeof rev_comb);
     memset(&rev_u, 0, sizeof rev_u);
@@ -365,7 +378,7 @@ static uint32_t fx_pages(char *out, uint32_t n)       /* the FX family's titles 
 {
     uint32_t k;
     out[0] = 0;
-    go_title("FX");
+    go_title("MIX");
     for (k = 0; k < n; k++) {
         if (k) {
             frames(400);
@@ -383,8 +396,8 @@ static void test_ui(const char *dir)
     int ok;
     cloud_power_on();
     fx_pages(pages, 10);
-    ck("FX's nine cards: SEND, INSERT, INSERT 2 (DIST), CHORUS, SHIMMER, DELAY, REVERB, SLICER, FX TRACKS (M-Vave-OP1)",
-       strstr(pages, "FX|INSERT|INSERT 2|CHORUS|SHIMMER|DELAY|REVERB|SLICER|FX TRACKS|FX|") != 0);
+    ck("FX's nine cards: MIX (the sends), MIX 2, DRIVE, CHORUS, SHIMMER, DELAY, REVERB, SLICER, FX TRACKS (M-Vave-OP1)",
+       strstr(pages, "MIX|MIX 2|DRIVE|CHORUS|SHIMMER|DELAY|REVERB|SLICER|FX TRACKS|MIX|") != 0);
     go_title("DELAY");
     song.g[G_DFDBK] = 60;
     song.g[G_DMIX] = 90;

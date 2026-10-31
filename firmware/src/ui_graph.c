@@ -558,7 +558,7 @@ static void graph_arp(const track_t *t)
     }
 }
 /* .. the animation in y0..y0 + h (ui.frame its clock): FX the four sends breathing as large as they are; SLICER its
- * pattern, the step playing marked; INSERT its curve, a line sweeping it; DLY the echoes running out (TIME their
+ * pattern, the step playing marked; DRIVE its curve, a line sweeping it; DLY the echoes running out (TIME their
  * spacing, FDBK how long they last); REVERB rings spreading (SIZE how far, DAMP how soon they fade; SPRING a coil
  * shaking); CHORUS two waves drifting apart (RATE, DEPTH) */
 static void graph_insert(const track_t *t, uint16_t c);
@@ -600,18 +600,18 @@ static void fx_anim(const track_t *t, uint16_t c, uint16_t bgc, int32_t x0, int3
             if (mode != SL_OFF && k == cur)
                 cv_rect(x, bot - 2, (ww - 4) / 16 - 3, 2, T_ACCENT);
         }
-    } else if (str_eq(ti, "INSERT") || str_eq(ti, "INSERT 2")) {   /* its curve, swept */
-        int32_t ty = clamp(t->p[P_ITYPE], 0, IT_N - 1), g = 4096 + t->p[P_IA] * t->p[P_IA] * 3;
+    } else if (str_eq(ti, "DRIVE")) {                  /* its curve, swept */
+        int32_t ty = (uint32_t)t->p[P_ITYPE] < IT_N ? t->p[P_ITYPE] : IT_OFF, g = 4096 + t->p[P_IA] * t->p[P_IA] * 3;
         uint32_t sh = ins_bits_sh(t->p[P_IA]);
         for (x = x0 + 2; x < x1 - 2; x++) {             /* the curve: input across, output up (fx.c ins_shape) */
             int32_t in = (x - x0 - ww / 2) * 32767 / (ww / 2 - 2);
-            int32_t o = ty == IT_CRUSH ? ins_shape(IT_CRUSH, in, sh) : ty && ty < IT_PHASER ? ins_shape((uint32_t)ty, ((in >> 3) * g) >> 9, 0) : in;
+            int32_t o = ty == IT_CRUSH ? ins_shape(IT_CRUSH, in, sh) : ty ? ins_shape((uint32_t)ty, ((in >> 3) * g) >> 9, 0) : in;
             y = mid - clamp(o, -32767, 32767) * (half - 1) / 32767;
             if (x > x0 + 2)
                 cv_line(x - 1, py, x, y, ty ? c : T_MID);
             py = y;
         }
-        if (t->p[P_ITYPE])
+        if (ty)
             cv_rect(x0 + 2 + (int32_t)((f * 3u) % (uint32_t)(ww - 4)), y0 + 1, 1, hh0 - 2, T_ACCENT);
     } else if (str_eq(ti, "DELAY") && fx1s.type == FX1_CLOUD) {   /* CLOUD: grains coming and going, as many as DENS */
         uint32_t n = 3u + fx1s.dens / 14u;
@@ -638,8 +638,8 @@ static void fx_anim(const track_t *t, uint16_t c, uint16_t bgc, int32_t x0, int3
                 cv_line(x - 1, py, x, y, c);
             py = y;
         }
-    } else if (str_eq(ti, "SHIMMER") || (str_eq(ti, "REVERB") && song.g[G_RTYPE] == 3)) {   /* SHIMMER: sparks rising, faster as they climb */
-        uint32_t n = 6u + (uint32_t)(str_eq(ti, "SHIMMER") ? shim_p[0] : song.g[G_RSIZE]) / 16u;
+    } else if (str_eq(ti, "SHIMMER")) {                /* SHIMMER: sparks rising, faster as they climb */
+        uint32_t n = 6u + (uint32_t)shim_p[0] / 16u;
         for (k = 0; k < n; k++) {
             uint32_t hsh = k * 2654435761u, life = 40u + (hsh >> 27), age = (f + (hsh >> 8)) % life;
             int32_t rise = (int32_t)(age * age * (uint32_t)(hh0 - 6) / (life * life)), r = age < life / 2u ? 2 : 1;
@@ -698,9 +698,9 @@ static void fx_anim(const track_t *t, uint16_t c, uint16_t bgc, int32_t x0, int3
     }
 }
 /* M-Vave-OP1: FX's cards as effect pedals, each its own after a classic (the colours of the kind, never a maker's
- * name): INSERT a red drive, CHORUS a light blue chorus (FLANGER a magenta one, VIBRATO teal), DELAY a green delay
- * (CLOUD a purple ambient box), REVERB by its TYPE (ROOM a blue box, SPRING brown tolex, HALL silver, SHIMMER pearl
- * with violet), SLICER a yellow one. SEND is no pedal: a mixer's four faders (graph_sends). On each: the knobs where
+ * name): DRIVE a red drive, CHORUS a light blue chorus (FLANGER a magenta one, VIBRATO teal), DELAY a green delay
+ * (CLOUD a purple ambient box), REVERB by its TYPE (ROOM a blue box, SPRING brown tolex, HALL silver), SHIMMER pearl
+ * with violet, SLICER a yellow one. MIX and MIX 2 are no pedals: a mixer's four faders (graph_sends). On each: the knobs where
  * KNOB 1..4 sit (their pointer the value; turned, the value under it), a window with the effect moving (fx_anim), the
  * name, the LED (the effect on) and the footswitch. GREY and MONO: the pedals in their greys (ped) */
 static uint16_t ped(uint32_t rgb)                   /* 0xRRGGBB -> the screen's colour (GREY / MONO: a grey) */
@@ -759,13 +759,13 @@ static void pedal_knob_val(const page_t *pg, uint32_t c, const char **lb, char *
     if (!(d = page_desc(pg, c, &vp)) || !vp)
         return;
     *lb = pg->graph == GR_CHO ? (c == 1u ? "RATE" : "DEPTH") : d->label;   /* (the pedal's words, not CRT CDP) */
-    if (pg->graph == GR_INS && pg->id[c] == P_DIST) *lb = "DIST";
     param_format(d, *vp, val, &unit);
     *pos = d->max > d->min ? (int32_t)(enum_rank(d, *vp) - d->min) * 1000 / (d->max - d->min) : 0;
 }
 #define PED_H (Y_GRAPH + H_GRAPH - Y_LABEL)             /* the pedal: y 28 .. 198, top part 48 px (draw_columns) */
 #define PED_TOP (Y_GRAPH - Y_LABEL)
-/* FX's SEND card as a mixer's four faders where KNOB 1..4 are (CHO SHIM DLY REV, the selected track's): a dark
+/* FX's SEND card as a mixer's four faders where KNOB 1..4 are (CHO SHIM DLY REV, the selected track's; M-Vave-OP1: MIX 2
+ * the same four faders for the chain's levels, every track's): a dark
  * channel strip each, its slot lit from the bottom up to the cap in its bus's colour (the pedal's: chorus blue, Shimmer violet,
  * delay green, reverb silver), a scale beside it, the name and the value under it (turned: the
  * value in the accent). Drawn as the pedals are: the top part, then the rest (cv_oy) */
@@ -813,21 +813,18 @@ static void graph_pedal(const track_t *t, uint32_t part)
     const char *ti = pg->title;
     pedal_t p = {"SEND", "AUX", 0x2E3036, 0xEDE3C8, 0x15161A, 0xF4F0E6, 0};
     uint16_t body, ink, knob, ptr, edge, win;
-    uint32_t c, rt = (uint32_t)clamp(song.g[G_RTYPE], 0, 3);
+    uint32_t c, rt = (uint32_t)clamp(song.g[G_RTYPE], 0, 2);   /* (3, the retired SHIMMER: a HALL) */
     int32_t gh = PED_H;
     cv_oy = part ? -PED_TOP : 0;
-    if (str_eq(ti, "FX")) {                            /* (SEND: a mixer's four faders, not a pedal) */
+    if (str_eq(ti, "MIX") || str_eq(ti, "MIX 2")) {   /* (the sends, MIX 2's levels: a mixer's four faders, not a pedal) */
         graph_sends(t, part);
         return;
-    } else if (str_eq(ti, "INSERT 2")) {
-        pedal_t q = {"INSERT", "PRE DRIVE", 0xB8201E, 0x141414, 0x141414, 0xF2F2F2, t->p[P_DIST] != 0 || t->p[P_ITYPE] != 0};
-        p = q;
     } else if (str_eq(ti, "SHIMMER")) {
         pedal_t q = {"SHIMMER", "PITCH", 0xEDE8F4, 0x6B46B8, 0xD9CCF0, 0x3A2470, t->p[P_SHIM] != 0};
         p = q;
-    } else if (str_eq(ti, "INSERT")) {
-        uint32_t ty = (uint32_t)clamp(t->p[P_ITYPE], 0, IT_N - 1);
-        pedal_t q = {N_ITYPE[ty], "INSERT", 0xB8201E, 0x141414, 0x141414, 0xF2F2F2, ty != 0u};
+    } else if (str_eq(ti, "DRIVE")) {
+        uint32_t ty = (uint32_t)t->p[P_ITYPE] < IT_N ? (uint32_t)t->p[P_ITYPE] : IT_OFF;
+        pedal_t q = {N_ITYPE[ty], "DRIVE", 0xD43C2C, 0x141414, 0x141414, 0xF2F2F2, ty != 0u};
         if (!ty)
             q.name = "DRIVE";
         p = q;
@@ -852,17 +849,13 @@ static void graph_pedal(const track_t *t, uint32_t part)
     } else if (str_eq(ti, "REVERB") && rt == 0u) {
         pedal_t q = {"REVERB", "ROOM", 0x2B4A7A, 0xF2F2F2, 0x141414, 0xF2F2F2, t->p[P_REV] != 0};
         p = q;
-    } else if (str_eq(ti, "REVERB") && rt == 3u) {
-        pedal_t q = {"SHIMMER", "OCTAVE", 0xEDE8F4, 0x6B46B8, 0xD9CCF0, 0x3A2470, t->p[P_REV] != 0};
-        p = q;
     } else if (str_eq(ti, "REVERB")) {
         pedal_t q = {"REVERB", "HALL", 0xC2C4C8, 0xA8201E, 0x141414, 0xF2F2F2, t->p[P_REV] != 0};
         p = q;
     } else if (str_eq(ti, "SLICER")) {
         pedal_t q = {"SLICER", "GATE", 0xF0C828, 0x141414, 0x141414, 0xF2F2F2, t->p[P_SLCR] != 0};
-        static const char *const MODE[SL_NMODE] = {"OFF", "GATE", "STUT", "PUMP", "GATE END", "PUMP END"};   /* (the
-                                                       * cards' GT END, PM END: the pedal has the room) */
-        q.sub = MODE[clamp(t->p[P_SLCR], 0, SL_NMODE - 1)];
+        static const char *const MODE[SL_NMODE] = {"OFF", "GATE", "STUT", "PUMP"};
+        q.sub = MODE[t->p[P_SLCR] >= 0 && t->p[P_SLCR] < SL_NMODE ? t->p[P_SLCR] : SL_OFF];   /* (4, 5 retired: OFF) */
         p = q;
     }
     body = ped(p.body);
@@ -957,41 +950,34 @@ static void graph_fx(const track_t *t, uint16_t c)
         cv_rrect(x - 4, 85 - h, 12, 6, 3, c, T_SURF);
     }
 }
-/* INSERT pages (1.5, fx.c track_insert): the drives and CRUSH as their curve, input (-1.5 .. +1.5 of a voice's full
- * scale) across, output up, dry and wet blended by MIX (fx.c ins_shape: the same shape; the dry diagonal RAISE); the
- * swept ones as two cycles of their sweep, as deep as DEPTH (FLANG the squared triangle, CHOR a sine, PHASR a
- * triangle). OFF: the dry diagonal, dim */
+/* DRIVE page (the INSERT of 1.5, fx.c track_insert): the drives and CRUSH as their curve, input (-1.5 .. +1.5 of a
+ * voice's full scale) across, output up, dry and wet blended by MIX (fx.c ins_shape: the same shape; the dry diagonal
+ * RAISE). OFF (or a retired type): the dry diagonal, dim */
 static void graph_insert(const track_t *t, uint16_t c)
 {
-    int32_t x, cy = graph_ht / 2, a = 38 * graph_ht / 100, py = cy, ty = clamp(t->p[P_ITYPE], 0, IT_N - 1);
+    int32_t x, cy = graph_ht / 2, a = 38 * graph_ht / 100, py = cy;
+    int32_t ty = (uint32_t)t->p[P_ITYPE] < IT_N ? t->p[P_ITYPE] : IT_OFF;
     int32_t m = ins_mixq(t->p[P_IMIX]), g = 4096 + t->p[P_IA] * t->p[P_IA] * 3, lvl = LEVEL_Q12[t->p[P_IC] & 127];
     uint32_t sh = ins_bits_sh(t->p[P_IA]);
     cv_rect(PANEL_X0, cy, PANEL_W, 1, T_RAISE);
     cv_line(PANEL_X0 + PANEL_W / 2, cy - a, PANEL_X0 + PANEL_W / 2, cy + a, T_RAISE);
-    if (ty == IT_OFF || ty >= IT_PHASER || !m)
+    if (ty == IT_OFF || !m)
         cv_line(PANEL_X0 + PANEL_W / 6, cy + a, PANEL_X0 + PANEL_W * 5 / 6, cy - a, ty ? T_RAISE : T_DIM);
     if (ty == IT_OFF)
         return;
-    for (x = 0; x < PANEL_W; x++) {
-        int32_t y, w;
-        if (ty >= IT_PHASER) {                       /* the sweep, two cycles */
-            uint32_t ph = (uint32_t)x * (0xFFFFFFFFu / (PANEL_W / 2u)), tr = pf_tri(ph);
-            w = ty == IT_CHORUS ? osc_sine(ph) * 2 : ty == IT_FLANGER ? (int32_t)((tr * tr) >> 16) * 2 - 65536 : (int32_t)tr * 2 - 65536;
-            y = cy - (w >> 1) * a / 32768 * t->p[P_IB] / 127;
-        } else {                                     /* the curve: v in, dry v, wet shaped */
-            int32_t v = (x - PANEL_W / 2) * 49152 / (PANEL_W / 2), o;
-            o = ty == IT_CRUSH ? ins_shape(IT_CRUSH, v, sh) : (ins_shape((uint32_t)ty, ((v >> 3) * g) >> 9, 0) * lvl) >> 12;
-            w = v + mulq16(o - v, (uint32_t)m << 1);
-            y = cy - clamp(w, -49152, 49152) * a / 49152;
-        }
+    for (x = 0; x < PANEL_W; x++) {                 /* the curve: v in, dry v, wet shaped */
+        int32_t y, w, v = (x - PANEL_W / 2) * 49152 / (PANEL_W / 2), o;
+        o = ty == IT_CRUSH ? ins_shape(IT_CRUSH, v, sh) : (ins_shape((uint32_t)ty, ((v >> 3) * g) >> 9, 0) * lvl) >> 12;
+        w = v + mulq16(o - v, (uint32_t)m << 1);
+        y = cy - clamp(w, -49152, 49152) * a / 49152;
         if (x)
             cv_line_t(PANEL_X0 + x - 1, py, PANEL_X0 + x, y, c, 2);
         py = y;
     }
 }
-/* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE (and GATE END) a bar as high as it
- * stays open (DEPTH), STUT hatched (it repeats the last 'x'); the step playing underlined. Grey when OFF. PUMP (and
- * PUMP END): the level over four steps (pump_curve) */
+/* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE a bar as high as it stays open
+ * (DEPTH), STUT hatched (it repeats the last 'x'); the step playing underlined. Grey when OFF. PUMP: the level over
+ * four steps (pump_curve) */
 static void graph_slicer(const track_t *t, uint16_t c)
 {
     uint32_t i, pat = sl_pattern(t), mode = (uint32_t)t->p[P_SLCR], cur = sl[t - trk].idx;
@@ -1670,6 +1656,8 @@ static uint32_t graph_signature(void)
         for (i = 0; i < 4u; i++) h = (h ^ (uint16_t)shim_p[i]) * 16777619u;
     if (page_ops(pg)->sig)                           /* M-Vave-OP1: the page's panel's state (ui_pages.c) */
         h = page_ops(pg)->sig(h);
+    if (pg->graph == GR_FXLVL)                       /* M-Vave-OP1, MIX 2: the chain's levels, the DELAY's MIX */
+        for (h ^= (uint32_t)song.g[G_DMIX] * 2654435761u, i = 0; i < 4u; i++) h = (h ^ (uint16_t)fx_lvl[i]) * 16777619u;
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u +

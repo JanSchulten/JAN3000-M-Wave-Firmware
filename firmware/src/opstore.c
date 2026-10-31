@@ -40,7 +40,9 @@ typedef struct {
     uint8_t cset_set[NTRK];                      /* .. each track's set (0 .. 99) */
     uint8_t cset_voice[NTRK];                    /* .. the VOICE before ON (0xFF: none) */
     uint8_t shim_fdbk, fx_serial;                /* 0x80 | SHIMMER FDBK, 0x80 | the serial aux chain (fx.c; were the
-                                                  * word's padding, written 0: 0 is an older one's, parallel) */
+                                                  * word's padding, written 0: 0 is an older one's, parallel). The
+                                                  * chain is always serial now: written 0x81, its 0x80 the mark that
+                                                  * the SHIMMER's four were written */
 } proj_xtra_t;
 /* (XTRA_V7) M-Vave-OP1's 128 steps: the object goes on after proj_xtra_t with these (size XTRA_V7). Not kept in RAM with
  * the slots' extras (xtra_slot: 2.8 KiB a slot): read from the flash when a project or a song needs them (xtra_hi_of) */
@@ -59,6 +61,9 @@ typedef struct {
     ssong_t song;                                /* (XTRA_V8) SEQ > SCENE SONG (scene.c) */
     uint8_t eq[NTRK][EQ_NB][4];                  /* (XTRA_V9) HOME > EQ (params.c eq_set): each band's FREQ, GAIN + 24,
                                                   * TYPE, RESO */
+    uint8_t dyn[DYN_N];                          /* (XTRA_V10) HOME > MASTER (params.c dyn_set): COMP RELEASE LIMIT GAIN */
+    uint8_t lvl[4];                              /* (XTRA_V11) FX > MIX 2: 0x80 | the chain's levels (params.c fx_lvl; [2]
+                                                  * the DELAY's is G_DMIX, written 0x80 | 0, not read) */
 } xtra_hi_t;
 #define XTRA_V1 (12u + FXT_N * (uint32_t)sizeof(fxt_lane64_t))   /* the first extras: the FX TRACKS only */
 #define XTRA_V2 (XTRA_V1 + 8u)                   /* .. and FX1's (E1) */
@@ -70,11 +75,13 @@ typedef struct {
                  NTRK * (NSTEP - NSTEP_FMT) / 8u + (uint32_t)sizeof(motion_disk_t))   /* .. steps 65..128 (xtra_hi_t) */
 #define XTRA_V8 (XTRA_V7 + (uint32_t)sizeof(ssong_t))   /* .. the scene song */
 #define XTRA_V9 (XTRA_V8 + NTRK * EQ_NB * 4u)    /* .. the EQ */
-_Static_assert(XTRA_V6 == 224u && sizeof(proj_xtra_t) == XTRA_V6 && sizeof(xtra_hi_t) == XTRA_V9 - XTRA_V6 &&
-               XTRA_V9 <= PROJ_STORE_SIZE && KEY_BARS == 16u &&
+#define XTRA_V10 (XTRA_V9 + DYN_N)               /* .. the MASTER's dynamics */
+#define XTRA_V11 (XTRA_V10 + 4u)                 /* .. the chain's levels (FX > MIX 2) */
+_Static_assert(XTRA_V6 == 224u && sizeof(proj_xtra_t) == XTRA_V6 && sizeof(xtra_hi_t) == XTRA_V11 - XTRA_V6 &&
+               XTRA_V11 <= PROJ_STORE_SIZE && KEY_BARS == 16u && DYN_N == 4u &&
                NSTEP % 8u == 0u && NSTEP >= NSTEP_FMT, "project extras layout (stored, append-only)");
 static proj_xtra_t xtra_slot[4] __attribute__((section(".pool")));   /* each project slot's (magic 0: none) */
-static uint8_t xtra_buf[XTRA_V9] __attribute__((aligned(4), section(".pool")));   /* an object as written (main loop) */
+static uint8_t xtra_buf[XTRA_V11] __attribute__((aligned(4), section(".pool")));   /* an object as written (main loop) */
 #if !FELUCCA_FLASH
 static xtra_hi_t xtra_hi_ram[4] __attribute__((section(".pool")));   /* (host builds without the flash: each slot's
                                                   * steps 65..128, as the flash would hold them) */
@@ -106,7 +113,7 @@ static void xtra_capture(proj_xtra_t *x, xtra_hi_t *h, uint32_t proj)
     memset(x, 0, sizeof *x);
     memset(h, 0, sizeof *h);
     x->magic = XTRA_MAGIC;
-    x->size = XTRA_V9;
+    x->size = XTRA_V11;
     x->ver = 1;
     x->proj = proj;
     for (l = 0; l < FXT_N; l++) {                   /* (steps 1..64 and a LEN of at most 64 where firmware of 64 steps */
@@ -116,6 +123,8 @@ static void xtra_capture(proj_xtra_t *x, xtra_hi_t *h, uint32_t proj)
         h->fx_len[l] = fxt_lane[l].len;
     }
     h->np = P_COUNT;
+    for (k = 0; k < 4u; k++)                        /* MIX 2's levels (XTRA_V11; [2] the DELAY's MIX: G_DMIX, not read) */
+        h->lvl[k] = (uint8_t)(0x80u | (k == 2u ? 0u : (uint32_t)clamp(fx_lvl[k], 0, 127)));
     x->fx1[0] = fx1s.type;
     x->fx1[1] = fx1s.size;
     x->fx1[2] = fx1s.dens;
@@ -133,7 +142,7 @@ static void xtra_capture(proj_xtra_t *x, xtra_hi_t *h, uint32_t proj)
     x->shim_damp = (uint8_t)(0x80u | shim_p[1]);
     x->shim_pitch = (uint8_t)(0x80u | (shim_p[2] + 12));
     x->shim_fdbk = (uint8_t)(0x80u | shim_p[3]);
-    x->fx_serial = (uint8_t)(0x80u | (fx_serial & 1u));
+    x->fx_serial = 0x81u;                        /* (the chain: serial; the SHIMMER's four written) */
     x->key_on = keyt.on;
     x->key_len = keyt.len;
     memcpy(x->key_root, (const void *)keyt.root, sizeof x->key_root);
@@ -162,6 +171,8 @@ static void xtra_capture(proj_xtra_t *x, xtra_hi_t *h, uint32_t proj)
             h->eq[k][i][2] = (uint8_t)b->ty;
             h->eq[k][i][3] = (uint8_t)b->q;
         }
+    for (i = 0; i < DYN_N; i++)
+        h->dyn[i] = (uint8_t)dyn_set[i];
 }
 static int xtra_ok(const proj_xtra_t *x, uint32_t proj)
 {
@@ -241,12 +252,11 @@ static void xtra_misc(const proj_xtra_t *x, uint32_t proj)
     }
     chos.type = ok && x->cho[0] < CHO_NTYPE ? x->cho[0] : CHO_CHORUS;   /* (the CHORUS's: fx.c) */
     chos.fdbk = ok && x->cho[1] <= 100u ? x->cho[1] : 0u;
-    sh = ok6 && (x->fx_serial & 0x80u);             /* (the SHIMMER page's and the chain's; extras of before: the */
-    shim_p[0] = sh ? (int16_t)(x->shim_size & 0x7Fu) : 90;      /* defaults, the parallel aux sends) */
+    sh = ok6 && (x->fx_serial & 0x80u);             /* (the SHIMMER page's; extras of before: the defaults. The */
+    shim_p[0] = sh ? (int16_t)(x->shim_size & 0x7Fu) : 90;      /* chain is serial in every project) */
     shim_p[1] = sh ? (int16_t)(x->shim_damp & 0x7Fu) : 60;
     shim_p[2] = sh ? (int16_t)clamp((int32_t)(x->shim_pitch & 0x7Fu) - 12, -12, 24) : 12;
     shim_p[3] = sh ? (int16_t)(x->shim_fdbk & 0x7Fu) : 127;
-    fx_serial = sh ? x->fx_serial & 1u : 0;
     key_defaults();                                 /* GLO > KEY's run (key.c); an older one: none */
     if (ok4) {
         keyt.on = x->key_on & 1u;
@@ -300,6 +310,14 @@ static void xtra_leg(step_t *s, uint32_t k, const proj_xtra_t *x, uint32_t proj,
         s[i].probability = (uint8_t)((s[i].probability & ~STEP_LEG) | (on ? STEP_LEG : 0u));
     }
 }
+/* MIX 2's levels (params.c fx_lvl) from v (XTRA_V11's, each 0x80 | the level); v 0 (extras of before, or none) or a
+ * byte without its mark: full, as the chain played before there were levels */
+static void xtra_lvl(const uint8_t *v)
+{
+    uint32_t k;
+    for (k = 0; k < 4u; k++)
+        fx_lvl[k] = v && (v[k] & 0x80u) ? (int16_t)(v[k] & 0x7Fu) : FX_LVL_DEF;
+}
 /* a project loaded (its tracks, motion and lanes as the project held them): what x and hi add, for the four tracks */
 static void xtra_apply(const proj_xtra_t *x, uint32_t proj, const xtra_hi_t *hi)
 {
@@ -328,6 +346,13 @@ static void xtra_apply(const proj_xtra_t *x, uint32_t proj, const xtra_hi_t *hi)
                 if (e[0] < EQ_NF && e[1] <= 48u && e[2] < EQT_N && e[3] < EQ_NQ)
                     eq_set[k][f] = (eq_band_t){e[0], (int16_t)(e[1] - 24), e[2], e[3]};
             }
+    dyn_defaults();                                /* (XTRA_V10: the MASTER's dynamics; extras of before: no compressor,
+                                                    * the limiter as before. A value out of range: its default) */
+    if (hi && x->size >= XTRA_V10)
+        for (f = 0; f < DYN_N; f++)
+            if (hi->dyn[f] >= DYN_DESC[f].min && hi->dyn[f] <= DYN_DESC[f].max)
+                dyn_set[f] = hi->dyn[f];
+    xtra_lvl(hi && x->size >= XTRA_V11 ? hi->lvl : 0);   /* (XTRA_V11: MIX 2's levels; before: full) */
 }
 /* persist_boot: every slot's extras from flash */
 static void xtra_boot(void)
@@ -346,7 +371,7 @@ static int xtra_saved(uint32_t s, uint32_t id)
     xtra_capture((proj_xtra_t *)xtra_buf, h, id);
     memcpy(x, xtra_buf, sizeof *x);
 #if FELUCCA_FLASH
-    if (flash_ok && st_save(OBJ_XPROJ0 + (s & 3u), xtra_buf, XTRA_V9))
+    if (flash_ok && st_save(OBJ_XPROJ0 + (s & 3u), xtra_buf, XTRA_V11))
         return 1;
 #else
     xtra_hi_ram[s & 3u] = *h;
@@ -382,7 +407,7 @@ static int xtra_autosaved(uint32_t id)
 {
 #if FELUCCA_FLASH
     xtra_capture((proj_xtra_t *)xtra_buf, (xtra_hi_t *)(xtra_buf + XTRA_V6), id);
-    return st_save(OBJ_XAUTO, xtra_buf, XTRA_V9);
+    return st_save(OBJ_XAUTO, xtra_buf, XTRA_V11);
 #else
     (void)id;
     return 0;
@@ -633,11 +658,11 @@ static int scene_saved(uint32_t s, uint32_t id)
     return scb_write(s & 3u, id);
 }
 /* project_load: slot s's scenes, if they are its project's (the scene playing: the one the project held) */
-static void scene_loaded(uint32_t s) { scb_load(s & 3u, xtra_proj_id(s)); }
+static void scene_loaded(uint32_t s) { scb_load(s & 3u, xtra_proj_id(s)); scene_swing_folded(); }
 static void scene_renamed(uint32_t s, uint32_t was, uint32_t id) { scb_retag(s & 3u, was, id); }
 static int scene_autosaved(uint32_t id)
 {
     scene_settle();
     return scb_write(4u, id);
 }
-static void scene_autoloaded(uint32_t id) { scb_load(4u, id); }
+static void scene_autoloaded(uint32_t id) { scb_load(4u, id); scene_swing_folded(); }

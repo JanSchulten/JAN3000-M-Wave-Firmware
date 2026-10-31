@@ -166,6 +166,28 @@ static uint32_t grid_leds(void)
     return m;
 }
 
+/* M-Vave-OP1, the drum keys (seq.c kit_key): the lane a key of the selected kit track struck, a message: its name, a
+ * white key's pitch after it ("SNARE +3", "TOM -7", "KICK 0") */
+static void kit_msg(void)
+{
+    static uint8_t seen;
+    char st[8];
+    int32_t v = kit_ev.st;
+    if (kit_ev.n == seen)
+        return;
+    seen = kit_ev.n;
+    if (kit_ev.trk != song.sel % NTRK || !kit_track(TSEL))
+        return;
+    if (kit_ev.black) {
+        ui_message(drum_lane_name(TSEL, kit_ev.lane));
+        return;
+    }
+    st[0] = ' ';
+    st[1] = v > 0 ? '+' : v < 0 ? '-' : 0;
+    fmt_int(st + (v ? 2 : 1), v < 0 ? -v : v);
+    ui_say(drum_lane_name(TSEL, kit_ev.lane), st);
+}
+
 /* the DRUM grid's beats, bit k = key k (ui_leds: a steady brighter glow than the other steps', hal/fm1_input.h
  * fm1_led_mid): the first step of each group of four on the page shown, steps 1 5 9 13 of 16 ("5111 5111 5111 5111"),
  * within LEN, where grid_leds shows no hit (the lane's, its accents while ACC is held) and not the playhead. Always
@@ -1327,8 +1349,6 @@ static void edit_param(uint32_t slot, int32_t steps)
         return;
     }
     v = param_turn(d, *vp, accel(EN_K1 + slot, steps, d->fmt == F_ENUM ? 0 : d->max - d->min));
-    if (vp == &song.g[G_RTYPE])
-        v = clamp(v, 0, 2);                         /* stored 3 is legacy SHIMMER; new sounds use its own send */
     *vp = (int16_t)v;
     if (pg->scope != SC_GLOBAL) {
         motion_capture(TSEL, (uint32_t)(vp - TSEL->p), *vp);
@@ -1666,6 +1686,8 @@ static void ui_input(void)
     scope_mix = (ui_prefs2 & (PREF_SCOPE_MIX >> 16)) != 0u;   /* (MENU > SCOPE: fx.c, audio.c) */
     rp_apply();                                         /* (REC: CLICK, CLICK LEVEL, COUNT-IN, click.c and seq.c) */
     eq_poll();                                          /* (M-Vave-OP1: HOME > EQ's settings to the audio: eq.c) */
+    dyn_poll();                                         /* (.. HOME > MASTER's: dyn.c) */
+    kit_msg();                                          /* (.. a kit's drum keys: the lane and its pitch) */
     {   /* M-Vave-OP1: a scene the ISR switched to (scene.c): packed away, said; a pick dropped (memory) said */
         uint32_t r = scene_poll();
         if (scn.moved) {
@@ -1951,9 +1973,9 @@ static void ui_input(void)
     song.grid = (uint8_t)keys_mode();                 /* (seq.c: the keys are the grid's) */
     if (notes && !ui.home && !ui.layer && cur_page()->graph == GR_DLANE && drum_track(TSEL)) {
         for (k = 0; k < 27u && !((notes >> k) & 1u); k++)   /* M-Vave-OP1, SOUNDS: the key played picks its lane (it */
-            ;                                                /* sounds, as everywhere) */
-        if (k < 27u)
-            ui.lane = (uint8_t)drum_lane((uint32_t)drum_keys(TSEL, k));
+            ;                                                /* sounds, as everywhere): a black key its own, a white */
+        if (k < 27u)                                         /* key the lane picked (the drum keys: seq.c kit_key) */
+            ui.lane = (uint8_t)(key_black(k) && key_place(k) < NLANE ? key_place(k) : kit_sel[song.sel % NTRK]);
     }
     lock_keys();                                        /* (a grid key on a hit let go: the hit goes) */
     if (song.grid == 5u) {

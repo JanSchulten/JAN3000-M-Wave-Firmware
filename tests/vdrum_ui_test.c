@@ -32,7 +32,11 @@ static void vd_track(uint32_t preset)
     frames(400);
 }
 
-static uint32_t key_of(uint32_t note) { return note - 29u - 12u * (uint32_t)song.octave; }   /* (drum_keys) */
+static uint32_t key_of(uint32_t note)                /* the black key of note's part (M-Vave-OP1: the drum keys, seq.c */
+{                                                    /* kit_key; Felucca's keys played the GM map) */
+    int32_t st;
+    return key_at(1, vd_part_note(note, &st));
+}
 static void strike(uint32_t note)                   /* a key down for a block, then up */
 {
     uint32_t k = key_of(note);

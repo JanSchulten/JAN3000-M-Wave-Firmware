@@ -803,7 +803,7 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
  * (until 1.0.2 the SAMPLE engine's PERC set, retired since) */
 static void proj_legacy_drums(track_t *t)
 {
-    static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
+    static const uint8_t FX_DEF[4] = {0, 0, 28, 36};   /* (CHO 24 before the serial chain: a SHIMMER on all) */
     static const int8_t KIT_E[8] = DRUM_KIT_E;    /* (M-Vave-OP1: the STD kit, as these projects always loaded) */
     const preset_t *pr = &ENGINES[ENGI_DRUM]->presets[0];
     uint32_t i;
@@ -1086,6 +1086,7 @@ static int project_restore_runtime(const project_t *input)
 {
     project_t *p = &proj_scratch;
     uint32_t i, k;
+    int32_t gsw;
     if (!proj_ok(input) || !proj_engines_ok(input)) return 1;
     mom_back(0);                                  /* (ui_input.c MOMENTARY: the values as they were, then the load) */
     memset(drum_mute, 0, sizeof drum_mute);       /* (1.4.1: the DRUM lanes' mutes, performance state) */
@@ -1107,6 +1108,8 @@ static int project_restore_runtime(const project_t *input)
     memset(motion_active, 0, sizeof motion_active);
     motion_base_valid = 0;
     ui.song_row = 0;
+    gsw = clamp(p->g[G_SWING], 0, SWING_MAX);           /* M-Vave-OP1: the global SWG into the tracks' (below) */
+    scn_swing_fold = (uint8_t)gsw;                      /* (.. and the stored scenes': scene_loaded) */
     for (i = 0; i < G_COUNT; i++)
         if (i != G_SLOT && i != G_LOAD && i != G_SAVE)
             song.g[i] = (int16_t)clamp(p->g[i], GP[i].min, GP[i].max);
@@ -1120,6 +1123,7 @@ static int project_restore_runtime(const project_t *input)
             const param_desc_t *d = param_desc_of(e, i);
             t->p[i] = (int16_t)param_fit(d, s->p[i]);
         }
+        t->p[P_SSWING] = swing_fold(t->p[P_SSWING], gsw);   /* (M-Vave-OP1: as own + global played, core.h) */
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset >= PROJ_DEF_KEEP ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
         proj_steps(t->step);
@@ -1221,7 +1225,8 @@ static void project_new(uint32_t slot)
     xtra_fx1(&none, 0);
     xtra_misc(&none, 0);
     eq_defaults();                                      /* (M-Vave-OP1: HOME > EQ flat) */
-    fx_serial = 1;
+    dyn_defaults();                                     /* (.. HOME > MASTER: no compressor, the limiter as before) */
+    xtra_lvl(0);                                        /* (.. MIX 2: the chain's levels full) */
     np_sounds();
     for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
         pat_sig[k] = steps_sig(&trk[k]);
@@ -1338,6 +1343,8 @@ static uint32_t chain_prepare(void)
                 for (j = 0; j < 4u; j++)
                     chain.source[i].timing[k][j] = (int16_t)clamp(p->t[k].p[P_SLEN + j],
                         TP[P_SLEN + j].min, TP[P_SLEN + j].max);
+                chain.source[i].timing[k][P_SSWING - P_SLEN] =   /* (M-Vave-OP1: the slot's own global SWG in it) */
+                    swing_fold(chain.source[i].timing[k][P_SSWING - P_SLEN], clamp(p->g[G_SWING], 0, SWING_MAX));
             }
         }
     }
@@ -1468,8 +1475,9 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, fxt_lane, sizeof fxt_lane);       /* (M-Vave-OP1: the FX TRACKS, FX1, kept as the autosave's extras; */
     h = as_mix(h, shim_p, sizeof shim_p);
-    h = as_mix(h, &fx_serial, sizeof fx_serial);
     h = as_mix(h, eq_set, sizeof eq_set);           /* (M-Vave-OP1: HOME > EQ, the extras') */
+    h = as_mix(h, dyn_set, sizeof dyn_set);         /* (.. HOME > MASTER's) */
+    h = as_mix(h, fx_lvl, sizeof fx_lvl);           /* (.. MIX 2's levels: the DELAY's MIX is G_DMIX's) */
     h = as_mix(h, cset_set, sizeof cset_set);       /* SCL > CSET's ON, SETs and VOICEs too; */
     h = as_mix(h, cset_voice, sizeof cset_voice);
     h = as_mix(h, &cset_en, 1);

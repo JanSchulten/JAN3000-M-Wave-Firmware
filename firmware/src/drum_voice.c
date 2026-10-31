@@ -51,12 +51,12 @@
  *   77  a long kick that swells in, a 226 Hz snare under wide noise, six close claps and a tail, pulse-cluster
  *       hats, a bent tom, claves on RIM, the cymbal on BELL
  * Parameters per lane (dv_param_t): TUNE (1/16 semitone from the designed pitch, held in the voice's
- * range), DECAY, TONE, extra, LEVEL, accent, 0..127 each; the designed sound is at DV_DEF's values.
+ * range; M-Vave-OP1: the drum keys' pitch on top, past it), DECAY, TONE, extra, LEVEL, accent, 0..127 each; the designed sound is at DV_DEF's values.
  * Accent adds up to 4 dB, a little more on the transient (click, spike, the claps). At LEVEL 100 the
  * voices peak near -7 dBFS (the snare's, the clap's and the closed hat's spikes a little higher);
  * louder settings go into the output's soft knee.
  *
- * Use: dv_setup when a parameter changes (dv_param_t compared as two words), dv_trigger on a hit,
+ * Use: dv_setup when a parameter changes (dv_param_t compared as three words), dv_trigger on a hit,
  * dv_run per block (n <= CTL) into y: the voice at its level, Q15, linear up to -6 dBFS and never at full
  * scale (a soft knee above).
  * Voices whose type uses the metal source take its block (dv_metal_run) in metal. A voice that has rung out
@@ -77,6 +77,9 @@ typedef struct {
     uint8_t type;                                        /* DVT_*, or a model kit's (DV_KTYPE) */
     uint8_t decay, tone, extra, level, accent;           /* 0..127 */
     int16_t tune;                                        /* 1/16 semitone from the designed pitch */
+    int16_t key;                                         /* M-Vave-OP1: 1/16 semitone more, past TUNE's range (the
+                                                          * drum keys' pitch: eng_drum.c kit_kp) */
+    int16_t rsv;                                         /* (0: the compare's third word) */
 } dv_param_t;
 
 typedef struct {                                         /* coefficients (dv_setup); meaning per type, see the run */
@@ -331,7 +334,7 @@ static int32_t dv_lin(uint32_t v, int32_t lo, int32_t hi) { return lo + (int32_t
 static void dv_setup_own(dv_coef_t *c, const dv_param_t *p)
 {
     uint32_t t = p->type < DVT_COUNT ? p->type : 0u, d = p->decay, tn = p->tone, x = p->extra;
-    int32_t p16 = clamp(DV_DEF[t].p16 + p->tune, DV_DEF[t].lo, DV_DEF[t].hi), acc = p->accent;
+    int32_t p16 = clamp(DV_DEF[t].p16 + p->tune, DV_DEF[t].lo, DV_DEF[t].hi) + p->key, acc = p->accent;
     uint32_t tau = dv_tau(t, d), i;
     for (i = 0; i < sizeof *c / 4u; i++)
         ((uint32_t *)c)[i] = 0;
@@ -468,7 +471,7 @@ static void dv_setup_kit(dv_coef_t *c, const dv_param_t *p)
     const int16_t *v = K->v;
     int32_t p16, dp, acc = p->accent;
     uint32_t tau;
-    p16 = clamp(K->p16 + p->tune, K->p16 - 192, K->p16 + 192);
+    p16 = clamp(K->p16 + p->tune, K->p16 - 192, K->p16 + 192) + p->key;
     dp = p16 - K->p16;
     tau = dv_tau_of(K->tau0, K->oct16, d);
     for (i = 0; i < sizeof *c / 4u; i++)
@@ -950,4 +953,6 @@ static void dv_default(dv_param_t *p, uint32_t type)
     p->level = 100;
     p->accent = 0;
     p->tune = 0;
+    p->key = 0;
+    p->rsv = 0;
 }

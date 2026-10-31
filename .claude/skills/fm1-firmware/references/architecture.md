@@ -183,3 +183,33 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
   hashes `eq_set`; `project_new` and extras of before: `eq_defaults`. Host tests reset with `eq_power_on`.
 - The panel (`graph_eq`, ui_eq.c, with its hash `eq_sig`: `EQ_OPS` in ui_pages.c) draws |H| from RBJ's sin^2(w/2) form (`EQ_PHI`): the cos w form cancels in float near 0 Hz.
 - Cost (this change): image +6.4 KB, RAM +1.6 KB, `fm1_alnk0_irq` static cost +171. `tests/eq_test.c`.
+
+## HOME > MASTER (the master's dynamics)
+
+- Settings `dyn_set[DYN_N]` (params.c, beside `eq_set`): COMP 0..100 %, RELEASE 0..100 (20 ms .. 1 s, `dyn_rel_ms`),
+  LIMIT a step of `DYN_NLIM` (-15.2 .. -0.2 dBFS; `DYN_LIM_DEF` is fx.c `LIM_T`, the threshold of before), GAIN in half dB
+  (0 .. +12). New formats `F_DYNMS`, `F_LIMDB` (appended). The page is `GR_DYN` in FAM_TRK after EQ (`DYN_OPS`, ui_dyn.c).
+- The master runs at the full level now and MASTER scales what leaves it (fx.c `master_block`, dyn.c): `master_out` is
+  `master_pre` (DC blocker, SPEAKER EQ) + `master_lim` (the limiter at `lim_t`, the soft clip); `perf_master` folds the
+  buses into the mix (wet 0) before the FX layer. USB LEVEL FIXED still takes the master before the knob (audio.c).
+- `dyn.c` (included by fx.c after the mix buffers): `dyn_poll` (main, every ui_input pass) turns changed settings into
+  `dynx` (floats, written in place) and `lim_t`, and the ISR's peaks into the page's meters (`dyn_mtr`, half dB, a 0.5 dB
+  fall a pass). `master_dyn` (noinline, FPU) only while COMP or GAIN is up: the gain from the block before's peak (a
+  log, a power: once a block), ramped over the block, between `master_pre` and `master_lim`.
+- At the defaults the output is bit for bit the master of before at MASTER's top (`tests/dyn_test.c` AS BEFORE).
+- Kept in the project extras' tail (`xtra_hi_t.dyn`, `XTRA_V10`, validated on load); `autosave_sig` hashes `dyn_set`;
+  `project_new` and extras of before: `dyn_defaults`. Host tests reset with `dyn_power_on`.
+- Trap: ui_eq.c `eq_log2` is log2 + 1 (it only feeds a difference); dyn.c `dyn_log2` is the true log2.
+- Cost: image +2.7 KB, RAM +48 B, `fm1_alnk0_irq` static cost about +0.7 %, `master_dyn` 47.
+
+## The drum keys (DRUM, VDRUM)
+
+- seq.c `kb_press` (noinline: the key loop calls it on a press) sends a kit track's keys to `kit_key`: a black key of a
+  lane strikes the lane's note (`kit_notes`) and picks it (eng_drum.c `kit_sel[NTRK]`), a white key strikes the lane
+  picked with `kit_kp` = white place - 7 + 12 x OCT (F4 as designed). Black keys past the lanes are `KB_SILENT`.
+- `kit_kp` is set around `key_on` only; the engines' note_on take it into the hit: DRUM `drum_lane_t.kp` -> `dv_param_t.key`
+  (1/16 semitone, added after TUNE's clamp; the coefficient cache compares three words now), VDRUM `vd_part_t.st16`. Any
+  other hit (sequencer, MIDI, the arp later) has 0. On a kit `key_on` strikes even when another key holds the same note.
+- Live recording gets the lane's note: the lane's hit, not the pitch. `drum_keys` (the GM map) stays the engine's
+  `keys` hook for the arp's latched keys and chord.c. The UI says the lane and pitch from `kit_ev` (ui_input.c `kit_msg`).
+- `tests/drumkeys_test.c`.

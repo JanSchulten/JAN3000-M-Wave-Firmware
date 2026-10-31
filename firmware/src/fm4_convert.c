@@ -361,7 +361,7 @@ static uint32_t fm4_convert(int16_t *p, uint8_t *v)
  * FLT, VOICE, the sends; the OP ENV values their defaults); the track's own values (param_kept) are the caller's */
 static void fm4_preset_values(int16_t *p, uint32_t k)
 {
-    static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
+    static const uint8_t FX_DEF[4] = {0, 0, 28, 36};   /* (CHO 24 before the serial chain: a SHIMMER on all) */
     const preset_t *pr = &DIGITAL_PRESETS[k % FM4_NPRESETS];
     uint32_t i;
     for (i = 0; i < 8u; i++)

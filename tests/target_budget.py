@@ -20,7 +20,7 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "px_string_excite", "px_string_run", "px_symp_run",
          "dv_metal_run", "dv_kick_run", "dv_snare_run", "dv_clap_run", "dv_hat_run", "dv_tom_run",   # drum_voice.c
          "dv_rim_run", "dv_bell_run", "dv_cym_run", "dv_out", "dv_metal_mix",
-         "slicer_track", "sl_end_seg", "slicer_end",          # .. M-Vave-OP1: the SLICER at the END (slicer.c, fx.c),
+         "slicer_track",                                    # .. M-Vave-OP1: the SLICER (slicer.c),
          "sl_pump", "sl_pump_seg",                          # .. its PUMP (slicer.c)
          "vd_render", "vd_layer_run", "vd_post",             # M-Vave-OP1: VDRUM (eng_vdrum.c): the parts, a layer, the resonator
          "plv_post",                                        # M-Vave-OP1: the Plaits engines' filter (plaits_voice.c)
@@ -36,15 +36,16 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "po_render",                                       # .. M-Vave-OP1: SYNC OUT PO's pulses (click.c), while on
          "mod_begin", "mod_voice", "mod_end",                 # the modulation matrix (mod.c), called when active
          "perf_begin", "perf_mute", "perf_pre", "perf_block", "perf_master",   # the FX layer (perform.c), when busy
+         "master_dyn",                                     # M-Vave-OP1: HOME > MASTER's compressor (dyn.c), when on
          "perf_flanger", "perf_phaser",                     # .. FLANGER, PHASER (1.2), while held or fading
          "perf_throw",                                      # .. REV / ECHO THROW (1.5.1): per part, while held or gliding
          "perf_duck", "perf_stereo",                        # .. DUCK, STEREO (M-Vave-OP1 E2), while held or fading
          "rev_room", "rev_spring", "hall_block", "hall_down", "hall_up", "rev_side_mix",   # the reverb bus (fx.c): REVERB TYPE ROOM / SPRING / HALL (and its stereo)
          "dly_glide",                                       # .. M-Vave-OP1: the delay's taps crossfading after a TIME change
          "aud_fade_half",                                   # .. M-Vave-OP1 (audio.c): the DAC faded around a flash erase
-         "shimmer_pitch", "shimmer_send", "shimmer_bus", "serial_delay", "serial_reverb", "shimmer_return",
-         "hall_shimmer",                                    # .. M-Vave-OP1: SHIMMER's octave (fx.c), after rev_hall
-         "track_insert", "ins_drive", "ins_swept",           # the per-track INSERT (fx.c, 1.5), while a TYPE plays
+         "shimmer_pitch", "shimmer_send", "shimmer_bus", "chain_shimmer_in", "chain_delay_in", "chain_reverb", "shimmer_return",
+         "cho_bus", "cho_side_mix", "chain_scale",          # .. M-Vave-OP1: the CHORUS, the chain's first stage (stereo); a level
+         "track_insert", "ins_drive",                       # the per-track DRIVE (fx.c; the INSERT of 1.5), while a TYPE plays
          "cloud_render", "cl_spawn", "fx1_block", "cloud_side"]   # M-Vave-OP1: FX1's CLOUD (fx1.c), while it is the TYPE
 # built only with FELUCCA_FM4=1 (DIGITAL, src/eng_digital.c; not in the default build, so not in BUDGET): absent,
 # they are skipped; present, checked against these (their budget lines until the engine was retired in 1.0)

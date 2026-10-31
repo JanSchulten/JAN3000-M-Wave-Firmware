@@ -3,7 +3,8 @@
 /* VDRUM: six drum parts of two synthesis layers each into a waveguide resonator, after the concept of Korg's
  * volca drum (M-Vave-OP1; docs/VDRUM_DBOX_SPEC.md). Our own design: no code, tables or sounds of Korg's.
  *
- * Keys: the GM drum map with the kick on the first C (as DRUM: drum_keys). A note strikes one part (VD_PART_OF):
+ * Keys: the drum keys as DRUM's (seq.c kit_key: black keys 1..6 the parts, the white keys the part picked a semitone a
+ * key from F4, every part; eng_drum.c kit_kp). A note strikes one part (VD_PART_OF):
  *   1 KICK 35 36   2 SNARE 38 40   3 CLAP 37 39   4 HAT CL 42 44   5 HAT OP 46 49 51..59   6 TOM 41 43 45 47 48 50
  * and every other note; part 6 is pitched by the note's distance from 45 (the toms of one part), the others are not.
  * One voice a part (vd_part_t.owner, as DRUM's lanes): a new hit of the part restarts it, the others ring on.
@@ -76,7 +77,8 @@ typedef struct {
 typedef struct {
     vd_layer_t l[2];
     int32_t rng;                                     /* the noise (both layers) */
-    int16_t st16;                                    /* part 6: the note's pitch, 1/16 semitone */
+    int16_t st16;                                    /* part 6: the note's pitch, 1/16 semitone; any part: the drum
+                                                      * keys' (eng_drum.c kit_kp) */
     uint8_t owner, choke;                            /* the voice playing it (index + 1, 0 none); 1 = choked */
 } vd_part_t;
 typedef struct {
@@ -270,7 +272,7 @@ static void vd_note_on(track_t *t, voice_t *v)
     P = &M->part[k];
     P->owner = (uint8_t)(i + 1u);
     P->choke = 0;
-    P->st16 = (int16_t)st;
+    P->st16 = (int16_t)(st + kit_kp * 16);           /* (M-Vave-OP1: and the drum keys' pitch, every part) */
     if (!P->rng)
         P->rng = (int32_t)(0x9E3779B9u ^ (k * 0x85EBCA6Bu));
     B = K + VK_PART(k);

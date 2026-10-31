@@ -85,6 +85,11 @@ static void fresh(uint32_t e, uint32_t pi)        /* the boot state (no FX tails
     memset(rev_comb, 0, sizeof rev_comb);
     memset(rev_ap, 0, sizeof rev_ap);
     memset(&fx, 0, sizeof fx);
+    memset(&shim_hl, 0, sizeof shim_hl);          /* (M-Vave-OP1: the SHIMMER too: the chain feeds it from the CHORUS) */
+    memset(shim_comb, 0, sizeof shim_comb);
+    memset(shim_ap, 0, sizeof shim_ap);
+    memset(shim_shb, 0, sizeof shim_shb);
+    shim_live = shim_quiet = 0;
     lim_env = LIM_T;
     memset(trk, 0, sizeof trk);
     memset(&mod, 0, sizeof mod);
@@ -297,7 +302,7 @@ static void test_math(void)
     slot(t, 1, MS_LFO, MD_CHO, -32);
     slot(t, 2, MS_LFO, MD_RATE, 32);
     slot(t, 3, MS_LFO, MD_VIB, 32);
-    t->p[P_DIST] = t->p[P_CHOR] = 64;
+    t->p[P_IA] = t->p[P_CHOR] = 64;                /* (DIST: M-Vave-OP1, the DRIVE's amount) */
     t->p[P_LRATE] = 100;
     t->p[P_LD_PIT] = 0;
     lfo = mulq15(-32768, 32767);
@@ -305,11 +310,11 @@ static void test_math(void)
     {
         int32_t up = (((lfo * 32) >> 6) * 127) >> 15, dn = (((lfo * -32) >> 6) * 127) >> 15;
         check("LFO -> DIST / CHO (+-32), RATE, VIB: bipolar, half the range each",
-              up < -30 && dn > 30 && t->p[P_DIST] == 64 + up && t->p[P_CHOR] == 64 + dn && t->p[P_LRATE] == 100 + up &&
+              up < -30 && dn > 30 && t->p[P_IA] == 64 + up && t->p[P_CHOR] == 64 + dn && t->p[P_LRATE] == 100 + up &&
               t->p[P_LD_PIT] == up);
     }
     mod_end(t);
-    check("every per-block value restored", t->p[P_DIST] == 64 && t->p[P_CHOR] == 64 && t->p[P_LRATE] == 100 && t->p[P_LD_PIT] == 0);
+    check("every per-block value restored", t->p[P_IA] == 64 && t->p[P_CHOR] == 64 && t->p[P_LRATE] == 100 && t->p[P_LD_PIT] == 0);
 
     /* an engine parameter: its descriptor's range */
     e_trio = eng_by_name("ANLG2");                 /* (M-Vave-OP1: TRIO, retired, was the engine here) */

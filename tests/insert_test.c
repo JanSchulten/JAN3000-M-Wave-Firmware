@@ -1,16 +1,19 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* Host test of the per-track INSERT (1.5, Discussions #78 and #177; src/fx.c track_insert), on the real sources:
+/* Host test of the per-track DRIVE (the INSERT of 1.5, Discussions #78 and #177; src/fx.c track_insert), on the real
+ * sources:
  *   build/host/insert_test [DEMO_DIR]      (run_tests.sh builds and runs it; demos in build/insert_demo/)
- * 1. bit for bit: TYPE OFF with any A B C MIX, and MIX 0 of every type, render the phrases the defaults render (POLY,
- *    SPREAD, the sends' tails); MIX 100 % of every type changes them.
+ * 1. bit for bit: TYPE OFF with any A B C MIX, MIX 0 of every type, the retired types (6 .. 8: PHASR FLANG CHOR) and
+ *    the retired DIST at 127 render the phrases the defaults render (POLY, SPREAD, the sends' tails); MIX 100 % of
+ *    every type changes them.
  * 2. each TYPE on a chord and on 8 loud voices, A B C at their corners: no DC (its mean against the input's), bounded,
  *    MIX 0 = the input bit for bit (nothing runs), MIX 100 % = the wet: MIX 50 % is exactly halfway between the dry
  *    and it (the effect's state does not depend on MIX).
  * 3. MIX glides (2.9 ms both ways), a TYPE change fades out, switches, fades in; MIX and TYPE as automation and as a
  *    step's lock on a playing pattern.
  * 4. stored: a project round trip (FUN10, 112 parameters including SHIM; 12 spare bytes left), a FUN10 of 104 (1.2 .. 1.4) loads the
- *    INSERT OFF; user presets of 112 and 104; the labels and values the pages show per TYPE; the page order.
+ *    DRIVE OFF; user presets of 112 and 104; the labels and values the DRIVE page shows per TYPE (TYPE DRIVE TONE
+ *    LEVEL, CRUSH BITS RATE LPF); the page order; a power-on sound's old DIST as a SOFT DRIVE of about its gain.
  * 5. the cost per type and track (instructions / sample, host) against an 8-voice ANALOG part.
  * 6. demos (DEMO_DIR): each TYPE on a loop (acid line + drums), two bars dry, two bars with the INSERT. */
 #define UI_TEST_NO_MAIN 1
@@ -117,6 +120,8 @@ static uint64_t phrase(void)
         t->p[P_SPRD] = (int16_t)ph_sprd;
         if (ph_ty >= 0)
             set_ins(t, ph_ty, ph_a, ph_b, ph_c, ph_mix);
+        if (ph_ty == -2)
+            t->p[P_DIST] = 127;
         trk_note_on(t, 48, 100);
         trk_note_on(t, 55, 70);
         trk_note_on(t, 64, 120);
@@ -163,10 +168,23 @@ static void test_identity(void)
     ck("MIX 0 of every TYPE (POLY, SPREAD 64): bit for bit the defaults (nothing runs)", ok0);
     ck("MIX 100 % of every TYPE: the phrase changes", okw);
     ph_sprd = 0;
+    {   /* M-Vave-OP1: the retired types (PHASR FLANG CHOR, stored 6 .. 8) and the retired DIST play as OFF */
+        int okr = 1;
+        ph_ty = -1;
+        h0 = phrase();
+        for (ty = 6; ty <= 8; ty++) {
+            ph_ty = ty; ph_a = 127; ph_b = 127; ph_c = 127; ph_mix = 127;
+            okr &= phrase() == h0;
+        }
+        ck("the retired TYPEs 6 .. 8 (PHASR FLANG CHOR) at MIX 100 %: bit for bit the defaults (OFF)", okr);
+        ph_ty = -2;                                   /* (phrase: DIST 127, the INSERT at its defaults) */
+        ck("the retired DIST at 127: bit for bit the defaults (nothing reads it)", phrase() == h0);
+        ph_ty = -1;
+    }
     {   /* review 1.5: TYPE OFF while the part is silent (its tail run out) leaves no INSERT state for the next note */
         track_t *t = &trk[0];
         fresh(0, preset_by_name(0, "SOFT PAD"));
-        set_ins(t, IT_FLANGER, 64, 64, 64, 127);
+        set_ins(t, IT_FOLD, 64, 64, 64, 127);
         trk_note_on(t, 60, 100);
         mixb(FS / 4u / CTL);
         trk_note_off(t, 60);
@@ -174,7 +192,7 @@ static void test_identity(void)
         int stale = ins[0].w != 0 && t->ins_run;
         t->p[P_ITYPE] = IT_OFF;
         mixb(1);
-        ck("TYPE OFF while silent: the INSERT at rest at once (no stale fade on the next note)",
+        ck("TYPE OFF while silent: the DRIVE at rest at once (no stale fade on the next note)",
            stale && !ins[0].w && !t->ins_run);
     }
 }
@@ -298,18 +316,18 @@ static void test_glide(void)
         track_insert(t, sig_a + i * CTL, CTL);
     ck("  and out again; then nothing runs (the input as it is)", wm == 32768 - CTL * SL_SLOPE && !ins[0].w &&
        !memcmp(sig_a + 8u * CTL, sig_in + 8u * CTL, CTL * sizeof(int32_t)));
-    /* a TYPE change while it plays: SOFT fades out, FLANG fades in from rest */
+    /* a TYPE change while it plays: SOFT fades out, FOLD fades in from rest */
     t->p[P_IMIX] = 127;
     for (i = 9; i < 16u; i++)
         track_insert(t, sig_a + i * CTL, CTL);
-    t->p[P_ITYPE] = IT_FLANGER;
+    t->p[P_ITYPE] = IT_FOLD;
     ok = ins[0].type == IT_SOFT;
     for (i = 16; i < 20u; i++) {
         track_insert(t, sig_a + i * CTL, CTL);
         ok &= i < 19u ? ins[0].type == IT_SOFT && ins[0].w > 0 : 1;
     }
     track_insert(t, sig_a + 20u * CTL, CTL);
-    ok &= ins[0].type == IT_FLANGER && ins[0].w == CTL * SL_SLOPE;
+    ok &= ins[0].type == IT_FOLD && ins[0].w == CTL * SL_SLOPE;
     for (i = 21; i < 24u; i++)
         track_insert(t, sig_a + i * CTL, CTL);
     {   /* no click: the largest step of the output over the change against the input's own */
@@ -401,22 +419,24 @@ static void test_stored(void)
     ok &= v[P_ITYPE] == 0 && v[P_IA] == 64 && v[P_IB] == 96 && v[P_IC] == 96 && v[P_IMIX] == 127 && v[P_SPRD] == trk[3].p[P_SPRD] &&
           v[P_E0] == 40 && v[P_E7] == 47;
     ck("user presets: 112 parameters kept; one of 104 (1.2 .. 1.4): the INSERT OFF, its engine values in place", ok);
-    /* the pages: INSERT and INSERT 2 together, the labels and values per TYPE */
+    /* the DRIVE page (M-Vave-OP1: the INSERT's and INSERT 2's place), the labels and values per TYPE */
     {
-        uint32_t p, ps = 0, pi = 0, pi2 = 0, pf = 0, pd = 0;
+        uint32_t p, ps = 0, pi = NPAGES, pf = 0, pd = 0, old = 0;
         char val[16];
         const char *u;
         track_t *t = &trk[0];
         for (p = 0; p < NPAGES; p++) {
             if (str_eq(PAGES[p].title, "SLICER")) ps = p;
-            if (str_eq(PAGES[p].title, "INSERT")) pi = p;
-            if (str_eq(PAGES[p].title, "INSERT 2")) pi2 = p;
+            if (str_eq(PAGES[p].title, "DRIVE")) pi = p;
             if (str_eq(PAGES[p].title, "DELAY")) pf = p;
             if (str_eq(PAGES[p].title, "DLY")) pd = p;
+            old |= str_eq(PAGES[p].title, "INSERT") || str_eq(PAGES[p].title, "INSERT 2");
+            for (i = 0; i < 4u; i++)
+                old |= PAGES[p].id[i] == P_DIST || PAGES[p].id[i] == P_IMIX;
         }
-        ok = pi < pf && pf < ps && ps && pd && PAGES[pi].fam == FAM_FX && PAGES[pi].id[0] == P_ITYPE &&   /* (M-Vave-OP1: */
-             PAGES[pi].id[3] == P_IMIX && PAGES[pi2].id[0] == P_DIST && PAGES[pi2].id[1] == P_IC &&      /* INSERT TYPE A B MIX, */
-             page_visible(pi) && page_visible(pi2) && !page_visible(pd);                                /* other delay controls hidden) */
+        ok = pi < pf && pf < ps && ps && pd && !old && PAGES[pi].fam == FAM_FX && PAGES[pi].id[0] == P_ITYPE &&
+             PAGES[pi].id[1] == P_IA && PAGES[pi].id[2] == P_IB && PAGES[pi].id[3] == P_IC &&   /* TYPE DRIVE TONE LEVEL */
+             page_visible(pi) && !page_visible(pd) && TP[P_ITYPE].max == IT_CRUSH;
         set_ins(t, IT_CRUSH, 64, 96, 96, 127);
         ok &= str_eq(track_desc(t, P_IA)->label, "BITS") && str_eq(track_desc(t, P_IB)->label, "RATE") &&
               str_eq(track_desc(t, P_IC)->label, "LPF");
@@ -429,14 +449,23 @@ static void test_stored(void)
         t->p[P_ITYPE] = IT_HARD;
         ok &= str_eq(track_desc(t, P_IA)->label, "DRIVE") && str_eq(track_desc(t, P_IB)->label, "TONE") &&
               str_eq(track_desc(t, P_IC)->label, "LEVEL");
-        t->p[P_ITYPE] = IT_PHASER;
-        ok &= str_eq(track_desc(t, P_IA)->label, "RATE") && str_eq(track_desc(t, P_IB)->label, "DEPTH") &&
-              str_eq(track_desc(t, P_IC)->label, "FDBK");
-        t->p[P_ITYPE] = IT_OFF;
-        ok &= str_eq(track_desc(t, P_IA)->label, "INS A") && str_eq(param_desc_of(0, P_IB)->label, "INS B");
+        t->p[P_ITYPE] = IT_OFF;                       /* (OFF: the drives' names, before a TYPE is picked) */
+        ok &= str_eq(track_desc(t, P_IA)->label, "DRIVE") && str_eq(param_desc_of(0, P_IB)->label, "INS B");
         for (i = P_ITYPE; i <= P_IMIX; i++)
             ok &= motion_param(i) && !param_kept(i);
-        ck("pages: INSERT (TYPE A B MIX; INSERT 2 DIST C), DELAY, DLY hidden, SLICER (M-Vave-OP1); A B C named by TYPE; recordable; part of the sound", ok);
+        ck("pages: DRIVE (TYPE DRIVE TONE LEVEL; no INSERT 2, DIST or MIX), DELAY, DLY hidden, SLICER; A B C named by TYPE; recordable; part of the sound", ok);
+    }
+    {   /* a power-on sound's DIST (ANALOG's preset 4, track 1's: DIST 20) comes as a SOFT DRIVE of about its gain */
+        uint32_t e = 0;                               /* (ANALOG) */
+        trk[0].eng_req = (uint8_t)e;
+        trk[0].p[P_ITYPE] = IT_HARD;
+        preset_load_to(&trk[0], 4, 1);
+        ok = ENGINES[e]->presets[4].fx[0] == 21 && trk[0].p[P_ITYPE] == IT_SOFT && trk[0].p[P_IA] == 20 * 13 / 16 &&
+             !trk[0].p[P_DIST] && trk[0].p[P_IB] == TP[P_IB].def && trk[0].p[P_IC] == TP[P_IC].def;
+        trk[0].p[P_ITYPE] = IT_HARD;
+        preset_load_to(&trk[0], 4, 0);                /* (from the PRESETS list: the DRIVE stays as it is) */
+        ok &= trk[0].p[P_ITYPE] == IT_HARD;
+        ck("power-on sounds: the preset's DIST 20 as a SOFT DRIVE 16 (TONE LEVEL default); a list load keeps the DRIVE", ok);
     }
 }
 
@@ -491,8 +520,8 @@ static void test_cost(void)
         printf(", MIX 50 %% %+5.1f\n", c);
         worst = c > worst ? c : worst;
     }
-    c = cost(IT_PHASER, 0) - c0;
-    printf("insert:   PHASR at MIX 0 %+5.1f (a test per block)\n", c);
+    c = cost(IT_FOLD, 0) - c0;
+    printf("insert:   FOLD at MIX 0 %+5.1f (a test per block)\n", c);
     ck("cost: MIX 0 next to nothing; every TYPE a fixed cost per track below 10 % of an 8-voice part",
        worst < c0 * 0.10 && c < c0 * 0.005);
 }
@@ -514,8 +543,7 @@ static int demos(const char *dir)
 {
     static const uint8_t LINE[16] = {36, 36, 48, 36, 0, 39, 36, 46, 36, 0, 48, 43, 36, 39, 0, 41};
     static const uint8_t SET[IT_N][4] = {{0}, {100, 90, 96, 127}, {90, 100, 92, 127}, {70, 110, 100, 127},
-                                         {110, 80, 106, 127}, {40, 72, 90, 127}, {50, 127, 100, 127},
-                                         {40, 127, 110, 127}, {60, 110, 30, 127}};
+                                         {110, 80, 106, 127}, {40, 72, 90, 127}};
     uint32_t ty, i, n = 0, bars = 4u, frames = bars * 4u * FS / 2u / CTL * CTL;   /* 120 BPM: a bar 2 s */
     for (ty = 1; ty < IT_N; ty++) {
         char name[32];

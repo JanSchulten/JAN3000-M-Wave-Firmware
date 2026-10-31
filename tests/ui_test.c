@@ -204,7 +204,8 @@ static void ui_power_on(void)
     memset((void *)&cset_last, 0, sizeof cset_last);
     chos.type = CHO_CHORUS;                       /* (M-Vave-OP1: the chorus bus's TYPE and FDBK, as at power-on) */
     chos.fdbk = 0;
-    shim_p[0] = 90; shim_p[1] = 60; shim_p[2] = 12; shim_p[3] = 127; fx_serial = 1;
+    shim_p[0] = 90; shim_p[1] = 60; shim_p[2] = 12; shim_p[3] = 127;
+    fx_lvl[0] = fx_lvl[1] = fx_lvl[2] = fx_lvl[3] = FX_LVL_DEF;   /* (M-Vave-OP1: MIX 2, the chain's levels full) */
     memset(shim_wet, 0, sizeof shim_wet);
     memset(&shim_hl, 0, sizeof shim_hl); memset(shim_comb, 0, sizeof shim_comb);
     memset(shim_ap, 0, sizeof shim_ap); memset(shim_shb, 0, sizeof shim_shb);
@@ -213,6 +214,7 @@ static void ui_power_on(void)
     key_defaults();                               /* (.. GLO > KEY: none, the scene's own neither) */
     key_own = 0;
     eq_power_on();                                /* (.. HOME > EQ: every track flat) */
+    dyn_power_on();                               /* (.. HOME > MASTER: no compressor, the limiter as before) */
     key_cur = 0;
     memset(&chain.source, 0, sizeof chain.source);
     for (i = 0; i < G_COUNT; i++)
@@ -1323,20 +1325,21 @@ static int test_grid(void)
     keyboard_block();
     ok &= t->step[7].time == ST_REST && !t->rh_n;
     bad += check("REC on the grid: lane keys record hits, quantised (the next step late), no TIE holds", ok);
-    /* live recording elsewhere (HOME): the GM keys; a lane's note a hit, another GM drum a note */
+    /* live recording elsewhere (HOME): the drum keys (M-Vave-OP1, seq.c kit_key; Felucca's GM keys until then); a black
+     * key its lane's hit, a white key the lane picked's hit (its pitch not recorded) */
     go_home();
     frame();
     t->seq_idx = 9;
     t->seq_pos = 0;
-    fm1_in.notes = (1u << 7) | (1u << 13) | (1u << 6);   /* C 36 KICK, F# 42 HAT CL, E 35 (a kick 2 st down) */
+    fm1_in.notes = (1u << key_at(1, 0)) | (1u << key_at(1, 3)) | (1u << key_at(0, 9));   /* KICK, HAT CL (picked), A4 +2 */
     keyboard_block();
     fm1_in.notes = 0;
     keyboard_block();
-    ok = !song.grid && t->step[9].hit == ((1u << DV_KICK) | (1u << DV_HATC)) && t->step[9].n == 1 && t->step[9].note[0] == 35 &&
+    ok = !song.grid && t->step[9].hit == ((1u << DV_KICK) | (1u << DV_HATC)) && !t->step[9].n && kit_sel[song.sel] == DV_HATC &&
          step_lanes(t->eng_req, &t->step[9]) == ((1u << DV_KICK) | (1u << DV_HATC));
     song.rec = 0;
     song.playing = 0;
-    bad += check("REC on HOME: GM keys quantised into the grid (35 a note on the KICK lane)", ok);
+    bad += check("REC on HOME: the drum keys quantised into the grid (black keys their lanes, a white key the lane picked)", ok);
     /* SAVE > PHRASES: 12 BEAT into the DRUM track fills the grid */
     track_defaults_steps(t);
     pat_sig[0] = steps_sig(t);
@@ -2102,12 +2105,12 @@ static int test_mono_screens(void)
 }
 
 /* ROLL: the rolling digits of the four cards and the header BPM (ui_draw.c roll_*). The old GLOBAL page's four (1.2: a
- * test page over HOME > CLOCK, whose KNOB 4 is empty since TUNE went to the MENU): BPM (also in the header), SWG, CLK (a
+ * test page over HOME > CLOCK, whose KNOB 4 is empty since TUNE went to the MENU): BPM (also in the header), FDBK, CLK (a
  * name), TUNE (signed). A roll frame differs from the static render only inside the
  * value strip, its last frame is the static render; unchanged digits stay; the direction follows the sign; a
  * change mid-roll retargets; a fast turn, another shape, a page / track / palette change and ui.force snap. */
 static uint16_t roll_shot[240 * 240];
-static const page_t ROLL_PG = {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, G_TUNE}};
+static const page_t ROLL_PG = {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_DFDBK, G_CLOCK, G_TUNE}};   /* (M-Vave-OP1: the global SWG retired, the DELAY's FDBK in its place) */
 static void roll_settle(void)                     /* CLOCK + TUNE, nothing rolling, no knob hot */
 {
     uint32_t k;
@@ -2753,7 +2756,7 @@ static int test_page_cycles(void)
         ok &= f != FAM_GLO || PAGES[i].graph == GR_SONG ||   /* (1.2: GLO's only page; M-Vave-OP1: KEY */
               PAGES[i].graph == GR_KEY;                       /* before it) */
         ok &= f != FAM_TRK || PAGES[i].graph == GR_TRK || str_eq(PAGES[i].title, "CLOCK") ||   /* HOME's: MIXER CLOCK */
-              PAGES[i].graph == GR_EQ;                        /* (M-Vave-OP1: and EQ) */
+              PAGES[i].graph == GR_EQ || PAGES[i].graph == GR_DYN;   /* (M-Vave-OP1: and EQ, MASTER) */
         ok &= PAGES[i].graph != GR_TRK || f == FAM_TRK;
         ui_power_on(); ui.home = 0; ui.page = (uint8_t)i; page_entered();
         ok &= FAM_BTN[cur_fam()] == (f == FAM_TRK ? B_HOME : f == FAM_GLO ? B_GLO : f == FAM_SEQ ? B_SEQ :
@@ -2776,9 +2779,9 @@ static int test_page_cycles(void)
                 clock = i + 1u;
         }
         ok &= clock && PAGES[clock - 1u].fam == FAM_TRK && PAGES[clock - 1u].scope == SC_GLOBAL &&
-              PAGES[clock - 1u].id[0] == G_BPM && PAGES[clock - 1u].id[1] == G_SWING && PAGES[clock - 1u].id[2] == G_CLOCK &&
+              PAGES[clock - 1u].id[0] == G_BPM && PAGES[clock - 1u].id[1] == 0xFFu && PAGES[clock - 1u].id[2] == G_CLOCK &&
               PAGES[clock - 1u].id[3] == 0xFFu;
-        bad += check("1.2: no GLOBAL, no SYSTEM page; HOME > CLOCK has BPM SWG CLK (three knobs), TUNE and ROUT on no page", ok);
+        bad += check("1.2: no GLOBAL, no SYSTEM page; HOME > CLOCK has BPM, CLK (no global SWG), TUNE and ROUT on no page", ok);
     }
     /* remembered pages: one that left its family, or out of range, gives the family's first (1.2: GLO's whatever it was,
      * GLOBAL and SYSTEM too, now SONG; HOME's never remembered: from HOME the MIXER) */
@@ -2872,10 +2875,10 @@ static int test_product_ux(void)
         ok &= led_of(fm1_led, panel.btn[B_HOME]) && !led_of(fm1_led, panel.btn[B_GLO]);
         memcpy(led_pos, pos0, sizeof pos0);
     }
-    {   /* CLOCK's knobs: BPM SWG CLK as GLO > GLOBAL's were; KNOB 4 nothing */
+    {   /* CLOCK's knobs: BPM, CLK as GLO > GLOBAL's were; KNOB 2 (the global SWG, M-Vave-OP1: retired) and 4 nothing */
         int16_t bpm = song.g[G_BPM], swg = song.g[G_SWING], clk = song.g[G_CLOCK], tune = song.g[G_TUNE];
         turn(EN_K1, 1); turn(EN_K2, 1); turn(EN_K3, 1); turn(EN_K4, 5);
-        ok &= song.g[G_BPM] == bpm + 1 && song.g[G_SWING] == swg + 1 && song.g[G_CLOCK] != clk && song.g[G_TUNE] == tune;
+        ok &= song.g[G_BPM] == bpm + 1 && song.g[G_SWING] == swg && song.g[G_CLOCK] != clk && song.g[G_TUNE] == tune;
         song.g[G_CLOCK] = clk;
     }
     press(B_HOME);
@@ -3098,7 +3101,7 @@ static int test_layer(void)
     bad += check("FX tap: nothing on press, the FX page when let go", ok && !ui.home && cur_page()->fam == FAM_FX);
     frames(320);                                       /* (not a double tap: #83) */
     press(B_FX);
-    bad += check("  a second tap: the next page of the family (INSERT, the second card)", str_eq(cur_page()->title, "INSERT"));
+    bad += check("  a second tap: the next page of the family (MIX 2, the second card)", str_eq(cur_page()->title, "MIX 2"));
     ui_power_on();
     btn_down(B_FX);
     for (flash = 0, i = 0; i < 22u; i++) { frame(); flash |= ui.layer; }      /* 0.35 s */
@@ -4772,12 +4775,17 @@ static int test_bughunt_ui2(void)
 static int test_large_face(void)
 {
     static const char *const FIXED[] = {JAN_NAME, "0123456789"};   /* main.c, ui_menu.c (ABOUT); ui_draw.c draw_uboot */
+    static const char *const PEDAL[] = {"DRIVE", "CHORUS", "FLANGER", "VIBRATO", "SHIMMER", "DELAY", "CLOUD", "REVERB",
+                                        "SLICER"};                  /* ui_graph.c graph_pedal (and N_ITYPE: the DRIVE's) */
     uint32_t i, missing = 0;
     const char *s;
     for (i = 0; i < NB + NE + 2u; i++)                              /* ui_input.c setup_show: the control names */
         for (s = i < NB ? B_NAME[i] : i < NB + NE ? E_NAME[i - NB] : FIXED[i - NB - NE]; *s; s++)
             missing += glyph_at(&AF_L, (uint8_t)*s) < 0;
-    return check("the L face holds every glyph of the strings drawn in it", !missing);
+    for (i = 0; i < NELEM(PEDAL) + NELEM(N_ITYPE); i++)           /* M-Vave-OP1: the pedals' names (FUZZ drew as FU) */
+        for (s = i < NELEM(PEDAL) ? PEDAL[i] : N_ITYPE[i - NELEM(PEDAL)]; *s; s++)
+            missing += glyph_at(&AF_L, (uint8_t)*s) < 0;
+    return check("the L face holds every glyph of the strings drawn in it (the pedals' names too)", !missing);
 }
 
 #if FELUCCA_FM4
@@ -8683,7 +8691,7 @@ static int test_fm6_ops(void)
     bad += check("FM6 ops: 6 operators x 14 bytes, each knob writes its byte only (+-1, 0..its highest), SLOT OWN", ok && n == 84u);
 
     /* the sound: the init voice (ALG 1: OP 1 the carrier at 99, OP 2 its modulator at 0), the track's other sends off */
-    TSEL->p[P_CHOR] = TSEL->p[P_DLY] = TSEL->p[P_REV] = TSEL->p[P_DIST] = 0;
+    TSEL->p[P_CHOR] = TSEL->p[P_DLY] = TSEL->p[P_REV] = TSEL->p[P_ITYPE] = 0;
     TSEL->p[P_LD_PIT] = TSEL->p[P_LD_FLT] = TSEL->p[P_LD_SHP] = TSEL->p[P_LD_AMP] = 0;
     TSEL->p[P_M1SRC] = TSEL->p[P_M2SRC] = TSEL->p[P_M3SRC] = TSEL->p[P_M4SRC] = 0;
     for (f = 0; f < 7u; f++) TSEL->p[P_E0 + f] = 0;

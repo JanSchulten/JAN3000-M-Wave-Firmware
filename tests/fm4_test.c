@@ -307,7 +307,7 @@ static void sound(const char *dir)
                     t->p[P_FM1_ATK + k] = cs->op[k / 5u][k % 5u];
         }
         t->p[P_VOICE] = V_POLY;
-        t->p[P_DIST] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
+        t->p[P_ITYPE] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
         memcpy(p, t->p, sizeof p);
         render(60, 100, yd);
         /* FM6, converted */

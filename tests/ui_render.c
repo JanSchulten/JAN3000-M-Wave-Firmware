@@ -758,7 +758,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_DLY_DOT, S_DLY_DOT16, S_FX_THROW,
        S_DETAIL, S_DETAIL_PLAYING, S_DETAIL_REST, S_DETAIL_DRUM, S_ROLL_MARKS, S_DRUM_MARKS, S_HELP_DETAIL,
        S_FX_SEND_HOT, S_CHO, S_CHO_FLANGER, S_CHO_VIBRATO, S_REV_ROOM, S_REV_HALL, S_REV_SHIMMER, S_ARP_PLAY, S_ARP2_PLAY, S_KEY, S_KEY_PLAY, S_KEY_LIVE, S_KEY_REC,
-       S_STEP128, S_AUTO128, S_FXT128, S_HOME_TRACKS128, S_SEQ128, S_SSONG, S_SHIM, S_INS_EXTRA, S_EQ, S_EQ_PASS, S_COUNT };
+       S_STEP128, S_AUTO128, S_FXT128, S_HOME_TRACKS128, S_SEQ128, S_SSONG, S_SHIM, S_INS_EXTRA, S_EQ, S_EQ_PASS, S_MASTER, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
@@ -783,13 +783,13 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "head_bpm_locked", "head_glo_turn", "head_downbeat", "head_beat_2",
     "song_lanes", "song_lanes_playing", "song_lanes_silent", "song_pictures", "head_slot", "head_slot_edited", "head_slot_song",
     "menu_tune", "menu_info", "home_tracks", "home_tracks_stopped", "home_tracks_hot", "menu_home", "home_levels", "help_home", "help_user", "help_grid", "help_lfo", "layer_glo_help", "layer_seq_help", "menu_help",
-    "insert_crush", "insert_fold", "insert_phaser", "insert_off", "insert_mix",
+    "insert_crush", "insert_fold", "insert_fuzz", "insert_off", "insert_mix",
     "env_sync", "env_dest_sync", "filter",
     "learn_wait", "learn_pick", "learn_set", "learn_long", "layer_glo_learn", "menu_learn_clear", "menu_learn_clear_none",
     "dly_dotted", "dly_dotted_16", "perform_throw",
     "detail", "detail_playing", "detail_rest", "detail_drum", "roll_marks", "drum_marks", "help_detail",
-    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_shimmer", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec",
-    "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song", "shimmer_send", "insert_extra", "eq", "eq_pass"};
+    "fx_send_hot", "chorus", "chorus_flanger", "chorus_vibrato", "reverb_room", "reverb_hall", "reverb_spring", "arp_play", "arp2_play", "key", "key_play", "key_live", "key_rec",
+    "step128", "auto128", "fxtracks128", "home_tracks128", "seq_layer128", "scene_song", "shimmer_send", "drive_soft", "eq", "eq_pass", "master"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -1108,10 +1108,10 @@ static void setup(int s)
     case S_LFO: go_title("LFO"); break;
     case S_MOD: TSEL->p[P_M1SRC] = 1; TSEL->p[P_M1DST] = 2; TSEL->p[P_M1AMT] = 40; TSEL->p[P_M2SRC] = 6;
         TSEL->p[P_M2DST] = 14; TSEL->p[P_M2AMT] = -64; mod_ui_slot = 1; go_title("MOD"); break;
-    case S_FX: go_title("FX"); break;
+    case S_FX: go_title("MIX"); break;
     case S_FX_SEND_HOT:                                /* (M-Vave-OP1: SEND's faders, CHO turned) */
         TSEL->p[P_SHIM] = 40; TSEL->p[P_CHOR] = 90; TSEL->p[P_DLY] = 127; TSEL->p[P_REV] = 64;
-        go_title("FX"); ui.hot_col = 1; ui.hot_t = 30; break;
+        go_title("MIX"); ui.hot_col = 1; ui.hot_t = 30; break;
     case S_CHO: case S_CHO_FLANGER: case S_CHO_VIBRATO:   /* .. CHORUS by TYPE, FDBK turned on FLANGER */
         chos.type = (uint8_t)(s == S_CHO_FLANGER ? CHO_FLANGER : s == S_CHO_VIBRATO ? CHO_VIBRATO : CHO_CHORUS);
         chos.fdbk = s == S_CHO_FLANGER ? 70u : 0u;
@@ -1120,11 +1120,12 @@ static void setup(int s)
         if (s == S_CHO_FLANGER) { ui.hot_col = 3; ui.hot_t = 30; }
         break;
     case S_REV_ROOM: case S_REV_HALL: case S_REV_SHIMMER:   /* .. REVERB by TYPE */
-        song.g[G_RTYPE] = (int16_t)(s == S_REV_ROOM ? 0 : s == S_REV_HALL ? 2 : 3);
+        song.g[G_RTYPE] = (int16_t)(s == S_REV_ROOM ? 0 : s == S_REV_HALL ? 2 : 1);   /* (S_REV_SHIMMER: SPRING; the
+                                                       * SHIMMER TYPE retired, the chain's SHIMMER has its own page) */
         TSEL->p[P_REV] = 80;
         go_title("REVERB"); break;
     case S_SHIM: TSEL->p[P_SHIM] = 80; go_title("SHIMMER"); break;
-    case S_INS_EXTRA: TSEL->p[P_DIST] = 80; go_title("INSERT 2"); break;
+    case S_INS_EXTRA: set_ins_ui(IT_SOFT, 90, 80, 100, 127); go_title("DRIVE"); break;
     case S_EQ:                                           /* (M-Vave-OP1: a low cut-ish shelf, a bell up, band 2 picked) */
         eq_set[song.sel][0].g = -12; eq_set[song.sel][1].g = 10; eq_set[song.sel][3].g = 4; eq_ui_band = 1;
         go_title("EQ");
@@ -1133,6 +1134,10 @@ static void setup(int s)
         eq_set[song.sel][0].ty = EQT_HP; eq_set[song.sel][0].f = 40; eq_set[song.sel][0].q = 10;
         eq_set[song.sel][3].ty = EQT_LP; eq_set[song.sel][3].f = 100; eq_set[song.sel][2].g = -8; eq_ui_band = 0;
         go_title("EQ");
+        break;
+    case S_MASTER:                                       /* (M-Vave-OP1: COMP and GAIN up, LIMIT lower, both meters) */
+        dyn_set[DYN_COMP] = 70; dyn_set[DYN_LIM] = 14; dyn_set[DYN_GAIN] = 8; dyn_mtr[0] = 13; dyn_mtr[1] = 4;
+        go_title("MASTER");
         break;
     case S_SLICER: TSEL->p[P_SLCR] = 1; go_title("SLICER"); break;
     case S_DLY: go_title("DELAY"); break;   /* (M-Vave-OP1: FX's DELAY card) */
@@ -1235,12 +1240,13 @@ static void setup(int s)
     case S_HELP_SEQ: ui_prefs2 |= PREF_HELP >> 16; go_page(GR_ROLL); ui.help_t = 0; ui.layer = LAYER_SEQ; break;
     case S_MENU_HELP: ui_prefs2 |= PREF_HELP >> 16; ui.menu = 1; ui.menu_sel = MI_HELP; break;
     case S_HOME_LEVELS: tracks_scene(1); ui_home_view = HV_LEVELS; trk[1].p[P_LEVEL] = 90; ui.hot_col = 1; ui.hot_t = 30; break;
-    /* 1.5: the INSERT pages (fx.c track_insert): CRUSH (#177: BITS RATE LPF), FOLD at MIX 60 %, PHASR, OFF; INSERT 2 */
-    case S_INSERT_CRUSH: set_ins_ui(IT_CRUSH, 64, 96, 80, 127); go_title("INSERT"); break;
-    case S_INSERT_FOLD: set_ins_ui(IT_FOLD, 100, 96, 100, 76); go_title("INSERT"); break;
-    case S_INSERT_PHASER: set_ins_ui(IT_PHASER, 70, 110, 90, 127); go_title("INSERT"); break;
-    case S_INSERT_OFF: go_title("INSERT"); break;
-    case S_INSERT_MIX: set_ins_ui(IT_FLANGER, 40, 127, 110, 90); go_title("INSERT"); break;
+    /* the DRIVE page (fx.c track_insert; the INSERT of 1.5): CRUSH (#177: BITS RATE LPF), FOLD at MIX 60 %, FUZZ, OFF,
+     * HARD at MIX 70 % (MIX on no page: the editor's, automation's) */
+    case S_INSERT_CRUSH: set_ins_ui(IT_CRUSH, 64, 96, 80, 127); go_title("DRIVE"); break;
+    case S_INSERT_FOLD: set_ins_ui(IT_FOLD, 100, 96, 100, 76); go_title("DRIVE"); break;
+    case S_INSERT_PHASER: set_ins_ui(IT_FUZZ, 70, 110, 90, 127); go_title("DRIVE"); break;
+    case S_INSERT_OFF: go_title("DRIVE"); break;
+    case S_INSERT_MIX: set_ins_ui(IT_HARD, 40, 127, 110, 90); go_title("DRIVE"); break;
     /* 1.5 MIDI LEARN (midi_learn.c): on, nothing picked (MIXER); T1 CUT picked, no CC yet (EDIT 2); T1 CUT on CC74 (its
      * message in the header); the widest line, a 5-letter label waiting; GLO's map with LEARN on (D4) */
     case S_LEARN_WAIT: go_page(GR_TRK); ml_toggle(); ui.msg_t = 0; break;

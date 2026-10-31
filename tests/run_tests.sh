@@ -69,6 +69,11 @@
 #                   DRUM beat's RIM / BELL), live recording as hits, the EDIT layer's lane mutes, SEQ TOOLS' BEAT and lane
 #                   row, notes as hits when a project / scene / phrase loads (the output bit for bit the same), a user
 #                   preset's grid; screens in build/kitgrid_shots/.
+# DRUM KEYS (tests/drumkeys_test.c, M-Vave-OP1): on a DRUM and a VDRUM track the black keys are the grid's lanes (a lane
+#                   struck as designed and picked, the ones past the lanes silent), the white keys strike the lane picked
+#                   a semitone a key from F4 (OCT -/+ an octave; DRUM's oscillator at 2^(st/12), past TUNE's range;
+#                   VDRUM's every part), again with its black key held, other hits as designed, REC the hit (not the
+#                   pitch), the message, EDIT > SOUNDS' lane, SEQ > STEP's grid as before.
 # JAN (tests/jan_test.c, M-Vave-OP1 JAN3000 v0.8): another track (ALGORITHM) opens each family at its first page; REC
 #                   armed takes the track's copy, REC held + OCT- undoes the recording, OCT+ redoes it; SAVE > PROJECT >
 #                   NEW (asked first, not while playing): the power-on sounds, empty steps, no song / extras / slot.
@@ -83,6 +88,11 @@
 #                   adding up, the glide (a quarter a block), flat again stops, a silent part drops its state, the page
 #                   (SELECT's place, KNOB 1..4, RESO for LP / HP, the cards' text, each track its own, a sound loaded
 #                   keeps it), kept with the project (damaged: defaults; extras of before: flat; a new project: flat).
+# MASTER (tests/dyn_test.c, M-Vave-OP1): HOME > MASTER, the master's compressor and limiter before the MASTER knob
+#                   (dyn.c): the defaults bit for bit the master of before at the knob's top, the knob last (half the knob
+#                   exactly half), USB LEVEL FIXED, COMP's reduction against the gain computer in double, GAIN, the
+#                   attack and release times, LIMIT's steps, the meters, the page (SELECT's place, KNOB 1..4, the
+#                   cards' text), kept with the project (damaged: defaults; extras of before and a new project: defaults).
 # SCENES (tests/scene_test.c, M-Vave-OP1): 16 scenes a project (scene.c, the SEQ layer): the packed form (3000 random
 #                   scenes round-trip, the densest fits, damaged bytes refused), a pick stopped at once and playing at the
 #                   pattern's end (the longest track's loop, the remainder carried), taken back, the bank full (refused,
@@ -91,6 +101,8 @@
 #                   SEQ layer (white keys scenes, OCT+ / OCT- next / before, black keys the tools, EDIT put back, PRESETS
 #                   the lane, LEDs, no song), the KO-II flow (a punch-in held while SEQ picks); screens into
 #                   build/scene_shots.
+# ONE SWING (tests/swingfold_test.c, M-Vave-OP1 Phase 2): the global SWG retired; a project's goes into each track's
+#                   own as it loads (at most 100), into its stored scenes and, in a song, each slot's own; CLOCK no SWG.
 # SCL > CHORD's sets (tests/cset_test.c, M-Vave-OP1): the chord sets after the Roland J-6's (cset.c, cset_data.h): the
 #                   hundred sets (set 1's C, the names, 1..4 notes up), the genres KNOB 3 steps; the chords (F3 .. E4 as
 #                   listed, octaves away, TRN, one voice: the lowest); through the real key input (every key a chord, a
@@ -101,9 +113,13 @@
 #                   CLOUD's grains always inside what was written (30 s of random settings), DENS, PITCH +-12 / +7, the
 #                   level, FDBK bounded and dying away, CLOUD FREEZE; the FX1 / CLOUD pages, F5, kept with the project;
 #                   screens into build/cloud_shots, WAV demos into build/cloud_demo.
-# SLICER POSITION (tests/fxchain_test.c, M-Vave-OP1): the SLICER at the START before DIST, at the END on the whole
-#                   sum after the reverb (the lowest END track drives it). PUMP: the drop at each step, the four curves and
-#                   their lengths, no clicks, RATE 1/4, PUMP END, the page.
+# SLICER POSITION (tests/fxchain_test.c, M-Vave-OP1): the SLICER at the start of the chain, before the DRIVE; nothing
+#                   after the reverb (the retired GATE END / PUMP END play as OFF). PUMP: the drop at each step, the four
+#                   curves and their lengths, no clicks, RATE 1/4, the page.
+# FX CHAIN (tests/chain_test.c, M-Vave-OP1): CHORUS -> SHIMMER -> DELAY -> REVERB in series: a CHR send fills every
+#                   stage after the CHORUS, a REV send the REVERB only; MIX 2's levels (SHR 0: the SHIMMER passed by;
+#                   CHR 0, REV 0: silent; turned down while it rings: no jump), the CHORUS's stereo, the levels' Q16
+#                   multiply bounded on four loud tracks, the levels stored (XTRA_V9), the MIX 2 page.
 # PUNCH-INS (tests/punch_test.c, M-Vave-OP1 E2): the OP-Z's punch-ins on the FX layer (perform.c): DUCK's curve on the
 #                   beat (also stopped), STEREO's pan a 1/16 a side with the power kept, PITCH 5TH UP / 4TH DN's pitch
 #                   with no live part, RAMP UP from standing to in time, GLITCH's slices (from the next 1/16, their
@@ -142,10 +158,11 @@
 #                   the band-limited restart), SPREAD (SPRD 0 / MONO / LEGATO bit for bit, a note hard left / right, the
 #                   mono sum, UNISON, the SLICER's gate and the mute key on both sides, mono sends), the cost; demos in
 #                   build/sound14_demo/.
-# INSERT (tests/insert_test.c, 1.5; #78 #177): the per-track INSERT (src/fx.c track_insert): TYPE OFF and MIX 0 bit for
-#                   bit (POLY, SPREAD), each TYPE at its corners on 3 and 8 voices (no DC, bounded, MIX 50 % halfway
-#                   to the wet), the MIX glide and TYPE changes, MIX / TYPE as automation and locks, FUN10 and user
-#                   presets of 109 and 104, the pages' labels, the cost per type; demos in build/insert_demo/.
+# DRIVE (tests/insert_test.c, the INSERT of 1.5; #78 #177): the per-track DRIVE (src/fx.c track_insert): TYPE OFF, MIX 0,
+#                   the retired types (PHASR FLANG CHOR) and DIST bit for bit (POLY, SPREAD), each TYPE at its corners on
+#                   3 and 8 voices (no DC, bounded, MIX 50 % halfway to the wet), the MIX glide and TYPE changes, MIX /
+#                   TYPE as automation and locks, FUN10 and user presets of 109 and 104, the DRIVE page's labels, a
+#                   power-on sound's DIST as a SOFT DRIVE, the cost per type; demos in build/insert_demo/.
 # SOUND 1.5 (tests/sound15_test.c; #104 #175): ANALOG's filter TYPE (LP bit for bit, every other engine ignores it, BP / HP
 #                   responses around the cutoff, RES, bounded at the corners), ENV SYNC (OFF bit for bit, the note values
 #                   on the knob, attack / decay / release times at 60 / 120 / 173 BPM and on the external clock), the cost;
@@ -378,13 +395,18 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/kitgrid_test" tests/kitgrid_test.c -lm
     mkdir -p build/kitgrid_shots
     run "KIT GRID: VDRUM (6 parts) and DBOX (8 lanes) on the grid as DRUM, REC, mutes, BEAT, notes as hits on load" "$OUT/kitgrid_test" build/kitgrid_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/drumkeys_test" tests/drumkeys_test.c -lm
+    run "DRUM KEYS: black keys the lanes, white keys the lane picked a semitone a key from F4 (DRUM, VDRUM), REC the hit" "$OUT/drumkeys_test"
     run "KEY: the move in the scale, a pattern under KEY bar by bar, the arp, live keys, the page" "$OUT/key_test"
     mkdir -p build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cloud_test" tests/cloud_test.c -lm
     run "FX1 CLOUD: granular in the delay's line (TYPE change, grains inside the line, DENS, PITCH, level, FDBK, FREEZE), pages, F5, kept" "$OUT/cloud_test" build/cloud_shots build/cloud_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/fxchain_test" tests/fxchain_test.c -lm
     mkdir -p build/fxchain_shots
-    run "SLICER at the START / END of the chain, PUMP" "$OUT/fxchain_test" build/fxchain_shots
+    run "SLICER at the start of the chain (before the DRIVE, nothing after the reverb), PUMP" "$OUT/fxchain_test" build/fxchain_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/chain_test" tests/chain_test.c -lm
+    mkdir -p build/chain_shots
+    run "FX chain CHORUS -> SHIMMER -> DELAY -> REVERB: flow, MIX 2 levels, stereo chorus, bounds, stored, page" "$OUT/chain_test" build/chain_shots
     mkdir -p build/punch_shots build/punch_demo
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/punch_test" tests/punch_test.c -lm
     run "E2 punch-ins: DUCK, STEREO, PITCH 5TH UP / 4TH DN, RAMP UP, GLITCH (each bit for bit when let go), MAP B" "$OUT/punch_test" build/punch_shots build/punch_demo
@@ -394,6 +416,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     mkdir -p build/eq_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/eq_test" tests/eq_test.c -lm
     run "HOME > EQ: four bands a track (each TYPE's response against the cookbook), the glide, the page, kept with the project" "$OUT/eq_test" build/eq_shots
+    mkdir -p build/dyn_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/dyn_test" tests/dyn_test.c -lm
+    run "HOME > MASTER: compressor + limiter before the knob (as before at the defaults, the curve, times, LIMIT, meters), the page, kept" "$OUT/dyn_test" build/dyn_shots
     mkdir -p build/cset_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cset_test" tests/cset_test.c -lm
     run "SCL > CHORD's sets (after the J-6's): the data, the chords, the key input, MIDI IN, the page, STEP entry, recording, kept" "$OUT/cset_test" build/cset_shots
@@ -480,7 +505,7 @@ if [ -f build/gen/felucca_tables.h ]; then
         "$OUT/sound14_test" build/sound14_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/insert_test" tests/insert_test.c -lm
     mkdir -p build/insert_demo
-    run "INSERT (1.5): OFF / MIX 0 bit for bit, each TYPE (no DC, bounded, dry / wet), MIX glide, automation, stored, cost, demos" \
+    run "DRIVE: OFF / MIX 0 / retired types and DIST bit for bit, each TYPE (no DC, bounded, dry / wet), MIX glide, automation, stored, cost, demos" \
         "$OUT/insert_test" build/insert_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/sound15_test" tests/sound15_test.c -lm
     mkdir -p build/sound15_demo
@@ -490,7 +515,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     mkdir -p build/slicer_demo
     run "SLICER: no clicks, timing, sync with the sequencer, STUT, cost, demos" "$OUT/slicer_test" build/slicer_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/swing_test" tests/swing_test.c -lm
-    run "SWING: track + global at most 100, sequencer and SLICER step lengths, the SWG display" "$OUT/swing_test"
+    run "SWING: track + stored global at most 100, sequencer and SLICER step lengths, the SWG display" "$OUT/swing_test"
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/swingfold_test" tests/swingfold_test.c -lm
+    run "ONE SWING: a project's global SWG into its tracks, stored scenes and song slots; CLOCK without SWG" "$OUT/swingfold_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/perform_test" tests/perform_test.c -lm
     mkdir -p build/perform_demo build/fx_demo build/throw_demo
     run "FX layer effects: on the 1/16, stereo, too-long REPEAT, SLICER, silent keys, idle bit-identical, clicks, OCT UP / DN, FLANGER, PHASER, the key map, dotted TIME, REV / ECHO THROW, cost, demos" "$OUT/perform_test" build/perform_demo build/fx_demo build/throw_demo

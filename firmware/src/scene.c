@@ -453,6 +453,33 @@ static int scene_bank_check(uint32_t cur)
     return off == scb.used;
 }
 
+/* M-Vave-OP1: a project's global SWG (0 .. 100) for its stored scenes as they load (opstore.c scene_loaded), then 0 */
+static uint8_t scn_swing_fold;
+/* the bank just read back: each stored scene's tracks' SWG with scn_swing_fold added (core.h swing_fold), as the
+ * global and its own played it; the scene playing is the tracks' (project_restore_runtime folded them) */
+static void scene_swing_folded(void)
+{
+    uint32_t k, t, off, n;
+    uint8_t g = scn_swing_fold, tm[NTRK][5];
+    scn_view_t v;
+    scn_swing_fold = 0;
+    if (!g)
+        return;
+    memset(tm, 0, sizeof tm);
+    for (k = 0; k < SCN_N; k++) {
+        if (!scb.len[k] || !scn_decode(scb.data + scb_off(k), scb.len[k], SCN_BUF, tm))
+            continue;
+        for (t = 0; t < NTRK; t++)
+            SCN_BUF->timing[t][P_SSWING - P_SLEN] = swing_fold(SCN_BUF->timing[t][P_SSWING - P_SLEN], g);
+        scn_view_pat(&v, SCN_BUF);
+        n = scn_encode(&v, 0, 0);
+        if (!n || scb.used - scb.len[k] + n > SCN_CAP)   /* (cannot be: only values change) */
+            continue;
+        off = scb_resize(k, n);
+        scn_encode(&v, scb.data + off, n);
+    }
+}
+
 /* ----------------------------------------------------------- the switch --- */
 /* track t holds a note or a hit (the pattern's length counts the tracks that play something) */
 static int scn_plays(const track_t *t)

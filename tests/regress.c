@@ -41,7 +41,8 @@
                                    * used to leave up to +-31), what is left is the midpoint of the AC tail */
 #define FREE_CAP_S 12             /* the voices must be free this long after the last note-off */
 #ifndef TAIL_S
-#define TAIL_S 3                  /* FX tail rendered after the voices are free */
+#define TAIL_S 6                  /* FX tail rendered after the voices are free (M-Vave-OP1: 3 before the serial chain;
+                                   * a CHORUS send rings on through the SHIMMER, the DELAY and the REVERB) */
 #endif
 #define CPU_TOL 0.25              /* +-25 %, and at least CPU_SLACK instructions (light presets) */
 #define CPU_SLACK 20
@@ -298,7 +299,8 @@ static void job_song(const job_t *j)
             for (k = 0; k < 4u; k++)
                 trk[i].p[P_SLCR + k] = S[i][k];
         }
-        song.g[G_SWING] = 20;
+        for (i = 0; i < NTRK; i++)               /* (the global SWG 20 these renders had, in the tracks': core.h) */
+            trk[i].p[P_SSWING] = swing_fold(trk[i].p[P_SSWING], 20);
     }
     transport_req = 1;
     run_to(8u * FS);

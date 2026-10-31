@@ -93,7 +93,7 @@ static void fresh(uint32_t e, uint32_t pi)        /* the boot state (no FX tails
 }
 static void dry(track_t *t)
 {
-    t->p[P_DIST] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
+    t->p[P_ITYPE] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
 }
 
 /* the hash of a phrase on track 1 in a fork()ed child (the seeds as they were: the same in each); setup(t) first */

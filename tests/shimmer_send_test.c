@@ -48,16 +48,33 @@ static void test_audio(void)
         for (i = 0; i < CTL; i++) expected[i] += mulq15(((in[i] >> 2) * LEVEL_Q12[100 + k]) >> 10, (30 + 20 * k) * 258);
     }
     ck("all four tracks feed one post-LEVEL send", !memcmp(expected, send_sh, sizeof expected));
-    memset(&hl, 0, sizeof hl); rev_clear(); reset_shimmer();
-    fx.rtype = 3; song.g[G_RSIZE] = shim_p[0] = 90; song.g[G_RDAMP] = shim_p[1] = 60;
-    for (b = 0; b < 6000u; b++) {
-        for (i = 0; i < CTL; i++) in[i] = b < 1200u ? (int32_t)(16000.0 * sin((b * CTL + i) * 2.0 * 3.141592653589793 * 440.0 / 44100.0)) : 0;
-        memset(out, 0, sizeof out); rev_hall(in, out, CTL); memcpy(side, rev_side, sizeof side);
-        memset(wet, 0, sizeof wet); memset(mix_l, 0, sizeof mix_l); memset(mix_r, 0, sizeof mix_r);
-        memcpy(send_sh, in, sizeof in); if (b < 1200u) shim_live = 1; shimmer_bus(wet, CTL);
-        for (i = 0; i < CTL; i++) { ok &= wet[i] == out[i] && mix_l[i] == side[i] && mix_r[i] == -side[i]; heard |= wet[i]; }
-    }
-    ck("own bus matches the existing octave shimmer sample for sample, including stereo and tail", ok && heard);
+    /* (M-Vave-OP1: the REVERB TYPE SHIMMER, this bus's reference, is retired.) The bus at PITCH +12: a 440 Hz burst's
+     * tail (1 .. 2 s) holds its octave, 880 Hz, near the 440's; a HALL of the same SIZE / DAMP (the REVERB) does not */
+    { static int32_t hs[2][2u * FS]; double a[2][2]; uint32_t m, f;
+      for (m = 0; m < 2u; m++) {
+        memset(&hl, 0, sizeof hl); rev_clear(); reset_shimmer(); fx.rtype = 2;
+        song.g[G_RSIZE] = shim_p[0] = 90; song.g[G_RDAMP] = shim_p[1] = 60; shim_p[2] = 12; shim_p[3] = 127;
+        for (b = 0; b < 2u * FS / CTL; b++) {
+          for (i = 0; i < CTL; i++) in[i] = b < 300u ? (int32_t)(16000.0 * sin((b * CTL + i) * 2.0 * 3.141592653589793 * 440.0 / 44100.0)) : 0;
+          memset(out, 0, sizeof out); memset(wet, 0, sizeof wet); memset(mix_l, 0, sizeof mix_l); memset(mix_r, 0, sizeof mix_r);
+          if (m) { memcpy(send_sh, in, sizeof in); shim_live = 1; shimmer_bus(wet, CTL); }
+          else { rev_hall(in, out, CTL); memcpy(wet, out, sizeof out); }
+          for (i = 0; i < CTL; i++) { hs[m][b * CTL + i] = wet[i]; heard |= wet[i]; }
+        }
+        for (f = 0; f < 2u; f++) {                      /* 440, 880 Hz over 1 .. 2 s (Goertzel, +-10 % in 10 Hz steps) */
+          double p = 0, g;
+          for (g = (f ? 880.0 : 440.0) * 0.9; g <= (f ? 880.0 : 440.0) * 1.1; g += 10) {
+            double w = 2 * 3.141592653589793 * g / FS, c = 2 * cos(w), s0, s1 = 0, s2 = 0; uint32_t t;
+            for (t = FS; t < 2u * FS; t++) { s0 = hs[m][t] + c * s1 - s2; s2 = s1; s1 = s0; }
+            p += s1 * s1 + s2 * s2 - c * s1 * s2;
+          }
+          a[m][f] = sqrt(p);
+        }
+      }
+      ok = a[1][1] > 0.3 * a[1][0] && a[0][1] < 0.05 * a[0][0];
+      { char w[160]; snprintf(w, sizeof w, "own bus at PITCH +12: its tail's octave 880 / 440 Hz %.2f, a HALL's %.3f", a[1][1] / a[1][0],
+                              a[0][1] / a[0][0]);
+        ck(w, ok && heard); } }
     { hall_t saved = shim_hl; int16_t comb[sizeof shim_comb / 2], ap[sizeof shim_ap / 2], pitch[SH_LEN];
       memcpy(comb, shim_comb, sizeof comb); memcpy(ap, shim_ap, sizeof ap); memcpy(pitch, shim_shb, sizeof pitch);
       rev_clear(); song.g[G_RTYPE] = 1; song.g[G_RSIZE] = 4; song.g[G_RDAMP] = 126;
@@ -84,19 +101,19 @@ static void sh_test_chain(void)
 {
     uint32_t i; int ok = 1;
     ui_power_on();
-    for (i = 0; i < CTL; i++) { send_d[i] = 100; shim_wet[i] = 200 + (int32_t)i; }
-    serial_delay(CTL);
-    for (i = 0; i < CTL; i++) ok &= send_d[i] == 300 + (int32_t)i;
-    ck("SHIMMER output feeds DELAY before the delay renders", ok);
-    for (i = 0; i < CTL; i++) { send_r[i] = 10; cho_wet[i] = 2000; wet[i] = 2300; }
-    { const int32_t *r = serial_reverb(send_r, wet, CTL);
-      for (i = 0; i < CTL; i++) ok &= r[i] == 510 + (int32_t)i; }
-    ck("REVERB receives Shimmer plus delay output and its own send; CHORUS stays parallel", ok);
+    for (i = 0; i < CTL; i++) { send_d[i] = 100; cho_wet[i] = 1000; shim_wet[i] = 200 + (int32_t)i; }
+    chain_delay_in(CTL);
+    for (i = 0; i < CTL; i++) ok &= send_d[i] == 1300 + (int32_t)i;
+    ck("CHORUS and SHIMMER output feed DELAY before the delay renders", ok);
+    for (i = 0; i < CTL; i++) { send_r[i] = 10; wet[i] = 2300; }
+    { const int32_t *r = chain_reverb(send_r, wet, CTL);
+      for (i = 0; i < CTL; i++) ok &= r[i] == 2510 + (int32_t)i; }
+    ck("REVERB receives its own send, the SHIMMER's and what came before (CHORUS, DELAY: fx_buses' wet)", ok);
     (void)mix_hash(100, 0);
     { int d = 0, r = 0;
       for (i = 0; i < DLY_LEN; i++) d |= dly_buf[i];
       for (i = 0; i < sizeof rev_comb / sizeof rev_comb[0]; i++) r |= rev_comb[i];
-      ck("SHIM alone reaches both downstream delay and reverb buffers through mix_block", d && r && fx_serial); }
+      ck("SHIM alone reaches both downstream delay and reverb buffers through mix_block", d && r); }
     { hall_t h; int16_t pitch[SH_LEN]; int n, p; double low = 0, high = 0;
       for (p = 0; p < 2; p++) {
         memset(&h, 0, sizeof h); memset(pitch, 0, sizeof pitch); shim_p[2] = 7; shim_p[3] = p ? 127 : 32;
@@ -124,15 +141,17 @@ static void test_ui(const char *dir)
     TSEL->p[P_SHIM] = 77; frame(); if (dir) screen_save(dir, "send-shimmer");
     track_select(1); ck("SHIM send belongs to the selected track", TSEL->p[P_SHIM] == 0 && trk[0].p[P_SHIM] == 77);
     go_page(GR_FX); turn(EN_SELECT, 1); frame();
-    ok = str_eq(cur_page()->title, "INSERT");
-    TSEL->p[P_ITYPE] = IT_SOFT; TSEL->p[P_DIST] = 37;
+    ok = str_eq(cur_page()->title, "MIX 2");
     turn(EN_SELECT, 1); frame();
-    ok &= str_eq(cur_page()->title, "INSERT 2") && TSEL->p[P_DIST] == 37 && TSEL->p[P_ITYPE] == IT_SOFT;
-    { int16_t c = TSEL->p[P_IC]; turn(EN_K1, 1); turn(EN_K2, 1);
-      ok &= TSEL->p[P_DIST] > 37 && TSEL->p[P_IC] > c && TSEL->p[P_ITYPE] == IT_SOFT; }
-    for (k = 0; k < NPAGES; k++) ok &= !str_eq(PAGES[k].title, "DIST");
-    ck("DIST and the third insert control are grouped under INSERT; existing stacked settings survive", ok);
-    if (dir) screen_save(dir, "insert-extra");
+    ok &= str_eq(cur_page()->title, "DRIVE");
+    TSEL->p[P_ITYPE] = IT_SOFT;
+    { int16_t a = TSEL->p[P_IA], b = TSEL->p[P_IB], c = TSEL->p[P_IC]; turn(EN_K2, 1); turn(EN_K3, 1); turn(EN_K4, 1);
+      ok &= TSEL->p[P_IA] > a && TSEL->p[P_IB] > b && TSEL->p[P_IC] > c && TSEL->p[P_ITYPE] == IT_SOFT; }
+    turn(EN_SELECT, 1); frame();
+    ok &= str_eq(cur_page()->title, "CHORUS");
+    for (k = 0; k < NPAGES; k++) ok &= !str_eq(PAGES[k].title, "DIST") && !str_eq(PAGES[k].title, "INSERT 2");
+    ck("MIX 2, then the DRIVE after the sends: TYPE DRIVE TONE LEVEL on K1..K4, CHORUS next; no DIST or INSERT 2 page", ok);
+    if (dir) screen_save(dir, "drive");
     go_page(GR_SHIM); sig = graph_signature();
     { int16_t sz = song.g[G_RSIZE], damp = song.g[G_RDAMP]; turn(EN_K1, 1); turn(EN_K2, -1);
       ck("SHIMMER SIZE / DAMP redraw independently of REVERB", shim_p[0] > 90 && shim_p[1] < 60 && sig != graph_signature() && song.g[G_RSIZE] == sz && song.g[G_RDAMP] == damp); }
@@ -155,10 +174,10 @@ static void test_stored(void)
     project_capture(&a); ck("FUN10 round trip keeps all sends, automation and locks", proj_pack(&st, &a) && proj_import(&q, &st, sizeof st) && !memcmp(&a, &q, sizeof a));
     ck("project with extras saves", project_save_as(0, "SHIMMER") == 0);
     shim_p[0] = shim_p[1] = 0; trk[0].p[P_SHIM] = 0; project_load(0);
-    ck("project load restores independent sends and global settings", trk[0].p[P_SHIM] == 20 && shim_p[0] == 113 && shim_p[1] == 47 && shim_p[2] == -7 && shim_p[3] == 98 && fx_serial);
+    ck("project load restores independent sends and global settings", trk[0].p[P_SHIM] == 20 && shim_p[0] == 113 && shim_p[1] == 47 && shim_p[2] == -7 && shim_p[3] == 98);
     sig = autosave_sig(); shim_p[1]++; ck("global SHIMMER edits trigger autosave", sig != autosave_sig());
     xtra_capture(&x, &xh, 1); x.shim_size = x.shim_damp = x.shim_pitch = x.shim_fdbk = x.fx_serial = 0; xtra_misc(&x, 1);   /* (written 0 before) */
-    ck("older extras load safe SHIMMER defaults", shim_p[0] == 90 && shim_p[1] == 60 && shim_p[2] == 12 && shim_p[3] == 127 && !fx_serial);
+    ck("older extras load safe SHIMMER defaults", shim_p[0] == 90 && shim_p[1] == 60 && shim_p[2] == 12 && shim_p[3] == 127);
     memset(&u, 0, sizeof u); u.np = P_COUNT; u.ver = UP_VER;
     for (i = 0; i < P_COUNT; i++) { defs[i] = TP[i].def; up_set_value(&u, i, trk[0].p[i]); }
     up_params(&u, v, defs); ck("user preset keeps the SHIM send", v[P_SHIM] == 20);

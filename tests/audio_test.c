@@ -160,7 +160,7 @@ static double usb_run(uint32_t fixed, uint32_t master, int dac_is_tap_scaled_ok[
     fresh();
     lim_env = LIM_T; dc_l = dc_r = dce_l = dce_r = 0;    /* (the master's state as at power-on: runs compare) */
     trk[0].p[P_VOICE] = V_POLY;
-    trk[0].p[P_DIST] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;   /* (no tails between runs) */
+    trk[0].p[P_ITYPE] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;   /* (no tails between runs) */
     trk_note_on(&trk[0], 48, 110); trk_note_on(&trk[0], 55, 110); trk_note_on(&trk[0], 64, 110);
     fx_usb_fixed = (uint8_t)fixed;
     song.master_q12 = master;
@@ -203,7 +203,7 @@ static void boot_fresh(void)
     lim_env = LIM_T; dc_l = dc_r = dce_l = dce_r = 0;
     memset(kb_note, 0, sizeof kb_note); kb_prev = 0; kb_layer = 0;
     trk[0].p[P_VOICE] = V_POLY;
-    trk[0].p[P_DIST] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;
+    trk[0].p[P_ITYPE] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;
 }
 static double boot_run(int32_t pot, int boot, uint32_t *splash_peak, uint32_t *first_master, uint32_t *busy)
 {

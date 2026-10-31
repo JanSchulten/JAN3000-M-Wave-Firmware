@@ -86,6 +86,26 @@ static __attribute__((noinline)) uint8_t grid_key_note(const track_t *t, uint32_
 {
     return key_black(k) && key_place(k) < kit_track(t) ? kit_notes(t->eng_req)[key_place(k)] : KB_SILENT;
 }
+/* M-Vave-OP1, the drum keys (eng_drum.c kit_sel): key k on kit track t, outside the grid: a black key of a lane strikes
+ * it as designed and picks it, a white key strikes the lane picked a semitone a key from F4 (white place 7), OCT -/+
+ * an octave each; the lane's note (live recording takes it as the lane's hit: the pitch is not recorded), kit_kp the
+ * pitch, kit_ev for the message. A black key past the lanes (VDRUM's 7 and 8, ACC's and the pages' places): KB_SILENT */
+static uint8_t kit_key(const track_t *t, uint32_t k)
+{
+    uint32_t p = key_place(k), i = trk_index(t), b = (uint32_t)key_black(k), l;
+    if (b && p >= kit_track(t))
+        return KB_SILENT;
+    if (b)
+        kit_sel[i] = (uint8_t)p;
+    l = kit_sel[i] < kit_track(t) ? kit_sel[i] : 0u;
+    kit_kp = (int8_t)(b ? 0 : (int32_t)p - 7 + 12 * song.octave);
+    kit_ev.trk = (uint8_t)i;
+    kit_ev.lane = (uint8_t)l;
+    kit_ev.black = (uint8_t)b;
+    kit_ev.st = kit_kp;
+    kit_ev.n++;
+    return kit_notes(t->eng_req)[l];
+}
 /* GLO > SONG (song.grid 3): key k's slot, the white keys A3 B3 C4 D4 (white places 2..5: keys 4 6 7 9 from F) A..D; -1 = a
  * key that plays. A table, not key_place (a loop); the audio ISR's key loop reads SONG_KEYS, the same keys */
 #define SONG_KEYS (1u << 4 | 1u << 6 | 1u << 7 | 1u << 9)
@@ -717,17 +737,18 @@ static __attribute__((noinline)) void perf_key_remap(void)
 }
 
 /* key k plays kb_note[k] on track t: its chord (chord.c; the note alone with CHRD OFF). A note another key
- * holds already sounds: it is not started again (nor sent to MIDI OUT); the key keeps its notes */
+ * holds already sounds: it is not started again (nor sent to MIDI OUT; M-Vave-OP1: on a kit it is, a hit); the key keeps
+ * its notes */
 static void key_on(uint32_t k, track_t *t)
 {
-    uint32_t cs = cset_on(t) && !song.grid, i, mc = trk_midi_ch(trk_index(t));
+    uint32_t cs = cset_on(t) && !song.grid, i, mc = trk_midi_ch(trk_index(t)), kit = kit_track(t);
     uint32_t n = cs ? cset_build(t, kb_note[k], t->p[P_TRANS], kb_chord[k]) : chord_build(t, kb_note[k], kb_chord[k]);
     kb_chn[k] = 0;                                  /* (M-Vave-OP1, SCL > CSET: its set's chord, cset.c) */
     in_key = (uint8_t)(cs ? 0u : k + 1u);           /* (the arp keeps the key: arp_add; a chord set's notes as they are) */
     for (i = 0; i < n; i++) {
         uint32_t x = kb_chord[k][i];
-        if (midi_local_held(t, x))
-            continue;
+        if (!kit && midi_local_held(t, x))        /* (M-Vave-OP1: a kit's keys strike again: the white keys all */
+            continue;                             /* strike the lane picked, its black key may still be held) */
         input_on(t, x, 100);
         midi_out_event(0x09u | (0x90u | mc) << 8 | x << 16 | 100u << 24);
     }
@@ -767,6 +788,18 @@ static __attribute__((noinline)) void kb_lat(uint32_t k)
         fm1_in_stat.dac_max = o;
 }
 #endif
+
+/* key k's note on track t, pressed outside the grid: a kit's drum keys (M-Vave-OP1: kit_key), SCL > CSET's chord
+ * (M-Vave-OP1: every key its chord), the engine's map or the scale keyboard's. Out of line: the ISR's key loop calls it
+ * on a press only (inlined, kb_pitch's scale walk and the kit's branch sat in the ISR's static cost) */
+static __attribute__((noinline)) uint8_t kb_press(const track_t *t, uint32_t k)
+{
+    if (kit_track(t))
+        return kit_key(t, k);
+    if (!song.grid && cset_on(t))
+        return (uint8_t)cset_key(k);
+    return (uint8_t)kb_map(t, k);
+}
 
 static void keyboard_block(void)
 {
@@ -808,13 +841,12 @@ static void keyboard_block(void)
                 kb_note[k] = KB_SILENT;
             else if (song.grid == 1u)             /* the DRUM grid: a lane key plays its lane, the rest are the UI's */
                 kb_note[k] = grid_key_note(&trk[kb_trk[k]], k);
-            else if (!song.grid && cset_on(&trk[kb_trk[k]]))   /* M-Vave-OP1, SCL > CSET: every key its chord */
-                kb_note[k] = (uint8_t)cset_key(k);
             else
-                kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
+                kb_note[k] = kb_press(&trk[kb_trk[k]], k);
             if (kb_note[k] == KB_SILENT)
                 continue;
             key_on(k, &trk[kb_trk[k]]);
+            kit_kp = 0;                           /* (the key's pitch was its hit's: drum_note_on took it) */
 #ifdef FM1_INPUT_LAT
             kb_lat(k);
 #endif

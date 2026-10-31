@@ -380,7 +380,7 @@ enum { LK_OFF, LK_LABEL, LK_TALL };
  * cards: the pedal from the cards' top to the footer, its top (the knobs) drawn by draw_columns, the rest by draw_graph */
 static int fx_pedal(void)
 {
-    static const char *const C[8] = {"FX", "INSERT 2", "INSERT", "CHORUS", "DELAY", "REVERB", "SHIMMER", "SLICER"};
+    static const char *const C[8] = {"MIX", "MIX 2", "DRIVE", "CHORUS", "DELAY", "REVERB", "SHIMMER", "SLICER"};
     uint32_t k;
     if (ui.home || ui.layer || ui.menu || cur_page()->fam != FAM_FX)
         return 0;
@@ -1571,14 +1571,16 @@ static void fm4_load_preset(track_t *t, uint32_t k)
 
 static void set_engine_of(track_t *t, uint32_t ei);
 /* M-Vave-OP1: a factory preset brings the sound, not the effects. The track's sends (DIST CHORUS DELAY REVERB) and
- * its INSERT stay as they are on every load from the PRESETS list, the editor, a Program Change, a new project's
+ * its DRIVE stay as they are on every load from the PRESETS list, the editor, a Program Change, a new project's
  * draw and an engine switch; a user preset brings what was saved with it (upreset.c up_load: param_kept only).
  * Only the power-on sounds still load with their sends (preset_load_to with sends: main.c felucca_init, project.c's
  * format-1 tracks), so the power-on project and the projects saved with it sound as they always did */
 static int preset_fx(uint32_t i) { return (i >= P_DIST && i <= P_REV) || i == P_SHIM || (i >= P_ITYPE && i <= P_IMIX); }
 
 /* preset pi of the engine the track asked for: the sound only (not the steps, not param_kept); sends: also the
- * preset's sends (or 0 24 28 36) and the INSERT OFF, as every load set them before M-Vave-OP1 */
+ * preset's sends (or 0 0 28 36; CHO 24 before the serial chain) and the DRIVE OFF, as every load set them before M-Vave-OP1. The preset's old DIST
+ * (retired, fx.c track_insert) becomes a SOFT DRIVE of about its gain (DIST d: 1 + d^2 / 2048, DRIVE a: 1 + 3 a^2 /
+ * 4096, so a = 0.82 d), at the drives' default TONE and LEVEL */
 static void preset_load_to(track_t *t, uint32_t pi, uint32_t sends)
 {
     const engine_t *e = ENGINES[t->eng_req % NENGINES];
@@ -1618,10 +1620,15 @@ static void preset_load_to(track_t *t, uint32_t pi, uint32_t sends)
     t->p[P_ED_FLT] = e->presets[pi].fenv;
     t->p[P_VOICE] = e->presets[pi].mono ? V_LEGATO : V_POLY;   /* mono presets keep the legato feel */
     if (sends) {   /* the power-on sounds' sends */
-        static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
+        static const uint8_t FX_DEF[4] = {0, 0, 28, 36};   /* (CHO 24 before the serial chain: a SHIMMER on all) */
         const preset_t *pr = &e->presets[pi];
         for (i = 0; i < 4u; i++)
             t->p[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
+        if (t->p[P_DIST]) {
+            t->p[P_ITYPE] = IT_SOFT;
+            t->p[P_IA] = (int16_t)(t->p[P_DIST] * 13 / 16);
+            t->p[P_DIST] = 0;
+        }
     }
     fm6_track_loaded(t);                              /* FM6: the preset's patch (its SLOT) */
     if (e == &ENG_ANALOG2)                            /* .. ANALOG2: WAVE 2's values (eng_analog2.c) */

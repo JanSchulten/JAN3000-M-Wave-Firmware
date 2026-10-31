@@ -235,10 +235,10 @@ static void test_page(const char *dir)
     turn(EN_SELECT, 1); frame();
     ok &= str_eq(cur_page()->title, "EQ") && cur_page()->graph == GR_EQ;
     turn(EN_SELECT, 1); frame();
-    ok &= ui.home;
+    ok &= str_eq(cur_page()->title, "MASTER");        /* (M-Vave-OP1: HOME > MASTER after it, dyn_test.c) */
     turn(EN_SELECT, -1); frame();
     ok &= str_eq(cur_page()->title, "EQ");
-    ck("PAGE: HOME, SELECT: MIXER, CLOCK, EQ, HOME (and back: EQ)", ok);
+    ck("PAGE: HOME, SELECT: MIXER, CLOCK, EQ, MASTER (and back: EQ)", ok);
     sig = ui.graph_sig;
     turn(EN_K1, 2); frame();                           /* band 3 */
     ok = eq_ui_band == 2 && ui.graph_sig != sig;

@@ -404,19 +404,20 @@ static void arp_follow_test(void)
     arp_run(t, 1);
     assert(arp_seen[0] == 61);
 
-    /* the DRUM engine's own key map: as it came (TRN is not its) */
+    /* a kit's keys: as they came (TRN is not theirs). M-Vave-OP1: the drum keys (seq.c kit_key), black keys 1 and 2 the
+     * KICK and the SNARE (Felucca's GM keys C4 and D4 until then) */
     arp_reset(t);
     host_preset(t, ENGI_DRUM, 0);
     t->engine = t->eng_req = ENGI_DRUM;
     t->p[P_AMODE] = 1;
     t->p[P_AOCT] = 1;
     t->p[P_AHOLD] = 1;
-    fm1_in.notes = (1u << 7) | (1u << 9);
+    fm1_in.notes = (1u << 1) | (1u << 3);
     keyboard_block();
     fm1_in.notes = 0;
     keyboard_block();
     assert(held_key[0][0] == 0 && held_key[0][1] == 0);
-    assert(arp_is(t, kb_map(t, 7), kb_map(t, 9)));
+    assert(arp_is(t, 36, 38));
     t->p[P_TRANS] = 7;
     assert(arp_is(t, t->held[0], t->held[1]));
     puts("scales: the arp's latched / held keys follow TRN, ROOT, SCALE and QNT (#191); octave, MIDI IN, kits as before");

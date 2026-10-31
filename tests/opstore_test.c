@@ -496,8 +496,8 @@ static int test_ssong_store(void)
     reset();
     ssong.count = 2; ssong.scene[0] = 0; ssong.repeat[0] = 2; ssong.scene[1] = 0; ssong.repeat[1] = 1;
     ssong.flags = SSG_LOOP;
-    ok = project_save(1) == 0 && st_current(OBJ_XPROJ0 + 1, &h) >= 0 && h.len == XTRA_V9;
-    bad += check("scene song: SAVE to B, its extras one object of XTRA_V9 (the EQ after it)", ok);
+    ok = project_save(1) == 0 && st_current(OBJ_XPROJ0 + 1, &h) >= 0 && h.len == XTRA_V11;
+    bad += check("scene song: SAVE to B, its extras one object of XTRA_V11 (the EQ, the MASTER, MIX 2's levels after it)", ok);
     power_on();
     ssong_clear();
     project_load(1);

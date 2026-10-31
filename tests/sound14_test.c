@@ -96,7 +96,7 @@ static void fresh(uint32_t e, uint32_t pi)        /* the boot state (no FX tails
 }
 static void dry(track_t *t)                       /* no sends: the dry mix only */
 {
-    t->p[P_DIST] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
+    t->p[P_ITYPE] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
 }
 
 /* the hash of a phrase on track 1 in a fork()ed child (the seeds as they were: the same in each); setup(t) first */
@@ -481,7 +481,10 @@ static lr_t spread_run(int32_t sp, int32_t pan, uint32_t mode, const uint8_t *no
     uint32_t k, i;
     fresh(0, preset_by_name(0, "SOFT PAD"));
     dry(t);
-    song.master_q12 = 1024;                               /* below the limiter: the levels as mixed */
+    song.master_q12 = MASTER_FULL;                        /* below the limiter: the levels as mixed, the track's LEVEL a */
+    for (k = (uint32_t)t->p[P_LEVEL], i = k; i > 0u && LEVEL_Q12[i] * 4u > LEVEL_Q12[k]; i--)   /* quarter (M-Vave-OP1: */
+        ;                                                 /* the limiter works before MASTER now, HOME > MASTER, dyn.c; */
+    t->p[P_LEVEL] = (int16_t)i;                           /* MASTER 1024 did this until then) */
     t->p[P_VOICE] = (int16_t)mode;
     t->p[P_SPRD] = (int16_t)sp;
     t->p[P_PAN] = (int16_t)pan;
@@ -528,7 +531,9 @@ static void test_spread(void)
     b = spread_run(127, 0, V_POLY, ONE, 1, NREND / 2);
     snprintf(msg, sizeof msg, "SPRD 127: the first note hard left (R peak %d of L's %d), at its level (L %.3f of SPRD 0's)",
              b.rmax, b.lmax, sqrt(b.l / a.l));
-    check(msg, b.rmax <= 2 && fabs(sqrt(b.l / a.l) - 1) < 0.01);
+    check(msg, b.rmax <= 4 && fabs(sqrt(b.l / a.l) - 1) < 0.01);   /* (4: the master's rounding, dyn.c master_block q;
+                                                                     * MASTER 1024 after it took it down to 1 until
+                                                                     * HOME > MASTER put the knob last) */
     b = spread_run(127, 0, V_POLY, TWO, 2, NREND / 2);
     {
         lr_t r1 = spread_run(127, 0, V_POLY, TWO + 1, 1, NREND / 2);   /* (67 alone: left, the first) */

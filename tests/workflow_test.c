@@ -131,8 +131,9 @@ static void wf_navigation(void)
     turn(EN_SELECT, 1); ok &= !ui.home && cur_page()->graph == GR_TRK;
     turn(EN_SELECT, 1); ok &= !ui.home && str_eq(cur_page()->title, "CLOCK");
     turn(EN_SELECT, 1); ok &= !ui.home && str_eq(cur_page()->title, "EQ");   /* (M-Vave-OP1: HOME > EQ) */
+    turn(EN_SELECT, 1); ok &= !ui.home && str_eq(cur_page()->title, "MASTER");   /* (.. HOME > MASTER) */
     turn(EN_SELECT, 1); ok &= ui.home;
-    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "EQ") && !ui.home;
+    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "MASTER") && !ui.home;
     press(B_HOME); ok &= ui.home;
     for (f = FAM_ENV; f < FAM_TRK; f++) {
         go_home(); frames(400);

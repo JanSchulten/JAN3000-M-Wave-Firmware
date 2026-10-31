@@ -182,18 +182,15 @@ static __attribute__((noinline)) void cloud_render(const int32_t *in, int32_t *o
     cld.side = 1;
 }
 
-/* fx_buses, while FX1 is not the DELAY or its TYPE changes: the chorus (as fx_buses' own loop), then FX1: the CLOUD,
- * or the change (the old type's last block fading out, the line cleared, the new one from silence). fb: the delay's
- * feedback, ECHO THROW's included (the CLOUD's FDBK gets the same lift) */
-static __attribute__((noinline)) void fx1_block(const int32_t *cho_in, const int32_t *dly_in, int32_t *wet, uint32_t n,
-                                                int32_t fb)
+/* fx_buses, while FX1 is not the DELAY or its TYPE changes: the chorus's wet (cho_bus, as fx_buses' own loop), then
+ * FX1: the CLOUD, or the change (the old type's last block fading out, the line cleared, the new one from silence).
+ * fb: the delay's feedback, ECHO THROW's included (the CLOUD's FDBK gets the same lift) */
+static __attribute__((noinline)) void fx1_block(const int32_t *dly_in, int32_t *wet, uint32_t n, int32_t fb)
 {
     uint32_t i, want = fx1s.type < FX1_NTYPE ? fx1s.type : FX1_DELAY;
     int32_t cfb = fx1s.fdbk * 295;
-    cho_k_t ck;
-    cho_setup(&ck);
-    for (i = 0; i < n; i++)                      /* the chorus (fx_buses' own) */
-        cho_wet[i] = wet[i] = cho_tick(&ck, cho_in[i]);
+    for (i = 0; i < n; i++)                      /* the chorus's (fx_buses' own) */
+        wet[i] = cho_wet[i];
     if (pf.ew1 && cfb < THR_FB)
         cfb += mulq16(THR_FB - cfb, (uint32_t)pf.ew1 << 1);   /* ECHO THROW: into the cloud, and round again */
     if (cld.busy) {                              /* clearing: FX1 silent */

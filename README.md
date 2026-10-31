@@ -355,11 +355,11 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 
 ## Other changes to Felucca's workflow
 
-- **SELECT turns every family's pages**, including HOME → MIXER → CLOCK → EQ → HOME. A page button opens its family;
+- **SELECT turns every family's pages**, including HOME → MIXER → CLOCK → EQ → MASTER → HOME. A page button opens its family;
   the same button again returns HOME. HOME always returns HOME. Hold a button for its live layer. Tempo is CLOCK's
   BPM knob or GLO + F4 TAP. SELECT never sets tempo; the old BPM LOCK bit remains reserved.
 
-- **HOME > EQ: four bands a track** (SELECT from HOME: MIXER, CLOCK, EQ), after the track's INSERT and before LEVEL,
+- **HOME > EQ: four bands a track** (SELECT from HOME: MIXER, CLOCK, EQ), after the track's DRIVE and before LEVEL,
   PAN and the sends, for the track ALGORITHM picks. KNOB 1 picks the band, KNOB 2 its FREQ (20 Hz .. 20 kHz in 121
   steps of about 1/12 octave, the R40 numbers: 100 Hz, 500 Hz, 2 kHz, 8 kHz are steps), KNOB 3 its GAIN (-12 .. +12 dB
   in half dB; on a LP / HP its RESO, a Q of 0.50 .. 9.51, kept apart), KNOB 4 its TYPE: L.SHF, BELL, H.SHF, LP, HP.
@@ -368,6 +368,21 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   8 kHz, 0 dB), and a flat band costs nothing. The EQ is the track's, like LEVEL and PAN: a sound loaded keeps it,
   scenes share it, it is not automated; it is kept with the project (its extras; projects of before load flat). The
   bands are RBJ cookbook biquads on the chip's FPU; a change glides in over a few ms.
+
+- **HOME > MASTER: a compressor and a limiter on the whole mix** (SELECT from HOME: MIXER, CLOCK, EQ, MASTER), after
+  SPEAKER EQ and before the MASTER knob, which now comes last: it only turns the result down, so the mix is squeezed the
+  same at any volume (USB LEVEL FIXED still takes the master before the knob). KNOB 1 COMP (0 .. 100 %: threshold and
+  ratio together, 50 % -12 dB at 3.5:1, 100 % -24 dB at 6:1, a 6 dB soft knee; 0 off), KNOB 2 RELEASE (20 ms .. 1 s,
+  the attack a twentieth), KNOB 3 LIMIT (the limiter's ceiling, -15.2 .. -0.2 dBFS; -5.2 the limiter of before), KNOB 4
+  GAIN (make-up, 0 .. +12 dB). The panel draws the static curve with the ceiling and meters of both reductions. The
+  defaults (COMP 0, RELEASE 141 ms, LIMIT -5.2 dB, GAIN 0) are bit for bit the master of before at the knob's top; kept
+  with the project (its extras; projects of before load the defaults).
+
+- **The drum keys (DRUM, VDRUM):** the black keys are the lanes as on SEQ > STEP's grid (DRUM's eight, VDRUM's six
+  parts): a black key strikes its lane as designed and picks it. The white keys strike the lane picked at a pitch, a
+  semitone a key: F4 as designed, F3 -7 .. G5 +8, OCT -/+ an octave each (past TUNE's range: the whole drum moves, on
+  VDRUM every part). The header says the lane and the pitch (SNARE +3). Live recording writes the lane's hit, not the
+  pitch; MIDI notes still play the GM map; SEQ > STEP's grid is unchanged.
 
 - **JAN3000 splash, cyber style:** the name in a segment face of its own (an LCD's bars, a slashed zero) boots
   like a terminal: each glyph flickers through random bars before it locks, over scan lines, with colour copies in
@@ -412,8 +427,8 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   presets keep them (in track parameters the retired DIGITAL engine left free); a preset load sets them back.
 - **DRUM, SEQ grid:** a lane's black key lights for a moment whenever that lane plays (a hi-hat's key flashes with
   each hit). VDRUM has the grid too (above).
-- **A factory preset brings the sound, not the effects:** the track's sends (DIST, CHORUS, DELAY, REVERB) and its
-  INSERT stay as they are when a factory preset loads (PRESETS, the EDIT layer, the editor, a Program Change, an engine
+- **A factory preset brings the sound, not the effects:** the track's sends (CHORUS, SHIMMER, DELAY, REVERB) and its
+  DRIVE stay as they are when a factory preset loads (PRESETS, the EDIT layer, the editor, a Program Change, an engine
   switch, a new project's draw). A user preset brings the effects it was saved with. The power-on sounds keep their
   sends, so the power-on project sounds as it always did.
 - **MENU > SYSTEM > INFO: the FPU probe.** OCT+ checks the chip's floating-point unit (which Felucca never used) and
@@ -424,18 +439,26 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
 - **EDIT as rows:** EDIT's pages without a picture of their own (EDIT 1 / 2, FILTER, VOICE ..) show four rows under
   the cards in place of the scope: every page's values, the row the knobs edit raised. SELECT goes to the next
   row. WHEEL, SAMPLE and FM6 keep their pictures.
-- **FX in seven cards, six drawn as effect pedals** (each in the colours of a classic of its kind: an orange drive,
-  a light blue chorus, a magenta flanger, a teal vibrato, a green delay or a purple CLOUD box, a blue room, a brown
-  spring, a silver hall, a pearl shimmer, a yellow slicer): the knobs where KNOB 1..4 sit (turned: the value under
-  it), a window with the effect moving, the name, the LED and the footswitch. SELECT the next: **1 SEND** (not a
-  pedal: four mixer faders, the track's DST CHO DLY REV), **2 INSERT** (TYPE A B MIX), **3 CHORUS** (TYPE CHORUS /
-  FLANGER / VIBRATO, RATE, DEPTH, FDBK), **4 DELAY** (TYPE DELAY: TIME FDBK MIX; CLOUD, the granular: SIZE PITCH
-  DENS), **5 REVERB** (TYPE ROOM / SPRING / HALL / SHIMMER, SIZE, DAMP), **6 SLICER**, **7 FX TRACKS**.
+- **The FX chain (docs/FX_KETTE_PLAN.md):** every track runs SLICER -> DRIVE -> EQ -> LEVEL / PAN, then one shared
+  serial chain **CHORUS -> SHIMMER -> DELAY -> REVERB**: each stage takes the tracks' sends to it plus what the stages
+  before it give, and every wet goes to the mix too (a CHR send is heard chorused, shimmered, echoed and reverbed; a
+  REV send only in the reverb). Nothing comes after the reverb but HOME > MASTER, MASTER and the FX layer. The chorus
+  reads its line twice for a stereo side (HALL and SHIMMER keep theirs, the delay stays mono).
+- **FX in nine cards, the effects drawn as pedals** (each in the colours of a classic of its kind: a red drive, a
+  light blue chorus, a magenta flanger, a teal vibrato, a pearl shimmer, a green delay or a purple CLOUD box, a blue
+  room, a brown spring, a silver hall, a yellow slicer): the knobs where KNOB 1..4 sit (turned: the value under it),
+  a window with the effect moving, the name, the LED and the footswitch. SELECT the next: **1 MIX** (not a pedal:
+  the track's sends CHO SHIM DLY REV as four faders), **2 MIX 2** (the chain's levels for all tracks: CHR SHR, DEL
+  the DELAY's MIX, REV; a level scales the stage's input, so a stage turned down rings out and passes nothing on),
+  **3 DRIVE** (TYPE OFF / SOFT / HARD / FOLD / FUZZ / CRUSH, DRIVE TONE LEVEL; CRUSH: BITS RATE LPF; always fully
+  in, TYPE OFF is off), **4 CHORUS** (TYPE CHORUS / FLANGER / VIBRATO, RATE, DEPTH, FDBK), **5 SHIMMER** (SIZE DAMP
+  PITCH FDBK), **6 DELAY** (TYPE DELAY: TIME FDBK MIX; CLOUD, the granular: SIZE PITCH DENS), **7 REVERB** (TYPE
+  ROOM / SPRING / HALL, SIZE, DAMP), **8 SLICER** (OFF / GATE / STUT / PUMP, per track before the DRIVE), **9 FX
+  TRACKS**. Retired and loading as OFF / HALL: the INSERT's PHASR FLANG CHOR, the old pre-drive DIST, the SLICER's
+  GATE END and PUMP END, the REVERB TYPE SHIMMER.
 - **CHORUS TYPE:** CHORUS is Felucca's (FDBK 0: bit for bit); FLANGER sweeps a 0.5 .. 6 ms comb, FDBK up to 0.87 for
   the jet; VIBRATO a 1 .. 10 ms line, the copy's pitch swinging (the bus is all wet: CHO up and the track's LEVEL down
   for the vibrato alone). TYPE and FDBK are kept with the project.
-- **REVERB SHIMMER:** the HALL with its tail shifted an octave up and fed back into it, so the tail climbs an octave
-  a pass (each one darker and quieter: it dies away at any SIZE).
 - **ARP on one screen:** ARP and ARP 2 show both their rows (MODE RATE OCT GATE, SWING PROB HOLD ORDER; the row the
   knobs edit raised, SELECT goes to the other) and under them a keyboard: the notes the arp runs through lit (the
   keys held brighter, the octaves OCT adds quieter), the note sounding in the accent.
@@ -443,7 +466,7 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   PLAY / CLEAR row clears its motion only. FX TRACKS + EDIT clears the selected lane after confirmation; SONG's
   F#3 deletes a section and G#3 clears the song, both with confirmation. SEQ + F#3 has no action.
 - **HOME shows the four tracks** by default. MENU > DISPLAY > HOME selects TRACKS or SCOPE. Stored LEVELS maps to
-  TRACKS. MIXER edits LEVEL, PAN and MUTE; REV stays on FX > SEND. VOICE 2 contains ALLOC DTUNE SPRD.
+  TRACKS. MIXER edits LEVEL, PAN and MUTE; REV stays on FX > MIX. VOICE 2 contains ALLOC DTUNE SPRD.
 - **OCT always shifts the keyboard octave on STEP**, stopped and playing. Notes are entered with the keyboard;
   MENU > CONTROL > CHORD ENTRY ADD adds individually pressed notes to a chord.
 - **DRUM starts with the 808 kit** (KIT 808, the 808 model kit Felucca calls 80): power-on, a track switched to DRUM,
@@ -598,10 +621,15 @@ PLAY / CLEAR row clears automation only; FX TRACKS + EDIT asks before clearing t
 F#3 deletes the selected section and G#3 clears the song, both with confirmation. SAVE no longer has TOOLS;
 initialize a sound with EDIT held + F#5.
 
-SELECT browses the current family everywhere, including HOME → MIXER → CLOCK → EQ → HOME (and backwards).
+SELECT browses the current family everywhere, including HOME → MIXER → CLOCK → EQ → MASTER → HOME (and backwards).
 HOME always returns HOME. Pressing any other page button opens its family; pressing it again returns HOME,
 including two quick taps. Hold the button for its live layer. Tempo is CLOCK's BPM knob or GLO held + F4 TAP;
 SELECT never changes tempo, and the old BPM LOCK bit remains reserved in stored settings.
+
+There is one swing: each track's SWG (SEQ held, KNOB 3; per scene with LEN DIV GATE). CLOCK no longer has a global
+SWG. A project saved with one plays the same: as it loads, its global SWG is added to every track's own (at most
+100, as the two summed before), in its stored scenes too, and a song adds each slot's own. The global stays 0 in the
+project file, so an older firmware plays such a project the same. ARP SWG stays the arpeggiator's own.
 
 PROJECT and USER share one storage workflow: white keys select the slot, OCT+ saves and OCT- asks to load.
 USER has 32 slots in two banks of 16, selected with KNOB 1; PROJECT uses its first four white keys for A–D.

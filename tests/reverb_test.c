@@ -4,8 +4,9 @@
  * hostsim.c as regress.c.
  *   build/host/reverb_test [DEMODIR [DEMODIR2]]          (run_tests.sh: build/fx_demo build/reverb_demo)
  * 1. ROOM bit-identical: fx_buses against a copy of the buses as they were before SPRING (chorus, delay and the
- *    4-comb room in one loop), on noise sends with SIZE / DAMP / the delay and chorus settings changing, sample
- *    for sample. (The goldens of regress.c, all rendered with ROOM, say the same for the whole mix.)
+ *    4-comb room in one loop), on noise sends with SIZE / DAMP / the delay settings changing, sample for sample.
+ *    (M-Vave-OP1: the chain feeds the CHORUS and the DELAY into the REVERB and the CHORUS is stereo: here the
+ *    CHORUS silent and the DELAY's MIX 0, so the REVERB takes its sends alone, as the copy's did.)
  * 2. SPRING decay: the impulse response's RT60 (Schroeder integral, -5 .. -35 dB) rises with SIZE, within
  *    0.15 .. 1 s at SIZE 0 and 2 .. 6 s at 127.
  * 3. SPRING dispersion: the group delay of the first arrival rises with frequency (1 .. 5 kHz, each band later
@@ -32,6 +33,18 @@
  * 90, 127. */
 #define main hostsim_main
 #include "hostsim.c"
+
+/* M-Vave-OP1: the buses as mix_block chains them, without the SHIMMER: the CHORUS (cho_bus), its wet into the DELAY,
+ * then the DELAY and the REVERB (fx_buses: the CHORUS's and the DELAY's wet into the REVERB) */
+static void buses(const int32_t *c, const int32_t *d, const int32_t *r, int32_t *w, uint32_t n)
+{
+    int32_t dd[CTL];
+    uint32_t i;
+    cho_bus(c, n);
+    for (i = 0; i < n; i++)
+        dd[i] = d[i] + cho_wet[i];
+    fx_buses(dd, r, w, n);
+}
 #undef main
 #ifdef __APPLE__
 #include <libproc.h>
@@ -145,6 +158,7 @@ static void test_room_identical(void)
     uint32_t b, i, diff = 0, nb = 30u * FS / CTL;
     host_tracks_init();
     song.g[G_RTYPE] = 0;                                        /* (HALL is the default since 1.2) */
+    song.g[G_DMIX] = 0;                                         /* (the chain: nothing but the sends into the REVERB) */
     for (b = 0; b < nb; b++) {
         if (b % 700u == 0u) {                                   /* the settings move now and then */
             song.g[G_RSIZE] = (int16_t)((uint32_t)noise(1 << 30) % 128u);
@@ -155,11 +169,11 @@ static void test_room_identical(void)
         }
         for (i = 0; i < CTL; i++) {
             int32_t on = (b / 300u) % 3u != 2u;                 /* bursts and silences: the tails too */
-            c[i] = on ? noise(60000) : 0;
+            c[i] = 0;                                           /* (the chain: see the top) */
             d[i] = on ? noise(60000) : 0;
             r[i] = on ? noise(b % 2000u < 1000u ? 90000 : 4000) : 0;
         }
-        fx_buses(c, d, r, w0, CTL);
+        buses(c, d, r, w0, CTL);
         ref_buses(c, d, r, w1, CTL);
         for (i = 0; i < CTL; i++)
             diff += w0[i] != w1[i];
@@ -333,7 +347,7 @@ static void test_spring_identical(void)
             c[i] = d[i] = 0;
             r[i] = on ? noise(b % 2000u < 1000u ? 90000 : 4000) : 0;
         }
-        fx_buses(c, d, r, w, CTL);
+        buses(c, d, r, w, CTL);
         for (i = 0; i < CTL; i++)
             h = (h ^ (uint32_t)w[i]) * 16777619u;
     }
@@ -774,7 +788,7 @@ static void test_switch(void)
                     c[i] = d[i] = 0;
                     r[i] = b < FS / CTL ? (int32_t)(30000 * sin(2 * M_PI * 220 * (b * CTL + i) / FS)) : 0;
                 }
-                fx_buses(c, d, r, w, CTL);
+                buses(c, d, r, w, CTL);
                 for (i = 0; i < CTL; i++) {
                     int32_t L = w[i] + (hl.side ? rev_side[i] : 0), s = abs(L - prev);   /* the left channel */
                     if (b >= 2u * FS / CTL - 4u && b <= 2u * FS / CTL + 4u)
@@ -791,24 +805,11 @@ static void test_switch(void)
             check(what, step <= 2 * own + 64 && after == 0 && fx.rtype == to);
         }
     song.g[G_RTYPE] = 0;
-    fx_buses(c, d, r, w, CTL);
+    buses(c, d, r, w, CTL);
     check("  and back to ROOM", fx.rtype == 0 && !hl.side);
 }
 
-/* SHIMMER (M-Vave-OP1, G_RTYPE 3): the HALL with its octave fed back. A 440 Hz burst: the tail (1 .. 2 s) holds the
- * band round 880 Hz well above HALL's and near the 440's, and round 1760 Hz too (the octave climbs); the corners (SIZE 127, DAMP 0 and 127, a full-scale noise burst):
- * bounded, decaying, exact silence within 40 s; HALL itself unchanged by SHIMMER's code (the octave's send 0) */
-static void shimmer_reset(int rt, int32_t size, int32_t damp)
-{
-    song.g[G_RTYPE] = (int16_t)rt;
-    song.g[G_RSIZE] = (int16_t)size;
-    song.g[G_RDAMP] = (int16_t)damp;
-    rev_clear();
-    fx.rtype = (uint8_t)rt;
-    hl.ph = 0;
-    hl.sz = 0;
-    hl.shw = hl.shd = 0;
-}
+/* the power of f in h[a .. b) (the HALL tests' measure) */
 static double goertzel(const int32_t *h, uint32_t a, uint32_t b, double f)
 {
     double w = 2 * M_PI * f / FS, c = 2 * cos(w), s0, s1 = 0, s2 = 0;
@@ -896,62 +897,40 @@ static void test_hall_quiet(void)
     check(what, tone > 0 && db <= -15.0);
 }
 
+/* SHIMMER as a REVERB TYPE (M-Vave-OP1, G_RTYPE 3) is retired: the chain's SHIMMER is its own stage (fx.c shimmer_bus).
+ * A project that stored 3 plays a HALL: the same noise bursts through the buses on TYPE 3 and on TYPE 2, from the
+ * same state, render bit for bit alike; the TYPE's names end at HALL */
 static void test_shimmer(void)
 {
-    static int32_t in[CTL], out[CTL], bur[FS / 4];
-    static int32_t h[2][3 * FS];
-    double a[2][3];
-    uint32_t m, i, t, k;
-    char what[200];
-    for (i = 0; i < FS / 4u; i++)
-        bur[i] = (int32_t)(20000 * sin(2 * M_PI * 440 * i / FS));
-    for (m = 0; m < 2u; m++) {                           /* HALL, SHIMMER: the tail's 440 880 1760 Hz */
-        shimmer_reset(m ? 3 : 2, 90, 60);
-        for (t = 0; t < 3u * FS / CTL * CTL; t += CTL) {
+    static int32_t c[CTL], d[CTL], r[CTL], h[2][4u * FS];
+    uint32_t m, t, i;
+    int same = 1;
+    for (m = 0; m < 2u; m++) {
+        host_tracks_init();
+        song.g[G_RTYPE] = (int16_t)(m ? 3 : 2);
+        song.g[G_RSIZE] = 110;
+        rev_clear();
+        fx.rtype = 2;
+        memset(&hl, 0, sizeof hl);
+        xs = 0x1234567u;                                /* (the same noise both times) */
+        for (t = 0; t < 4u * FS; t += CTL) {
+            int32_t w[CTL];
             for (i = 0; i < CTL; i++) {
-                in[i] = t + i < FS / 4u ? bur[t + i] : 0;
-                out[i] = 0;
+                c[i] = d[i] = 0;
+                r[i] = t < FS ? noise(90000) : 0;
             }
-            rev_hall(in, out, CTL);
+            buses(c, d, r, w, CTL);
             for (i = 0; i < CTL; i++)
-                h[m][t + i] = out[i] + rev_side[i];
+                h[m][t + i] = w[i] + (hl.side ? rev_side[i] : 0);
         }
-        a[m][0] = band(h[m], FS, 2 * FS, 440);
-        a[m][1] = band(h[m], FS, 2 * FS, 880);
-        a[m][2] = band(h[m], FS, 2 * FS, 1760);
     }
-    snprintf(what, sizeof what, "SHIMMER: the tail's octave (1 .. 2 s, 880 / 440 Hz) %.2f, HALL's %.3f; 1760 Hz %.2f", a[1][1] / a[1][0],
-             a[0][1] / a[0][0], a[1][2] / a[1][0]);
-    check(what, a[1][1] > 0.4 * a[1][0] && a[1][2] > 0.1 * a[1][0] && a[0][1] < 0.05 * a[0][0] && a[0][2] < 0.05 * a[0][0]);
-    for (k = 0; k < 2u; k++) {                           /* the corners */
-        int32_t peak = 0, late = 0;
-        double e1 = 0, e2 = 0;
-        uint32_t quiet = 0;
-        shimmer_reset(3, 127, k ? 127 : 0);
-        for (t = 0; t < 40u * FS; t += CTL) {
-            for (i = 0; i < CTL; i++) {
-                in[i] = t < FS ? noise(131071) : 0;
-                out[i] = 0;
-            }
-            rev_hall(in, out, CTL);
-            for (i = 0; i < CTL; i++) {
-                int32_t v = abs(out[i]) + abs(rev_side[i]);
-                peak = v > peak ? v : peak;
-                if (t >= FS && t < 3u * FS)
-                    e1 += (double)out[i] * out[i];
-                if (t >= 10u * FS && t < 12u * FS)
-                    e2 += (double)out[i] * out[i];
-                if (t >= 38u * FS)
-                    late |= out[i] | rev_side[i] | hl.sh[i % HL_NC];
-            }
-            quiet = t >= 38u * FS ? quiet : 0;
-        }
-        snprintf(what, sizeof what, "SHIMMER SIZE 127 DAMP %d: peak %d, 10 s after %.1f dB below 1 s after, silent at 38 .. 40 s: %s",
-                 k ? 127 : 0, peak, 10 * log10(e1 / (e2 + 1e-9)), late ? "no" : "yes");
-        check(what, peak < 4000000 && e2 * 1000 < e1 && !late);
-        (void)quiet;
-    }
-    shimmer_reset(0, 90, 60);
+    for (t = 0; t < 4u * FS; t++)
+        same &= h[0][t] == h[1][t];
+    check("REVERB TYPE 3 (the retired SHIMMER) plays a HALL bit for bit; the names end at HALL",
+          same && fx.rtype == 2 && GP[G_RTYPE].max == 2 && str_eq(GP[G_RTYPE].names[2], "HALL"));
+    song.g[G_RTYPE] = 0;
+    rev_clear();
+    fx.rtype = 0;
 }
 
 /* the CHORUS's TYPE (M-Vave-OP1, fx.c chos) through fx_buses, DEPTH 0 (the line still): an impulse comes out 400
@@ -975,6 +954,8 @@ static void test_chorus_types(void)
             fx.dly_lp = 0;
             fx.cho_ph = 0;
             song.g[G_CDEPTH] = 0;
+            song.g[G_DMIX] = 0;                                 /* (the CHORUS alone: the chain after it silent) */
+            fx_lvl[3] = 0;
             chos.type = (uint8_t)ty;
             chos.fdbk = (uint8_t)(fb ? 100 : 0);
             for (b = 0; b < 4096u / CTL; b++) {
@@ -982,7 +963,7 @@ static void test_chorus_types(void)
                     c[i] = b == 0 && i == 0 ? 20000 : 0;
                     d[i] = r[i] = 0;
                 }
-                fx_buses(c, d, r, w, CTL);
+                buses(c, d, r, w, CTL);
                 for (i = 0; i < CTL; i++)
                     h[b * CTL + i] = w[i];
             }
@@ -1009,6 +990,8 @@ static void test_chorus_types(void)
         memset(cho_buf, 0, sizeof cho_buf);
         song.g[G_CDEPTH] = 127;
         song.g[G_CRATE] = 127;
+        song.g[G_DMIX] = 0;                                     /* (the CHORUS alone: the chain after it silent) */
+        fx_lvl[3] = 0;
         chos.type = CHO_FLANGER;
         chos.fdbk = 100;
         for (b = 0; b < 4u * FS / CTL; b++) {
@@ -1016,7 +999,7 @@ static void test_chorus_types(void)
                 c[i] = b < FS / CTL ? noise(262143) : 0;
                 d[i] = r[i] = 0;
             }
-            fx_buses(c, d, r, w, CTL);
+            buses(c, d, r, w, CTL);
             for (i = 0; i < CTL; i++) {
                 peak = abs(w[i]) > peak ? abs(w[i]) : peak;
                 if (b > 3u * FS / CTL)
@@ -1049,7 +1032,7 @@ static double cost_of(int m, int bus)        /* model m alone (rev_room, rev_spr
     i0 = instr_now();
     for (b = 0; b < nb; b++) {
         if (bus) {
-            fx_buses(c, d, r, w, CTL);
+            buses(c, d, r, w, CTL);
             if (hl.side)
                 rev_side_mix(c, d, CTL);                /* (as mix_block: HALL's stereo) */
         } else if (m == M_HALL)
@@ -1148,7 +1131,7 @@ static void demo_block(int32_t *out, uint32_t n, int comb8_on)
             wet[i] = 0;                                 /* (no chorus or delay in the demos) */
         comb8(send_r, wet, n);
     } else {
-        fx_buses(send_c, send_d, send_r, wet, n);
+        buses(send_c, send_d, send_r, wet, n);
         if (hl.side)
             rev_side_mix(mix_l, mix_r, n);
     }
@@ -1271,6 +1254,8 @@ static void test_delay_glide(void)
     song.g[G_DFDBK] = 60;
     song.g[G_DMIX] = 127;
     song.g[G_DCOLOR] = 127;
+    fx_lvl[3] = 0;                                              /* (the DELAY alone: the REVERB after it in the chain
+                                                                 * adds its own high, dense slopes) */
     for (k = 0; k < 5u; k++) {
         int32_t before = 0, after = 0;
         song.g[G_DTIME] = TM[k];
@@ -1280,7 +1265,7 @@ static void test_delay_glide(void)
                 c[i] = r[i] = 0;
                 d[i] = (osc_sine(ph) * 20000) >> 15;
             }
-            fx_buses(c, d, r, w, CTL);
+            buses(c, d, r, w, CTL);
             for (i = 0; i < CTL; i++) {
                 int32_t st = abs(w[i] - last), t = (int32_t)(b * CTL + i);
                 last = w[i];

@@ -47,7 +47,7 @@ static void test_pages(void)
     ok &= song.sel == 1u && str_eq(cur_page()->title, "ENV");   /* (the family shown stays) */
     press(B_FX); frames(400);
     ck("another track: FX opens at its first page (SEND), not where the last track left it (CHORUS)",
-       ok && str_eq(cur_page()->title, "FX"));
+       ok && str_eq(cur_page()->title, "MIX"));
     press(B_FX); frames(400);
     press(B_FX); frames(400);
     press(B_FX); frames(400);
@@ -100,7 +100,7 @@ static uint64_t dl_hit(uint32_t note)
     static int32_t o[2 * CTL];
     uint32_t b, i;
     uint64_t e = 0;
-    trk[0].p[P_DIST] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;
+    trk[0].p[P_ITYPE] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;   /* (the power-on DRIVE too) */
     song.master_q12 = 4096;                           /* (the harness: no MASTER knob read) */
     panic_req = 0xFF;
     for (b = 0; b < 200u; b++)
@@ -133,7 +133,7 @@ static void test_sounds(void)
     sn0 = dl_hit(38);
     go_title("SOUNDS");
     frame();
-    ks = (uint32_t)(38 - 29 - 12 * song.octave);     /* (the snare's key: eng_drum.c drum_keys) */
+    ks = key_at(1, DV_SNARE);                        /* (the snare's key: black key 2, the drum keys: seq.c kit_key) */
     key_down(ks); frame(); key_up(ks); frame();
     ok = ui.lane == DV_SNARE && cur_page()->graph == GR_DLANE;
     turn(EN_K1, 3); turn(EN_K2, -1); turn(EN_K2, -1); turn(EN_K2, -1); turn(EN_K3, 2);   /* (a detent a step) */
@@ -142,7 +142,7 @@ static void test_sounds(void)
     sn1 = dl_hit(38);
     kk1 = dl_hit(36);
     ok &= sn1 < sn0 * 95u / 100u && kk1 > kk0 * 99u / 100u && kk1 < kk0 * 101u / 100u;   /* (DECAY -20: shorter) */
-    ck("  a key (D: SNARE) picks the lane; KNOB 1..3 its TUNE DECAY TONE: the snare sounds other, the kick as before", ok);
+    ck("  a key (black 2: SNARE) picks the lane; KNOB 1..3 its TUNE DECAY TONE: the snare sounds other, the kick as before", ok);
     turn(EN_K4, 1); turn(EN_K4, 1); turn(EN_K4, 1);
     {
         int32_t st;
@@ -184,9 +184,9 @@ static void test_select(void)
     b0 = song.g[G_BPM];
     press(B_FX); frames(400);
     first = ui.page;
-    ok = str_eq(cur_page()->title, "FX");
+    ok = str_eq(cur_page()->title, "MIX");
     turn(EN_SELECT, 1); frame();
-    ok &= str_eq(cur_page()->title, "INSERT") && song.g[G_BPM] == b0;
+    ok &= str_eq(cur_page()->title, "MIX 2") && song.g[G_BPM] == b0;
     turn(EN_SELECT, -1); frame();
     turn(EN_SELECT, -1); frame();
     ok &= str_eq(cur_page()->title, "FX TRACKS");      /* (back past the first: the last, FX's seventh card) */
@@ -204,11 +204,12 @@ static void test_select(void)
     turn(EN_K1, 1); ok &= song.g[G_BPM] == b0 + 1;
     turn(EN_SELECT, 1); ok &= str_eq(cur_page()->title, "EQ") && song.g[G_BPM] == b0 + 1;   /* (M-Vave-OP1: EQ) */
     turn(EN_K1, 1); ok &= song.g[G_BPM] == b0 + 1;
+    turn(EN_SELECT, 1); ok &= str_eq(cur_page()->title, "MASTER") && song.g[G_BPM] == b0 + 1;   /* (.. and MASTER) */
     turn(EN_SELECT, 1); ok &= ui.home;
-    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "EQ");
+    turn(EN_SELECT, -1); ok &= str_eq(cur_page()->title, "MASTER");
     press(B_HOME); ok &= ui.home;
     press_raw = 0;
-    ck("HOME always HOME; SELECT cycles HOME MIXER CLOCK EQ; only CLOCK KNOB 1 changes BPM", ok);
+    ck("HOME always HOME; SELECT cycles HOME MIXER CLOCK EQ MASTER; only CLOCK KNOB 1 changes BPM", ok);
 }
 
 static void rec_hold_oct(uint32_t b)                  /* REC held (its layer), OCT- or OCT+, let go */
