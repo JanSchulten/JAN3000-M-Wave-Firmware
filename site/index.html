@@ -1,14 +1,15 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-only
      Copyright (C) 2026 M-Vave-OP1 contributors
-     The site's front page (tools/make_vercel_site.sh puts it at site/index.html): where the bounce page and the
-     browser emulator are. In German, as the pages it leads to. -->
+     The site's front page (tools/make_vercel_site.sh puts it at site/index.html). The alpha (docs/BACKLOG.md): the
+     user guide and the installer ZIP of the GitHub release, nothing else (the bounce page and the browser emulator
+     are in the backlog). German first, with the English below each, as the guide opens in English. -->
 <html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>JAN3000</title>
-<meta name="description" content="JAN3000, Firmware für das M-VAVE FM-1 (based on Felucca): Projekte offline bouncen, die Firmware im Browser.">
+<meta name="description" content="JAN3000 v0.1 alpha, Firmware für das M-VAVE FM-1 (based on Felucca): Anleitung und Installer.">
 <meta name="theme-color" content="#101312">
 <style>
 :root { --bg: #f4f5f2; --card: #ffffff; --text: #161a18; --mid: #5d6661; --line: #dde1dc; --accent: #12a150; color-scheme: light; }
@@ -31,18 +32,24 @@ a.card b::after { content: " →"; color: var(--accent); }
 a.card span { color: var(--mid); font-size: 15px; }
 footer { color: var(--mid); font-size: 13px; margin-top: 24px; }
 footer a { color: inherit; }
+.alpha { border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; margin: 0 0 20px; font-size: 15px; }
+.alpha span { display: block; color: var(--mid); margin-top: 4px; }
 </style>
 </head>
 <body>
 <main>
   <h1>JAN3000</h1>
-  <p class="sub">Firmware für das M-VAVE FM-1, based on Felucca v1.5.1 · v1.0</p>
-  <a class="card" href="bounce/"><b>Bounce</b><span>Eine .FM1-Datei vom FM-1 (MENU › SYSTEM › USB DISK) offline als WAV
-    rendern: Mix und Einzelspuren, auch auf dem iPhone.</span></a>
-  <a class="card" href="emu/"><b>Emulator</b><span>Die ganze Firmware im Browser spielen, mit Tasten, Reglern und Bildschirm
-    (Chrome, Edge oder Safari am Computer).</span></a>
+  <p class="sub">Firmware für das M-VAVE FM-1, based on Felucca v1.5.1 · v0.1-alpha</p>
+  <p class="alpha">Alpha: die erste öffentliche Testversion. Installation auf eigenes Risiko; lies vorher in der Anleitung
+    „Getting started“. <span lang="en">The first public test version. Install at your own risk; read “Getting started”
+    in the guide first.</span></p>
+  <a class="card" href="manual/"><b>Anleitung · User guide</b><span>Alle Funktionen, Installation und der Weg zurück
+    zur Werks-Firmware, auf Deutsch und Englisch.</span></a>
+  <a class="card" href="https://github.com/JanSchulten/M-Vave-OP1/releases/download/v0.1-alpha/M-Vave-OP1-Installer.zip"><b>Installer-ZIP · Installer ZIP</b><span>Entpacken,
+    START-Mac.command oder START-Windows.bat starten, in Chrome oder Edge installieren. Alle Versionen:
+    Releases (unten).</span></a>
   <footer>Based on <a href="https://github.com/hugelton/Felucca">Felucca</a> by Leo Kuroshita (Hügelton Instruments),
-    GPL-3.0-only. Quelltext: <a href="https://github.com/JanSchulten/M-Vave-OP1">github.com/JanSchulten/M-Vave-OP1</a>.</footer>
+    GPL-3.0-only. <a href="https://github.com/JanSchulten/M-Vave-OP1/releases">Releases</a> · Quelltext: <a href="https://github.com/JanSchulten/M-Vave-OP1">github.com/JanSchulten/M-Vave-OP1</a>.</footer>
 </main>
 </body>
 </html>

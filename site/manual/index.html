@@ -346,7 +346,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <button type="button" data-a="green" style="--sw:#5fd08a" aria-label="GREEN" aria-pressed="false"></button>
       <span class="pal-name" id="pal-name">AMBER</span>
     </div>
-    <div class="rail-ver" data-en="JAN3000 v1.0 · October 2026 · GPL-3.0" data-de="JAN3000 v1.0 · Stand Oktober 2026 · GPL-3.0">JAN3000 v1.0 · October 2026 · GPL-3.0</div>
+    <div class="rail-ver" data-en="JAN3000 v0.1 alpha · November 2026 · GPL-3.0" data-de="JAN3000 v0.1 alpha · Stand November 2026 · GPL-3.0">JAN3000 v0.1 alpha · November 2026 · GPL-3.0</div>
   </div>
 </nav>
 <div class="scrim" id="scrim" hidden></div>
@@ -356,7 +356,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
 <div class="lang" lang="en">
 <header class="hero">
-  <p class="eyebrow">User guide · Firmware for the M-VAVE FM-1 · Version 1.0</p>
+  <p class="eyebrow">User guide · Firmware for the M-VAVE FM-1 · Version 0.1 alpha</p>
   <h1>JAN3000</h1>
   <p class="lede">JAN3000 is free firmware for the M-VAVE FM-1 pocket synthesizer. It turns the little device into a pocket studio: four tracks with their own sound engines, a step sequencer with 16 scenes, a KEY track for chord progressions and two tracks just for effects.</p>
   <div class="specs">
@@ -366,7 +366,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div><b>16</b><span>Scenes per project</span></div>
     <div><b>27</b><span>Keys F3–G5</span></div>
   </div>
-  <p class="status">JAN3000 v1.0 is the first release; every change in it ran on a real FM-1. Installing it is at your own risk. The open-source work it builds on is credited under <a href="#help-thanks">Licence and thanks</a>.</p>
+  <p class="status">JAN3000 v0.1 alpha is the first public test version: the firmware, its installer and this guide. Every change in it ran on a real FM-1, but expect rough edges, and please report what you find. Installing it is at your own risk. The open-source work it builds on is credited under <a href="#help-thanks">Licence and thanks</a>.</p>
 </header>
 
 <!-- ================================================================ 1 -->
@@ -427,7 +427,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <li><b>Chrome or Edge.</b> The installer needs Web MIDI with SysEx and is tested in these two.</li>
       <li><b>A USB-C cable that carries data</b>, straight into the computer, no hub. Many charging cables only charge.</li>
       <li><b>A full battery</b>, or the FM-1 on power. On the computer, sleep and screen lock off.</li>
-      <li><b>Close other music apps</b> that might hold the FM-1 (DAW, editor).</li>
+      <li><b>Close other music apps</b> that might hold the FM-1 (DAW, other editors).</li>
       <li><b>Python 3</b> on the computer, for the local installer.</li>
     </ul></div>
   </section>
@@ -435,7 +435,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="st-install">
     <h3>Installing</h3>
     <ol class="steps">
-      <li><span>Download the installer ZIP and unzip it.</span></li>
+      <li><span>Download the <a href="https://github.com/JanSchulten/M-Vave-OP1/releases/download/v0.1-alpha/M-Vave-OP1-Installer.zip">installer ZIP</a> (all versions: <a href="https://github.com/JanSchulten/M-Vave-OP1/releases">releases</a>) and unzip it.</span></li>
       <li><span>Double-click the starter: <code>START-Mac.command</code> on a Mac (the first time: right-click, then Open), <code>START-Windows.bat</code> on Windows. Keep its window open while you install.</span></li>
       <li><span>The browser opens the installer. It shows the firmware's version id; it must match the one in the starter's window.</span></li>
       <li><span>Connect the FM-1, click <b>Install</b> and allow MIDI (SysEx) access.</span></li>
@@ -469,10 +469,6 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     </ol>
   </section>
 
-  <section class="sub" id="st-browser">
-    <h3>Try it in the browser</h3>
-    <div class="prose"><p>The whole firmware also runs as WebAssembly in a browser: the panel on screen, played with mouse, touch and computer keyboard, with guided workflows (in German). It is a way to learn the features before you install anything. The page lives in the repository under <code>web/lab</code>. The web editor's <b>No device</b> button runs the same firmware inside the editor (see <a href="#sv-editor">The web editor</a>).</p></div>
-  </section>
 
   <section class="sub" id="st-back">
     <h3>Back to the factory firmware</h3>
@@ -505,7 +501,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     </figure>
     <div class="prose">
       <p>Each page button opens a family of pages, at the page you used there last; SAVE always opens PROJECT. <kbd>SELECT</kbd> turns through the family's pages, round and round. The same button again takes you back to HOME. Page buttons act when released.</p>
-      <p><kbd>HOME</kbd> itself goes round: HOME, MIXER, CLOCK, EQ. When you change tracks with <kbd>ALGORITHM</kbd>, the page on screen stays and every other family starts again at its first page.</p>
+      <p><kbd>HOME</kbd> itself goes round: HOME, MIXER, CLOCK, EQ, MASTER. When you change tracks with <kbd>ALGORITHM</kbd>, the page on screen stays and every other family starts again at its first page.</p>
     </div>
     <div class="tbl"><table>
       <thead><tr><th>Button</th><th>Pages (SELECT turns)</th><th>Hold</th></tr></thead>
@@ -514,7 +510,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td class="m">SEQ</td><td>STEP · DETAIL · AUTOMATION</td><td><a href="#scenes">SEQ layer</a>: scenes, tools</td></tr>
         <tr><td class="m">GLO</td><td>KEY · SONG</td><td><a href="#mx-glo">GLO layer</a>: mute, solo, levels, tap</td></tr>
         <tr><td class="m">SAVE</td><td>PROJECT · USER · PRESETS · PHRASES</td><td><a href="#ba-undo">Undo</a></td></tr>
-        <tr><td class="m">FX</td><td>FX (the sends) · INSERT · INSERT 2 · CHORUS · SHIMMER · DELAY · REVERB · SLICER · FX TRACKS</td><td><a href="#fx-punch">FX layer</a>: punch-ins</td></tr>
+        <tr><td class="m">FX</td><td>MIX · MIX 2 · DRIVE · CHORUS · SHIMMER · DELAY · REVERB · SLICER · FX TRACKS</td><td><a href="#fx-punch">FX layer</a>: punch-ins</td></tr>
         <tr><td class="m">SCL</td><td>SCL · CHORD</td><td><a href="#sd-scale">SCL layer</a>: root by key</td></tr>
         <tr><td class="m">EDIT</td><td>EDIT 1 · EDIT 2 · the engine's pages · VOICE · VOICE 2 <span class="d">EDIT 1 and 2 are titled by the engine, such as OSC and FLT</span></td><td><a href="#tr-engine">EDIT layer</a>: pick the engine</td></tr>
         <tr><td class="m">ENV</td><td>ENV · ENV DEST</td><td>–</td></tr>
@@ -561,8 +557,8 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="ba-tempo">
     <h3>Tempo</h3>
     <div class="prose">
-      <p><kbd>SELECT</kbd> only turns pages, on HOME, the MIXER, CLOCK and EQ as everywhere else; it never changes the tempo. Set the tempo on CLOCK with <kbd>KNOB 1</kbd>.</p>
-      <p>HOME &gt; CLOCK has <b>BPM</b>, <b>SWG</b> (swing) and <b>CLK</b>, the clock source: INT, USB or TRS. Hold <kbd>GLO</kbd> <span class="plus">+</span> <kbd>F4</kbd> to tap the tempo.</p>
+      <p><kbd>SELECT</kbd> only turns pages, on HOME, the MIXER, CLOCK, EQ and MASTER as everywhere else; it never changes the tempo. Set the tempo on CLOCK with <kbd>KNOB 1</kbd>.</p>
+      <p>HOME &gt; CLOCK has <b>BPM</b> and <b>CLK</b>, the clock source: INT, USB or TRS. Swing is each track's own SWG (SEQ held, KNOB 3); a project saved with the old global SWG adds it to every track's as it loads. Hold <kbd>GLO</kbd> <span class="plus">+</span> <kbd>F4</kbd> to tap the tempo.</p>
     </div>
   </section>
 
@@ -594,7 +590,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <p><kbd>PRESETS</kbd> steps through all sounds, engine by engine, then your own USER sounds; past an engine's last sound the track moves on to the next engine. On HOME and on the sound and FX pages it loads the sound; on STEP, AUTOMATION, SONG, PROJECT, USER and PHRASES it works like KNOB 1, on DETAIL it walks the steps. Every factory sound has a category: BASS, LEAD, PAD, PLUCK, KEYS, DRUM, FX or OTHER.</p>
       <p>SAVE &gt; PRESETS is the browser: every engine and sound, with favourites. The list you choose there (all, favourites or one category) is also the one the PRESETS knob steps through.</p>
     </div>
-    <p class="note"><span class="tag">Sound, not effects</span>A factory sound brings the sound only. The track's sends (DIST, CHORUS, DELAY, REVERB) and its INSERT stay as they are. A sound of your own from USER brings its effects along. A sound never changes the pattern.</p>
+    <p class="note"><span class="tag">Sound, not effects</span>A factory sound brings the sound only. The track's sends (CHORUS, SHIMMER, DELAY, REVERB) and its DRIVE stay as they are. A sound of your own from USER brings its effects along. A sound never changes the pattern.</p>
   </section>
 
   <section class="sub" id="tr-engine">
@@ -647,7 +643,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <div class="eng"><h4>WTABLE <kbd>E4</kbd></h4><p>Wavetables: 4 banks of 64 waves, gliding or stepped.</p></div>
       <div class="eng"><h4>SWARM <kbd>F4</kbd></h4><p>A swarm: eight saws per voice under grain envelopes.</p></div>
       <div class="eng"><h4>LOFI <kbd>G4</kbd></h4><p>Chiptune: pulse, triangle, saw, noise, 4-bit wave RAM, stepped envelope, sweep and arpeggio.</p></div>
-      <div class="eng"><h4>SAMPLE <kbd>A4</kbd></h4><p>Multisampled PIANO, and a sample of your own (USR1, about 7 s). FLUTE and SAX come as slot files (see <a href="#sv-editor">The web editor</a>).</p></div>
+      <div class="eng"><h4>SAMPLE <kbd>A4</kbd></h4><p>Multisampled PIANO, and USR1 for a sample of your own (about 7 s). Loading your own samples comes with a later release.</p></div>
       <div class="eng"><h4>WHEEL <kbd>B4</kbd></h4><p>Tonewheel organ: drawbar registrations, percussion, key click, drive and rotary.</p></div>
       <div class="eng"><h4>GRAIN <kbd>C5</kbd></h4><p>Granular textures from the built-in samples or your own slot.</p></div>
       <div class="eng"><h4>PHYS <kbd>D5</kbd></h4><p>Physical models: modal resonators, strings, struck membranes, sympathetic strings.</p></div>
@@ -708,23 +704,22 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt>OPERATOR</dt><dd>Ratio or fixed frequency, FINE, LEVEL.</dd>
       <dt>OP ENV</dt><dd>Each stage's rate and level, drawn as the envelope.</dd>
       <dt>OPERATOR 2</dt><dd>Mode, detune, velocity.</dd>
-      <dt>SLOT</dt><dd>EDIT 2 (titled PATCH), KNOB 4: F1–F8 the factory patches, OWN the track's own, B1–B32 a voice bank the web editor sends as a .syx file. A voice from the bank is copied into the track.</dd>
+      <dt>SLOT</dt><dd>EDIT 2 (titled PATCH), KNOB 4: F1–F8 the factory patches, OWN the track's own, B1–B32 a voice bank (empty for now: loading a bank comes with a later release). A voice from the bank is copied into the track.</dd>
     </dl>
-    <p class="note"><span class="tag">Backup</span>The voice bank is not in the editor's full backup. Keep the .syx file.</p>
   </section>
 
   <section class="sub" id="en-drum">
     <h3>DRUM</h3>
-    <div class="prose"><p>Eight instruments on the General MIDI map, the kick on the first C: KICK, SNARE, CLAP, HATCL, HATOP, TOM, RIM, BELL (some kits call TOM, RIM or BELL CONGA, CLAVE or CYM). All synthesized, no samples. <b>KIT</b> picks STD, 808, 10, 66, 55 or 77; the numbers nod to classic drum machines. DRUM starts with the 808 kit.</p></div>
+    <div class="prose"><p>Eight instruments: KICK, SNARE, CLAP, HATCL, HATOP, TOM, RIM, BELL (some kits call TOM, RIM or BELL CONGA, CLAVE or CYM). On the keys, the black keys 1–8 are the instruments, as on the sequencer's grid: a black key plays its instrument and picks it. The white keys then play the instrument picked at a pitch, a semitone per key: <kbd>F4</kbd> as designed, <kbd>F3</kbd> −7 up to <kbd>G5</kbd> +8, <kbd>OCT−</kbd> / <kbd>OCT+</kbd> an octave each. The header says what you played (SNARE +3). Live recording writes the hit, not the pitch; MIDI notes still play the General MIDI map. All synthesized, no samples. <b>KIT</b> picks STD, 808, 10, 66, 55 or 77; the numbers nod to classic drum machines. DRUM starts with the 808 kit.</p></div>
     <dl class="defs">
       <dt>LANES, LANES 2</dt><dd>Each instrument's level.</dd>
-      <dt>SOUNDS</dt><dd>A key picks the instrument, KNOB 1–4 set TUNE (±12 semitones), DECAY, TONE and SOUND: KIT, or that instrument from another kit, such as an 808 kick under a 10 snare.</dd>
+      <dt>SOUNDS</dt><dd>A black key picks the instrument (a white key keeps the one picked), KNOB 1–4 set TUNE (±12 semitones), DECAY, TONE and SOUND: KIT, or that instrument from another kit, such as an 808 kick under a 10 snare.</dd>
     </dl>
   </section>
 
   <section class="sub" id="en-vdrum">
     <h3>VDRUM</h3>
-    <div class="prose"><p>Six parts (KICK, SNARE, CLAP, HATCL, HATOP, TOM) of two layers each: a source (sine, saw or filtered noise), a pitch modulator and an envelope. Each part has BIT, FOLD, DRV, GAIN, its send into the resonator and a choke group.</p></div>
+    <div class="prose"><p>Six parts (KICK, SNARE, CLAP, HATCL, HATOP, TOM) of two layers each: a source (sine, saw or filtered noise), a pitch modulator and an envelope. Each part has BIT, FOLD, DRV, GAIN, its send into the resonator and a choke group. The keys work as on DRUM: black keys 1–6 play and pick the parts, the white keys play the part picked a semitone per key from <kbd>F4</kbd>.</p></div>
     <dl class="defs">
       <dt>Resonator</dt><dd>TUBE (odd harmonics, a shell) or STRNG (a plucked string). HOME: TYPE, DECAY, BODY, TUNE.</dd>
       <dt>EDIT 2 (titled KIT)</dt><dd>KIT, MIX, ACC, DRV.</dd>
@@ -753,7 +748,6 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt>ACC, DIST</dt><dd>How strong an accent is; distortion after the filter.</dd>
       <dt>Sounds</dt><dd>ACID LINE, SQUELCH, SQR ACID, RUBBER, DIST 303, DEEP SUB, SCREAM, SOFT BASS. All are MONO, and each loads a 303 line with accents and slides (patterns ACID 2 to ACID 5).</dd>
       <dt>A new line</dt><dd>Hold <kbd>SEQ</kbd> and press <kbd>D#4</kbd> (RANDOM): on an ACID track it rolls a new acid line in the track's scale, with rests, ties, accents and slides; step 1 is the accented root. COOK (<kbd>F#4</kbd>) also turns slides on and off.</dd>
-      <dt>In the web editor</dt><dd>The Sequencer tab shows an ACID track as a TD-3 grid: note, octave, time, ACC and SLD per step; "Roll acid" rolls a line as RANDOM does.</dd>
     </dl>
   </section>
 
@@ -1124,59 +1118,66 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <h3>The signal path</h3>
     <figure class="fig">
       <div class="fig-scroll">
-        <svg class="flow-svg" viewBox="0 0 940 364" role="img" aria-label="Signal path: each track through DIST, INSERT and SLICER to the mixer, sends to chorus, delay or cloud and reverb, then the mix, MASTER, punch-ins, limiter, output">
+        <svg class="flow-svg" viewBox="0 0 940 364" role="img" aria-label="Signal path: each track through SLICER, DRIVE and EQ to LEVEL and PAN; sends into one serial chain of chorus, shimmer, delay or cloud and reverb; then the mix, the punch-ins, SPEAKER EQ, compressor and limiter, the MASTER knob, output">
           <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker></defs>
           <rect class="frame" x="8" y="14" width="660" height="214" rx="12"/>
           <text class="lab" x="22" y="244">EVERY TRACK · T1 TO T4</text>
           <g><rect class="bx acc" x="20" y="30" width="110" height="46" rx="8"/><text class="t1" x="75" y="51">ENGINE</text><text class="t2" x="75" y="67">16 to choose</text></g>
-          <g><rect class="bx" x="155" y="30" width="90" height="46" rx="8"/><text class="t1" x="200" y="51">DIST</text><text class="t2" x="200" y="67">SEND › DST</text></g>
-          <g><rect class="bx" x="270" y="30" width="100" height="46" rx="8"/><text class="t1" x="320" y="51">INSERT</text><text class="t2" x="320" y="67">FX › INSERT</text></g>
-          <g><rect class="bx" x="395" y="30" width="100" height="46" rx="8"/><text class="t1" x="445" y="51">SLICER</text><text class="t2" x="445" y="67">FX › SLICER</text></g>
-          <g><rect class="bx" x="520" y="30" width="130" height="46" rx="8"/><text class="t1" x="585" y="51">LEVEL · PAN</text><text class="t2" x="585" y="67">MIXER</text></g>
-          <path class="ln" d="M130 53 H153" marker-end="url(#ah)"/><path class="ln" d="M245 53 H268" marker-end="url(#ah)"/>
-          <path class="ln" d="M370 53 H393" marker-end="url(#ah)"/><path class="ln" d="M495 53 H518" marker-end="url(#ah)"/>
+          <g><rect class="bx" x="150" y="30" width="90" height="46" rx="8"/><text class="t1" x="195" y="51">SLICER</text><text class="t2" x="195" y="67">FX › SLICER</text></g>
+          <g><rect class="bx" x="260" y="30" width="90" height="46" rx="8"/><text class="t1" x="305" y="51">DRIVE</text><text class="t2" x="305" y="67">FX › DRIVE</text></g>
+          <g><rect class="bx" x="370" y="30" width="90" height="46" rx="8"/><text class="t1" x="415" y="51">EQ</text><text class="t2" x="415" y="67">HOME › EQ</text></g>
+          <g><rect class="bx" x="480" y="30" width="170" height="46" rx="8"/><text class="t1" x="565" y="51">LEVEL · PAN</text><text class="t2" x="565" y="67">MIXER</text></g>
+          <path class="ln" d="M130 53 H148" marker-end="url(#ah)"/><path class="ln" d="M240 53 H258" marker-end="url(#ah)"/>
+          <path class="ln" d="M350 53 H368" marker-end="url(#ah)"/><path class="ln" d="M460 53 H478" marker-end="url(#ah)"/>
           <path class="ln" d="M650 46 H758" marker-end="url(#ah)"/>
-          <text class="lab" x="292" y="105">SENDS · CHO DLY REV</text>
-          <path class="ln" d="M585 76 V112 M320 112 H600 M320 112 V148 M460 112 V148 M600 112 V148" />
-          <path class="ln" d="M320 148 V149" marker-end="url(#ah)"/><path class="ln" d="M460 148 V149" marker-end="url(#ah)"/><path class="ln" d="M600 148 V149" marker-end="url(#ah)"/>
-          <g><rect class="bx" x="270" y="150" width="100" height="46" rx="8"/><text class="t1" x="320" y="171">CHORUS</text><text class="t2" x="320" y="187">FX › CHORUS</text></g>
-          <g><rect class="bx acc" x="395" y="150" width="130" height="46" rx="8"/><text class="t1" x="460" y="171">DELAY / CLOUD</text><text class="t2" x="460" y="187">FX1 · FX › DELAY</text></g>
-          <g><rect class="bx" x="550" y="150" width="100" height="46" rx="8"/><text class="t1" x="600" y="171">REVERB</text><text class="t2" x="600" y="187">FX › REVERB</text></g>
-          <path class="ln" d="M320 196 V212 H704 V66 H758" marker-end="url(#ah)"/><path class="ln" d="M460 196 V212 M600 196 V212"/>
-          <g><rect class="bx" x="760" y="30" width="160" height="46" rx="8"/><text class="t1" x="840" y="51">MIX</text><text class="t2" x="840" y="67">tracks and buses</text></g>
-          <g><rect class="bx" x="760" y="96" width="160" height="46" rx="8"/><text class="t1" x="840" y="117">MASTER</text><text class="t2" x="840" y="133">the knob</text></g>
-          <g><rect class="bx acc" x="760" y="162" width="160" height="46" rx="8"/><text class="t1" x="840" y="183">PUNCH-INS</text><text class="t2" x="840" y="199">FX layer · FX tracks</text></g>
-          <g><rect class="bx" x="760" y="228" width="160" height="46" rx="8"/><text class="t1" x="840" y="249">EQ · LIMITER</text><text class="t2" x="840" y="265">SPEAKER EQ</text></g>
+          <text class="lab" x="150" y="105">SENDS · FX › MIX: CHO SHIM DLY REV</text>
+          <path class="ln" d="M565 76 V112 M90 112 H565 M90 112 V148 M250 112 V148 M410 112 V148 M570 112 V148" />
+          <path class="ln" d="M90 148 V149" marker-end="url(#ah)"/><path class="ln" d="M250 148 V149" marker-end="url(#ah)"/><path class="ln" d="M410 148 V149" marker-end="url(#ah)"/><path class="ln" d="M570 148 V149" marker-end="url(#ah)"/>
+          <g><rect class="bx" x="25" y="150" width="130" height="46" rx="8"/><text class="t1" x="90" y="171">CHORUS</text><text class="t2" x="90" y="187">FX › CHORUS</text></g>
+          <g><rect class="bx" x="185" y="150" width="130" height="46" rx="8"/><text class="t1" x="250" y="171">SHIMMER</text><text class="t2" x="250" y="187">FX › SHIMMER</text></g>
+          <g><rect class="bx acc" x="345" y="150" width="130" height="46" rx="8"/><text class="t1" x="410" y="171">DELAY / CLOUD</text><text class="t2" x="410" y="187">FX1 · FX › DELAY</text></g>
+          <g><rect class="bx" x="505" y="150" width="130" height="46" rx="8"/><text class="t1" x="570" y="171">REVERB</text><text class="t2" x="570" y="187">FX › REVERB</text></g>
+          <path class="ln" d="M155 173 H183" marker-end="url(#ah)"/><path class="ln" d="M315 173 H343" marker-end="url(#ah)"/><path class="ln" d="M475 173 H503" marker-end="url(#ah)"/>
+          <path class="ln" d="M90 196 V212 H704 V66 H758" marker-end="url(#ah)"/><path class="ln" d="M250 196 V212 M410 196 V212 M570 196 V212"/>
+          <g><rect class="bx" x="760" y="30" width="160" height="46" rx="8"/><text class="t1" x="840" y="51">MIX</text><text class="t2" x="840" y="67">tracks and the chain</text></g>
+          <g><rect class="bx acc" x="760" y="96" width="160" height="46" rx="8"/><text class="t1" x="840" y="117">PUNCH-INS</text><text class="t2" x="840" y="133">FX layer · FX tracks</text></g>
+          <g><rect class="bx" x="760" y="162" width="160" height="46" rx="8"/><text class="t1" x="840" y="183">EQ · COMP · LIMIT</text><text class="t2" x="840" y="199">SPEAKER EQ · HOME › MASTER</text></g>
+          <g><rect class="bx" x="760" y="228" width="160" height="46" rx="8"/><text class="t1" x="840" y="249">MASTER</text><text class="t2" x="840" y="265">the knob, last</text></g>
           <g><rect class="bx" x="760" y="294" width="160" height="46" rx="8"/><text class="t1" x="840" y="315">OUTPUT</text><text class="t2" x="840" y="331">speaker · headphones · USB</text></g>
           <path class="ln" d="M840 76 V94" marker-end="url(#ah)"/><path class="ln" d="M840 142 V160" marker-end="url(#ah)"/>
           <path class="ln" d="M840 208 V226" marker-end="url(#ah)"/><path class="ln" d="M840 274 V292" marker-end="url(#ah)"/>
         </svg>
       </div>
-      <figcaption>Each track has distortion, an INSERT and the SLICER. Sends feed three shared effects. The punch-ins sit after the MASTER knob, on the whole mix.</figcaption>
+      <figcaption>Each track runs through the SLICER, its DRIVE and its EQ. Sends feed one chain in series: chorus, shimmer, delay, reverb; every stage passes on to the next and goes to the mix as well. The punch-ins and HOME › MASTER work on the whole mix; the MASTER knob comes last.</figcaption>
     </figure>
   </section>
 
   <section class="sub" id="fx-cards">
     <h3>The FX cards</h3>
-    <div class="prose"><p><kbd>FX</kbd> opens seven cards; <kbd>SELECT</kbd> turns them. Five are drawn as effect pedals, each in the colours of a classic of its kind, with the effect moving in a window; the first card shows the sends as four faders. SEND, INSERT and SLICER belong to the selected track; CHORUS, DELAY and REVERB to all.</p></div>
+    <div class="prose"><p><kbd>FX</kbd> opens nine cards; <kbd>SELECT</kbd> turns them. The effects are drawn as pedals, each in the colours of a classic of its kind, with the effect moving in a window; MIX and MIX 2 show four faders. MIX, DRIVE and SLICER belong to the selected track; MIX 2, CHORUS, SHIMMER, DELAY and REVERB to all.</p></div>
     <div class="tbl"><table>
       <thead><tr><th>Card</th><th class="k">KNOB 1</th><th class="k">KNOB 2</th><th class="k">KNOB 3</th><th class="k">KNOB 4</th></tr></thead>
       <tbody>
-        <tr><td class="m">1 FX<span class="d">the sends</span></td><td class="m">DST</td><td class="m">CHO</td><td class="m">DLY</td><td class="m">REV</td></tr>
-        <tr><td class="m">2 INSERT</td><td class="m">INSRT<span class="d">the type</span></td><td class="m">A<span class="d">named by the type</span></td><td class="m">B<span class="d">named by the type</span></td><td class="m">MIX</td></tr>
-        <tr><td class="m">3 CHORUS</td><td class="m">TYPE<span class="d">CHORUS, FLANGER, VIBRATO</span></td><td class="m">RATE</td><td class="m">DEPTH</td><td class="m">FDBK</td></tr>
-        <tr><td class="m">4 DELAY</td><td class="m">TYPE<span class="d">DELAY or CLOUD</span></td><td class="m">TIME · SIZE</td><td class="m">FDBK · PITCH</td><td class="m">MIX · DENS</td></tr>
-        <tr><td class="m">5 REVERB</td><td class="m">TYPE<span class="d">ROOM, SPRING, HALL, SHIMMER</span></td><td class="m">SIZE</td><td class="m">DAMP</td><td>–</td></tr>
-        <tr><td class="m">6 SLICER</td><td class="m">SLCR</td><td class="m">PAT</td><td class="m">RATE</td><td class="m">DEPTH</td></tr>
-        <tr><td class="m">7 FX TRACKS</td><td class="m">LANE</td><td class="m">STEP</td><td class="m">EFFECT</td><td class="m">LEN</td></tr>
+        <tr><td class="m">1 MIX<span class="d">the track's sends</span></td><td class="m">CHO</td><td class="m">SHIM</td><td class="m">DLY</td><td class="m">REV</td></tr>
+        <tr><td class="m">2 MIX 2<span class="d">the chain's levels</span></td><td class="m">CHR</td><td class="m">SHR</td><td class="m">DEL<span class="d">the DELAY's MIX</span></td><td class="m">REV</td></tr>
+        <tr><td class="m">3 DRIVE</td><td class="m">TYPE<span class="d">OFF, SOFT, HARD, FOLD, FUZZ, CRUSH</span></td><td class="m">DRIVE · BITS</td><td class="m">TONE · RATE</td><td class="m">LEVEL · LPF</td></tr>
+        <tr><td class="m">4 CHORUS</td><td class="m">TYPE<span class="d">CHORUS, FLANGER, VIBRATO</span></td><td class="m">RATE</td><td class="m">DEPTH</td><td class="m">FDBK</td></tr>
+        <tr><td class="m">5 SHIMMER</td><td class="m">SIZE</td><td class="m">DAMP</td><td class="m">PITCH</td><td class="m">FDBK</td></tr>
+        <tr><td class="m">6 DELAY</td><td class="m">TYPE<span class="d">DELAY or CLOUD</span></td><td class="m">TIME · SIZE</td><td class="m">FDBK · PITCH</td><td class="m">MIX · DENS</td></tr>
+        <tr><td class="m">7 REVERB</td><td class="m">TYPE<span class="d">ROOM, SPRING, HALL</span></td><td class="m">SIZE</td><td class="m">DAMP</td><td>–</td></tr>
+        <tr><td class="m">8 SLICER</td><td class="m">SLCR<span class="d">OFF, GATE, STUT, PUMP</span></td><td class="m">PAT</td><td class="m">RATE</td><td class="m">DEPTH</td></tr>
+        <tr><td class="m">9 FX TRACKS</td><td class="m">LANE</td><td class="m">STEP</td><td class="m">EFFECT</td><td class="m">LEN</td></tr>
       </tbody>
     </table></div>
     <dl class="defs">
-      <dt>INSERT</dt><dd>SOFT, HARD, FOLD and FUZZ (A DRIVE, B TONE), CRUSH (A BITS, B RATE), PHASR, FLANG and CHOR (A RATE, B DEPTH). It sits after DIST and before the SLICER and is part of the sound. MIX blends dry and wet.</dd>
-      <dt>CHORUS</dt><dd>FLANGER sweeps a 0.5 to 6 ms comb, FDBK up to 0.87 for the jet. VIBRATO is all wet: CHO up and the track's LEVEL down for the vibrato alone.</dd>
+      <dt>MIX</dt><dd>How much of the selected track goes into each stage. The chain runs in series, so CHO is heard chorused, then shimmered, echoed and reverbed; SHIM goes through shimmer, delay and reverb, DLY through delay and reverb, REV into the reverb alone.</dd>
+      <dt>MIX 2</dt><dd>Each stage's level, for all tracks. It sets how much goes into the stage, so a stage turned down rings out and passes nothing more on. DEL is the DELAY's MIX. Kept with the project.</dd>
+      <dt>DRIVE</dt><dd>SOFT, HARD, FOLD and FUZZ (DRIVE, TONE, LEVEL), CRUSH (BITS, RATE, LPF). It sits after the SLICER and before the EQ and is part of the sound; there is no dry blend, TYPE OFF is off. Projects with the old INSERT types PHASR, FLANG or CHOR or the old DIST play them as OFF.</dd>
+      <dt>CHORUS</dt><dd>The chain's first stage, in stereo. FLANGER sweeps a 0.5 to 6 ms comb, FDBK up to 0.87 for the jet. VIBRATO is all wet: CHO up and the track's LEVEL down for the vibrato alone.</dd>
+      <dt>SHIMMER</dt><dd>A hall whose tail is pitched (PITCH in semitones, an octave up at first) and fed back (FDBK): each pass climbs and fades.</dd>
       <dt>DELAY</dt><dd>TIME in tempo, dotted values too (1/4D, 1/8D, 1/16D), at most 1.49 s.</dd>
-      <dt>REVERB</dt><dd>HALL is a smooth stereo reverb; SIZE sets its decay from 0.5 s to about 9 s. SHIMMER is the HALL with its tail fed back an octave up, each pass darker and quieter.</dd>
-      <dt>SLICER</dt><dd>Rhythm in tempo, at the start of a track or at the end of the whole mix. SLCR picks the mode: <b>GATE</b> cuts the track to one of 16 step patterns (DEPTH: how far a step closes), <b>STUT</b> repeats it, <b>PUMP</b> ducks it on every step as a sidechain compressor keyed by a kick would. <b>GT END</b> and <b>PM END</b> do the same to the whole mix, after the reverb. For PUMP, DEPTH sets how far the level drops and PAT the curve back up: 1–4 SMOOTH, 5–8 PUNCH, 9–12 LINEAR, 13–16 HOLD, each over the whole step, ¾, ½ or ¼ of it. RATE sets the step length, 1/4 being the longest.</dd>
+      <dt>REVERB</dt><dd>The end of the chain. HALL is a smooth stereo reverb; SIZE sets its decay from 0.5 s to about 9 s. A project with the old REVERB type SHIMMER plays a HALL.</dd>
+      <dt>SLICER</dt><dd>Rhythm in tempo at the start of a track, before its DRIVE. SLCR picks the mode: <b>GATE</b> cuts the track to one of 16 step patterns (DEPTH: how far a step closes), <b>STUT</b> repeats it, <b>PUMP</b> ducks it on every step as a sidechain compressor keyed by a kick would. For PUMP, DEPTH sets how far the level drops and PAT the curve back up: 1–4 SMOOTH, 5–8 PUNCH, 9–12 LINEAR, 13–16 HOLD, each over the whole step, ¾, ½ or ¼ of it. RATE sets the step length, 1/4 being the longest. (GT END and PM END, on the whole mix, are retired: such a track plays the SLICER OFF.)</dd>
     </dl>
   </section>
 
@@ -1267,7 +1268,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="mx-eq">
     <h3>EQ</h3>
     <div class="prose">
-      <p>From HOME, <kbd>SELECT</kbd> steps MIXER, CLOCK, then EQ: four bands for the track picked with <kbd>ALGORITHM</kbd>, after its INSERT and before LEVEL, PAN and the sends. The panel shows the track's curve from 20 Hz to 20 kHz (±12 dB), the band picked on its own, and the four bands as numbered points.</p>
+      <p>From HOME, <kbd>SELECT</kbd> steps MIXER, CLOCK, then EQ: four bands for the track picked with <kbd>ALGORITHM</kbd>, after its DRIVE and before LEVEL, PAN and the sends. The panel shows the track's curve from 20 Hz to 20 kHz (±12 dB), the band picked on its own, and the four bands as numbered points.</p>
     </div>
     <dl class="defs">
       <dt><kbd>KNOB 1</kbd> BAND</dt><dd>Picks band 1 to 4.</dd>
@@ -1276,6 +1277,20 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt><kbd>KNOB 4</kbd> TYPE</dt><dd>L.SHF (low shelf), BELL, H.SHF (high shelf), LP (low pass), HP (high pass). Shelves and bells have a fixed width.</dd>
     </dl>
     <div class="prose"><p>The bands start flat: L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF 8 kHz, all at 0 dB. The EQ belongs to the track like LEVEL and PAN: loading a sound keeps it, all scenes share it, and it is saved with the project.</p></div>
+  </section>
+
+  <section class="sub" id="mx-master">
+    <h3>MASTER</h3>
+    <div class="prose">
+      <p>After EQ, <kbd>SELECT</kbd> reaches MASTER: the dynamics at the end of the whole mix, a compressor and then a limiter, after SPEAKER EQ and before the MASTER knob. The knob only turns the result down, so the sound is squeezed the same at any volume. The panel shows the curve (input level across, output up, the limiter's ceiling as a red line) and two meters: how many dB the compressor and the limiter take off right now.</p>
+    </div>
+    <dl class="defs">
+      <dt><kbd>KNOB 1</kbd> COMP</dt><dd>How hard the compressor works, 0 to 100 %: threshold and ratio together (50 %: −12 dB at 3.5:1; 100 %: −24 dB at 6:1), a soft knee. 0 % is off.</dd>
+      <dt><kbd>KNOB 2</kbd> RELEASE</dt><dd>20 ms to 1 s; the attack follows at a twentieth of it.</dd>
+      <dt><kbd>KNOB 3</kbd> LIMIT</dt><dd>The limiter's ceiling, −15.2 to −0.2 dBFS in half dB. −5.2 dB is the limiter as it always was.</dd>
+      <dt><kbd>KNOB 4</kbd> GAIN</dt><dd>Make-up gain after the compressor, 0 to +12 dB, into the limiter.</dd>
+    </dl>
+    <div class="prose"><p>It starts as COMP 0 %, RELEASE 141 ms, LIMIT −5.2 dB, GAIN 0 dB: exactly the master of before with the knob all the way up. The settings are saved with the project; projects of before load with these defaults.</p></div>
   </section>
 
   <section class="sub" id="mx-glo">
@@ -1335,27 +1350,12 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose"><p><kbd>KNOB 2</kbd> (LOAD) loads and <kbd>KNOB 3</kbd> (ERASE) erases the same way, each with <kbd>OCT+</kbd>. A sound of your own keeps its effects, an FM6 sound its patch, a VDRUM sound its own kit.</p></div>
   </section>
 
-  <section class="sub" id="sv-disk">
-    <h3>USB DISK: projects as files</h3>
-    <div class="prose">
-      <p><b>MENU &gt; SYSTEM &gt; USB DISK</b> (OCT+) turns the FM-1 into a USB drive for as long as that screen is up. Plugged into a phone (the Files app) or a computer, it shows up as <b>FM-1</b>, read-only, with <code>README.TXT</code> (the slots, their projects' names, the firmware), <code>CURRENT.FM1</code> (the music as it is now) and <code>PROJ_A.FM1</code> to <code>PROJ_D.FM1</code> for each slot that holds a project. Copy them wherever you like.</p>
-      <p>Any button or key ends it; USB is then MIDI and audio again. While the drive is up, the transport stops, and MIDI, USB audio, the editor and the console are off. A <code>.FM1</code> file holds the project exactly as the FM-1 keeps it: the project, its extras, its scenes, the settings, the user sample and the FM6 voice bank. Copying files onto the FM-1 is not possible yet.</p>
-    </div>
-  </section>
 
-  <section class="sub" id="sv-editor">
-    <h3>The web editor</h3>
-    <div class="prose">
-      <p>The web editor (in the installer ZIP, opened from the installer page) edits sounds, patterns and settings over USB in Chrome or Edge. Its <b>No device</b> button runs the FM-1's firmware inside the page, so the editor also works without the FM-1, with the firmware's own sound; saves stay in that browser. The computer keyboard plays the selected track (A W S E D F T G Y H U J K O L P from the octave's C, Z / X octave, C / V velocity).</p>
-      <p><b>Presets as files:</b> Projects &gt; Presets on the device lists the user slots U01 to U32. Download one or all, replace one with a file, or upload several. <b>Library &gt; Export presets</b> saves the sounds shown as a preset file.</p>
-      <p><b>Samples:</b> the Samples tab uploads a sample into USR1 (the second and third sample slots hold the scenes and the extras). FLUTE and SAX are no longer built in; they come as slot files (<code>FLUTE.slot</code>, <code>SAX.slot</code> in the ZIP's <code>samples</code> folder), written into USR1 with <b>Slot file</b>. SAMPLE's SET USR1 then plays them.</p>
-    </div>
-  </section>
 
   <section class="sub" id="sv-auto">
     <h3>Autosave</h3>
     <div class="prose"><p>With MENU &gt; SYSTEM &gt; RESTORE LAST ON the FM-1 starts with the music you left. The autosave is kept apart from the four projects and written when something changed, the music is stopped and nothing was touched for 10 seconds, at most once a minute.</p></div>
-    <p class="note"><span class="tag">Flash</span>Scenes and extras live in the flash of two of the three sample slots. The web editor therefore uploads samples into USR1 only.</p>
+    <p class="note"><span class="tag">Flash</span>Scenes and extras live in the flash of two of the three sample slots, so USR1 is the one slot left for a sample of your own.</p>
   </section>
 </section>
 
@@ -1589,13 +1589,13 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 </section>
 
 <footer class="foot">
-  <p>JAN3000 v1.0 · user guide · October 2026.</p>
+  <p>JAN3000 v0.1 alpha · user guide · November 2026.</p>
 </footer>
 
 </div>
 <div class="lang" lang="de" hidden>
 <header class="hero">
-  <p class="eyebrow">Bedienungsanleitung · Firmware für das M-VAVE FM-1 · Version 1.0</p>
+  <p class="eyebrow">Bedienungsanleitung · Firmware für das M-VAVE FM-1 · Version 0.1 alpha</p>
   <h1>JAN3000</h1>
   <p class="lede">JAN3000 ist eine freie Firmware für den Taschen-Synthesizer M-VAVE FM-1. Sie macht das kleine Gerät zum Taschenstudio: vier Spuren mit eigener Klangerzeugung, ein Step-Sequencer mit 16 Szenen, eine KEY-Spur für Akkordfolgen und zwei Spuren nur für Effekte.</p>
   <div class="specs">
@@ -1605,7 +1605,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div><b>16</b><span>Szenen je Projekt</span></div>
     <div><b>27</b><span>Tasten F3–G5</span></div>
   </div>
-  <p class="status">JAN3000 v1.0 ist die erste Version; jede Änderung darin lief auf einem echten FM-1. Die Installation geschieht auf eigenes Risiko. Die Open-Source-Arbeit, auf der die Firmware aufbaut, steht unter <a href="#de-hilfe-dank">Lizenz und Dank</a>.</p>
+  <p class="status">JAN3000 v0.1 alpha ist die erste öffentliche Testversion: die Firmware, ihr Installer und diese Anleitung. Jede Änderung darin lief auf einem echten FM-1, aber rechne mit Ecken und Kanten und melde bitte, was dir auffällt. Die Installation geschieht auf eigenes Risiko. Die Open-Source-Arbeit, auf der die Firmware aufbaut, steht unter <a href="#de-hilfe-dank">Lizenz und Dank</a>.</p>
 </header>
 
 <!-- ================================================================ 1 -->
@@ -1666,7 +1666,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <li><b>Chrome oder Edge.</b> Der Installer braucht Web-MIDI mit SysEx und ist in diesen beiden erprobt.</li>
       <li><b>Ein USB-C-Kabel, das Daten überträgt</b>, direkt am Computer, ohne Hub. Viele Ladekabel können nur laden.</li>
       <li><b>Akku voll</b> oder das FM-1 am Strom. Am Computer Ruhezustand und Bildschirmsperre aus.</li>
-      <li><b>Andere Musikprogramme schließen</b>, die das FM-1 belegen könnten (DAW, Editor).</li>
+      <li><b>Andere Musikprogramme schließen</b>, die das FM-1 belegen könnten (DAW, andere Editoren).</li>
       <li><b>Python 3</b> auf dem Computer, für den lokalen Installer.</li>
     </ul></div>
   </section>
@@ -1674,7 +1674,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-start-install">
     <h3>Installieren</h3>
     <ol class="steps">
-      <li><span>Das Installer-ZIP herunterladen und entpacken.</span></li>
+      <li><span>Das <a href="https://github.com/JanSchulten/M-Vave-OP1/releases/download/v0.1-alpha/M-Vave-OP1-Installer.zip">Installer-ZIP</a> herunterladen (alle Versionen: <a href="https://github.com/JanSchulten/M-Vave-OP1/releases">Releases</a>) und entpacken.</span></li>
       <li><span>Den Starter doppelklicken: auf dem Mac <code>START-Mac.command</code> (beim ersten Mal Rechtsklick, dann Öffnen), unter Windows <code>START-Windows.bat</code>. Das Fenster bleibt offen, solange du installierst.</span></li>
       <li><span>Der Browser öffnet den Installer. Er zeigt die Versionskennung der Firmware; sie muss zu der im Starter-Fenster passen.</span></li>
       <li><span>FM-1 anschließen, <b>Install</b> klicken und den MIDI-Zugriff (SysEx) erlauben.</span></li>
@@ -1708,10 +1708,6 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     </ol>
   </section>
 
-  <section class="sub" id="de-start-browser">
-    <h3>Im Browser ausprobieren</h3>
-    <div class="prose"><p>Die ganze Firmware läuft auch als WebAssembly im Browser: das Bedienfeld auf dem Bildschirm, bedienbar mit Maus, Touch und Computertastatur, dazu geführte Workflows auf Deutsch. So lernst du die Funktionen kennen, bevor du etwas installierst. Die Seite liegt im Repository unter <code>web/lab</code>. Der Knopf <b>No device</b> im Web-Editor startet dieselbe Firmware im Editor (siehe <a href="#de-sp-editor">Der Web-Editor</a>).</p></div>
-  </section>
 
   <section class="sub" id="de-start-zurueck">
     <h3>Zurück zur Werks-Firmware</h3>
@@ -1744,7 +1740,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     </figure>
     <div class="prose">
       <p>Jede Seitentaste öffnet eine Familie von Seiten, und zwar die Seite, die du dort zuletzt benutzt hast; SAVE öffnet immer PROJECT. <kbd>SELECT</kbd> blättert durch die Seiten der Familie, rundherum. Dieselbe Taste noch einmal führt zurück auf HOME. Seitentasten wirken beim Loslassen.</p>
-      <p><kbd>HOME</kbd> selbst geht reihum: HOME, MIXER, CLOCK, EQ. Wechselst du mit <kbd>ALGORITHM</kbd> die Spur, bleibt die angezeigte Seite, und jede andere Familie beginnt wieder bei ihrer ersten Seite.</p>
+      <p><kbd>HOME</kbd> selbst geht reihum: HOME, MIXER, CLOCK, EQ, MASTER. Wechselst du mit <kbd>ALGORITHM</kbd> die Spur, bleibt die angezeigte Seite, und jede andere Familie beginnt wieder bei ihrer ersten Seite.</p>
     </div>
     <div class="tbl"><table>
       <thead><tr><th>Taste</th><th>Seiten (SELECT blättert)</th><th>Halten</th></tr></thead>
@@ -1753,7 +1749,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td class="m">SEQ</td><td>STEP · DETAIL · AUTOMATION</td><td><a href="#de-szenen">SEQ-Ebene</a>: Szenen, Werkzeuge</td></tr>
         <tr><td class="m">GLO</td><td>KEY · SONG</td><td><a href="#de-mix-glo">GLO-Ebene</a>: Mute, Solo, Pegel, Tap</td></tr>
         <tr><td class="m">SAVE</td><td>PROJECT · USER · PRESETS · PHRASES</td><td><a href="#de-gr-undo">Rückgängig</a></td></tr>
-        <tr><td class="m">FX</td><td>FX (die Sends) · INSERT · INSERT 2 · CHORUS · SHIMMER · DELAY · REVERB · SLICER · FX TRACKS</td><td><a href="#de-fx-punch">FX-Ebene</a>: Punch-ins</td></tr>
+        <tr><td class="m">FX</td><td>MIX · MIX 2 · DRIVE · CHORUS · SHIMMER · DELAY · REVERB · SLICER · FX TRACKS</td><td><a href="#de-fx-punch">FX-Ebene</a>: Punch-ins</td></tr>
         <tr><td class="m">SCL</td><td>SCL · CHORD</td><td><a href="#de-kl-skala">SCL-Ebene</a>: Grundton per Taste</td></tr>
         <tr><td class="m">EDIT</td><td>EDIT 1 · EDIT 2 · Seiten der Engine · VOICE · VOICE 2 <span class="d">EDIT 1 und 2 tragen Titel der Engine, etwa OSC und FLT</span></td><td><a href="#de-sp-engine">EDIT-Ebene</a>: Engine wählen</td></tr>
         <tr><td class="m">ENV</td><td>ENV · ENV DEST</td><td>–</td></tr>
@@ -1801,7 +1797,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <h3>Tempo</h3>
     <div class="prose">
       <p><kbd>SELECT</kbd> blättert nur die Seiten, auf HOME, im MIXER, auf CLOCK und EQ wie überall; das Tempo ändert es nie. Das Tempo stellst du auf CLOCK mit <kbd>KNOB 1</kbd>.</p>
-      <p>HOME &gt; CLOCK hat <b>BPM</b>, <b>SWG</b> (Swing) und <b>CLK</b>, die Taktquelle: INT, USB oder TRS. <kbd>GLO</kbd> halten <span class="plus">+</span> <kbd>F4</kbd> tippt das Tempo.</p>
+      <p>HOME &gt; CLOCK hat <b>BPM</b> und <b>CLK</b>, die Taktquelle: INT, USB oder TRS. Swing ist das eigene SWG jeder Spur (SEQ halten, KNOB 3); ein Projekt mit dem alten globalen SWG rechnet es beim Laden in jede Spur ein. <kbd>GLO</kbd> halten <span class="plus">+</span> <kbd>F4</kbd> tippt das Tempo.</p>
     </div>
   </section>
 
@@ -1833,7 +1829,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <p><kbd>PRESETS</kbd> geht durch alle Sounds, Engine für Engine, danach durch deine eigenen USER-Sounds; nach dem letzten Sound einer Engine wechselt die Spur zur nächsten Engine. Auf HOME und den Sound- und FX-Seiten lädt es den Sound; auf STEP, AUTOMATION, SONG, PROJECT, USER und PHRASES wirkt es wie KNOB 1, auf DETAIL geht es durch die Schritte. Jeder Werks-Sound hat eine Kategorie: BASS, LEAD, PAD, PLUCK, KEYS, DRUM, FX oder OTHER.</p>
       <p>SAVE &gt; PRESETS ist der Browser: alle Engines und Sounds, mit Favoriten. Die Liste, die du dort wählst (alle, Favoriten oder eine Kategorie), ist auch die, durch die der PRESETS-Regler geht.</p>
     </div>
-    <p class="note"><span class="tag">Klang, nicht Effekte</span>Ein Werks-Sound bringt nur den Klang. Die Sends der Spur (DIST, CHORUS, DELAY, REVERB) und ihr INSERT bleiben, wie sie sind. Ein eigener Sound aus USER bringt seine Effekte mit. Das Pattern ändert ein Sound nie.</p>
+    <p class="note"><span class="tag">Klang, nicht Effekte</span>Ein Werks-Sound bringt nur den Klang. Die Sends der Spur (CHORUS, SHIMMER, DELAY, REVERB) und ihr DRIVE bleiben, wie sie sind. Ein eigener Sound aus USER bringt seine Effekte mit. Das Pattern ändert ein Sound nie.</p>
   </section>
 
   <section class="sub" id="de-sp-engine">
@@ -1886,7 +1882,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <div class="eng"><h4>WTABLE <kbd>E4</kbd></h4><p>Wavetables: 4 Bänke zu 64 Wellen, gleitend oder gestuft.</p></div>
       <div class="eng"><h4>SWARM <kbd>F4</kbd></h4><p>Ein Schwarm: acht Sägezähne pro Stimme unter Grain-Hüllkurven.</p></div>
       <div class="eng"><h4>LOFI <kbd>G4</kbd></h4><p>Chiptune: Puls, Dreieck, Säge, Rauschen, 4-Bit-Wave-RAM, gestufte Hüllkurve, Sweep und Arpeggio.</p></div>
-      <div class="eng"><h4>SAMPLE <kbd>A4</kbd></h4><p>Multisample-Instrument PIANO und ein eigenes Sample (USR1, etwa 7 s). FLUTE und SAX gibt es als Slot-Dateien (siehe <a href="#de-sp-editor">Der Web-Editor</a>).</p></div>
+      <div class="eng"><h4>SAMPLE <kbd>A4</kbd></h4><p>Multisample-Instrument PIANO und USR1 für ein eigenes Sample (etwa 7 s). Eigene Samples laden kommt mit einer späteren Version.</p></div>
       <div class="eng"><h4>WHEEL <kbd>B4</kbd></h4><p>Tonrad-Orgel: Zugriegel-Registrierungen, Perkussion, Key-Click, Drive und Rotor.</p></div>
       <div class="eng"><h4>GRAIN <kbd>C5</kbd></h4><p>Granulare Texturen aus den eingebauten Samples oder dem eigenen Slot.</p></div>
       <div class="eng"><h4>PHYS <kbd>D5</kbd></h4><p>Physikalische Modelle: Modal-Resonatoren, Saiten, angeschlagene Membranen, sympathische Saiten.</p></div>
@@ -1949,23 +1945,22 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt>OPERATOR</dt><dd>Verhältnis oder feste Frequenz, FINE, LEVEL.</dd>
       <dt>OP ENV</dt><dd>Rate und Level jeder Stufe, gezeichnet als Hüllkurve.</dd>
       <dt>OPERATOR 2</dt><dd>Modus, Verstimmung, Anschlagdynamik.</dd>
-      <dt>SLOT</dt><dd>EDIT 2 (Titel PATCH), KNOB 4: F1–F8 die Werks-Patches, OWN der eigene, B1–B32 eine Voice-Bank, die der Web-Editor als .syx-Datei schickt. Eine Voice aus der Bank wird in die Spur kopiert.</dd>
+      <dt>SLOT</dt><dd>EDIT 2 (Titel PATCH), KNOB 4: F1–F8 die Werks-Patches, OWN der eigene, B1–B32 eine Voice-Bank (vorerst leer: eine Bank laden kommt mit einer späteren Version). Eine Voice aus der Bank wird in die Spur kopiert.</dd>
     </dl>
-    <p class="note"><span class="tag">Backup</span>Die Voice-Bank ist nicht im Voll-Backup des Editors. Heb die .syx-Datei auf.</p>
   </section>
 
   <section class="sub" id="de-eng-drum">
     <h3>DRUM</h3>
-    <div class="prose"><p>Acht Instrumente auf der General-MIDI-Belegung, die Kick auf dem ersten C: KICK, SNARE, CLAP, HATCL, HATOP, TOM, RIM, BELL (einige Kits nennen TOM, RIM oder BELL CONGA, CLAVE oder CYM). Alles ist synthetisiert, es gibt keine Samples. <b>KIT</b> wählt STD, 808, 10, 66, 55 oder 77; die Zahlen spielen auf klassische Drumcomputer an. Ab Werk startet DRUM mit dem 808-Kit.</p></div>
+    <div class="prose"><p>Acht Instrumente: KICK, SNARE, CLAP, HATCL, HATOP, TOM, RIM, BELL (einige Kits nennen TOM, RIM oder BELL CONGA, CLAVE oder CYM). Auf der Tastatur sind die schwarzen Tasten 1–8 die Instrumente, wie im Grid des Sequencers: Eine schwarze Taste spielt ihr Instrument und wählt es aus. Die weißen Tasten spielen dann das gewählte Instrument gepitcht, einen Halbton je Taste: <kbd>F4</kbd> in Originalhöhe, <kbd>F3</kbd> −7 bis <kbd>G5</kbd> +8, <kbd>OCT−</kbd> / <kbd>OCT+</kbd> je eine Oktave. Die Kopfzeile zeigt, was gespielt wurde (SNARE +3). Live-Aufnahme schreibt den Schlag, nicht die Tonhöhe; MIDI-Noten spielen weiter die General-MIDI-Belegung. Alles ist synthetisiert, es gibt keine Samples. <b>KIT</b> wählt STD, 808, 10, 66, 55 oder 77; die Zahlen spielen auf klassische Drumcomputer an. Ab Werk startet DRUM mit dem 808-Kit.</p></div>
     <dl class="defs">
       <dt>LANES, LANES 2</dt><dd>Der Pegel jedes Instruments.</dd>
-      <dt>SOUNDS</dt><dd>Eine Taste wählt das Instrument, KNOB 1–4 stellen TUNE (±12 Halbtöne), DECAY, TONE und SOUND: KIT oder das Instrument eines anderen Kits, etwa eine 808-Kick unter einer 10-Snare.</dd>
+      <dt>SOUNDS</dt><dd>Eine schwarze Taste wählt das Instrument (eine weiße behält das gewählte), KNOB 1–4 stellen TUNE (±12 Halbtöne), DECAY, TONE und SOUND: KIT oder das Instrument eines anderen Kits, etwa eine 808-Kick unter einer 10-Snare.</dd>
     </dl>
   </section>
 
   <section class="sub" id="de-eng-vdrum">
     <h3>VDRUM</h3>
-    <div class="prose"><p>Sechs Teile (KICK, SNARE, CLAP, HATCL, HATOP, TOM) aus je zwei Schichten: eine Quelle (Sinus, Säge oder gefiltertes Rauschen), ein Tonhöhen-Modulator und eine Hüllkurve. Pro Teil gibt es BIT, FOLD, DRV, GAIN, den Send in den Resonator und eine Choke-Gruppe.</p></div>
+    <div class="prose"><p>Sechs Teile (KICK, SNARE, CLAP, HATCL, HATOP, TOM) aus je zwei Schichten: eine Quelle (Sinus, Säge oder gefiltertes Rauschen), ein Tonhöhen-Modulator und eine Hüllkurve. Pro Teil gibt es BIT, FOLD, DRV, GAIN, den Send in den Resonator und eine Choke-Gruppe. Die Tasten arbeiten wie bei DRUM: Die schwarzen Tasten 1–6 spielen und wählen die Teile, die weißen Tasten spielen das gewählte Teil einen Halbton je Taste ab <kbd>F4</kbd>.</p></div>
     <dl class="defs">
       <dt>Resonator</dt><dd>TUBE (ungerade Obertöne, ein Kessel) oder STRNG (eine gezupfte Saite). HOME: TYPE, DECAY, BODY, TUNE.</dd>
       <dt>EDIT 2 (Titel KIT)</dt><dd>KIT, MIX, ACC, DRV.</dd>
@@ -1994,7 +1989,6 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt>ACC, DIST</dt><dd>Wie stark ein Accent wirkt; Verzerrung nach dem Filter.</dd>
       <dt>Sounds</dt><dd>ACID LINE, SQUELCH, SQR ACID, RUBBER, DIST 303, DEEP SUB, SCREAM, SOFT BASS. Alle sind MONO, und jeder lädt eine 303-Linie mit Accents und Slides (Patterns ACID 2 bis ACID 5).</dd>
       <dt>Eine neue Linie</dt><dd><kbd>SEQ</kbd> halten und <kbd>D#4</kbd> (RANDOM) drücken: auf einer ACID-Spur würfelt das eine neue Acid-Linie in der Skala der Spur, mit Pausen, Ties, Accents und Slides; Schritt 1 ist der betonte Grundton. COOK (<kbd>F#4</kbd>) schaltet auch Slides ein und aus.</dd>
-      <dt>Im Web-Editor</dt><dd>Der Sequencer-Tab zeigt eine ACID-Spur als TD-3-Raster: Ton, Oktave, Zeit, ACC und SLD pro Schritt; „Roll acid“ würfelt eine Linie wie RANDOM.</dd>
     </dl>
   </section>
 
@@ -2365,59 +2359,66 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <h3>Der Signalweg</h3>
     <figure class="fig">
       <div class="fig-scroll">
-        <svg class="flow-svg" viewBox="0 0 940 364" role="img" aria-label="Signalweg: jede Spur durch DIST, INSERT und SLICER zum Mixer, Sends zu Chorus, Delay oder Cloud und Reverb, dann Summe, MASTER, Punch-ins, Limiter, Ausgang">
+        <svg class="flow-svg" viewBox="0 0 940 364" role="img" aria-label="Signalweg: jede Spur durch SLICER, DRIVE und EQ zu LEVEL und PAN; Sends in eine serielle Kette aus Chorus, Shimmer, Delay oder Cloud und Reverb; dann Summe, Punch-ins, SPEAKER EQ, Kompressor und Limiter, MASTER-Regler, Ausgang">
           <defs><marker id="de-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker></defs>
           <rect class="frame" x="8" y="14" width="660" height="214" rx="12"/>
           <text class="lab" x="22" y="244">JEDE SPUR · T1 BIS T4</text>
           <g><rect class="bx acc" x="20" y="30" width="110" height="46" rx="8"/><text class="t1" x="75" y="51">ENGINE</text><text class="t2" x="75" y="67">16 zur Wahl</text></g>
-          <g><rect class="bx" x="155" y="30" width="90" height="46" rx="8"/><text class="t1" x="200" y="51">DIST</text><text class="t2" x="200" y="67">SEND › DST</text></g>
-          <g><rect class="bx" x="270" y="30" width="100" height="46" rx="8"/><text class="t1" x="320" y="51">INSERT</text><text class="t2" x="320" y="67">FX › INSERT</text></g>
-          <g><rect class="bx" x="395" y="30" width="100" height="46" rx="8"/><text class="t1" x="445" y="51">SLICER</text><text class="t2" x="445" y="67">FX › SLICER</text></g>
-          <g><rect class="bx" x="520" y="30" width="130" height="46" rx="8"/><text class="t1" x="585" y="51">LEVEL · PAN</text><text class="t2" x="585" y="67">MIXER</text></g>
-          <path class="ln" d="M130 53 H153" marker-end="url(#de-ah)"/><path class="ln" d="M245 53 H268" marker-end="url(#de-ah)"/>
-          <path class="ln" d="M370 53 H393" marker-end="url(#de-ah)"/><path class="ln" d="M495 53 H518" marker-end="url(#de-ah)"/>
+          <g><rect class="bx" x="150" y="30" width="90" height="46" rx="8"/><text class="t1" x="195" y="51">SLICER</text><text class="t2" x="195" y="67">FX › SLICER</text></g>
+          <g><rect class="bx" x="260" y="30" width="90" height="46" rx="8"/><text class="t1" x="305" y="51">DRIVE</text><text class="t2" x="305" y="67">FX › DRIVE</text></g>
+          <g><rect class="bx" x="370" y="30" width="90" height="46" rx="8"/><text class="t1" x="415" y="51">EQ</text><text class="t2" x="415" y="67">HOME › EQ</text></g>
+          <g><rect class="bx" x="480" y="30" width="170" height="46" rx="8"/><text class="t1" x="565" y="51">LEVEL · PAN</text><text class="t2" x="565" y="67">MIXER</text></g>
+          <path class="ln" d="M130 53 H148" marker-end="url(#de-ah)"/><path class="ln" d="M240 53 H258" marker-end="url(#de-ah)"/>
+          <path class="ln" d="M350 53 H368" marker-end="url(#de-ah)"/><path class="ln" d="M460 53 H478" marker-end="url(#de-ah)"/>
           <path class="ln" d="M650 46 H758" marker-end="url(#de-ah)"/>
-          <text class="lab" x="292" y="105">SENDS · CHO DLY REV</text>
-          <path class="ln" d="M585 76 V112 M320 112 H600 M320 112 V148 M460 112 V148 M600 112 V148" />
-          <path class="ln" d="M320 148 V149" marker-end="url(#de-ah)"/><path class="ln" d="M460 148 V149" marker-end="url(#de-ah)"/><path class="ln" d="M600 148 V149" marker-end="url(#de-ah)"/>
-          <g><rect class="bx" x="270" y="150" width="100" height="46" rx="8"/><text class="t1" x="320" y="171">CHORUS</text><text class="t2" x="320" y="187">FX › CHORUS</text></g>
-          <g><rect class="bx acc" x="395" y="150" width="130" height="46" rx="8"/><text class="t1" x="460" y="171">DELAY / CLOUD</text><text class="t2" x="460" y="187">FX1 · FX › DELAY</text></g>
-          <g><rect class="bx" x="550" y="150" width="100" height="46" rx="8"/><text class="t1" x="600" y="171">REVERB</text><text class="t2" x="600" y="187">FX › REVERB</text></g>
-          <path class="ln" d="M320 196 V212 H704 V66 H758" marker-end="url(#de-ah)"/><path class="ln" d="M460 196 V212 M600 196 V212"/>
-          <g><rect class="bx" x="760" y="30" width="160" height="46" rx="8"/><text class="t1" x="840" y="51">SUMME</text><text class="t2" x="840" y="67">Spuren und Busse</text></g>
-          <g><rect class="bx" x="760" y="96" width="160" height="46" rx="8"/><text class="t1" x="840" y="117">MASTER</text><text class="t2" x="840" y="133">der Regler</text></g>
-          <g><rect class="bx acc" x="760" y="162" width="160" height="46" rx="8"/><text class="t1" x="840" y="183">PUNCH-INS</text><text class="t2" x="840" y="199">FX-Ebene · FX-Spuren</text></g>
-          <g><rect class="bx" x="760" y="228" width="160" height="46" rx="8"/><text class="t1" x="840" y="249">EQ · LIMITER</text><text class="t2" x="840" y="265">SPEAKER EQ</text></g>
-          <g><rect class="bx" x="760" y="294" width="160" height="46" rx="8"/><text class="t1" x="840" y="315">AUSGANG</text><text class="t2" x="840" y="331">Lautsprecher · Kopfhörer · USB</text></g>
+          <text class="lab" x="150" y="105">SENDS · FX › MIX: CHO SHIM DLY REV</text>
+          <path class="ln" d="M565 76 V112 M90 112 H565 M90 112 V148 M250 112 V148 M410 112 V148 M570 112 V148" />
+          <path class="ln" d="M90 148 V149" marker-end="url(#de-ah)"/><path class="ln" d="M250 148 V149" marker-end="url(#de-ah)"/><path class="ln" d="M410 148 V149" marker-end="url(#de-ah)"/><path class="ln" d="M570 148 V149" marker-end="url(#de-ah)"/>
+          <g><rect class="bx" x="25" y="150" width="130" height="46" rx="8"/><text class="t1" x="90" y="171">CHORUS</text><text class="t2" x="90" y="187">FX › CHORUS</text></g>
+          <g><rect class="bx" x="185" y="150" width="130" height="46" rx="8"/><text class="t1" x="250" y="171">SHIMMER</text><text class="t2" x="250" y="187">FX › SHIMMER</text></g>
+          <g><rect class="bx acc" x="345" y="150" width="130" height="46" rx="8"/><text class="t1" x="410" y="171">DELAY / CLOUD</text><text class="t2" x="410" y="187">FX1 · FX › DELAY</text></g>
+          <g><rect class="bx" x="505" y="150" width="130" height="46" rx="8"/><text class="t1" x="570" y="171">REVERB</text><text class="t2" x="570" y="187">FX › REVERB</text></g>
+          <path class="ln" d="M155 173 H183" marker-end="url(#de-ah)"/><path class="ln" d="M315 173 H343" marker-end="url(#de-ah)"/><path class="ln" d="M475 173 H503" marker-end="url(#de-ah)"/>
+          <path class="ln" d="M90 196 V212 H704 V66 H758" marker-end="url(#de-ah)"/><path class="ln" d="M250 196 V212 M410 196 V212 M570 196 V212"/>
+          <g><rect class="bx" x="760" y="30" width="160" height="46" rx="8"/><text class="t1" x="840" y="51">MIX</text><text class="t2" x="840" y="67">Spuren und Kette</text></g>
+          <g><rect class="bx acc" x="760" y="96" width="160" height="46" rx="8"/><text class="t1" x="840" y="117">PUNCH-INS</text><text class="t2" x="840" y="133">FX-Ebene · FX-Spuren</text></g>
+          <g><rect class="bx" x="760" y="162" width="160" height="46" rx="8"/><text class="t1" x="840" y="183">EQ · COMP · LIMIT</text><text class="t2" x="840" y="199">SPEAKER EQ · HOME › MASTER</text></g>
+          <g><rect class="bx" x="760" y="228" width="160" height="46" rx="8"/><text class="t1" x="840" y="249">MASTER</text><text class="t2" x="840" y="265">der Regler, zuletzt</text></g>
+          <g><rect class="bx" x="760" y="294" width="160" height="46" rx="8"/><text class="t1" x="840" y="315">OUTPUT</text><text class="t2" x="840" y="331">Lautsprecher · Kopfhörer · USB</text></g>
           <path class="ln" d="M840 76 V94" marker-end="url(#de-ah)"/><path class="ln" d="M840 142 V160" marker-end="url(#de-ah)"/>
           <path class="ln" d="M840 208 V226" marker-end="url(#de-ah)"/><path class="ln" d="M840 274 V292" marker-end="url(#de-ah)"/>
         </svg>
       </div>
-      <figcaption>Jede Spur hat Verzerrung, INSERT und SLICER. Über Sends geht sie in drei gemeinsame Effekte. Die Punch-ins liegen hinter dem MASTER-Regler auf der ganzen Mischung.</figcaption>
+      <figcaption>Jede Spur läuft durch den SLICER, ihren DRIVE und ihren EQ. Über Sends geht sie in eine Kette in Reihe: Chorus, Shimmer, Delay, Reverb; jede Stufe gibt an die nächste weiter und geht zugleich in die Summe. Punch-ins und HOME › MASTER wirken auf die ganze Mischung, der MASTER-Regler kommt zuletzt.</figcaption>
     </figure>
   </section>
 
   <section class="sub" id="de-fx-karten">
     <h3>Die FX-Karten</h3>
-    <div class="prose"><p><kbd>FX</kbd> öffnet sieben Karten, <kbd>SELECT</kbd> blättert. Fünf davon sind als Effektpedale gezeichnet, jedes in den Farben eines Klassikers seiner Art, mit dem Effekt in Bewegung im Fenster; die erste Karte zeigt die Sends als vier Fader. SEND, INSERT und SLICER gehören der gewählten Spur, CHORUS, DELAY und REVERB allen.</p></div>
+    <div class="prose"><p><kbd>FX</kbd> öffnet neun Karten, <kbd>SELECT</kbd> blättert. Die Effekte sind als Pedale gezeichnet, jedes in den Farben eines Klassikers seiner Art, mit dem Effekt in Bewegung im Fenster; MIX und MIX 2 zeigen vier Fader. MIX, DRIVE und SLICER gehören der gewählten Spur, MIX 2, CHORUS, SHIMMER, DELAY und REVERB allen.</p></div>
     <div class="tbl"><table>
       <thead><tr><th>Karte</th><th class="k">KNOB 1</th><th class="k">KNOB 2</th><th class="k">KNOB 3</th><th class="k">KNOB 4</th></tr></thead>
       <tbody>
-        <tr><td class="m">1 FX<span class="d">die Sends</span></td><td class="m">DST</td><td class="m">CHO</td><td class="m">DLY</td><td class="m">REV</td></tr>
-        <tr><td class="m">2 INSERT</td><td class="m">INSRT<span class="d">der Typ</span></td><td class="m">A<span class="d">nach dem Typ benannt</span></td><td class="m">B<span class="d">nach dem Typ benannt</span></td><td class="m">MIX</td></tr>
-        <tr><td class="m">3 CHORUS</td><td class="m">TYPE<span class="d">CHORUS, FLANGER, VIBRATO</span></td><td class="m">RATE</td><td class="m">DEPTH</td><td class="m">FDBK</td></tr>
-        <tr><td class="m">4 DELAY</td><td class="m">TYPE<span class="d">DELAY oder CLOUD</span></td><td class="m">TIME · SIZE</td><td class="m">FDBK · PITCH</td><td class="m">MIX · DENS</td></tr>
-        <tr><td class="m">5 REVERB</td><td class="m">TYPE<span class="d">ROOM, SPRING, HALL, SHIMMER</span></td><td class="m">SIZE</td><td class="m">DAMP</td><td>–</td></tr>
-        <tr><td class="m">6 SLICER</td><td class="m">SLCR</td><td class="m">PAT</td><td class="m">RATE</td><td class="m">DEPTH</td></tr>
-        <tr><td class="m">7 FX TRACKS</td><td class="m">LANE</td><td class="m">STEP</td><td class="m">EFFECT</td><td class="m">LEN</td></tr>
+        <tr><td class="m">1 MIX<span class="d">die Sends der Spur</span></td><td class="m">CHO</td><td class="m">SHIM</td><td class="m">DLY</td><td class="m">REV</td></tr>
+        <tr><td class="m">2 MIX 2<span class="d">die Pegel der Kette</span></td><td class="m">CHR</td><td class="m">SHR</td><td class="m">DEL<span class="d">der MIX des DELAY</span></td><td class="m">REV</td></tr>
+        <tr><td class="m">3 DRIVE</td><td class="m">TYPE<span class="d">OFF, SOFT, HARD, FOLD, FUZZ, CRUSH</span></td><td class="m">DRIVE · BITS</td><td class="m">TONE · RATE</td><td class="m">LEVEL · LPF</td></tr>
+        <tr><td class="m">4 CHORUS</td><td class="m">TYPE<span class="d">CHORUS, FLANGER, VIBRATO</span></td><td class="m">RATE</td><td class="m">DEPTH</td><td class="m">FDBK</td></tr>
+        <tr><td class="m">5 SHIMMER</td><td class="m">SIZE</td><td class="m">DAMP</td><td class="m">PITCH</td><td class="m">FDBK</td></tr>
+        <tr><td class="m">6 DELAY</td><td class="m">TYPE<span class="d">DELAY oder CLOUD</span></td><td class="m">TIME · SIZE</td><td class="m">FDBK · PITCH</td><td class="m">MIX · DENS</td></tr>
+        <tr><td class="m">7 REVERB</td><td class="m">TYPE<span class="d">ROOM, SPRING, HALL</span></td><td class="m">SIZE</td><td class="m">DAMP</td><td>–</td></tr>
+        <tr><td class="m">8 SLICER</td><td class="m">SLCR<span class="d">OFF, GATE, STUT, PUMP</span></td><td class="m">PAT</td><td class="m">RATE</td><td class="m">DEPTH</td></tr>
+        <tr><td class="m">9 FX TRACKS</td><td class="m">LANE</td><td class="m">STEP</td><td class="m">EFFECT</td><td class="m">LEN</td></tr>
       </tbody>
     </table></div>
     <dl class="defs">
-      <dt>INSERT</dt><dd>SOFT, HARD, FOLD und FUZZ (A DRIVE, B TONE), CRUSH (A BITS, B RATE), PHASR, FLANG und CHOR (A RATE, B DEPTH). Er sitzt nach DIST und vor dem SLICER und gehört zum Sound. MIX mischt trocken und nass.</dd>
-      <dt>CHORUS</dt><dd>FLANGER fegt einen Kamm von 0,5 bis 6 ms, FDBK bis 0,87 für den Jet. VIBRATO ist ganz nass: CHO hoch und LEVEL der Spur herunter für das reine Vibrato.</dd>
+      <dt>MIX</dt><dd>Wie viel der gewählten Spur in jede Stufe geht. Die Kette läuft in Reihe: CHO hört man mit Chorus, dann Shimmer, Echo und Hall; SHIM geht durch Shimmer, Delay und Reverb, DLY durch Delay und Reverb, REV nur in den Reverb.</dd>
+      <dt>MIX 2</dt><dd>Der Pegel jeder Stufe, für alle Spuren. Er stellt ein, wie viel in die Stufe geht: Eine heruntergedrehte Stufe klingt aus und gibt nichts mehr weiter. DEL ist der MIX des DELAY. Wird mit dem Projekt gespeichert.</dd>
+      <dt>DRIVE</dt><dd>SOFT, HARD, FOLD und FUZZ (DRIVE, TONE, LEVEL), CRUSH (BITS, RATE, LPF). Er sitzt nach dem SLICER und vor dem EQ und gehört zum Sound; es gibt keine Trocken-Mischung, TYPE OFF ist aus. Projekte mit den alten INSERT-Typen PHASR, FLANG oder CHOR oder dem alten DIST spielen sie als OFF.</dd>
+      <dt>CHORUS</dt><dd>Die erste Stufe der Kette, in Stereo. FLANGER fegt einen Kamm von 0,5 bis 6 ms, FDBK bis 0,87 für den Jet. VIBRATO ist ganz nass: CHO hoch und LEVEL der Spur herunter für das reine Vibrato.</dd>
+      <dt>SHIMMER</dt><dd>Ein Hall, dessen Fahne verstimmt (PITCH in Halbtönen, ab Werk eine Oktave hoch) und zurückgeführt wird (FDBK): Jede Runde steigt und verklingt.</dd>
       <dt>DELAY</dt><dd>TIME im Tempo, auch punktiert (1/4D, 1/8D, 1/16D), höchstens 1,49 s.</dd>
-      <dt>REVERB</dt><dd>HALL ist ein weicher Stereo-Hall; SIZE stellt die Nachhallzeit von 0,5 s bis etwa 9 s. SHIMMER ist der HALL, dessen Fahne eine Oktave höher in sich selbst zurückläuft, jede Runde dunkler und leiser.</dd>
-      <dt>SLICER</dt><dd>Rhythmus im Tempo, am Anfang einer Spur oder am Ende der ganzen Mischung. SLCR wählt die Art: <b>GATE</b> schneidet die Spur nach einem von 16 Schrittmustern (DEPTH: wie weit ein Schritt schließt), <b>STUT</b> wiederholt sie, <b>PUMP</b> duckt sie auf jedem Schritt wie ein Sidechain-Kompressor unter einer Kick. <b>GT END</b> und <b>PM END</b> machen dasselbe mit der ganzen Mischung, nach dem Hall. Bei PUMP stellt DEPTH ein, wie weit der Pegel fällt, und PAT die Kurve zurück: 1–4 SMOOTH, 5–8 PUNCH, 9–12 LINEAR, 13–16 HOLD, jeweils über den ganzen Schritt, ¾, ½ oder ¼ davon. RATE stellt die Schrittlänge, 1/4 ist die längste.</dd>
+      <dt>REVERB</dt><dd>Das Ende der Kette. HALL ist ein weicher Stereo-Hall; SIZE stellt die Nachhallzeit von 0,5 s bis etwa 9 s. Ein Projekt mit dem alten REVERB-Typ SHIMMER spielt einen HALL.</dd>
+      <dt>SLICER</dt><dd>Rhythmus im Tempo am Anfang einer Spur, vor ihrem DRIVE. SLCR wählt die Art: <b>GATE</b> schneidet die Spur nach einem von 16 Schrittmustern (DEPTH: wie weit ein Schritt schließt), <b>STUT</b> wiederholt sie, <b>PUMP</b> duckt sie auf jedem Schritt wie ein Sidechain-Kompressor unter einer Kick. Bei PUMP stellt DEPTH ein, wie weit der Pegel fällt, und PAT die Kurve zurück: 1–4 SMOOTH, 5–8 PUNCH, 9–12 LINEAR, 13–16 HOLD, jeweils über den ganzen Schritt, ¾, ½ oder ¼ davon. RATE stellt die Schrittlänge, 1/4 ist die längste. (GT END und PM END auf der ganzen Mischung gibt es nicht mehr: Eine solche Spur spielt den SLICER OFF.)</dd>
     </dl>
   </section>
 
@@ -2508,7 +2509,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-mix-eq">
     <h3>EQ</h3>
     <div class="prose">
-      <p>Von HOME aus schaltet <kbd>SELECT</kbd> zu MIXER, CLOCK und dann zum EQ: vier Bänder für die mit <kbd>ALGORITHM</kbd> gewählte Spur, nach ihrem INSERT und vor LEVEL, PAN und den Sends. Das Panel zeigt die Kurve der Spur von 20 Hz bis 20 kHz (±12 dB), das gewählte Band einzeln und die vier Bänder als nummerierte Punkte.</p>
+      <p>Von HOME aus schaltet <kbd>SELECT</kbd> zu MIXER, CLOCK und dann zum EQ: vier Bänder für die mit <kbd>ALGORITHM</kbd> gewählte Spur, nach ihrem DRIVE und vor LEVEL, PAN und den Sends. Das Panel zeigt die Kurve der Spur von 20 Hz bis 20 kHz (±12 dB), das gewählte Band einzeln und die vier Bänder als nummerierte Punkte.</p>
     </div>
     <dl class="defs">
       <dt><kbd>KNOB 1</kbd> BAND</dt><dd>Wählt Band 1 bis 4.</dd>
@@ -2517,6 +2518,20 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <dt><kbd>KNOB 4</kbd> TYPE</dt><dd>L.SHF (Low Shelf), BELL, H.SHF (High Shelf), LP (Tiefpass), HP (Hochpass). Shelves und Bells haben eine feste Breite.</dd>
     </dl>
     <div class="prose"><p>Die Bänder starten flach: L.SHF 100 Hz, BELL 500 Hz, BELL 2 kHz, H.SHF 8 kHz, alle auf 0 dB. Der EQ gehört zur Spur wie LEVEL und PAN: Ein geladener Sound behält ihn, alle Szenen teilen ihn, und er wird mit dem Projekt gespeichert.</p></div>
+  </section>
+
+  <section class="sub" id="de-mix-master">
+    <h3>MASTER</h3>
+    <div class="prose">
+      <p>Nach dem EQ kommt mit <kbd>SELECT</kbd> MASTER: die Dynamik am Ende des ganzen Mixes, ein Kompressor und danach ein Limiter, hinter SPEAKER EQ und vor dem MASTER-Poti. Das Poti macht das Ergebnis nur leiser, der Sound wird also bei jeder Lautstärke gleich verdichtet. Das Panel zeigt die Kennlinie (Eingangspegel nach rechts, Ausgang nach oben, die Obergrenze des Limiters als rote Linie) und zwei Anzeigen: wie viele dB Kompressor und Limiter gerade wegnehmen.</p>
+    </div>
+    <dl class="defs">
+      <dt><kbd>KNOB 1</kbd> COMP</dt><dd>Wie stark der Kompressor arbeitet, 0 bis 100 %: Schwelle und Ratio zusammen (50 %: −12 dB bei 3,5:1; 100 %: −24 dB bei 6:1), mit weichem Knie. 0 % ist aus.</dd>
+      <dt><kbd>KNOB 2</kbd> RELEASE</dt><dd>20 ms bis 1 s; der Attack folgt mit einem Zwanzigstel davon.</dd>
+      <dt><kbd>KNOB 3</kbd> LIMIT</dt><dd>Die Obergrenze des Limiters, −15,2 bis −0,2 dBFS in halben dB. −5,2 dB ist der Limiter wie bisher.</dd>
+      <dt><kbd>KNOB 4</kbd> GAIN</dt><dd>Make-up nach dem Kompressor, 0 bis +12 dB, in den Limiter.</dd>
+    </dl>
+    <div class="prose"><p>Ab Werk: COMP 0 %, RELEASE 141 ms, LIMIT −5,2 dB, GAIN 0 dB, also genau der bisherige Master bei voll aufgedrehtem Poti. Die Werte werden mit dem Projekt gespeichert; ältere Projekte laden mit diesen Werten.</p></div>
   </section>
 
   <section class="sub" id="de-mix-glo">
@@ -2576,27 +2591,12 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div class="prose"><p>Ebenso lädt <kbd>KNOB 2</kbd> (LOAD) und löscht <kbd>KNOB 3</kbd> (ERASE), jeweils mit <kbd>OCT+</kbd>. Ein eigener Sound speichert seine Effekte mit, ein FM6-Sound seinen Patch, ein VDRUM-Sound sein eigenes Kit.</p></div>
   </section>
 
-  <section class="sub" id="de-sp-disk">
-    <h3>USB DISK: Projekte als Dateien</h3>
-    <div class="prose">
-      <p><b>MENU &gt; SYSTEM &gt; USB DISK</b> (OCT+) macht das FM-1 zum USB-Laufwerk, solange diese Anzeige offen ist. Am Handy (App „Dateien“) oder am Computer erscheint es als <b>FM-1</b>, nur lesbar, mit <code>README.TXT</code> (die Slots, die Namen ihrer Projekte, die Firmware), <code>CURRENT.FM1</code> (die Musik, wie sie gerade ist) und <code>PROJ_A.FM1</code> bis <code>PROJ_D.FM1</code> für jeden Slot mit einem Projekt. Kopiere sie, wohin du willst.</p>
-      <p>Jeder Knopf und jede Taste beendet es; danach ist USB wieder MIDI und Audio. Solange das Laufwerk offen ist, steht der Transport, und MIDI, USB-Audio, der Editor und die Konsole sind aus. Eine <code>.FM1</code>-Datei enthält das Projekt genau so, wie das FM-1 es speichert: das Projekt, seine Extras, seine Szenen, die Einstellungen, das eigene Sample und die FM6-Voice-Bank. Dateien auf das FM-1 kopieren geht noch nicht.</p>
-    </div>
-  </section>
 
-  <section class="sub" id="de-sp-editor">
-    <h3>Der Web-Editor</h3>
-    <div class="prose">
-      <p>Der Web-Editor (in der Installer-ZIP, von der Installer-Seite aus geöffnet) bearbeitet Sounds, Patterns und Einstellungen über USB in Chrome oder Edge. Sein Knopf <b>No device</b> startet die Firmware des FM-1 in der Seite: der Editor funktioniert also auch ohne FM-1, mit dem eigenen Klang der Firmware; Gespeichertes bleibt in diesem Browser. Die Computertastatur spielt die gewählte Spur (A W S E D F T G Y H U J K O L P ab dem C der Oktave, Z / X Oktave, C / V Anschlagstärke).</p>
-      <p><b>Presets als Dateien:</b> Projects &gt; Presets on the device zeigt die User-Slots U01 bis U32. Einen oder alle herunterladen, einen durch eine Datei ersetzen oder mehrere hochladen. <b>Library &gt; Export presets</b> speichert die angezeigten Sounds als Preset-Datei.</p>
-      <p><b>Samples:</b> Der Samples-Tab lädt ein Sample nach USR1 (der zweite und dritte Sample-Slot enthalten die Szenen und die Extras). FLUTE und SAX sind nicht mehr eingebaut; es gibt sie als Slot-Dateien (<code>FLUTE.slot</code>, <code>SAX.slot</code> im Ordner <code>samples</code> der ZIP), die <b>Slot file</b> nach USR1 schreibt. SET USR1 bei SAMPLE spielt sie dann.</p>
-    </div>
-  </section>
 
   <section class="sub" id="de-sp-auto">
     <h3>Automatische Sicherung</h3>
     <div class="prose"><p>Mit MENU &gt; SYSTEM &gt; RESTORE LAST ON startet das FM-1 mit der Musik, die du verlassen hast. Die Sicherung liegt getrennt von den vier Projekten und wird geschrieben, wenn sich etwas geändert hat, die Musik steht und 10 Sekunden nichts berührt wurde, höchstens einmal pro Minute.</p></div>
-    <p class="note"><span class="tag">Flash</span>Szenen und Extras liegen im Speicher von zwei der drei Sample-Slots. Der Web-Editor lädt eigene Samples deshalb nur in USR1.</p>
+    <p class="note"><span class="tag">Flash</span>Szenen und Extras liegen im Speicher von zwei der drei Sample-Slots; USR1 bleibt als einziger Slot für ein eigenes Sample.</p>
   </section>
 </section>
 
@@ -2830,7 +2830,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 </section>
 
 <footer class="foot">
-  <p>JAN3000 v1.0 · Bedienungsanleitung · Stand Oktober 2026.</p>
+  <p>JAN3000 v0.1 alpha · Bedienungsanleitung · Stand November 2026.</p>
 </footer>
 </div>
 
@@ -2909,7 +2909,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     var s = '<rect class="scr" x="270" y="42" width="204" height="204" rx="6"/>';
     if (!spec) {
       return s + '<text class="s-title" x="372" y="146" text-anchor="middle" font-size="34">JAN3000</text>' +
-        '<text class="s-sub" x="372" y="170" text-anchor="middle">v1.0</text>';
+        '<text class="s-sub" x="372" y="170" text-anchor="middle">v0.1-alpha</text>';
     }
     var p = spec.split("|"), title = p[0], cards = p.slice(1, 5);
     var fs = Math.min(32, 186 / (Math.max(title.length, 4) * 0.66));
