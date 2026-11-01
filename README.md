@@ -9,8 +9,15 @@ through a chord progression, and from the OP-Z two FX tracks with recordable pun
 switched while they play, pattern chains, a switchable FX1 with a granular CLOUD, the Roland J-6's 100 chord
 sets on SCL > CHORD and patterns of up to 64 steps. What is planned next is in the [roadmap](docs/ROADMAP.md).
 
-> **Status:** JAN3000 v1.0, the first release ([release notes](docs/RELEASE_NOTES.md); JAN3000 is the name on its
-> splash). Each of its changes ran in the host tests and the browser emulator first, then on a real FM-1.
+**What the alpha ships:** the firmware, its installer (`M-Vave-OP1-Installer.zip` on the
+[releases page](https://github.com/JanSchulten/M-Vave-OP1/releases): unzip, start `START-Mac.command` or
+`START-Windows.bat`, install in Chrome or Edge; it also returns the FM-1 to M-VAVE's official V15) and the user guide
+(English and German, online and in `web/manual/`). The web editor, the browser emulator, the offline bounce, USB DISK
+and the FLUTE / SAX slot files are not part of it: their code stays in this repository, and what they need before they
+come back is in the [backlog](docs/BACKLOG.md).
+
+> **Status:** JAN3000 v0.1 alpha, the first public test version ([release notes](docs/RELEASE_NOTES.md); JAN3000 is
+> the name on its splash). Each of its changes ran in the host tests and the browser emulator first, then on a real FM-1.
 > Installing custom firmware is at your own risk. The FM-1 has a single firmware bank and no
 > recovery button; if an install fails and the unit will not start, recovery needs extra
 > hardware (FM-1 Transporter with an RP2040). Develop and try changes in the host tests and the
@@ -339,8 +346,6 @@ Presets (all MONO, each with a pattern): ACID LINE, SQUELCH, SQR ACID, RUBBER, D
 - **SEQ + RANDOM** on an ACID track rolls a new acid line (RANDOM ACID): 16ths in the track's scale (CHR plays minor)
   from the root in octave 2, rests and ties, about 30 % accents and 22 % slides, step 1 the root, accented. **COOK**
   also turns slides on and off.
-- **The web editor's TD-3 grid** (Sequencer tab, an ACID track): 16 columns of note, octave up / down, time (note,
-  tie, rest), ACC and SLD, written to the track's steps as you click; "Roll acid" rolls a line as RANDOM does.
 
 The filter follows Open303's structure of the 303's diode ladder (four coupled one-pole stages, the feedback from the
 last; no code taken), with its own coefficients: the resonant peak at the cutoff, RES up to 97 % of self-oscillation.
@@ -483,93 +488,20 @@ sound and the steps as stored). PRTCL is the fifth Plaits engine, beside them.
   PO does not follow on PO, try PO INV. USB audio stays stereo. The FM-1's TRS MIDI jack is an input only, so this is
   the way out for a clock.
 
-## USB DISK: the projects as files
-
-**MENU > SYSTEM > USB DISK** (OCT+) turns the FM-1 into a USB drive for as long as its screen is up: plugged into a
-phone (the Files app) or a computer it shows up as **FM-1**, read-only, with
-
-- `README.TXT`: what is on it, the slots and their projects' names, the firmware,
-- `CURRENT.FM1`: the music as it is now (saved into the autosave first, as a power-on with RESTORE LAST would bring
-  it back),
-- `PROJ_A.FM1` .. `PROJ_D.FM1`: the project slots that hold a project.
-
-Copy them wherever you like. Any button or key ends it, and USB is MIDI + audio again (the host sees the FM-1 unplugged
-and plugged in again). A `.FM1` file holds the project exactly as the FM-1 keeps it in its flash: the project, its
-extras (FX TRACKS, KEY, the scene song ..), its scenes, the settings, the user sample USR1 and FM6's voice
-bank, each with its flash offset and CRC (format FM1X, described in `firmware/src/usbdisk.c`). Nothing is converted, so
-a reader can put the bytes back where they were: the browser emulator runs the same firmware, which is the way to an
-offline bounce without the FM-1. Copying files onto the FM-1 is not there yet (the drive is write-protected).
-
-The drive is made up as it is read (a FAT16 of 8 MiB, nothing of it stored). The transport stops and the screen stays
-on USB DISK while it is up; MIDI, USB audio, the editor and the console are off for that time. Built with
-`FELUCCA_DISK` (on in the firmware). Tested on the host (`tests/vdisk_test.c` reads the whole drive the way a host
-does and checks it with a FAT reader of its own, `tests/vdisk_check.py`); a phone or a computer has not seen it yet.
-
-## Bounce: the projects as WAV, without the FM-1
-
-`web/bounce` is a page that takes a `.FM1` file (USB DISK, above) and renders it with the FM-1's own firmware as
-WebAssembly, offline: no FM-1 needed, about 30 to 100 times faster than real time. Out come `NAME_MIX.wav` (16-bit,
-the master exactly as USB audio sends it: USB LEVEL FIXED, SPEAKER EQ FLAT, no click) and, if wanted, the stems
-`NAME_T1.wav` .. `NAME_T4.wav` and `NAME_FX.wav` (32-bit float, before the master's limiter: each track's share of the
-mix, and the FX buses' returns with the FX layer's punch-ins; together they make the master up to its limiter), one by
-one or as a ZIP, or shared into the Files app on a phone. What it plays: the scene (so many bars), the scene song to
-its end, or the SONG chain. Each bounce boots a fresh FM-1: the same file gives the same samples every time (chance and
-RANDOM fall the same way each time, not as a particular run on the device did).
-
-The site (front page, bounce, emulator) is static: `sh tools/make_vercel_site.sh` (after `./build.sh`, with the
-emsdk) builds it into `site/`, which is committed; `vercel.json` serves `site/` as it is (no build on Vercel, which has
-no Emscripten). On Vercel: import the repository, keep the defaults (vercel.json sets them), deploy.
-
-## Try it in the browser
-
-`web/lab` is an emulator page with guided workflows (in German): the whole firmware as WebAssembly, with a
-JavaScript fallback. Build it with `sh web/lab/build.sh` (after `./build.sh`, with the emsdk), then
-`cd build/lab && python3 -m http.server 8000` and open `http://localhost:8000/local.html`.
-
-## FLUTE and SAX: sample files, no longer built in
-
-SAMPLE's FLUTE and SAX left the firmware (62 KB of flash, room for what comes next): SAMPLE's factory sound is PIANO,
-GRAIN's CLOUD PAD and GLITCH grain PIANO now. Both come as slot files, `dist/samples/FLUTE.slot` and `SAX.slot`
-(`python3 tools/gen_samples.py --user-slot FLUTE FLUTE dist/samples/FLUTE` builds them: the same zones, roots and
-sustain loops as when they were built in). The web editor's Samples tab writes one into USR1 (**Slot file**); SAMPLE's
-SET USR1 (or GRAIN's SRC USR1) plays it. A sound saved with SET FLUTE or SAX plays PIANO.
-
-## The editor without a device
-
-The web editor's **No device** button (beside Connect) starts the FM-1's firmware in the page (`web/emu`, the same
-sources as the device's): the editor talks to it as to a device, so the Sound tab's parameter list, the engines and
-their presets, the 6-OP FM tab, the library and the user presets all work, with the firmware's own sound. Saves stay
-in that browser. The computer keyboard plays the selected track as Ableton's does (A W S E D F T G Y H U J K O L P ; '
-from the octave's C, Z / X octave, C / V velocity), on the device too; a MIDI keyboard on the computer plays the
-page's FM-1. Connected to the FM-1, the editor keeps a copy of its user presets in the browser (again after every
-change); No device starts with them, so they play with the firmware's own sound and can be edited without the FM-1,
-and a button in Projects > Presets on the device brings them back to it. The editor speaks English, German and Japanese. `python3 web/make_editor_artifact.py` builds it as a
-claude.ai Artifact page (there without Web MIDI: No device only; files are saved through the page's downloads
-capability).
-
-## Presets as files
-
-- **Projects > Presets on the device** (web editor): the user preset slots (U01 .. U32) as files beside the projects:
-  download one, replace one with a file (its button, or drop the file on its row), upload several (a sound named
-  like a slot replaces it, the others go into empty slots), download all. They show in PRESETS beside the factory
-  presets.
-- **Library > Export presets**: the sounds shown as a preset file. `python3 tools/import_presets.py FILE.json` makes
-  them factory presets (a name of the engine's replaces that preset, any other is added; a tag BASS LEAD PAD PLUCK
-  KEYS DRUM FX OTHER is its category). A factory preset keeps E0..E7, ATK DEC SUS REL, ENV > FILTER, MONO, the
-  sends and a pattern hint; the script lists what else a sound had (the LFO, the matrix, ..), which a preset load
-  sets to its defaults.
-
 ## Flash: two sample slots less
 
 The FX TRACKS, the KEY and the other extras and the scenes need flash that Felucca's project format does not have.
 The extras live in the flash of the third user sample slot (USR3, 80 KiB), the scenes in the second's (USR2, 80 KiB):
-the web editor uploads samples into USR1 only (a sample uploaded into USR2 by an older version is not played any
-more). Felucca projects load as before (with empty FX TRACKS, as scene 1).
+USR1 is the one slot left for a sample of your own (a sample uploaded into USR2 by an older version is not played
+any more). Felucca projects load as before (with empty FX TRACKS, as scene 1).
 
 ## Documents
 
-- **Release notes:** [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) (JAN3000 v1.0). The release's installer ZIP is on
-  the repository's GitHub releases page and in `dist/`.
+- **Release notes:** [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) (JAN3000 v0.1 alpha). The release's installer ZIP is
+  on the repository's GitHub releases page and in `dist/`.
+- **User guide** (English and German): `web/manual/manual.html`, online as the site's `/manual/` (`site/`, built by
+  `sh tools/make_vercel_site.sh`, served by Vercel as it is: `vercel.json`).
+- **Backlog** (what the alpha leaves out, and what it needs to come back): [docs/BACKLOG.md](docs/BACKLOG.md)
 - **First flash on a real FM-1** (German checklists): [docs/ERSTER_FLASH.md](docs/ERSTER_FLASH.md), then
   [docs/TESTLISTE.md](docs/TESTLISTE.md). The installer as a ZIP to start on your computer:
   `dist/M-Vave-OP1-Installer.zip` (`sh tools/make_installer_zip.sh`); it can return the FM-1 to M-VAVE's official

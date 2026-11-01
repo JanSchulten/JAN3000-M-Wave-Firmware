@@ -13,7 +13,10 @@
                               build/emu of web/emu/build.sh, when built)
   src/                        not touched
 
-  web/make_site.py build/felucca-X.Y.fwsc X.Y OUT_DIR
+  web/make_site.py [--no-editor] build/felucca-X.Y.fwsc X.Y OUT_DIR
+
+--no-editor (M-Vave-OP1, the alpha's installer ZIP): no webapp/editor, and the installer page without its
+link to it (the <!--EDITOR--> .. <!--/EDITOR--> part of index_pkg.html).
 
 The package must be one made by tools/fm1pkg_make.py (Felucca's own loader, no vendor files).
 Its identity (FM-1_9xx) is read from the package; the device must report it after
@@ -39,7 +42,7 @@ def product_of(raw):
     return "".join(chr((m - i - 1) & 0xFF) for i in range(BLOCKS) if (m := raw[i * BLK + KEEP]) != 0x7D)
 
 
-def main(pkg, version, out):
+def main(pkg, version, out, editor=True):
     pkg, out = Path(pkg), Path(out)
     raw = pkg.read_bytes()
     product = product_of(raw)
@@ -60,8 +63,12 @@ def main(pkg, version, out):
         if html.count(mark) != 1:
             raise SystemExit(f"index_pkg.html must contain {mark} once; update make_site.py")
     html = html.replace("/*LIB*/", lib).replace("/*META*/", meta)
+    if not editor:                                  # M-Vave-OP1: the alpha ships the installer alone
+        html, n = re.subn(r"<!--EDITOR-->.*?<!--/EDITOR-->\n?", "", html, flags=re.S)
+        if n != 1:
+            raise SystemExit("index_pkg.html must mark its editor link once with <!--EDITOR--> .. <!--/EDITOR-->")
     inst, ed, fw = out / "webapp" / "installer", out / "webapp" / "editor", out / "firmware"
-    for d in (inst, ed, fw):
+    for d in (inst, ed, fw) if editor else (inst, fw):
         d.mkdir(parents=True, exist_ok=True)
     for old in fw.glob("felucca-*.fwsc"):          # one package: the current one
         old.unlink()
@@ -82,12 +89,13 @@ def main(pkg, version, out):
         encoding="utf-8")
     for doc in ("LICENSE", "LICENSING.md"):
         shutil.copy(HERE.parent / doc, fw / doc)
-    shutil.copy(HERE / "editor.html", ed / "index.html")
-    for f in ("fukiai.ttf", "FUKIAI-LICENSE.txt", "fm1backup.js"):
-        if (HERE / f).exists():
-            shutil.copy(HERE / f, ed / f)
+    if editor:
+        shutil.copy(HERE / "editor.html", ed / "index.html")
+        for f in ("fukiai.ttf", "FUKIAI-LICENSE.txt", "fm1backup.js"):
+            if (HERE / f).exists():
+                shutil.copy(HERE / f, ed / f)
     emu = HERE.parent / "build" / "emu"             # M-Vave-OP1: the editor's NO DEVICE (web/emu/build.sh)
-    if (emu / "felucca.wasm").exists():
+    if editor and (emu / "felucca.wasm").exists():
         (ed / "emu").mkdir(exist_ok=True)
         for f in ("felucca.wasm",):
             shutil.copy(emu / f, ed / "emu" / f)
@@ -99,10 +107,14 @@ def main(pkg, version, out):
         '<!doctype html><meta charset="utf-8"><title>Felucca</title>'
         '<meta http-equiv="refresh" content="0; url=webapp/installer/">'
         '<a href="webapp/installer/">Felucca installer</a>\n', encoding="utf-8")
-    print(f"site: {out}: webapp/installer ({len(html)} B), webapp/editor, firmware/{name} ({len(raw)} B, {product})")
+    print(f"site: {out}: webapp/installer ({len(html)} B){', webapp/editor' if editor else ''}, "
+          f"firmware/{name} ({len(raw)} B, {product})")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    args = sys.argv[1:]
+    editor = "--no-editor" not in args
+    args = [a for a in args if a != "--no-editor"]
+    if len(args) != 3:
         sys.exit(__doc__)
-    main(*sys.argv[1:4])
+    main(*args, editor=editor)
