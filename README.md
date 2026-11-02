@@ -13,6 +13,14 @@ top of it.
 > firmware bank and no recovery button. If an install fails and the unit no longer starts, recovery needs extra
 > hardware (FM-1 Transporter with an RP2040).
 
+## The idea
+
+JAN3000 is meant to be a groovebox you play from shortcuts and muscle memory: quick enough to sketch an idea in
+seconds, deep enough to follow it all the way into the engine, and made for playing around live, where new ideas
+come from. Every frequent move is a held button plus a key or a knob, the same on every page, so the hands learn it
+and the eyes stay free. The workflow builds on four instruments: the OP-1 and OP-Z by Teenage Engineering, the
+Roland J-6 and Ableton Move.
+
 ## Manual
 
 📖 **[User manual (English and German)](https://jan3000-manual.vercel.app/)**: every feature and control
