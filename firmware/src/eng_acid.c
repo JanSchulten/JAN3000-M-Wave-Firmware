@@ -100,11 +100,10 @@ FM1_FPU static int acid_done(track_t *t, voice_t *v)
     return 1;
 }
 
-static int32_t acid_osc[CTL], acid_o[CTL];           /* a block: the oscillator in, the voice out (Q15) */
-
-/* the model on the FPU: the envelopes once a block, then the ladder and the drive over acid_osc -> acid_o */
+/* the model on the FPU: the envelopes once a block, then the ladder and the drive over acid_osc -> acid_o (a block:
+ * the oscillator in, the voice out, Q15; acid_render's, on the stack: each core its own, docs/DUALCORE_PLAN.md) */
 FM1_FPU __attribute__((noinline)) static void acid_model(const track_t *t, const voice_t *v, acid_v_t *a, uint32_t n,
-                                                         const vmod_t *m)
+                                                         const vmod_t *m, const int32_t *acid_osc, int32_t *acid_o)
 {
     const int16_t *p = t->p;
     const float accamt = (float)p[P_E6] * (1.0f / 127.0f), blk = (float)CTL;
@@ -170,6 +169,7 @@ static void acid_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
 {
     acid_v_t *a = acid_v(t, v);
     uint32_t inc, ph = v->ph[0], i;
+    int32_t acid_osc[CTL], acid_o[CTL];
     if (n > CTL)
         n = CTL;
     if (v->note != a->note) {                         /* slid to another note: the envelopes go on, its accent counts */
@@ -186,7 +186,7 @@ static void acid_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         for (i = 0; i < n; i++, ph += inc)
             acid_osc[i] = osc_saw(ph, inc);
     v->ph[0] = ph;
-    acid_model(t, v, a, n, m);
+    acid_model(t, v, a, n, m, acid_osc, acid_o);
     for (i = 0; i < n; i++)
         out[i] += voice_amp(acid_o[i], m, i) << 1;
 }

@@ -213,3 +213,20 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
 - Live recording gets the lane's note: the lane's hit, not the pitch. `drum_keys` (the GM map) stays the engine's
   `keys` hook for the arp's latched keys and chord.c. The UI says the lane and pitch from `kit_ev` (ui_input.c `kit_msg`).
 - `tests/drumkeys_test.c`.
+
+## The second core's structure (docs/DUALCORE_PLAN.md, step 2)
+
+- `FELUCCA_CPU2` (core.h, default 1): the four parts render into sums of their own (fx.c `mixsum_t mx[2]`: dry mix, the
+  five sends, the part's block, a SHIMMER flag) and share no state while they render, so CPU1 can take some of them
+  (`mix_parts2`, `c1_parts`, `mix_split`). Until CPU1 is started (plan step 4) `C1_ON()` is 0: the plain loop renders
+  all four on CPU0, bit for bit as before, and the hand-over code is not in the image.
+- A part's render (`mix_part` and everything it calls: `track_render`, the engines, SLICER, DRIVE, EQ, `perf_mute`,
+  `perf_throw`, `shimmer_send`) may write only its own state: its `track_t` (`t->spread_on`, `t->esync_k`,
+  `t->lfo_wrap`), arrays indexed by its part (`eng_mem`, `sl`, `ins`, `eqa`, `pf.mg`), its copy `[C1_PI(t)]` (`MOD(t)`,
+  `SPREAD_BUF(t)`, `PLV(t)`), or the sums `SM(..)` it is handed. Scratch buffers go on the stack (FM6's buses, ACID's
+  block, PRTCL's `io`), never in a file-scope `static`. Nothing in it may draw `rng()`: the LFO's S&H is drawn after the
+  parts (`track_lfo_end` in `mix_parts_end`), PHYS's reseed has a generator per part (`PHYS_RSEED`).
+- A new engine or track stage: add a scene to `tests/dualcore_test.c` if it keeps state the existing ones do not cover,
+  and run `TSAN=1 tests/run_tests.sh` (or build `dualcore_test.c` with `-fsanitize=thread`, ~8 min).
+- Host tests that poke the matrix or the Plaits buffers use `MOD(&trk[0])`, `MOD_W_CLEAR()`, `PLV(&trk[0])->o`,
+  `T_ESYNC(t)`; `shimmer_send(t, b, n SM_ARG(&mx[0]))`.

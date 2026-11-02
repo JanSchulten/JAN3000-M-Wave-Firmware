@@ -212,7 +212,7 @@ static void test_level(void)
         track_render(&trk[0], b, CTL);
         for (n = 0; n < NVOICE; n++)
             for (k = 0; k < CTL && trk[0].v[n].active; k++) {
-                const float a = fabsf(plv_out[k]);
+                const float a = fabsf(PLV(&trk[0])->out[k]);
                 worst = a > worst ? a : worst;
             }
     }

@@ -21,7 +21,20 @@
 #define FELUCCA_FM4 0            /* the DIGITAL engine (eng_digital.c, four-operator FM): kept in the tree, not built
                                   * by default; replaced by FM6, its sounds convert (fm4_convert.c) */
 #endif
-#define NENGINES 23u              /* .. SLICE 13, ANALOG2 14, VDRUM 15, DBOX 16, WSHAPE 17, HRMNC 18, PRTCL 19, WTABLE 20,
+#ifndef FELUCCA_CPU2
+#define FELUCCA_CPU2 1           /* the second core (docs/DUALCORE_PLAN.md, after Felucca 1.6.1): 1 = the parts render
+                                  * into sums of their own and share no state while they render (fx.c mix_block), so a
+                                  * second core can take some of them; until it is started (plan step 4) this core renders
+                                  * them all, bit for bit as before. 0 = none of it (one part's state at a time, as
+                                  * before) */
+#endif
+#define C1_NP (FELUCCA_CPU2 ? NPART : 1)   /* the copies of the state a part's render writes that the parts shared before
+                                            * the second core (mod.c's matrix, voice.c's SPREAD buffer): one each with
+                                            * two cores, one for all with one */
+#ifndef C1_PI
+#define C1_PI(t) ((uint32_t)((t) - trk) % C1_NP)   /* a part's copy (tests/dualcore_test.c DUALCORE_BREAK: one for all) */
+#endif
+#define NENGINES 23u             /* .. SLICE 13, ANALOG2 14, VDRUM 15, DBOX 16, WSHAPE 17, HRMNC 18, PRTCL 19, WTABLE 20,
                                   * SWARM 21, ACID 22 (M-Vave-OP1): appended, the others keep
                                   * their numbers; a retired engine keeps its number as a reserved slot (engines.c ENG_GONE) */
 #define ENGI_SLICE 13u           /* (retired, M-Vave-OP1: PHASE 2, VOICE 5, TRIO 6, SLICE 13, DBOX 16) */
@@ -444,7 +457,16 @@ typedef struct track {
     int32_t dist_hp, dist_lp1, dist_lp2;   /* DIST insert state (fx.c) */
     uint8_t tail;                /* blocks to mix after the last voice (the DIST / INSERT tail) */
     uint8_t ins_run;             /* the INSERT still sounds (fx.c track_insert: its wet share above 0) */
+#if FELUCCA_CPU2
+    /* the second core: a part's render state of its own, so two parts rendering at once share nothing (fx.c
+     * mix_block); in the pad that keeps sizeof(track_t) a multiple of 16 (15 bytes before) */
+    uint8_t lfo_wrap;            /* the LFO's phase wrapped this block: its S&H is drawn after the parts (voice.c) */
+    uint8_t spread_on;           /* SPREAD this block (fx.c mix_part, voice.c track_render) */
+    uint32_t esync_k[3];         /* ATK's step, DEC's and REL's coefficient (Q16) this block (voice.c esync_coef) */
+    uint8_t rsv_sz[1];           /* (sizeof(track_t) a multiple of 16: below) */
+#else
     uint8_t rsv_sz[15];          /* (sizeof(track_t) a multiple of 16: below) */
+#endif
     int16_t armp, aholdp;        /* P_AMODE / P_AHOLD as last seen by the ISR */
     /* engine switch (voice.c engine_block): the old engine's voices fade out, then it switches */
     uint8_t xf_on, xf;           /* fading; blocks of the fade still to render */

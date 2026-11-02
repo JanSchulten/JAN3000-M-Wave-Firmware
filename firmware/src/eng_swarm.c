@@ -33,15 +33,16 @@ FM1_FPU __attribute__((noinline)) static void swm_model(const track_t *t, voice_
 {
     plv_par_t q;
     float density, spread, size_ratio;
+    plv_buf_t *w = PLV(t);
     plv_params(t, m, &q);
     if (v->s[4]) {
         psw_init(s);
         v->s[4] = 0;
     }
     psw_params(q.timb, q.morph, q.harm, n, PRT_RATE, &density, &spread, &size_ratio);
-    psw_render(s, rng, q.f0, density, spread, size_ratio, 1, v->s[5] != 0, plv_out, plv_aux, n, q.need);
+    psw_render(s, rng, q.f0, density, spread, size_ratio, 1, v->s[5] != 0, w->out, w->aux, n, q.need);
     v->s[5] = 0;
-    plv_blend(&q, v, n, -3.0f, 1.0f);                  /* (Plaits' levels: voice.cc) */
+    plv_blend(&q, v, n, -3.0f, 1.0f, w);                  /* (Plaits' levels: voice.cc) */
 }
 
 static void swm_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
