@@ -1,0 +1,1 @@
+- Idea: Arp Mode -> Adding the J6 Rythms
