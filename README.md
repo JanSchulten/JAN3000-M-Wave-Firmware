@@ -1,5 +1,7 @@
 # JAN3000 (M-Vave-OP1)
 
+![JAN3000: custom firmware for the M-VAVE FM-1, with screens of the KEY track, the J-6 chord sets, the FX pedals, scenes, song and ACID](docs/jan3000-banner.png)
+
 OP-1 / OP-Z-inspired custom firmware for the **M-VAVE FM-1** pocket synthesizer.
 
 JAN3000 is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (Hügelton Instruments). It keeps
