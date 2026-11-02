@@ -61,6 +61,8 @@ package needs. Linux x86-64 runs the JieLi toolchain natively; macOS needs Docke
 - **The audio ISR must stay cheap.** Code it runs goes through `events_block` (seq.c) once per 32-sample block.
   Keep new ISR work O(1) per block, put rarely used paths in `__attribute__((noinline))` functions, and check
   `python3 tests/target_budget.py`: `fm1_alnk0_irq` may grow at most 10 % over `tests/target_budget.txt`.
+- **A part's render shares nothing** (the second core, architecture.md): no file-scope scratch buffers, no `rng()`, no
+  shared flags written in `mix_part` or below; per-part copies or the stack. `tests/dualcore_test.c` checks it.
 - **Main loop ↔ ISR:** the UI never edits ISR state mid-flight. It sets a `volatile` request field that the ISR
   takes at the start of a block (`transport_req`, `panic_req`, `aud_req`).
 - **Big buffers go to the pool:** `static T buf[N] __attribute__((section(".pool")));` (zeroed at boot). Design

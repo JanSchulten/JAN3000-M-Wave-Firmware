@@ -42,16 +42,17 @@ FM1_FPU __attribute__((noinline)) static void prt_model(const track_t *t, voice_
 {
     plv_par_t q;
     ppa_par_t pq;
+    plv_buf_t *w = PLV(t);
     plv_params(t, m, &q);
     if (v->s[4]) {
         ppa_init(s);
         v->s[4] = 0;
     }
     ppa_params(&pq, q.timb, q.morph, q.harm, PRT_RATE);
-    ppa_render(s, rng, v->s[5] == 1, &pq, q.f0, plv_out, plv_aux, n, q.need);
+    ppa_render(s, rng, v->s[5] == 1, &pq, q.f0, w->out, w->aux, n, q.need);
     if (v->s[5])
         v->s[5]--;
-    plv_blend(&q, v, n, -2.0f, 1.0f);                   /* (Plaits' levels: voice.cc) */
+    plv_blend(&q, v, n, -2.0f, 1.0f, w);                   /* (Plaits' levels: voice.cc) */
 }
 
 static void prt_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
@@ -67,7 +68,7 @@ static void prt_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const v
  * with no voice. The part's sum to float at 1 / 65536 (a voice's peak about 0.7: the delay memory holds +-8) */
 FM1_FPU __attribute__((noinline)) static int prt_post(track_t *t, int32_t *out, uint32_t n, int32_t fade)
 {
-    static float io[CTL];
+    float io[CTL];                                 /* (on the stack: each core its own, docs/DUALCORE_PLAN.md) */
     const uint32_t part = (uint32_t)(t - trk);
     prt_mem_t *M;
     const float mo = (float)t->p[P_E2] * (1.0f / 127.0f), rd = 2.0f * pws_abs(mo - 0.5f);
