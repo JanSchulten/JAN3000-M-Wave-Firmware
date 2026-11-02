@@ -58,7 +58,7 @@ for i, c in enumerate(chips):
     cx += tw + 34
 
 # --- right: six real screens, 3 x 2, as little devices with a soft shadow
-shots = [("layer_seq_scenes", "SCENE MODE"), ("scene_song", "SONG MODE"), ("cset", "J-6 CHORD MODE"),
+shots = [("layer_seq_scenes", "SONG / SCENE MODE"), ("home_tracks", "4 INSTRUMENT TRACKS"), ("cset", "J-6 CHORD MODE"),
          ("fxtracks", "FX TRACKS"), ("perform_held", "LIVE PUNCH-IN FX"), ("layer_edit_active", "MULTIPLE ENGINES")]
 sz, gap, lab = 240, 26, 34
 gx0 = W - 70 - 3 * sz - 2 * gap
