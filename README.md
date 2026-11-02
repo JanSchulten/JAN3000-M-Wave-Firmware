@@ -1,6 +1,6 @@
 # JAN3000 (M-Vave-OP1)
 
-![JAN3000: custom firmware for the M-VAVE FM-1, with screens of the KEY track, the J-6 chord sets, the FX pedals, scenes, song and ACID](docs/jan3000-banner.png)
+![JAN3000: custom firmware for the M-VAVE FM-1, with screens of scene mode, song mode, J-6 chord mode, FX tracks, live punch-in FX and the engine picker](docs/jan3000-banner.png)
 
 OP-1 / OP-Z-inspired custom firmware for the **M-VAVE FM-1** pocket synthesizer.
 
@@ -20,49 +20,17 @@ explained. The same manual is in this repository at [`web/manual/manual.html`](w
 
 ## Features
 
-**Sequencing and song structure**
-
-- **KEY track:** a chord progression of 1 to 16 bars over the patterns, as on the OP-Z. Melodic tracks follow each
-  bar's root inside their own scale; set, played live or recorded. One KEY per scene.
-- **16 scenes per project:** switched while playing (at the end of the pattern or at the next bar), copied and
-  cleared on the fly, chained into a **scene song**.
-- **SONG:** pattern chains of project slots A to D, typed on the keys, looping or stopping.
-- **Up to 64 steps per track**, a step turned off with a knob, track transpose, legato recorded as played.
-- **REC arms, PLAY starts**, with an optional count-in.
-- **Undo / redo** with SAVE held, for recordings and layer changes.
-
-**Effects**
-
-- **Two FX tracks:** lanes of recordable punch-in effects (repeat, reverse, filters, tape stop, freeze, pitch,
-  flanger, phaser, throws, track mutes), each 1 to 64 steps long.
-- **FX MAP B:** the OP-Z punch-ins on a second key map, including DUCK, STEREO, PITCH, RAMP UP and GLITCH.
-- **FX1 with a granular CLOUD** after Mutable Instruments' Clouds, besides the classic delay.
-- **Serial FX chain:** CHORUS (chorus / flanger / vibrato) → SHIMMER → DELAY → REVERB (room / spring / hall), plus
-  per-track SLICER and DRIVE (soft, hard, fold, fuzz, crush). FX pages are drawn as pedals.
-- **Four-band EQ per track** (shelves, bells, low- and high-pass).
-- **Master compressor and limiter.**
-
-**Chords**
-
-- **SCL > CHORD:** chord shapes (diatonic triads and sevenths, major, minor, sus, power …) and the **100 chord sets
-  of the Roland J-6** on one knob; every key plays a chord of the set, live, in steps and through the arpeggiator.
-
-**Sound engines**
-
-- **ANALOG2:** two oscillators, each with its own filter and LFO.
-- **VDRUM:** six drum parts into a tube or string resonator, eight kits, editable per part.
-- **Five Plaits engines** after Mutable Instruments' Plaits: **WSHAPE** (waveshaper), **HRMNC** (additive),
-  **PRTCL** (particles), **WTABLE** (wavetables), **SWARM** (swarm of saws).
-- **ACID:** a TB-303-style bass line with diode-ladder filter, accent and slide, plus a random acid-line generator.
-- **DRUM:** per-sound tune, decay, tone and kit piece; drum keys play lanes and pitches.
-
-**Projects and connectivity**
-
-- **Project storage on the keys:** four project slots, 32 user sound slots, rename, delete, new project.
-- **New projects draw their sounds** (bass, pad, lead, drum kit).
-- **SYNC OUT PO:** Pocket Operator / Volca sync pulses on the headphone jack.
-- **Installer that can also return the FM-1 to M-VAVE's official firmware V15.**
-- Felucca projects and user presets load as before.
+- **Song / Scene Mode:** 16 scenes per project, switched while playing (at the end of the pattern or at the next
+  bar), copied and cleared on the fly and chained into a scene song; SONG chains the project slots A to D. A KEY
+  track moves the patterns through a chord progression, one per scene.
+- **FX Tracks:** two lanes of effects next to the four instrument tracks, as on the OP-Z, each 1 to 64 steps long:
+  repeat, reverse, filters, tape stop, freeze, pitch, flanger, phaser, throws and track mutes, step by step.
+- **Multiple engines:** ANALOG2, VDRUM (six drum parts into a resonator), five engines after Mutable Instruments'
+  Plaits (WSHAPE, HRMNC, PRTCL, WTABLE, SWARM) and ACID (a TB-303-style bass line), next to Felucca's own.
+- **J-6 Chord Mode:** SCL > CHORD holds chord shapes and the 100 chord sets of the Roland J-6 on one knob; every key
+  plays a chord of the set, live, in steps and through the arpeggiator.
+- **Live punch-in FX:** hold FX and play the keys for punch-in effects, the OP-Z's set on a second key map (DUCK,
+  STEREO, PITCH, RAMP UP, GLITCH), recorded onto the FX tracks; plus FX1 with a granular CLOUD.
 
 ## Installation
 

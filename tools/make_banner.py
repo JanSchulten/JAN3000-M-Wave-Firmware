@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 M-Vave-OP1 contributors
 # The README banner (docs/jan3000-banner.png) from the firmware's own UI renders in the PAPER palette.
-# Run tests/run_tests.sh first (it renders build/ui_new/), then:
+# Run tests/run_tests.sh first (it renders build/ui_new/). fxtracks.png is FX TRACKS within the firmware's limits
+# (FX1 LEN 32, FX2 LEN 24, a few punch-ins); the stock fxtracks128 scene still uses 128 steps. Then:
 #   python3 tools/make_banner.py build/ui_new/PAPER docs/jan3000-banner.png "assets/fonts/InterTight[wght].ttf"
 import sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -44,7 +45,7 @@ d.text((lx, ty), "Custom firmware for the", font=font(30, 450), fill=SUB)
 d.text((lx, ty + 36), "M-VAVE FM-1", font=font(56, 780), fill=INK)
 d.text((lx, ty + 104), "OP-1 / OP-Z-inspired workflow", font=font(26, 560), fill=TEAL)
 
-chips = ["KEY TRACK", "16 SCENES", "FX TRACKS", "GRANULAR CLOUD", "PLAITS ENGINES", "TB-303 ACID"]
+chips = ["SONG / SCENE MODE", "FX TRACKS", "MULTIPLE ENGINES", "J-6 CHORD MODE", "LIVE PUNCH-IN FX"]
 cf = font(17, 680)
 cx, cy = lx, ty + 160
 for i, c in enumerate(chips):
@@ -57,8 +58,8 @@ for i, c in enumerate(chips):
     cx += tw + 34
 
 # --- right: six real screens, 3 x 2, as little devices with a soft shadow
-shots = [("key_play", "KEY TRACK"), ("cset", "J-6 CHORD SETS"), ("chorus_flanger", "FX AS PEDALS"),
-         ("layer_seq_scenes", "16 SCENES"), ("song_lanes_playing", "SONG"), ("roll_acid", "ACID 303")]
+shots = [("layer_seq_scenes", "SCENE MODE"), ("scene_song", "SONG MODE"), ("cset", "J-6 CHORD MODE"),
+         ("fxtracks", "FX TRACKS"), ("perform_held", "LIVE PUNCH-IN FX"), ("layer_edit_active", "MULTIPLE ENGINES")]
 sz, gap, lab = 240, 26, 34
 gx0 = W - 70 - 3 * sz - 2 * gap
 gy0 = (H - (2 * (sz + lab) + gap)) // 2
