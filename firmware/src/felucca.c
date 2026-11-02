@@ -43,6 +43,13 @@
 #if FELUCCA_OTA && !FELUCCA_FLASH
 #error "FELUCCA_OTA needs FELUCCA_FLASH"
 #endif
+#ifndef FELUCCA_CPU2
+#define FELUCCA_CPU2 1           /* the second core (core.h, docs/DUALCORE_PLAN.md): here too, as the HAL below needs it */
+#endif
+#define FM1_CPU1 FELUCCA_CPU2      /* hal/fm1_cpu1.h: the second core is built in (fm1_irq.h hands its faults to it) */
+#define FM1_CPU1_FALLBACK 1        /* a misread, a fault or a late job: CPU1 retired, one core until power-off, not a
+                                    * restart (as Felucca 1.6.1; a restart would stop the sound and could count against
+                                    * the boot guard: docs/DUALCORE_PLAN.md 8.2) */
 
 /* ------------------------------------------------------------- HAL --- */
 #include <stdint.h>
@@ -50,6 +57,10 @@
 #include "fm1_sys.h"
 #include "fm1_irq.h"
 #include "fm1_guard.h"
+#if FELUCCA_CPU2
+#include "fm1_cpu1.h"            /* (MPL-2.0, felucca-bsp) built in, not started yet: plan step 3; until then C1_ON() is
+                                  * 0 (fx.c) and only the waiting loop, the stacks and the fault path are in the image */
+#endif
 #include "fm1_input.h"
 #include "fm1_timer.h"
 #include "fm1_audio.h"

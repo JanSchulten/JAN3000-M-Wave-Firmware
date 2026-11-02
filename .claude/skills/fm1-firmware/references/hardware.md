@@ -36,6 +36,24 @@ The RAM / POOL split is only a budget line in the linker script; both are the sa
 96 / 336 KB -> 72 / 360 KB; M-Vave-OP1's 128 steps 72 / 360 -> 56 / 376 KB (the song chain's four sources, 25 KB,
 went to the pool); back to 64 steps with the SHIMMER bus and the grouped undo: 50 / 382 KB.
 
+### Budgets (the second core's HAL built in, not started: docs/DUALCORE_PLAN.md step 3; 2026-11-02)
+
+| | Used | Limit | Note |
+| --- | --- | --- | --- |
+| RAM `.data`+`.bss` | 45 776 B | 51 200 B | +3 152: CPU1's stacks (2 816 + 256 B, `hal/fm1_cpu1.S`), mailbox, fault state; 1.3 KB over the 4 KB reserve |
+| Pool | 377 500 B | 391 168 B | unchanged |
+| App image (XIP) | 541 392 B | 581 564 B | `.c1_text` 42 insns in `.ram_text` |
+| Audio ISR static cost `fm1_alnk0_irq` | 37 479 | 44 810 | unchanged |
+
+`FELUCCA_CPU2=0 ./build.sh`: 43 632 B RAM, 374 164 B pool, 541 284 B image (build.py checks no CPU1 symbol is left).
+
+The second core (AC791N CPU1): `hal/fm1_cpu1.h` (MPL-2.0, felucca-bsp: start, mailbox with check word, hold, fault
+path), `fm1_cpu1_stop.h` (hold: registers only), `fm1_cpu1.S` (entry, stacks). Start only at power-on before audio
+and timers; its waiting loop runs from RAM (`.c1_text` inside `.ram_text`, `_c1_start.._c1_end`). Some units' CPU1
+misreads shared RAM (0x00200000 for 0) under load: every job carries a check word, and `FM1_CPU1_FALLBACK 1`
+(felucca.c) retires CPU1 instead of restarting. `fm1_fault_c` hands CPU1's faults to `fm1_cpu1_fault_c` and, when it
+returns, `fm1_vec.S` resumes CPU0. Not started anywhere yet (plan step 4).
+
 ### Budgets (the second core's structure, docs/DUALCORE_PLAN.md step 2; 2026-11-02)
 
 | | Used | Limit | Note |

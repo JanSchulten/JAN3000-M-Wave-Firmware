@@ -52,6 +52,10 @@ SDK_SHA256 = {
 PRODUCT = "FM-1_900"                # package identity; release builds are FM-1_9XY
 VERSION = None                      # FELUCCA_VERSION (default: firmware/src/felucca.c; M-Vave-OP1 keeps Felucca's)
 JAN = None                          # M-Vave-OP1: JAN3000's version for release builds (default: firmware/src/ui_draw.c)
+# FELUCCA_CPU2 (firmware/src/core.h), unset or 1, the default: the second core is built in (docs/DUALCORE_PLAN.md),
+# its entry and stacks (firmware/hal/fm1_cpu1.S) linked and its waiting loop (.c1_text) checked. FELUCCA_CPU2=0: none
+# of it is built (one core's code and RAM, as Felucca 1.5.1)
+CPU2 = os.environ.get("FELUCCA_CPU2") != "0"
 
 
 def toolchain():
@@ -191,7 +195,7 @@ def build_app():
     flags = [*CFLAGS, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen"]
     for flag in ("FELUCCA_FLASH", "FELUCCA_OTA", "FELUCCA_OTA_DRYRUN", "FELUCCA_OTA_RAMONLY", "FELUCCA_CDC",
                  "FELUCCA_UART", "FELUCCA_UAC", "FELUCCA_UAC_TONE", "FELUCCA_UAC_48K", "FELUCCA_ICONS", "FELUCCA_FM4",
-                 "FELUCCA_CDC_DEFAULT", "FELUCCA_UAC_AS_FIRST"):
+                 "FELUCCA_CDC_DEFAULT", "FELUCCA_UAC_AS_FIRST", "FELUCCA_CPU2"):
         v = os.environ.get(flag)    # unset: the default in firmware/src/felucca.c
         if v in ("0", "1"):
             flags.append(f"-D{flag}={v}")
@@ -209,9 +213,11 @@ def build_app():
     cmain = (("cc", *flags, "-S", "-emit-llvm", "-Xclang", "-disable-llvm-optzns", "-c",
               FW / "src" / "felucca.c", "-o", OUT / "felucca.ll") if size else
              ("cc", *flags, "-c", FW / "src" / "felucca.c", "-o", OUT / "felucca.o"))
+    (OUT / "fm1_cpu1.o").unlink(missing_ok=True)
     tc_all(("cc", "-c", FW / "crt0.S", "-o", OUT / "crt0.o"),
            ("cc", "-c", FW / "hal" / "fm1_vec.S", "-o", OUT / "fm1_vec.o"),
            ("cc", "-c", FW / "hal" / "fm1_isr.S", "-o", OUT / "fm1_isr.o"),
+           *([("cc", "-c", FW / "hal" / "fm1_cpu1.S", "-o", OUT / "fm1_cpu1.o")] if CPU2 else []),
            cmain)
     if size:
         subprocess.run([sys.executable, SRC / "tools" / "size_fns.py", OUT / "felucca.ll", OUT / "felucca_size.ll"],
@@ -220,7 +226,7 @@ def build_app():
            OUT / "felucca_size.ll", "-o", OUT / "felucca.o")
     elf = OUT / "felucca.elf"
     tc("pi32v2/bin/ld", "-T", FW / "app.ld", OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
-       OUT / "felucca.o", "-o", elf)
+       *([OUT / "fm1_cpu1.o"] if CPU2 else []), OUT / "felucca.o", "-o", elf)
     for sect in ("text.bin", "data.bin", "ramtext.bin"):
         (OUT / sect).unlink(missing_ok=True)
     *_, syms, dis, rt = tc_all(("common/bin/objcopy", "-O", "binary", "-j", ".text", elf, OUT / "text.bin"),
@@ -257,11 +263,42 @@ def check(img, syms, dis, rt):
         errors.append(f"_start is not at {APP_XIP:#x}")
     if img[:4] != bytes.fromhex("04818000"):
         errors.append(f"image starts with {img[:4].hex()}, not the entry stub")
-    rt_calls = [ln for ln in rt.splitlines() if re.search(r"\bcall\b", ln)]
-    if rt_calls:                    # RAM code runs with the flash off: no calls into XIP
+    # RAM code runs with the flash off: no calls into XIP. The second core's waiting loop (.c1_text, linked into
+    # .ram_text between _c1_start and _c1_end: one PC-limit window) calls only its job, through the pointer CPU0
+    # handed it (a register: "call rN"; after Felucca 1.6.1's build.py)
+    rt_calls, c1_calls, c1_insns, rt_insns = [], [], 0, 0
+    mm = re.search(r"^([0-9a-f]+) .*\s_c1_start$", syms, re.M)
+    c1_lo = int(mm.group(1), 16) if mm else 0
+    mm = re.search(r"^([0-9a-f]+) .*\s_c1_end$", syms, re.M)
+    c1_hi = int(mm.group(1), 16) if mm else 0
+    for ln in rt.splitlines():
+        mm = LINE.match(ln)
+        if not mm:
+            continue
+        if c1_lo <= int(mm.group(1), 16) < c1_hi:
+            c1_insns += 1
+            if re.search(r"\bcall\b", ln) and not re.search(r"\bcall\s+r\d+\b", ln):
+                c1_calls.append(ln.strip())
+        else:
+            rt_insns += 1
+            if re.search(r"\bcall\b", ln):
+                rt_calls.append(ln.strip())
+    if rt_calls:
         errors.append(f".ram_text contains calls: {rt_calls[:3]}")
     else:
-        notes.append(f".ram_text: {len([ln for ln in rt.splitlines() if LINE.match(ln)])} insns, no calls")
+        notes.append(f".ram_text: {rt_insns} insns, no calls")
+    c1_syms = re.findall(r"\s(fm1_cpu1_(?!stop)\w+)$", syms, re.M)
+    if not CPU2:                    # FELUCCA_CPU2=0: nothing of the second core (no stack, waiting loop, mailbox)
+        if c1_insns or c1_syms:
+            errors.append(f"FELUCCA_CPU2=0 build holds second-core code or data: {sorted(set(c1_syms))[:4]}")
+        else:
+            notes.append("one core: no second-core code, stack or mailbox")
+    elif c1_calls:
+        errors.append(f".c1_text calls other than its job: {c1_calls[:3]}")
+    elif not c1_insns:
+        errors.append(".c1_text: the second core's waiting loop is missing (firmware/hal/fm1_cpu1.h fm1_cpu1_main)")
+    else:
+        notes.append(f".c1_text: {c1_insns} insns, only its job called")
     for ln in dis.splitlines():     # nothing may call or load an address in the chip ROM
         mm = LINE.match(ln)
         if not mm:

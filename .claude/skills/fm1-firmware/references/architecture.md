@@ -219,7 +219,9 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
 - `FELUCCA_CPU2` (core.h, default 1): the four parts render into sums of their own (fx.c `mixsum_t mx[2]`: dry mix, the
   five sends, the part's block, a SHIMMER flag) and share no state while they render, so CPU1 can take some of them
   (`mix_parts2`, `c1_parts`, `mix_split`). Until CPU1 is started (plan step 4) `C1_ON()` is 0: the plain loop renders
-  all four on CPU0, bit for bit as before, and the hand-over code is not in the image.
+  all four on CPU0, bit for bit as before, and the hand-over code is not in the image. Step 3: `hal/fm1_cpu1.h` is
+  included (felucca.c, `FM1_CPU1`, `FM1_CPU1_FALLBACK 1`), its waiting loop, stacks and fault path are linked, but
+  nothing calls `fm1_cpu1_start` yet; `C1_ON()` gets wired to `fm1_cpu1_on` in step 4.
 - A part's render (`mix_part` and everything it calls: `track_render`, the engines, SLICER, DRIVE, EQ, `perf_mute`,
   `perf_throw`, `shimmer_send`) may write only its own state: its `track_t` (`t->spread_on`, `t->esync_k`,
   `t->lfo_wrap`), arrays indexed by its part (`eng_mem`, `sl`, `ins`, `eqa`, `pf.mg`), its copy `[C1_PI(t)]` (`MOD(t)`,

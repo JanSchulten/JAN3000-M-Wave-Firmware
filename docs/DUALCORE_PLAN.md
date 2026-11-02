@@ -4,10 +4,11 @@ Stand 2026-11-02. Der AC791N hat zwei pi32v2-Kerne; M-Vave-OP1 nutzt bisher nur 
 Hauptschleife, alles nacheinander). Andere FM-1-Firmwares nutzen CPU1 schon auf dem Gerät. Dieser Plan beschreibt, wie
 wir das übernehmen: was es bringt, was dafür im Code geändert werden muss, in welcher Reihenfolge und mit welchen Risiken.
 
-**Fortschritt:** Schritt 1 und 2 (Abschnitt 5) sind erledigt: die Parts teilen beim Rendern nichts mehr, die Firmware ist
-zweikernfähig gebaut (`FELUCCA_CPU2 1`), rendert auf dem Gerät aber weiter mit einem Kern, bitgleich zu vorher. Was genau
-geändert wurde: 3.3 (Spalte „Umgesetzt“), Tests: 3.4, Zahlen: Abschnitt 4. Schritt 3 (HAL, Build) ist der nächste; für
-Schritt 4 braucht es die Entscheidungen aus Abschnitt 8.
+**Fortschritt:** Schritt 1 bis 3 (Abschnitt 5) sind erledigt: die Parts teilen beim Rendern nichts mehr, die Firmware ist
+zweikernfähig gebaut (`FELUCCA_CPU2 1`), und der HAL für CPU1 (Start, Mailbox, Halten, Fault-Pfad) ist eingebaut und
+gelinkt, wird aber nicht aufgerufen: das Gerät rendert weiter mit einem Kern, bitgleich zu vorher. Was genau geändert
+wurde: 3.1 und 3.3 (Spalte „Umgesetzt“), Tests: 3.4, Zahlen: Abschnitt 4. Die Entscheidungen aus Abschnitt 8 sind
+gefallen; Schritt 4 ist der nächste (nur auf dem Branch), Schritt 5 wartet auf Wiederherstellungshardware.
 
 ## 1. Was es schon gibt
 
@@ -57,6 +58,14 @@ umgebaut. Ein Merge geht nicht: wir **portieren von Hand**, mit den Upstream-Dat
 - `app.ld`: `.c1_text` in `.ram_text`, zwischen `_c1_start` und `_c1_end`.
 - `build.py`: `fm1_cpu1.S` assemblieren; prüfen, dass `.c1_text` keine Aufrufe ins XIP enthält; Schalter
   `FELUCCA_CPU2=0` baut nichts davon (wie upstream).
+
+**Umgesetzt (Schritt 3, 2026-11-02):** die drei Dateien unverändert aus felucca-bsp 9670b5d nach `firmware/hal/`
+(`LICENSES/MPL-2.0.txt`, `LICENSING.md`). `fm1_irq.h`: `FM1_DBG_C0` / `FM1_DBG_C1`, `fm1_cnum()`, `fm1_uptime_ms()`, der
+Aufruf von `fm1_cpu1_fault_c` am Anfang von `fm1_fault_c` (`FM1_CPU1`). `fm1_vec.S`: das Weiterlaufen nach einem Fault
+von CPU1 (kehrt `fm1_fault_c` zurück, läuft CPU0 weiter; ohne CPU1 kehrt es nie zurück). `app.ld`: `.c1_text`.
+`build.py`: `fm1_cpu1.S`, die Prüfung von `.c1_text` (42 Befehle, ruft nur seinen Auftrag), `FELUCCA_CPU2=0` prüft, dass
+nichts von CPU1 im Image ist. `felucca.c`: `FM1_CPU1`, `FM1_CPU1_FALLBACK 1` (Abschnitt 8.2), `fm1_cpu1.h` eingebunden;
+`C1_ON()` bleibt 0 und `fm1_cpu1_start` wird nirgends aufgerufen, bis Schritt 4 es verdrahtet.
 
 ### 3.2 Start, Reset, Update (`main.c`, `ota.c`): Entscheidung des Nutzers
 
@@ -142,14 +151,18 @@ Unsere Plaits-Engines rechnen mit der FPU (`FM1_FPU`). Ob die FPU auf CPU1 genau
 
 ## 4. Budgets
 
-Gemessen 2026-11-02 (Toolchain 20260730), vor → nach Schritt 2:
+Gemessen 2026-11-02 (Toolchain 20260730), vor Schritt 2 → nach Schritt 2 → nach Schritt 3:
 
-| | vorher | nachher | Grenze |
-| --- | --- | --- | --- |
-| RAM `.data`+`.bss` | 44 528 B | 42 624 B | 51 200 B (≥ 4 096 frei) |
-| Pool | 373 652 B | 377 500 B | 391 168 B (≥ 8 192 frei): 5,4 KB nutzbar übrig |
-| Image | 541 380 B | 540 820 B | 581 564 B |
-| Audio-ISR `fm1_alnk0_irq` (statisch) | 40 736 | 37 478 | 44 810 (40 736 + 10 %) |
+| | vorher | Schritt 2 | Schritt 3 | Grenze |
+| --- | --- | --- | --- | --- |
+| RAM `.data`+`.bss` | 44 528 B | 42 624 B | 45 776 B | 51 200 B (≥ 4 096 frei): 1,3 KB über der Reserve |
+| Pool | 373 652 B | 377 500 B | 377 500 B | 391 168 B (≥ 8 192 frei): 5,4 KB nutzbar übrig |
+| Image | 541 380 B | 540 820 B | 541 392 B | 581 564 B |
+| Audio-ISR `fm1_alnk0_irq` (statisch) | 40 736 | 37 478 | 37 479 | 44 810 (40 736 + 10 %) |
+
+Schritt 3 legt CPU1s Stacks (2 816 + 256 B, `fm1_cpu1.S`, wie upstream in `.bss`), die Mailbox und den Fault-Zustand
+ins RAM (+3 152 B). `FELUCCA_CPU2=0` baut 43 632 B RAM, 374 164 B Pool, 541 284 B Image. Wird RAM in Schritt 4 knapp:
+die Stacks in den Pool (dort 5,4 KB nutzbar).
 
 Die Summen, SPREAD-Puffer und Plaits-Puffer liegen im Pool (gleiches SRAM), daher sinkt RAM. Die Übergabe an CPU1
 (`mix_parts2`, `c1_parts`, `c1_add`, `mix_split`) ist auf dem Gerät noch toter Code (`C1_ON()` 0) und nicht im Image.
@@ -171,7 +184,7 @@ Ursprüngliche Schätzung (Zahlen vom 2026-10-27):
    `CHECKLISTE.md`). *Erledigt bis auf die Lastmessung am Gerät.*
 2. **Parts unabhängig machen** (3.3) mit dem Host-Test (3.4), **ohne** CPU1: die Firmware rendert noch mit einem Kern,
    nur die Struktur ist zweikernfähig. Bitgleich, Suite grün. Kann allein ausgeliefert werden. *Erledigt (2026-11-02).*
-3. **HAL und Build** (3.1), noch ohne Start: baut, Budgets passen, `.c1_text` geprüft.
+3. **HAL und Build** (3.1), noch ohne Start: baut, Budgets passen, `.c1_text` geprüft. *Erledigt (2026-11-02).*
 4. **Start, Halten, Aufteilung** (3.2, 3.5), Menü und INFO (3.7), FPU-Maske (3.6). Standard OFF.
 5. **Gerätetest** nur mit Zustimmung, möglichst mit Wiederherstellungshardware (XIAO RP2040, Flash-Backup):
    Einschalten mit OFF (darf sich nichts ändern), dann ON; Lastszenen messen; 10 Minuten Volllast; Projekt speichern,
@@ -199,9 +212,14 @@ Ursprüngliche Schätzung (Zahlen vom 2026-10-27):
 - **Übersehener geteilter Zustand:** Klicks oder falsche Töne nur bei bestimmten Aufteilungen. Der bitgleiche Test
   über alle Aufteilungen plus ThreadSanitizer ist die Absicherung.
 
-## 8. Offene Entscheidungen
+## 8. Entscheidungen (2026-11-02)
 
-1. Dürfen `main.c` (Start, Boot-Guard-Umfeld) und die Reset-/Update-Wege für das Halten von CPU1 angefasst werden?
-2. Fallback: nach einem CPU1-Fehler mit einem Kern weiter (vorgeschlagen) oder Neustart (Melodee-Standard)?
-3. Ist Wiederherstellungshardware vorhanden, bevor Schritt 5 aufs Gerät geht?
-4. Schritt 2 zuerst allein ausliefern (vorgeschlagen), oder alles in einem Zug?
+1. `main.c` (Start, Boot-Guard-Umfeld) und die Reset-/Update-Wege dürfen für CPU1 angefasst werden, **nur auf dem
+   Branch**, nicht in `main`, bis der Gerätetest (Schritt 5) bestanden ist.
+2. Fallback: nach einem CPU1-Fehler **mit einem Kern weiter** (`FM1_CPU1_FALLBACK 1`, wie Felucca 1.6.1), Option auf OFF.
+   Ein Neustart würde mitten im Spielen den Ton abbrechen und ungespeicherte Änderungen verlieren, und ein Fehler in
+   den ersten 30 s zählte für den Boot-Guard: zwei davon schicken das Gerät in den Boot-Modus, aus dem es ohne
+   Wiederherstellungshardware nicht zurückkommt.
+3. Wiederherstellungshardware ist **noch nicht** vorhanden: Schritt 5 (Gerätetest) wartet darauf; bis dahin nur
+   Host-Tests und Emulator.
+4. Schritt 2 wird **zuerst allein** ausgeliefert (eigener PR nach `main`).
