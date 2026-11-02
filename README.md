@@ -13,7 +13,7 @@ top of it.
 
 ## Manual
 
-📖 **[User manual (English and German)](https://m-vave-op1-web.vercel.app/manual/)**: every feature and control
+📖 **[User manual (English and German)](https://jan3000-manual.vercel.app/)**: every feature and control
 explained. The same manual is in this repository at [`web/manual/manual.html`](web/manual/manual.html).
 
 ## Features
