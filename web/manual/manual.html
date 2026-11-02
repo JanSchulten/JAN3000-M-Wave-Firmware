@@ -352,7 +352,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 <header class="hero">
   <p class="eyebrow">User guide · Firmware for the M-VAVE FM-1 · Version 0.1 alpha</p>
   <h1>JAN3000</h1>
-  <p class="lede">JAN3000 is free firmware for the M-VAVE FM-1 pocket synthesizer. It turns the little device into a pocket studio: four tracks with their own sound engines, a step sequencer with 16 scenes, a KEY track for chord progressions and two tracks just for effects.</p>
+  <p class="lede">JAN3000 is free firmware for the M-VAVE FM-1 pocket synthesizer. It turns the little device into a pocket studio: four tracks with their own sound engines, a step sequencer with 16 scenes, a KEY track for chord progressions and two tracks just for effects. It is made to be played by hand: quick enough to sketch an idea in seconds, deep enough to follow it into the engine (see <a href="#idea">The idea</a>).</p>
   <div class="specs">
     <div><b>4</b><span>Tracks</span></div>
     <div><b>17</b><span>Engines</span></div>
@@ -362,6 +362,62 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   </div>
   <p class="status">JAN3000 v0.1 alpha is the first public test version: the firmware, its installer and this guide. Every change in it ran on a real FM-1, but expect rough edges, and please report what you find. Installing it is at your own risk. The open-source work it builds on is credited under <a href="#help-thanks">Licence and thanks</a>.</p>
 </header>
+
+<!-- ================================================================ 0 -->
+<section class="chapter" id="idea">
+  <div class="ch-head"><span class="ch-num" aria-hidden="true"></span><h2>The idea</h2>
+    <p class="lede">A groovebox you play by hand and from muscle memory: quick enough to catch an idea before it is gone, deep enough to follow it all the way into the engine, and always ready to be played live.</p></div>
+
+  <section class="sub" id="id-goal">
+    <h3>Quick and deep</h3>
+    <div class="prose">
+      <p>Most instruments make you choose: a sketchpad that is quick but shallow, or a workstation that is deep but slow. JAN3000 wants both on the same few controls. The first sound is a turn of <kbd>PRESETS</kbd> away, the first loop a <kbd>REC</kbd> and a <kbd>PLAY</kbd>. The way down goes through the same knobs: <kbd>EDIT</kbd> into the engine, a held step into a parameter lock, LFO &gt; MOD into the matrix.</p>
+      <p>Nothing deep stands in the way of something quick. You never have to open a page to make music, and you can open any page while the music plays.</p>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>Depth</th><th>Reached with</th><th>What is there</th></tr></thead>
+      <tbody>
+        <tr><td class="m">SURFACE</td><td>The keys, <kbd>PRESETS</kbd>, <kbd>ALGORITHM</kbd>, <kbd>PLAY</kbd>, <kbd>REC</kbd></td><td>Sounds, tracks, a loop recorded live</td></tr>
+        <tr><td class="m">LAYERS</td><td>Hold <kbd>FX</kbd>, <kbd>GLO</kbd>, <kbd>SCL</kbd>, <kbd>EDIT</kbd>, <kbd>SEQ</kbd> or <kbd>REC</kbd><span class="d">the keys and knobs change jobs</span></td><td>Punch-ins, mutes and solos, roots, engines, scenes and tools</td></tr>
+        <tr><td class="m">PAGES</td><td>Tap a page button, <kbd>SELECT</kbd> turns</td><td>Envelopes, LFOs, scale, chords, arpeggiator, the steps</td></tr>
+        <tr><td class="m">ENGINE</td><td><kbd>EDIT</kbd>, a held step, LFO &gt; MOD</td><td>Every parameter of 17 engines, locks, automation, the matrix</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="sub" id="id-hands">
+    <h3>Made for the hands</h3>
+    <figure class="fig">
+      <div class="fig-scroll"><div data-panel data-hl="FX SCL EDIT GLO SEQ REC" data-hold="FX SCL EDIT GLO SEQ REC" data-screen="HOME|CUT|RES|ATK|REL" data-alt="The six layer buttons, each one held"></div></div>
+      <figcaption>Six buttons, six layers. Hold one and the keyboard becomes its map.</figcaption>
+    </figure>
+    <dl class="defs">
+      <dt>Hold, then press</dt><dd>Every frequent move is a held button plus a key or a knob. Your fingers learn the shape, not a path through menus.</dd>
+      <dt>Same move, same job</dt><dd><kbd>OCT+</kbd> does it and <kbd>OCT−</kbd> goes back, on every page and in every dialog. In the FX and GLO layers the first four black keys are the four tracks.</dd>
+      <dt>Eyes free</dt><dd>The display shows a layer's map when you need it and stays out of the way when you don't (MENU &gt; CONTROL &gt; HOLD sets when). Whatever can be pressed right now breathes.</dd>
+      <dt>Free to try</dt><dd>Hold <kbd>SAVE</kbd> and the last step is gone; hold it again and it is back. MOMENTARY tries a value and lets it snap back. The autosave keeps the rest.</dd>
+    </dl>
+  </section>
+
+  <section class="sub" id="id-live">
+    <h3>Made to be played live</h3>
+    <div class="prose">
+      <p>The music never has to stop for an edit. Scenes change at the end of the pattern, in time, and can be copied while they play, so a variation starts as a copy of what you hear. Punch-ins sit on the mix for as long as a key is held and can be recorded onto the FX tracks. The KEY track moves every pattern to a new root with one key. Mutes, solos and levels are in one hand under <kbd>GLO</kbd>.</p>
+      <p>Ideas come from playing around; JAN3000 tries to keep what comes. With REC on, what you play keeps its timing and its knob moves, and becomes a pattern you can open and change.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="id-flow">
+    <h3>A session in five moves</h3>
+    <ol class="steps">
+      <li><span><b>Sketch.</b> <kbd>PRESETS</kbd> to a sound, play, <kbd>REC</kbd> and <kbd>PLAY</kbd>: a loop.</span></li>
+      <li><span><b>Shape.</b> Hold <kbd>LFO</kbd> and turn a knob to try a value; <kbd>EDIT</kbd> into the engine to keep one; hold a step and turn a knob to lock a value to it.</span></li>
+      <li><span><b>Vary.</b> Hold <kbd>SEQ</kbd> and hold <kbd>OCT+</kbd>: the scene is copied while it plays. Change the copy; <kbd>SEQ</kbd> <span class="plus">+</span> a white key switches between the two in time.</span></li>
+      <li><span><b>Perform.</b> Hold <kbd>FX</kbd> for punch-ins, <kbd>GLO</kbd> for mutes and solos, play roots on the KEY page.</span></li>
+      <li><span><b>Keep.</b> Hold <kbd>SAVE</kbd> to undo a wrong turn, SAVE &gt; PROJECT to keep the take.</span></li>
+    </ol>
+  </section>
+</section>
 
 <!-- ================================================================ 1 -->
 <section class="chapter" id="overview">
@@ -1591,7 +1647,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 <header class="hero">
   <p class="eyebrow">Bedienungsanleitung · Firmware für das M-VAVE FM-1 · Version 0.1 alpha</p>
   <h1>JAN3000</h1>
-  <p class="lede">JAN3000 ist eine freie Firmware für den Taschen-Synthesizer M-VAVE FM-1. Sie macht das kleine Gerät zum Taschenstudio: vier Spuren mit eigener Klangerzeugung, ein Step-Sequencer mit 16 Szenen, eine KEY-Spur für Akkordfolgen und zwei Spuren nur für Effekte.</p>
+  <p class="lede">JAN3000 ist eine freie Firmware für den Taschen-Synthesizer M-VAVE FM-1. Sie macht das kleine Gerät zum Taschenstudio: vier Spuren mit eigener Klangerzeugung, ein Step-Sequencer mit 16 Szenen, eine KEY-Spur für Akkordfolgen und zwei Spuren nur für Effekte. Sie ist gemacht, um mit den Händen gespielt zu werden: schnell genug, um eine Idee in Sekunden zu skizzieren, tief genug, um ihr bis in die Engine zu folgen (siehe <a href="#de-idee">Die Idee</a>).</p>
   <div class="specs">
     <div><b>4</b><span>Spuren</span></div>
     <div><b>17</b><span>Engines</span></div>
@@ -1601,6 +1657,62 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   </div>
   <p class="status">JAN3000 v0.1 alpha ist die erste öffentliche Testversion: die Firmware, ihr Installer und diese Anleitung. Jede Änderung darin lief auf einem echten FM-1, aber rechne mit Ecken und Kanten und melde bitte, was dir auffällt. Die Installation geschieht auf eigenes Risiko. Die Open-Source-Arbeit, auf der die Firmware aufbaut, steht unter <a href="#de-hilfe-dank">Lizenz und Dank</a>.</p>
 </header>
+
+<!-- ================================================================ 0 -->
+<section class="chapter" id="de-idee">
+  <div class="ch-head"><span class="ch-num" aria-hidden="true"></span><h2>Die Idee</h2>
+    <p class="lede">Eine Groovebox, die du mit den Händen und aus dem Muskelgedächtnis spielst: schnell genug, um eine Idee zu fangen, bevor sie weg ist, tief genug, um ihr bis in die Engine zu folgen, und jederzeit bereit, live gespielt zu werden.</p></div>
+
+  <section class="sub" id="de-idee-ziel">
+    <h3>Schnell und tief</h3>
+    <div class="prose">
+      <p>Die meisten Instrumente lassen dich wählen: ein Skizzenblock, schnell, aber flach, oder eine Workstation, tief, aber langsam. JAN3000 will beides auf denselben wenigen Bedienelementen. Der erste Sound ist eine Drehung an <kbd>PRESETS</kbd> entfernt, der erste Loop ein <kbd>REC</kbd> und ein <kbd>PLAY</kbd>. Der Weg nach unten führt über dieselben Regler: mit <kbd>EDIT</kbd> in die Engine, mit einem gehaltenen Schritt in einen Parameter-Lock, mit LFO &gt; MOD in die Matrix.</p>
+      <p>Nichts Tiefes steht dem Schnellen im Weg. Du musst keine Seite öffnen, um Musik zu machen, und du kannst jede Seite öffnen, während die Musik läuft.</p>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>Tiefe</th><th>Erreichst du mit</th><th>Was dort liegt</th></tr></thead>
+      <tbody>
+        <tr><td class="m">OBERFLÄCHE</td><td>Die Tasten, <kbd>PRESETS</kbd>, <kbd>ALGORITHM</kbd>, <kbd>PLAY</kbd>, <kbd>REC</kbd></td><td>Sounds, Spuren, ein live aufgenommener Loop</td></tr>
+        <tr><td class="m">EBENEN</td><td><kbd>FX</kbd>, <kbd>GLO</kbd>, <kbd>SCL</kbd>, <kbd>EDIT</kbd>, <kbd>SEQ</kbd> oder <kbd>REC</kbd> halten<span class="d">Tasten und Regler wechseln die Aufgabe</span></td><td>Punch-ins, Mute und Solo, Grundtöne, Engines, Szenen und Werkzeuge</td></tr>
+        <tr><td class="m">SEITEN</td><td>Eine Seitentaste tippen, <kbd>SELECT</kbd> blättert</td><td>Hüllkurven, LFOs, Skala, Akkorde, Arpeggiator, die Schritte</td></tr>
+        <tr><td class="m">ENGINE</td><td><kbd>EDIT</kbd>, ein gehaltener Schritt, LFO &gt; MOD</td><td>Jeder Parameter der 17 Engines, Locks, Automation, die Matrix</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="sub" id="de-idee-haende">
+    <h3>Für die Hände gemacht</h3>
+    <figure class="fig">
+      <div class="fig-scroll"><div data-panel data-hl="FX SCL EDIT GLO SEQ REC" data-hold="FX SCL EDIT GLO SEQ REC" data-screen="HOME|CUT|RES|ATK|REL" data-alt="Die sechs Ebenen-Tasten, jede gehalten"></div></div>
+      <figcaption>Sechs Tasten, sechs Ebenen. Halte eine, und die Tastatur wird zu ihrer Karte.</figcaption>
+    </figure>
+    <dl class="defs">
+      <dt>Halten, dann drücken</dt><dd>Jeder häufige Griff ist eine gehaltene Taste und dazu eine Taste oder ein Regler. Die Finger lernen die Form, keinen Weg durch Menüs.</dd>
+      <dt>Gleicher Griff, gleiche Aufgabe</dt><dd><kbd>OCT+</kbd> führt aus, <kbd>OCT−</kbd> geht zurück, auf jeder Seite und in jedem Dialog. In der FX- und der GLO-Ebene sind die ersten vier schwarzen Tasten die vier Spuren.</dd>
+      <dt>Augen frei</dt><dd>Das Display zeigt die Karte einer Ebene, wenn du sie brauchst, und hält sich sonst zurück (wann, stellt MENU &gt; CONTROL &gt; HOLD ein). Was gerade gedrückt werden kann, atmet.</dd>
+      <dt>Ausprobieren kostet nichts</dt><dd><kbd>SAVE</kbd> halten, und der letzte Schritt ist weg; noch einmal halten, und er ist zurück. MOMENTARY probiert einen Wert und lässt ihn zurückspringen. Den Rest hält die automatische Sicherung.</dd>
+    </dl>
+  </section>
+
+  <section class="sub" id="de-idee-live">
+    <h3>Zum Live-Spielen gemacht</h3>
+    <div class="prose">
+      <p>Für eine Änderung muss die Musik nie anhalten. Szenen wechseln am Ende des Patterns im Takt und lassen sich im Lauf kopieren, so beginnt eine Variation als Kopie dessen, was du hörst. Punch-ins liegen auf der Summe, solange eine Taste gehalten ist, und lassen sich auf die FX-Spuren aufnehmen. Die KEY-Spur rückt jedes Pattern mit einer Taste auf einen neuen Grundton. Mute, Solo und Pegel liegen unter <kbd>GLO</kbd> in einer Hand.</p>
+      <p>Ideen entstehen beim Herumspielen; JAN3000 versucht festzuhalten, was dabei entsteht. Mit REC behält, was du spielst, sein Timing und seine Reglerbewegungen und wird zu einem Pattern, das du öffnen und ändern kannst.</p>
+    </div>
+  </section>
+
+  <section class="sub" id="de-idee-ablauf">
+    <h3>Eine Session in fünf Griffen</h3>
+    <ol class="steps">
+      <li><span><b>Skizzieren.</b> <kbd>PRESETS</kbd> auf einen Sound, spielen, <kbd>REC</kbd> und <kbd>PLAY</kbd>: ein Loop.</span></li>
+      <li><span><b>Formen.</b> <kbd>LFO</kbd> halten und einen Regler drehen, um einen Wert zu probieren; mit <kbd>EDIT</kbd> in die Engine, um einen zu behalten; einen Schritt halten und einen Regler drehen, um einen Wert auf ihm festzulegen.</span></li>
+      <li><span><b>Variieren.</b> <kbd>SEQ</kbd> halten und <kbd>OCT+</kbd> lange halten: Die Szene wird im Lauf kopiert. Die Kopie ändern; <kbd>SEQ</kbd> <span class="plus">+</span> eine weiße Taste wechselt im Takt zwischen beiden.</span></li>
+      <li><span><b>Spielen.</b> <kbd>FX</kbd> halten für Punch-ins, <kbd>GLO</kbd> für Mute und Solo, Grundtöne auf der KEY-Seite.</span></li>
+      <li><span><b>Behalten.</b> <kbd>SAVE</kbd> halten nimmt einen Irrweg zurück, SAVE &gt; PROJECT behält den Take.</span></li>
+    </ol>
+  </section>
+</section>
 
 <!-- ================================================================ 1 -->
 <section class="chapter" id="de-uebersicht">
