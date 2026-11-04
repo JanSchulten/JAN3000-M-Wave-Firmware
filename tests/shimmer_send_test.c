@@ -181,19 +181,21 @@ static void test_stored(void)
     memset(&u, 0, sizeof u); u.np = P_COUNT; u.ver = UP_VER;
     for (i = 0; i < P_COUNT; i++) { defs[i] = TP[i].def; up_set_value(&u, i, trk[0].p[i]); }
     up_params(&u, v, defs); ck("user preset keeps the SHIM send", v[P_SHIM] == 20);
-    /* Recreate the previous FUN10 layout: 111 parameters, no SHIM field; engine ids and their motion are old. */
+    /* Recreate the previous FUN10 layout: 111 parameters, no SHIM field (nor ARP 3's STYLE VAR after it, M-Vave-OP1);
+     * engine ids and their motion are old. */
     for (i = 0; i < NTRK; i++) motion_clear(&trk[i]); motion_set_event(&trk[0], 1, P_E0, param_desc_of(trk[0].eng_req, P_E0)->def); project_capture(&a); proj_pack(&st, &a);
     for (i = 0; i < NTRK; i++) {
-        pos = 68 + i * span; dst = 68 + i * (span - 1);
+        pos = 68 + i * span; dst = 68 + i * (span - 3);
         memmove(st.raw + dst, st.raw + pos, P_SHIM);
-        memmove(st.raw + dst + P_SHIM, st.raw + pos + P_SHIM + 1, span - P_SHIM - 1);
+        memmove(st.raw + dst + P_SHIM, st.raw + pos + P_SHIM + 3, span - P_SHIM - 3);
     }
-    pos = 68 + NTRK * span; dst = pos - NTRK;
+    pos = 68 + NTRK * span; dst = pos - 3 * NTRK;
     memmove(st.raw + dst, st.raw + pos, sizeof a.chain + sizeof(motion_disk_t));
     st.raw[dst + sizeof a.chain + 4 + 1] = 103;  /* motion_disk_t's 4-byte header, first record's id */
     st.raw[66] = 111; n = proj_hash(st.raw, sizeof st - 4); memcpy(st.raw + sizeof st - 4, &n, 4);
     ck("old 111-parameter project: SHIM zero, engine values and automation retain their meaning",
-       proj_import(&q, &st, sizeof st) && !q.t[0].p[P_SHIM] && q.t[0].p[P_E0] == a.t[0].p[P_E0] && MOTION_ID(&q.motion.event[0]) == P_E0);
+       proj_import(&q, &st, sizeof st) && !q.t[0].p[P_SHIM] && !q.t[0].p[P_ASTYLE] && q.t[0].p[P_AVAR] == 1 &&
+       q.t[0].p[P_E0] == a.t[0].p[P_E0] && MOTION_ID(&q.motion.event[0]) == P_E0);
     for (i = 0; i < NTRK; i++) motion_clear(&trk[i]); motion_set_event(&trk[0], 1, P_E0, param_desc_of(trk[0].eng_req, P_E0)->def); motion_set_lock(&trk[1], 2, P_SHIM, 37);
     scn_view_trk(&view); n = scn_encode(&view, bytes, sizeof bytes);
     ck("scene codec keeps original engine wire ids and new SHIM locks", scn_param_put(P_E0) == 103 && scn_param_get(103) == P_E0 &&
