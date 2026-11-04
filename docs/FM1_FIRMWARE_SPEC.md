@@ -151,8 +151,8 @@ sh .claude/skills/fm1-firmware/scripts/budget_report.sh   # RAM, pool, image, IS
 
 - `build.sh` / `tools/build.py` refuses an image over its limits and reports RAM, pool and image size. It also
   generates `build/gen/*` (fonts, icons, tables, samples), which every test needs, so **build once before testing**.
-- **Package:** `.fwsc` = app + update loader + the three SDK files. Identity `FM-1_900` for development and
-  `FM-1_910` for release. The installers check the identity; keep it.
+- **Package:** `.fwsc` = app + update loader + the three SDK files. Identity `FM-1_953` (M-Vave-OP1's
+  JAN3000 since v0.2, development and release alike; `FM-1_900` before). The installers check the identity; keep it.
 - **Install** (only with the owner's go-ahead), either way:
   - Over USB-MIDI: `python3 tools/fm1_install.py build/felucca.fwsc`.
   - With the web installer:

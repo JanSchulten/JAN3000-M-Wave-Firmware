@@ -49,7 +49,9 @@ SDK_SHA256 = {
     "cfg/eq_cfg_hw.bin": "41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d",
 }
 
-PRODUCT = "FM-1_900"                # package identity; release builds are FM-1_9XY
+PRODUCT = "FM-1_953"                # package identity (M-Vave-OP1: JAN3000's own from v0.2; v0.1 and earlier
+                                    # builds were FM-1_900, which other firmwares use too). The app and the
+                                    # loader report it (FELUCCA_ID, "ota-" + it in update mode)
 VERSION = None                      # FELUCCA_VERSION (default: firmware/src/felucca.c; M-Vave-OP1 keeps Felucca's)
 JAN = None                          # M-Vave-OP1: JAN3000's version for release builds (default: firmware/src/ui_draw.c)
 
@@ -149,7 +151,7 @@ def ldr_wrap(image):
 def build_loader():
     LDR.mkdir(parents=True, exist_ok=True)
     src = FW / "loader"
-    flags = [*CFLAGS, "-Ifirmware/hal", "-Ifirmware/src"]
+    flags = [*CFLAGS, "-Ifirmware/hal", "-Ifirmware/src", f'-DFELUCCA_ID="ota-{PRODUCT}"']   # (M-Vave-OP1: the package's)
     tc_all(("cc", "-c", src / "crt0_ldr.S", "-o", LDR / "crt0_ldr.o"),
            ("cc", *flags, "-c", src / "loader.c", "-o", LDR / "loader.o"))
     elf = LDR / "loader.elf"
@@ -343,7 +345,7 @@ def main():
     a = ap.parse_args()
     name = "felucca.fwsc"
     if a.release:                   # M-Vave-OP1: JAN3000's version (ui_draw.c JAN_VERSION). The package identity stays
-        # FM-1_900 (Felucca's releases are FM-1_9XY) and FELUCCA_VERSION the Felucca it is based on
+        # PRODUCT (FM-1_953, JAN3000's; Felucca's releases are FM-1_91X) and FELUCCA_VERSION the Felucca it is based on
         if not re.fullmatch(r"\d\.\d(?:\.\d){0,2}(-[A-Za-z0-9]+)?", a.release):
             raise SystemExit(f"--release {a.release}: use X.Y, X.Y.Z, X.Y.Z.W or X.Y-suffix, one digit each")
         JAN = "v" + a.release.lower()          # e.g. v1.0, v1.1-rc1

@@ -351,7 +351,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <button type="button" data-a="green" style="--sw:#5fd08a" aria-label="GREEN" aria-pressed="false"></button>
       <span class="pal-name" id="pal-name">AMBER</span>
     </div>
-    <div class="rail-ver" data-en="JAN3000 v0.1 alpha · November 2026 · GPL-3.0" data-de="JAN3000 v0.1 alpha · Stand November 2026 · GPL-3.0">JAN3000 v0.1 alpha · November 2026 · GPL-3.0</div>
+    <div class="rail-ver" data-en="JAN3000 v0.2 alpha · November 2026 · GPL-3.0" data-de="JAN3000 v0.2 alpha · Stand November 2026 · GPL-3.0">JAN3000 v0.2 alpha · November 2026 · GPL-3.0</div>
   </div>
 </nav>
 <div class="scrim" id="scrim" hidden></div>
@@ -361,7 +361,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
 <div class="lang" lang="en">
 <header class="hero">
-  <p class="eyebrow">User guide · Firmware for the M-VAVE FM-1 · Version 0.1 alpha</p>
+  <p class="eyebrow">User guide · Firmware for the M-VAVE FM-1 · Version 0.2 alpha</p>
   <h1>JAN3000</h1>
   <p class="lede">JAN3000 is free firmware for the M-VAVE FM-1 pocket synthesizer. It turns the little device into a pocket studio: four tracks with their own sound engines, a step sequencer with 16 scenes, a KEY track for chord progressions and two tracks just for effects. It is made to be played by hand: quick enough to sketch an idea in seconds, deep enough to follow it into the engine (see <a href="#idea">The idea</a>).</p>
   <div class="specs">
@@ -371,7 +371,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div><b>16</b><span>Scenes per project</span></div>
     <div><b>27</b><span>Keys F3–G5</span></div>
   </div>
-  <p class="status">JAN3000 v0.1 alpha is the first public test version: the firmware, its installer and this guide. Every change in it ran on a real FM-1, but expect rough edges, and please report what you find. Installing it is at your own risk. The open-source work it builds on is credited under <a href="#help-thanks">Licence and thanks</a>.</p>
+  <p class="status">JAN3000 v0.2 alpha is the second public test version: the firmware, its installer and this guide. Every change in it ran on a real FM-1, but expect rough edges, and please report what you find. Installing it is at your own risk. The open-source work it builds on is credited under <a href="#help-thanks">Licence and thanks</a>.</p>
 </header>
 
 <!-- ================================================================ 0 -->
@@ -496,7 +496,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="st-install">
     <h3>Installing</h3>
     <ol class="steps">
-      <li><span>Download the <a href="https://github.com/JanSchulten/M-Vave-OP1/releases/download/v0.1-alpha/M-Vave-OP1-Installer.zip">installer ZIP</a> (all versions: <a href="https://github.com/JanSchulten/M-Vave-OP1/releases">releases</a>) and unzip it.</span></li>
+      <li><span>Download the <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware/releases/download/v0.2-alpha/JAN3000-v0.2-alpha-Installer.zip">installer ZIP</a> (all versions: <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware/releases">releases</a>) and unzip it.</span></li>
       <li><span>Double-click the starter: <code>START-Mac.command</code> on a Mac (the first time: right-click, then Open), <code>START-Windows.bat</code> on Windows. Keep its window open while you install.</span></li>
       <li><span>The browser opens the installer. It shows the firmware's version id; it must match the one in the starter's window.</span></li>
       <li><span>Connect the FM-1, click <b>Install</b> and allow MIDI (SysEx) access.</span></li>
@@ -576,7 +576,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td class="m">EDIT</td><td>EDIT 1 · EDIT 2 · the engine's pages · VOICE · VOICE 2 <span class="d">EDIT 1 and 2 are titled by the engine, such as OSC and FLT</span></td><td><a href="#tr-engine">EDIT layer</a>: pick the engine</td></tr>
         <tr><td class="m">ENV</td><td>ENV · ENV DEST</td><td>–</td></tr>
         <tr><td class="m">LFO</td><td>LFO · LFO 2 · LFO DEST · MOD</td><td><a href="#ba-momentary">MOMENTARY</a> with a knob</td></tr>
-        <tr><td class="m">ARP</td><td>ARP · ARP 2 <span class="d">one screen, two rows</span></td><td>–</td></tr>
+        <tr><td class="m">ARP</td><td>ARP · ARP 2 · J-6 <span class="d">ARP and ARP 2 one screen, two rows; J-6 the J-6 phrases</span></td><td>–</td></tr>
         <tr><td class="m">REC</td><td>arms the selected track</td><td><a href="#sq-reclayer">REC layer</a></td></tr>
       </tbody>
     </table></div>
@@ -910,11 +910,13 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <tbody>
         <tr><td class="m">ARP</td><td class="m">MODE</td><td class="m">RATE</td><td class="m">OCT</td><td class="m">GATE</td></tr>
         <tr><td class="m">ARP 2</td><td class="m">SWG</td><td class="m">PROB</td><td class="m">HOLD</td><td class="m">ORD</td></tr>
+        <tr><td class="m">J-6</td><td class="m">STYLE</td><td class="m">VAR</td><td class="m">SNAP</td><td class="m">HOLD</td></tr>
       </tbody>
     </table></div>
     <div class="prose">
-      <p>Both rows are on one screen; SELECT switches rows. A keyboard below shows the notes the arpeggiator runs through, the held ones brighter, the one sounding in the accent. The ARP LED flashes on the beat.</p>
+      <p>ARP and ARP 2 are on one screen; SELECT switches rows. A keyboard below shows the notes the arpeggiator runs through, the held ones brighter, the one sounding in the accent. The ARP LED flashes on the beat.</p>
       <p><b>MODE:</b> OFF, UP, DN, UPDN, RND, ORD (in the order you pressed), REPEAT, and for chords DNUP, UP+8, CONV, DIVG, PINKY, THUMB, WALK and CHORD.</p>
+      <p><b>J-6</b> plays one of the 108 phrases of the Roland J-6, recorded from one, over the keys you hold, instead of the arpeggiator: STYLE picks the kind as the J-6 names them (ARP 8, ARP 16, BEAT, PHR A, PHR B, CHD S and CHD R for chord phrases, STR S and STR R for strummed ones), VAR one of its twelve variations (7 to 12 in triplets). A STYLE switches it on; OFF leaves the arpeggiator as you set it. While the J-6 plays, the arpeggiator's settings rest and do nothing. The phrase plays its own notes over the held keys, lowest first, the way the J-6 voices them over a chord: chords, strums and runs, with the J-6's lengths and accents. <b>SNAP</b> ON starts each new chord on the next bar's one, silent until then: the sequencer's bar while it plays, otherwise the beat the ARP LED flashes on. <b>HOLD</b> is ARP 2's HOLD: it latches the chord. The screen shows the phrase over its cycle, one row per chord tone, accents in the accent colour.</p>
     </div>
   </section>
 </section>
@@ -1686,13 +1688,13 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 </section>
 
 <footer class="foot">
-  <p>JAN3000 v0.1 alpha · user guide · November 2026.</p>
+  <p>JAN3000 v0.2 alpha · user guide · November 2026.</p>
 </footer>
 
 </div>
 <div class="lang" lang="de" hidden>
 <header class="hero">
-  <p class="eyebrow">Bedienungsanleitung · Firmware für das M-VAVE FM-1 · Version 0.1 alpha</p>
+  <p class="eyebrow">Bedienungsanleitung · Firmware für das M-VAVE FM-1 · Version 0.2 alpha</p>
   <h1>JAN3000</h1>
   <p class="lede">JAN3000 ist eine freie Firmware für den Taschen-Synthesizer M-VAVE FM-1. Sie macht das kleine Gerät zum Taschenstudio: vier Spuren mit eigener Klangerzeugung, ein Step-Sequencer mit 16 Szenen, eine KEY-Spur für Akkordfolgen und zwei Spuren nur für Effekte. Sie ist gemacht, um mit den Händen gespielt zu werden: schnell genug, um eine Idee in Sekunden zu skizzieren, tief genug, um ihr bis in die Engine zu folgen (siehe <a href="#de-idee">Die Idee</a>).</p>
   <div class="specs">
@@ -1702,7 +1704,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <div><b>16</b><span>Szenen je Projekt</span></div>
     <div><b>27</b><span>Tasten F3–G5</span></div>
   </div>
-  <p class="status">JAN3000 v0.1 alpha ist die erste öffentliche Testversion: die Firmware, ihr Installer und diese Anleitung. Jede Änderung darin lief auf einem echten FM-1, aber rechne mit Ecken und Kanten und melde bitte, was dir auffällt. Die Installation geschieht auf eigenes Risiko. Die Open-Source-Arbeit, auf der die Firmware aufbaut, steht unter <a href="#de-hilfe-dank">Lizenz und Dank</a>.</p>
+  <p class="status">JAN3000 v0.2 alpha ist die zweite öffentliche Testversion: die Firmware, ihr Installer und diese Anleitung. Jede Änderung darin lief auf einem echten FM-1, aber rechne mit Ecken und Kanten und melde bitte, was dir auffällt. Die Installation geschieht auf eigenes Risiko. Die Open-Source-Arbeit, auf der die Firmware aufbaut, steht unter <a href="#de-hilfe-dank">Lizenz und Dank</a>.</p>
 </header>
 
 <!-- ================================================================ 0 -->
@@ -1827,7 +1829,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
   <section class="sub" id="de-start-install">
     <h3>Installieren</h3>
     <ol class="steps">
-      <li><span>Das <a href="https://github.com/JanSchulten/M-Vave-OP1/releases/download/v0.1-alpha/M-Vave-OP1-Installer.zip">Installer-ZIP</a> herunterladen (alle Versionen: <a href="https://github.com/JanSchulten/M-Vave-OP1/releases">Releases</a>) und entpacken.</span></li>
+      <li><span>Das <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware/releases/download/v0.2-alpha/JAN3000-v0.2-alpha-Installer.zip">Installer-ZIP</a> herunterladen (alle Versionen: <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware/releases">Releases</a>) und entpacken.</span></li>
       <li><span>Den Starter doppelklicken: auf dem Mac <code>START-Mac.command</code> (beim ersten Mal Rechtsklick, dann Öffnen), unter Windows <code>START-Windows.bat</code>. Das Fenster bleibt offen, solange du installierst.</span></li>
       <li><span>Der Browser öffnet den Installer. Er zeigt die Versionskennung der Firmware; sie muss zu der im Starter-Fenster passen.</span></li>
       <li><span>FM-1 anschließen, <b>Install</b> klicken und den MIDI-Zugriff (SysEx) erlauben.</span></li>
@@ -1907,7 +1909,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
         <tr><td class="m">EDIT</td><td>EDIT 1 · EDIT 2 · Seiten der Engine · VOICE · VOICE 2 <span class="d">EDIT 1 und 2 tragen Titel der Engine, etwa OSC und FLT</span></td><td><a href="#de-sp-engine">EDIT-Ebene</a>: Engine wählen</td></tr>
         <tr><td class="m">ENV</td><td>ENV · ENV DEST</td><td>–</td></tr>
         <tr><td class="m">LFO</td><td>LFO · LFO 2 · LFO DEST · MOD</td><td><a href="#de-gr-momentary">MOMENTARY</a> mit einem Regler</td></tr>
-        <tr><td class="m">ARP</td><td>ARP · ARP 2 <span class="d">ein Bildschirm, zwei Reihen</span></td><td>–</td></tr>
+        <tr><td class="m">ARP</td><td>ARP · ARP 2 · J-6 <span class="d">ARP und ARP 2 ein Bildschirm, zwei Reihen; J-6 die J-6-Phrasen</span></td><td>–</td></tr>
         <tr><td class="m">REC</td><td>macht die gewählte Spur aufnahmebereit</td><td><a href="#de-seq-reclayer">REC-Ebene</a></td></tr>
       </tbody>
     </table></div>
@@ -2243,11 +2245,13 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <tbody>
         <tr><td class="m">ARP</td><td class="m">MODE</td><td class="m">RATE</td><td class="m">OCT</td><td class="m">GATE</td></tr>
         <tr><td class="m">ARP 2</td><td class="m">SWG</td><td class="m">PROB</td><td class="m">HOLD</td><td class="m">ORD</td></tr>
+        <tr><td class="m">J-6</td><td class="m">STYLE</td><td class="m">VAR</td><td class="m">SNAP</td><td class="m">HOLD</td></tr>
       </tbody>
     </table></div>
     <div class="prose">
-      <p>Beide Reihen stehen auf einem Bildschirm, SELECT wechselt die Reihe. Darunter liegt eine Tastatur: die Töne, die der Arpeggiator durchläuft, die gehaltenen heller, der klingende in der Akzentfarbe. Die ARP-LED blinkt im Takt.</p>
+      <p>ARP und ARP 2 stehen auf einem Bildschirm, SELECT wechselt die Reihe. Darunter liegt eine Tastatur: die Töne, die der Arpeggiator durchläuft, die gehaltenen heller, der klingende in der Akzentfarbe. Die ARP-LED blinkt im Takt.</p>
       <p><b>MODE:</b> OFF, UP, DN, UPDN, RND, ORD (in der Reihenfolge, in der du gedrückt hast), REPEAT, und für Akkorde DNUP, UP+8, CONV, DIVG, PINKY, THUMB, WALK und CHORD.</p>
+      <p><b>J-6</b> spielt statt des Arpeggiators eine der 108 Phrasen des Roland J-6, aufgenommen von einem echten Gerät, über die gehaltenen Tasten: STYLE wählt die Art, wie der J-6 sie nennt (ARP 8, ARP 16, BEAT, PHR A, PHR B, CHD S und CHD R für Akkord-Phrasen, STR S und STR R für geschlagene), VAR eine ihrer zwölf Variationen (7 bis 12 in Triolen). Ein STYLE schaltet ihn ein; OFF lässt den Arpeggiator, wie du ihn eingestellt hast. Solange der J-6 spielt, ruhen die Einstellungen des Arpeggiators. Die Phrase spielt ihre eigenen Töne über die gehaltenen Tasten, den tiefsten zuerst, so wie der J-6 sie über einem Akkord setzt: Akkorde, Strums und Läufe, mit den Längen und Akzenten des J-6. <b>SNAP</b> ON startet jeden neuen Akkord auf der nächsten Takt-Eins, bis dahin still: auf dem Takt des Sequencers, wenn er läuft, sonst auf dem Schlag, in dem die ARP-LED blinkt. <b>HOLD</b> ist das HOLD von ARP 2: es hält den Akkord fest. Der Bildschirm zeigt die Phrase über ihren Zyklus, eine Zeile je Akkordton, Akzente in der Akzentfarbe.</p>
     </div>
   </section>
 </section>
@@ -3019,7 +3023,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 </section>
 
 <footer class="foot">
-  <p>JAN3000 v0.1 alpha · Bedienungsanleitung · Stand November 2026.</p>
+  <p>JAN3000 v0.2 alpha · Bedienungsanleitung · Stand November 2026.</p>
 </footer>
 </div>
 
@@ -3156,7 +3160,7 @@ var JAN_SHOTS = {
     }
     if (!spec) {
       return s + '<text class="s-title" x="372" y="146" text-anchor="middle" font-size="34">JAN3000</text>' +
-        '<text class="s-sub" x="372" y="170" text-anchor="middle">v0.1-alpha</text>';
+        '<text class="s-sub" x="372" y="170" text-anchor="middle">v0.2-alpha</text>';
     }
     var p = spec.split("|"), title = p[0], cards = p.slice(1, 5);
     var fs = Math.min(32, 186 / (Math.max(title.length, 4) * 0.66));

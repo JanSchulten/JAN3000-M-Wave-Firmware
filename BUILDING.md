@@ -44,9 +44,10 @@ On Linux x86-64 the toolchain runs natively and Docker is not needed.
 (`~/.jieli/toolchain`, `~/fw-AC79_AIoT_SDK`).
 
 `./build.sh --release 1.0` makes a release build. M-Vave-OP1: it sets JAN3000's version string to `v1.0`
-(`JAN_VERSION`, shown on the splash and in ABOUT); the package identity stays `FM-1_900` and the Felucca version
+(`JAN_VERSION`, shown on the splash and in ABOUT); the package identity stays `FM-1_953` (JAN3000's own since v0.2,
+`tools/build.py` PRODUCT; v0.1 was `FM-1_900`, which other firmwares use too) and the Felucca version
 (`FELUCCA_VERSION`, "based on Felucca") stays Felucca's, so no M-Vave-OP1 release shares an identity with a Felucca
-release (Felucca's are `FM-1_9XY`). The package is `build/jan3000-1.0.fwsc`, and `build/release-1.0/` holds what a
+release (Felucca's are `FM-1_91X`). The package is `build/jan3000-1.0.fwsc`, and `build/release-1.0/` holds what a
 release ships: the package, the app (`jan3000-1.0-app.bin`), `SHA256SUMS`, the sample attribution, `LICENSE`,
 `LICENSING.md` and `LICENSES/` (the package contains Apache-2.0 SDK files, so the licence texts travel with it). The
 installer ZIP (`sh tools/make_installer_zip.sh`, built at the release tag) is what most people install.

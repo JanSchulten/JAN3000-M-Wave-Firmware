@@ -32,7 +32,7 @@
 #define FELUCCA_UART 1           /* TRS MIDI IN on UART1 / PH8 */
 #endif
 #ifndef FELUCCA_ID
-#define FELUCCA_ID "FM-1_900"    /* package identity (build.py: the .fwsc marker string) */
+#define FELUCCA_ID "FM-1_953"    /* package identity (build.py PRODUCT: the .fwsc marker string; M-Vave-OP1 v0.1: FM-1_900) */
 #endif
 #ifndef FELUCCA_VERSION
 #define FELUCCA_VERSION "v1.5.1" /* shown in the menu, the console and the editor; build.py --release X.Y */

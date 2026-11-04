@@ -1,6 +1,6 @@
 # Backlog: what the alpha leaves out
 
-JAN3000 v0.1 alpha ships three things: **the firmware**, **its installer** (the installer ZIP) and **the user guide**
+JAN3000 v0.2 alpha (as v0.1) ships three things: **the firmware**, **its installer** (the installer ZIP) and **the user guide**
 (online and in `web/manual/`). Everything else was taken out of the guide, the ZIP and the site for now. Nothing was
 deleted: the code stays in this repository, its host and web tests still run, and each item below says how to switch
 it back on and what it needs first.
@@ -19,14 +19,19 @@ before the alpha; English ids `st-browser`, `sv-disk`, `sv-editor`, German `de-s
 | **FLUTE and SAX slot files** | ZIP, guide, README | `dist/samples/*.slot`, `tools/gen_samples.py --user-slot` | `WITH_EDITOR=1` (the ZIP's `samples/`) | The editor (its Samples tab writes them into USR1). |
 | **Own samples into USR1, FM6 voice bank B1–B32** | guide | the editor; `tools/fm1_sample_upload.py` | with the editor | The guide now says these come with a later release. |
 
-## Release steps of the alpha (for the next one)
+## Release steps of an alpha (for the next one; X.Y-alpha the version, v0.2-alpha the last)
 
-1. `./build.sh --release 0.1-alpha` (JAN3000 `v0.1-alpha` on the splash and in INFO; `build/jan3000-0.1-alpha.fwsc`,
-   `build/release-0.1-alpha/`).
-2. `sh tools/make_installer_zip.sh dist/M-Vave-OP1-Installer.zip build/jan3000-0.1-alpha.fwsc`.
-3. `sh tools/make_vercel_site.sh`, commit `site/`.
-4. Tag `v0.1-alpha`, a GitHub release (pre-release) with `M-Vave-OP1-Installer.zip` attached under exactly that name:
-   the guide and the site link `releases/download/v0.1-alpha/M-Vave-OP1-Installer.zip`.
+1. The version in `firmware/src/ui_draw.c` (`JAN_VERSION`, what a plain build shows), the guide (`web/manual/manual.html`:
+   its rail, title lines, status, footers, the splash drawing, the two download links), `web/site/index.html`, the
+   README's status and install steps and `docs/RELEASE_NOTES.md`.
+2. `./build.sh --release X.Y-alpha` (JAN3000 `vX.Y-alpha` on the splash and in INFO; `build/jan3000-X.Y-alpha.fwsc`,
+   `build/release-X.Y-alpha/`).
+3. `sh tools/make_installer_zip.sh dist/M-Vave-OP1-Installer.zip build/jan3000-X.Y-alpha.fwsc`.
+4. `sh tools/make_vercel_site.sh`, commit `site/`.
+5. Tag `vX.Y-alpha`, a GitHub release (pre-release) with `dist/M-Vave-OP1-Installer.zip` attached as
+   `JAN3000-vX.Y-alpha-Installer.zip`: the guide and the site link
+   `releases/download/vX.Y-alpha/JAN3000-vX.Y-alpha-Installer.zip` (v0.1's guide linked a name the release did not
+   carry, under the repository's old name).
 
 ## The README's sections on these items
 

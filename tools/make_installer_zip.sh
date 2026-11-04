@@ -5,9 +5,9 @@
 # the site of web/make_site.py (this build's package, the official V15 of vendor/m-vave/) and two starters that
 # serve it on a free port of this computer (serve.py) and open it. Run from the repository root after ./build.sh:
 #   sh tools/make_installer_zip.sh [OUT.zip] [PKG.fwsc]   (default dist/M-Vave-OP1-Installer.zip, build/felucca.fwsc)
-# A release: ./build.sh --release 0.1-alpha, then
-#   sh tools/make_installer_zip.sh dist/M-Vave-OP1-Installer.zip build/jan3000-0.1-alpha.fwsc
-# (the firmware in the ZIP is then felucca-jan3000-0.1-alpha.fwsc).
+# A release: ./build.sh --release 0.2-alpha, then
+#   sh tools/make_installer_zip.sh dist/M-Vave-OP1-Installer.zip build/jan3000-0.2-alpha.fwsc
+# (the firmware in the ZIP is then felucca-jan3000-0.2-alpha.fwsc; docs/BACKLOG.md has the release steps).
 # The alpha ships the installer alone (docs/BACKLOG.md): WITH_EDITOR=1 adds the web editor, its NO DEVICE firmware
 # (web/emu/build.sh, Emscripten) and the FLUTE / SAX slot files, as the ZIP held before.
 set -e
