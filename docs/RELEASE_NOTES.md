@@ -19,6 +19,8 @@ editor, the browser emulator, the offline bounce, USB DISK and the FLUTE / SAX s
 - **SNAP:** ON starts each new chord on the next bar's one, silent until then: the sequencer's bar while it plays,
   otherwise the beat the ARP LED flashes on.
 - **The ARP LED** now flashes exactly on the sequencer's beat while it plays.
+- **Its own package identity, `FM-1_953`** (v0.1 shared `FM-1_900` with other firmwares). Installing v0.2 over v0.1
+  is an ordinary update; the installer shows the new identity.
 - **The guide's download link** now points at this release's installer (v0.1's led nowhere).
 
 **Projects:** a project saved with v0.2 keeps the J-6 settings and shows as **EMPTY** in v0.1. Projects and user
@@ -41,7 +43,7 @@ installed at your own risk. Install while the unit starts and runs normally, fro
 good cable. If an install fails and the unit no longer starts, recovery needs extra hardware (FM-1 Transporter with
 an RP2040). Felucca projects and user presets load as before.
 
-The package identity is `FM-1_900` (as every M-Vave-OP1 build; Felucca's releases are `FM-1_9XY`).
+The package identity is `FM-1_953`, JAN3000's own since v0.2 (v0.1 was `FM-1_900`, which other firmwares use too).
 
 ## What JAN3000 adds to Felucca
 

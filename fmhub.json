@@ -1,0 +1,10 @@
+{
+  "what": "An OP-1 / OP-Z-style workflow on four tracks, built on Felucca: many engines, 16 scenes, song chains, a KEY track, punch-in FX tracks and a serial effects chain. Plays the Roland J-6's 100 chord sets and its 108 phrases, recorded from a real J-6.",
+  "author": "Jan Schulten",
+  "kinds": [
+    "groove"
+  ],
+  "cheat": "https://jan3000-manual.vercel.app/",
+  "image": "docs/card.png",
+  "color": "#AC3808"
+}

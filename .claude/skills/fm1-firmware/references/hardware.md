@@ -113,6 +113,6 @@ too. Flash is erased and written only while the transport is stopped: an erase s
 
 ## Packages and identity
 
-`build.py` writes `build/felucca.fwsc`: app + loader + the three SDK files, identity `FM-1_900` (development) or
-`FM-1_910` with `./build.sh --release X.Y`. The installers check the identity; keep it unless the user decides
-otherwise.
+`build.py` writes `build/felucca.fwsc`: app + loader + the three SDK files, identity `FM-1_953` (JAN3000's own since v0.2,
+development and release alike: `tools/build.py` PRODUCT, passed to the app and the loader; `FM-1_900` before). The
+installers check the identity; keep it unless the user decides otherwise.
