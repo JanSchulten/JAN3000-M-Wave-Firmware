@@ -579,11 +579,12 @@ static const page_ops_t FXT_OPS = {.flags = PG_LIST | PG_NO_MOM | PG_LANE_REC, .
                                    .cards = fxt_cards, .draw = fxt_panel, .sig = fxt_sig, .icon = fxt_icon, .rec = fxt_rec,
                                    .edit = fxt_edit};
 
-/* --------------------------------------------------------------- ARP > ARP 3 --- */
-/* j6phrase.c's J-6 phrases: KNOB 1 STYLE, KNOB 2 VARIATION. The panel: the page's row (graph_rows, as ARP and ARP 2
- * show theirs; MODE OFF said under it), under it the phrase over its cycle: each note a bar where it starts and as long as it lasts, its row
- * the chord tone and octave it plays (the lowest at the bottom), the accented ones in the accent; the place playing a
- * line across. STYLE OFF: the arp's RATE times it, said so; MODE OFF: the phrase waits for the arp */
+/* ----------------------------------------------------------------- ARP > J-6 --- */
+/* j6phrase.c's J-6 phrases instead of the arp: KNOB 1 STYLE, KNOB 2 VARIATION, KNOB 3 SNAP, KNOB 4 HOLD (ARP 2's). The
+ * panel: the page's row (graph_rows, as ARP and ARP 2 show theirs), under it the phrase over its cycle: each note a
+ * bar where it starts and as long as it lasts, its row the chord tone and octave it plays (the lowest at the bottom),
+ * the accented ones in the accent; the place playing a line across; SNAP waiting for the one, said so. STYLE OFF: the
+ * arp plays, said so */
 static void arph_panel(const track_t *t, uint16_t c)
 {
     uint8_t rr[1];
@@ -592,8 +593,8 @@ static void arph_panel(const track_t *t, uint16_t c)
     cv_oy = 0;
     rr[0] = (uint8_t)ui.page;
     graph_rows(rr, 1);
-    if (t->p[P_ASTYLE] <= 0 || t->p[P_ASTYLE] > 9) {
-        cv_text_fit(13, 62, &AF_S, "STYLE OFF: ARP RATE", T_MID, T_SURF, 214);
+    if (!j6_active(t)) {
+        cv_text_fit(13, 62, &AF_S, "STYLE OFF: THE ARP PLAYS", T_MID, T_SURF, 214);
         return;
     }
     ph = j6_phrase(t);
@@ -611,8 +612,8 @@ static void arph_panel(const track_t *t, uint16_t c)
         y = 104 - (int32_t)row * 8;
         cv_rect(x, y, w, 5, (e >> 22) & 1u ? T_ACCENT : c);
     }
-    if (!t->p[P_AMODE])
-        cv_text_fit(13, 34, &AF_S, "ARP MODE OFF", T_MID, T_SURF, 214);
+    if (j6_waiting(t))
+        cv_text_fit(13, 34, &AF_S, "SNAP: WAITING FOR THE ONE", T_MID, T_SURF, 214);
     else if (j6run[trk_index(t)].on)                 /* (the place playing) */
         cv_rect(13 + (int32_t)(j6_place(t) * 214u / 256u), 48, 1, 63, T_TEXT);
 }
@@ -620,7 +621,7 @@ static uint32_t arph_sig(uint32_t h)
 {
     const track_t *t = TSEL;
     h = (h ^ ((uint32_t)(uint16_t)t->p[P_ASTYLE] | (uint32_t)(uint16_t)t->p[P_AVAR] << 8 |
-              (uint32_t)(uint16_t)t->p[P_AMODE] << 16)) * 16777619u;
-    return (h ^ (j6_place(t) | (uint32_t)j6run[trk_index(t)].on << 8)) * 16777619u;
+              (uint32_t)(uint16_t)t->p[P_J6SNAP] << 16 | (uint32_t)(uint16_t)t->p[P_AHOLD] << 24)) * 16777619u;
+    return (h ^ (j6_place(t) | (uint32_t)j6run[trk_index(t)].on << 8 | (uint32_t)j6_waiting(t) << 16)) * 16777619u;
 }
 static const page_ops_t ARPH_OPS = {.draw = arph_panel, .sig = arph_sig};

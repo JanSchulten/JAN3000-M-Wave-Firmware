@@ -553,7 +553,7 @@ static void graph_arp(const track_t *t)
                 st = j < cnt ? 2u : st > 1u ? st : 1u;
         if (note == t->arp_note || note == t->arp_ch[0] || note == t->arp_ch[1] || note == t->arp_ch[2])
             st = note ? 3u : st;
-        for (j = 0; j < nj; j++)                 /* (M-Vave-OP1, ARP 3: the phrase's notes sounding) */
+        for (j = 0; j < nj; j++)                 /* (M-Vave-OP1, ARP > J-6: the phrase's notes sounding) */
             st = jn[j] == note ? 3u : st;
         cv_rrect(kx, BLACK[note % 12u] ? 68 : 82, (int32_t)w - 2, 34, w > 6u ? 3 : 2,
                  st == 3u ? T_ACCENT : st == 2u ? T_THEME : st ? T_MID : T_RAISE, T_SURF);

@@ -64,10 +64,10 @@
  * track parameters. 1.5 took seven of them (no format change, FUN10 as it was): the INSERT (P_ITYPE .. P_IMIX, 96..100),
  * ANALOG's filter TYPE (P_FTYPE, 101) and ENV SYNC (P_ESYNC, 102), before the engine values (P_COUNT 111, P_E0 103; 16
  * spare, room for 4). A FUN10 of 1.2 .. 1.4 (104) loads by count: the INSERT OFF, TYPE LP, ENV SYNC OFF (as they
- * played), its engine values and their motion moved up by seven. M-Vave-OP1 took three more the same way: the SHIMMER
- * send (P_SHIM, 103: P_COUNT 112), then ARP 3's STYLE and VAR (P_ASTYLE, P_AVAR, 104 and 105: P_COUNT 114, P_E0 106; 4
- * spare, room for 1). A FUN10 of 112 loads by count: STYLE OFF, VAR 1 (the arp as it played), its engine values and
- * their motion moved up by two.
+ * played), its engine values and their motion moved up by seven. M-Vave-OP1 took the last four the same way: the
+ * SHIMMER send (P_SHIM, 103: P_COUNT 112), then ARP > J-6's STYLE, VAR and SNAP (P_ASTYLE .. P_J6SNAP, 104..106:
+ * P_COUNT 115, P_E0 107; nothing spare: a further track parameter needs the extras, opstore.c). A FUN10 of 112 loads
+ * by count: STYLE OFF, VAR 1, SNAP OFF (the arp as it played), its engine values and their motion moved up by three.
  * Firmware 1.2 .. 1.4 refuses a FUN10 of more parameters than its own (np > P_COUNT): a 1.5 project shows EMPTY there. FUN9 / FUN8 / FUN7 load as before (their 64 records of 4 bytes read by proj_motion_v9, every
  * step's nudge 0: the timing they always had; parameters mapped by count, the four new ones at their defaults:
  * SYNC OFF, TRIG NOTE, POL BI, QUANTIZE ON, SPREAD 0, which play as before 1.2), and so do FUN6..FUN1. Firmware before 1.2

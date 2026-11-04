@@ -9,8 +9,8 @@ static const uint8_t LSYNC_DIV[11] = {0, 9, 8, 7, 6, 0, 1, 4, 2, 5, 3};
 static const char *const N_LTRIG[] = {"NOTE", "FREE"};
 static const char *const N_LPOL[] = {"BI", "UNI"};
 static const char *const N_AMODE[] = {"OFF", "UP", "DN", "UPDN", "RND", "ORD", "REPEAT",   /* (append-only: seq.c AM_*) */
-                                       "DNUP", "UP+8", "CONV", "DIVG", "PINKY", "THUMB", "WALK", "CHORD", "J-6"};
-/* ARP 3's STYLE (M-Vave-OP1, j6phrase.c): the J-6's nine phrase styles as its Phrase List orders them (append-only) */
+                                       "DNUP", "UP+8", "CONV", "DIVG", "PINKY", "THUMB", "WALK", "CHORD"};
+/* ARP > J-6's STYLE (M-Vave-OP1, j6phrase.c): the J-6's nine phrase styles as its Phrase List orders them (append-only) */
 static const char *const N_ASTYLE[] = {"OFF", "ARP 8", "ARP 16", "BEAT", "PHR A", "PHR B", "CHD S", "CHD R", "STR S",
                                        "STR R"};
 static const char *const N_DIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1/1", "2BAR", "4BAR"};
@@ -123,8 +123,9 @@ static const param_desc_t TP[P_COUNT] = {
     [P_DLY] = PD("DLY", F_PCT, 0, 127, 0),
     [P_REV] = PD("REV", F_PCT, 0, 127, 0),
     [P_SHIM] = PD("SHIM", F_PCT, 0, 127, 0),
-    [P_ASTYLE] = PE("STYLE", N_ASTYLE, 0),        /* M-Vave-OP1, ARP 3: OFF = the arp's RATE, as before (j6phrase.c) */
+    [P_ASTYLE] = PE("STYLE", N_ASTYLE, 0),        /* M-Vave-OP1, ARP > J-6: OFF = the arp as before (j6phrase.c) */
     [P_AVAR] = PD("VAR", F_INT, 1, 12, 1),
+    [P_J6SNAP] = PE("SNAP", N_ONOFF, 0),          /* .. ON: a chord starts the phrase on the next bar's one */
     [P_VOICE] = PE("VCE", N_VOICE, 0),
     [P_GLIDE] = PD("GLD", F_TIME, 0, 127, 0),
     [P_GLMODE] = PE("GLMOD", N_GLMODE, 0),
@@ -510,7 +511,7 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
        GR_VDL, GR_VDLP, GR_VDLE, GR_VDP, GR_VDP2, GR_SHIM,   /* .. EDIT > VDRUM's part pages (ui_vdrum.c), in this order */
        GR_EQ,                                   /* .. HOME > EQ: the selected track's four bands (eq.c, ui_eq.c) */
        GR_DYN,                                  /* .. HOME > MASTER: the master's dynamics (dyn.c, ui_dyn.c) */
-       GR_ARPH,                                 /* .. ARP > ARP 3: the J-6 phrase timing the arp (j6phrase.c, ui_pages.c) */
+       GR_ARPH,                                 /* .. ARP > J-6: the J-6's phrases (j6phrase.c, ui_pages.c) */
        GR_FXLVL,                                /* .. FX > MIX 2: the chain's levels (fx_lvl, fx.c chain_g) */
        GR_N };                                  /* (the count: new kinds go before it) */
 
@@ -695,7 +696,8 @@ static const page_t PAGES[] = {
                                                                              * the tap after PRESETS (up to 1.1.5 SEQ's) */
     {"ARP", FAM_ARP, SC_TRACK, GR_ARP, {P_AMODE, P_ARATE, P_AOCT, P_AGATE}},
     {"ARP 2", FAM_ARP, SC_TRACK, GR_ARP, {P_ASWING, P_APROB, P_AHOLD, P_AORDER}},   /* (M-Vave-OP1: one screen with ARP) */
-    {"ARP 3", FAM_ARP, SC_TRACK, GR_ARPH, {P_ASTYLE, P_AVAR, 0xFF, 0xFF}, &ARPH_OPS},   /* M-Vave-OP1: the J-6's phrases */
+    {"J-6", FAM_ARP, SC_TRACK, GR_ARPH, {P_ASTYLE, P_AVAR, P_J6SNAP, P_AHOLD}, &ARPH_OPS},   /* M-Vave-OP1: the J-6's
+                                                                             * phrases instead of the arp (HOLD: ARP 2's) */
     {"STEP", FAM_SEQ, SC_STEP, GR_ROLL, {0, 1, 2, 3}},
     {"DETAIL", FAM_SEQ, SC_STEP, GR_ROLL, {0, 1, 2, 3}},   /* 1.5.1 (#199): the cursor step's CHANCE RATCH NUDGE VEL
                                                              * (ui.c detail_on, ui_input.c sd_turn) */

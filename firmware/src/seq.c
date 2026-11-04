@@ -243,13 +243,16 @@ static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) &
  * C E C G (the bottom one); WALK a random step up or down the list (bouncing off its ends); CHORD all the held
  * notes together (the first 4), an octave higher each step through OCT */
 enum { AM_OFF, AM_UP, AM_DN, AM_UPDN, AM_RND, AM_ORD, AM_REPEAT, AM_DNUP, AM_UP8, AM_CONV, AM_DIVG, AM_PINKY,
-       AM_THUMB, AM_WALK, AM_CHORD, AM_J6 };   /* M-Vave-OP1: J-6 the phrase's own notes (ARP 3, j6phrase.c; with STYLE OFF
-                                                  * it plays as CHORD) */
+       AM_THUMB, AM_WALK, AM_CHORD };
 #include "cset.c"                                /* SCL > CSET (M-Vave-OP1): chord sets after the Roland J-6's */
-#include "j6phrase.c"                            /* ARP 3 (M-Vave-OP1): the arp timed by a J-6 phrase */
-static int arp_sounding(const track_t *t)        /* the arp (or ARP 3's phrase) sounds a note */
+#include "j6phrase.c"                            /* ARP > J-6 (M-Vave-OP1): the J-6's phrases instead of the arp */
+static int arp_sounding(const track_t *t)        /* the arp (or the J-6's phrase) sounds a note */
 {
     return t->arp_note || j6run[trk_index(t)].on;
+}
+static int arp_on(const track_t *t)              /* the keys go to the arp: MODE on, or the J-6 (a STYLE: it plays instead) */
+{
+    return t->p[P_AMODE] || j6_active(t);
 }
 
 static void arp_forget(track_t *t)               /* (its notes ended otherwise: trk_all_off) */
@@ -419,7 +422,7 @@ static uint32_t arp_list(const track_t *t, uint32_t *list, uint32_t *cnt)
     for (o = 0; o < (uint32_t)t->p[P_AOCT]; o++)
         for (i = 0; i < n && len < 64u; i++)
             list[len++] = clamp((int32_t)list[i] + 12 * (int32_t)o, 0, 127);
-    if (n && t->p[P_AMODE] == AM_REPEAT) { list[0] = last; len = 1; } /* REPEAT: last played note, no octave traversal */
+    if (n && t->p[P_AMODE] == AM_REPEAT && !j6_active(t)) { list[0] = last; len = 1; } /* REPEAT: last played note, no octave traversal */
     if (key_root_now() < 12u && !rec_on(t))         /* M-Vave-OP1: moved to the KEY's bar (key.c); recording: as */
         for (i = 0; i < len; i++)                   /* played (the steps are moved when they play) */
             list[i] = key_shift(t, list[i]);
@@ -437,12 +440,12 @@ static __attribute__((noinline)) void arp_fire(track_t *t, uint32_t period)
         return;
     }
     t->arp_idx++;
-    j = t->p[P_AMODE] >= AM_CHORD ? 0u : arp_pick(t, list, len);   /* (J-6 without a STYLE: as CHORD) */
+    j = t->p[P_AMODE] == AM_CHORD ? 0u : arp_pick(t, list, len);
     if (t->arp_note)
         arp_off(t);
     if ((uint32_t)(rng() & 127u) <= (uint32_t)t->p[P_APROB]) {
         t->arp_off = period * (uint32_t)t->p[P_AGATE] / 128u;
-        if (t->p[P_AMODE] >= AM_CHORD) {            /* CHORD: the first 4 notes, an octave up each step */
+        if (t->p[P_AMODE] == AM_CHORD) {            /* CHORD: the first 4 notes, an octave up each step */
             arp_chord(t, list, cnt);
             return;
         }
@@ -457,12 +460,12 @@ static void arp_step(track_t *t, uint32_t n, uint32_t gate_n)
 {
     uint32_t period;
     int32_t sw;
-    if (j6_active(t)) {                             /* ARP 3: a J-6 phrase times the arp (j6phrase.c) */
+    if (j6_active(t)) {                             /* ARP > J-6: the J-6's phrase instead of the arp (j6phrase.c) */
         j6_step(t, n, gate_n);
         return;
     }
     if (j6run[trk_index(t)].on)
-        j6_all_off(t, rec_on(t));                   /* (STYLE or MODE turned off over its notes) */
+        j6_all_off(t, rec_on(t));                   /* (STYLE turned off over its notes) */
     if (t->arp_note) {
         if (t->arp_off <= gate_n)
             arp_off(t);
@@ -647,7 +650,7 @@ static void rec_release(track_t *t, uint32_t note)
 static __attribute__((noinline)) void cin_keep(track_t *t, uint32_t note, uint32_t vel)
 {
     uint32_t i = trk_index(t), k;
-    if (cin_left != 1u || cin_pos < click_beat_len() / 2u || !((song.rec >> i) & 1u) || t->p[P_AMODE])
+    if (cin_left != 1u || cin_pos < click_beat_len() / 2u || !((song.rec >> i) & 1u) || arp_on(t))
         return;
     for (k = 0; k < cin_n[i] && cin_note[i][k] != note; k++)
         ;
@@ -670,11 +673,11 @@ static void input_on(track_t *t, uint32_t note, uint32_t vel)
     }
     if (cin_left)
         cin_keep(t, note, vel);
-    if (rec_on(t) && !t->p[P_AMODE])               /* (ARP on: arp_tick records its notes; M-Vave-OP1: LEG / UNI with a
+    if (rec_on(t) && !arp_on(t))                   /* (ARP on: arp_tick records its notes; M-Vave-OP1: LEG / UNI with a
                                                      * note sounding plays this one legato, trk_note_on: so it is kept) */
         rec_note(t, note, vel, (trk_vmode(t) == V_LEGATO || trk_vmode(t) == V_UNISON) && t->mono_note &&
                                    t->v[0].active && t->v[0].gate);
-    if (t->p[P_AMODE])
+    if (arp_on(t))
         arp_add(t, note);
     else
         trk_note_on(t, note, vel);
@@ -1297,6 +1300,27 @@ static uint32_t clk_bar_end(uint32_t n)
     return clk_pos + n - p + 1u;
 }
 
+/* M-Vave-OP1 (ARP > J-6's SNAP, j6phrase.c): samples from this block's start to the next bar's one, 0 when the block
+ * starts on it. While the sequencer plays its bar: the click's 1/16 steps (clk_*, counted as seq_tick counts a 1/16
+ * track's; click_tick has run in this block: clk_pos is the block's start); stopped, the ARP LED's free beat (beat_*,
+ * from the top at seq_start, kept on the click's beat while playing: events_block), four beats a bar */
+static uint32_t bar_to_one(void)
+{
+    uint32_t p, at, bar;
+    if (song.playing) {
+        if (clk_pos == CLK_START)
+            return 0;                               /* (step 0 starts in this block) */
+        p = div_samples(2);
+        bar = 16u * p;
+        at = clk_step * p + clk_pos;
+    } else {
+        p = beat_samples();
+        bar = 4u * p;
+        at = beat_n * p + beat_pos;
+    }
+    return at && at < bar ? bar - at : 0u;
+}
+
 /* everything that happens between two rendered blocks */
 static void events_block(uint32_t n)
 {
@@ -1363,14 +1387,14 @@ static void events_block(uint32_t n)
         }
         engine_block(t);                              /* engine switch: fade, then switch (voice.c) */
         /* ARP turned off, or HOLD released with no key down: drop the latched chord */
-        if ((t->armp && !t->p[P_AMODE]) || (t->aholdp && !t->p[P_AHOLD] && !t->arp_phys)) {
+        if ((t->armp && !arp_on(t)) || (t->aholdp && !t->p[P_AHOLD] && !t->arp_phys)) {
             t->nheld = 0;
-            if (!t->p[P_AMODE])
+            if (!arp_on(t))
                 t->arp_phys = 0;
             if (arp_sounding(t))
                 arp_silence(t);
         }
-        t->armp = t->p[P_AMODE];
+        t->armp = (int16_t)arp_on(t);                 /* (M-Vave-OP1: the J-6 too) */
         t->aholdp = t->p[P_AHOLD];
     }
     keyboard_block();
@@ -1418,6 +1442,10 @@ static void events_block(uint32_t n)
         click_tick(seq_n);
     for (i = 0; i < NPART; i++)
         arp_step(&trk[i], clock_mode ? seq_n : n, clock_mode && song.playing ? seq_n : n);
+    if (song.playing && clk_pos != CLK_START) {     /* M-Vave-OP1: on the click's beat while playing (SNAP's one too) */
+        beat_n = clk_step >> 2;
+        beat_pos = (clk_step & 3u) * div_samples(2) + clk_pos;
+    }
     beat_pos += clock_mode ? seq_n : n;               /* the beat the ARP LED flashes on (ui_leds) */
     if (beat_pos >= beat_samples()) {
         beat_pos -= beat_samples();

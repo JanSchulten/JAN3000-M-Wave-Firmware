@@ -67,12 +67,12 @@ insert effect with a dry / wet mix, Discussions #78 #177), then `TYPE` (101, ANA
 P_COUNT and P_E0 from `INFO` keeps working. Projects stay FUN10 (3840 bytes, 111 at byte 66; 16 bytes to spare). See
 "1.5: the INSERT" and "1.5: filter TYPE, ENV SYNC" below.
 
-**M-Vave-OP1, ARP 3 (114 parameters, FUN10 as it was):** after `SHIM` (103, the SHIMMER send: P_COUNT 112), two track
-parameters went in before the engine parameters, which moved from 104..111 to 106..113: P_COUNT 114, P_E0 106. `STYLE`
-(104: OFF, ARP 8, ARP 16, BEAT, PHR A, PHR B, CHD S, CHD R, STR S, STR R, the Roland J-6's phrase styles) and `VAR`
-(105: 1..12, its variation) time the arp by one of the J-6's 108 phrases; the arp's `MODE` (16) gained `J-6` (15), the
-phrase's own notes. No command changed; an editor that takes P_COUNT and P_E0 from `INFO` keeps working. Projects
-stay FUN10 (114 at byte 66; 4 bytes to spare).
+**M-Vave-OP1, ARP > J-6 (115 parameters, FUN10 as it was):** after `SHIM` (103, the SHIMMER send: P_COUNT 112), three
+track parameters went in before the engine parameters, which moved from 104..111 to 107..114: P_COUNT 115, P_E0 107.
+`STYLE` (104: OFF, ARP 8, ARP 16, BEAT, PHR A, PHR B, CHD S, CHD R, STR S, STR R, the Roland J-6's phrase styles), `VAR`
+(105: 1..12, its variation) and `SNAP` (106: OFF, ON: a chord starts the phrase on the next bar's one): with a STYLE the
+track plays one of the J-6's 108 phrases over the held notes instead of the arp. No command changed; an editor that
+takes P_COUNT and P_E0 from `INFO` keeps working. Projects stay FUN10 (115 at byte 66; no bytes to spare).
 
 ## Framing
 

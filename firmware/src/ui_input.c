@@ -227,7 +227,7 @@ static uint32_t arp_led(void)
 {
     uint32_t k, on = 0, b = beat_samples();
     for (k = 0; k < NPART; k++)
-        on |= trk[k].p[P_AMODE] && trk[k].nheld;
+        on |= arp_on(&trk[k]) && trk[k].nheld;
     return !on ? 2u : beat_pos < (beat_n ? b / 6u : b / 2u);
 }
 
@@ -266,7 +266,7 @@ static uint32_t play_leds(void)
     for (i = 0; i < 3u; i++)                            /* (the ARP's CHORD) */
         if (t->arp_ch[i])
             s[n++] = t->arp_ch[i];
-    n += j6_sounding(t, s + n, J6_SLOTS);               /* (M-Vave-OP1, ARP 3: the phrase's notes) */
+    n += j6_sounding(t, s + n, J6_SLOTS);               /* (M-Vave-OP1, ARP > J-6: the phrase's notes) */
     for (k = 0; n && k < 27u; k++) {
         note = kb_map(t, k);
         for (i = 0, hit = 0; i < n; i++)

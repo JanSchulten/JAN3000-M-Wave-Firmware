@@ -120,18 +120,21 @@ SONG section plays: the four tracks' steps, timing and QUANTIZE, the automation 
   (flash: copies, a write cut short, damage, another project's, rename, autosave); `ui_test.c` follows the tools'
   new keys.
 
-### M2f: ARP > ARP 3, the J-6's phrases (done)
+### M2f: ARP > J-6, the J-6's phrases (done)
 
-The arp timed by the Roland J-6's 108 phrases (`firmware/src/j6phrase.c`; `j6phrase_data.h` from
+The Roland J-6's 108 phrases instead of the arp (`firmware/src/j6phrase.c`; `j6phrase_data.h` from
 `assets/j6-phrases.json` by `tools/gen_j6phrase.py`): the Phrase List's 9 STYLE x 12 VARIATION, played into the J-6
 Phrase Log from a J-6 holding G3 A#3 D4 F4, its first note's latency undone, one cycle each, the rest before the first
 note put back (from the Phrase List for STYLE 4 and 5, none where the cycle has no room, a guess by the metre for 23
-of STYLE 6 .. 9). A third ARP page, ARP 3: STYLE (OFF, ARP 8 .. STR R) and VAR (1..12), two track parameters before the
-engine values (P_COUNT 114, P_E0 106; FUN10 as it was, an older project OFF). With a STYLE and the arp on, the phrase
-sets the notes' starts, lengths (x GATE / 64) and accents (velocity 127); MODE J-6 (appended) plays its own chord
-tones over the held notes, low to high, any other MODE its rhythm. Up to eight notes at once, each its own note-off.
-The panel draws the phrase over its cycle. Tests: `tests/j6phrase_test.c` (every phrase's timing and notes over two
-cycles, the modes, PROB, the note-offs, kept, the page).
+of STYLE 6 .. 9). A third ARP page, J-6: STYLE (OFF, ARP 8 .. STR R), VAR (1..12), SNAP (OFF, ON) and HOLD (ARP 2's).
+STYLE, VAR and SNAP are three track parameters before the engine values (P_COUNT 115, P_E0 107; FUN10 as it was, the
+last of its room; an older project OFF). A STYLE switches it on: the keys go to the phrase whatever the arp's MODE,
+which rests with its settings. The phrase plays its own chord tones over the held notes, low to high, with the J-6's
+lengths and accents (velocity 127); up to eight notes at once, each its own note-off. SNAP ON starts each new chord
+on the next bar's one (`seq.c bar_to_one`: the sequencer's bar while it plays, else the ARP LED's free beat, now kept
+on the sequencer's beat while it plays). The panel draws the phrase over its cycle. Tests: `tests/j6phrase_test.c`
+(every phrase's timing and notes over two cycles, the arp ignored, SNAP stopped and playing, the note-offs, kept, the
+page).
 
 ### M2e: SCL > CSET, the J-6's chord sets (done)
 
