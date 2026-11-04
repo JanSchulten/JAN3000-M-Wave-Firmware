@@ -90,7 +90,7 @@ static void test_type(void)
     rec();
     tap_key(akey(1));
     bad += check("REC, B: a new chain replaces the song", chain_config.count == 1u && row_is(0, 1, 1));
-    go_title("TAPE");
+    go_title("KEY");                                   /* (another page; "TAPE" is none: PAGES[] read past its end) */
     go_page(GR_SONG);
     bad += check("another page: the typing ends", !ui.song_rec);
 }

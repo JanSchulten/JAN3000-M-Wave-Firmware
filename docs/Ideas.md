@@ -1,1 +1,1 @@
-- Idea: Arp Mode -> Adding the J6 Rythms
+- Idea: Arp Mode -> Adding the J6 Rythms (done: ARP > J-6, docs/ROADMAP.md M2f)

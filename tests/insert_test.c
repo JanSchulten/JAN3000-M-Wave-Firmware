@@ -11,7 +11,7 @@
  *    and it (the effect's state does not depend on MIX).
  * 3. MIX glides (2.9 ms both ways), a TYPE change fades out, switches, fades in; MIX and TYPE as automation and as a
  *    step's lock on a playing pattern.
- * 4. stored: a project round trip (FUN10, 112 parameters including SHIM; 12 spare bytes left), a FUN10 of 104 (1.2 .. 1.4) loads the
+ * 4. stored: a project round trip (FUN10, 115 parameters including SHIM and the J-6; no spare bytes left), a FUN10 of 104 (1.2 .. 1.4) loads the
  *    DRIVE OFF; user presets of 112 and 104; the labels and values the DRIVE page shows per TYPE (TYPE DRIVE TONE
  *    LEVEL, CRUSH BITS RATE LPF); the page order; a power-on sound's old DIST as a SOFT DRIVE of about its gain.
  * 5. the cost per type and track (instructions / sample, host) against an 8-voice ANALOG part.
@@ -399,13 +399,13 @@ static void test_stored(void)
     motion_set_event(&trk[1], 3, P_IMIX, 77);
     motion_set_lock(&trk[2], 5, P_IA, 9);
     project_capture(&a);
-    ok = proj_pack(&st, &a) && st.raw[66] == P_COUNT && P_COUNT == 112u && proj_import(&b, &st, sizeof st) &&
+    ok = proj_pack(&st, &a) && st.raw[66] == P_COUNT && P_COUNT == 115u && proj_import(&b, &st, sizeof st) &&
          !memcmp(&a, &b, sizeof a);
     for (k = 0; k < NTRK; k++)
         ok &= b.t[k].p[P_ITYPE] == (int16_t)(k * 2u + 1u) && b.t[k].p[P_IMIX] == (int16_t)(100 + k) &&
               b.t[k].p[P_IC] == (int16_t)(30 + k);
-    ok &= 68u + NTRK * (P_COUNT + 2u + NSTEP_FMT * 9u) + sizeof(chain_config_t) + sizeof(motion_disk_t) + 12u == PROJ_FM6_OFF;
-    ck("project: FUN10 round trip of the INSERT (112 parameters, its motion), 12 spare bytes before the patches", ok);
+    ok &= 68u + NTRK * (P_COUNT + 2u + NSTEP_FMT * 9u) + sizeof(chain_config_t) + sizeof(motion_disk_t) == PROJ_FM6_OFF;
+    ck("project: FUN10 round trip of the INSERT (115 parameters, its motion), no spare bytes before the patches", ok);
     /* user presets: a record of 112 keeps them; one of 104 (1.2 .. 1.4) gets the INSERT OFF */
     memset(&r, 0, sizeof r);
     r.used = UP_USED; r.ver = UP_VER; r.engine = 0; r.np = P_COUNT;
