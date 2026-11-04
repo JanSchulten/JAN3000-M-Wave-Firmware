@@ -417,9 +417,9 @@ int main(void)
         project_t a, c;
         project_store_t st, st2;
         uint32_t i, zero = 1;
-        bad += check("FUN10 name at the end of the reserved tail, the FM6 patches before it, after the data (12 spare)",
+        bad += check("FUN10 name at the end of the reserved tail, the FM6 patches before it, after the data (4 spare: ARP 3 took 8)",
                      PROJ_NAME_OFF == 3824u && PROJ_FM6_OFF == 3312u && 68u + NTRK * (P_COUNT + 2u + NSTEP_FMT * 9u) +
-                     sizeof(chain_config_t) + sizeof(motion_disk_t) + 12u == PROJ_FM6_OFF);
+                     sizeof(chain_config_t) + sizeof(motion_disk_t) + 4u == PROJ_FM6_OFF);
         memset(&a, 0, sizeof a);
         a.magic = PROJ_MAGIC; a.size = sizeof a; a.parts = NPART; a.phys = PROJ_PHYS;
         chain_defaults(&a.chain);
