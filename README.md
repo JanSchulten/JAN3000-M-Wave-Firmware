@@ -8,7 +8,7 @@ JAN3000 is a fork of [Felucca](https://github.com/hugelton/Felucca) by Leo Kuros
 Felucca's hardware layer, USB, update loader, storage, engines and tests, and builds an OP-1 / OP-Z-style workflow on
 top of it.
 
-> **Status:** JAN3000 v0.1 alpha, the first public test version
+> **Status:** JAN3000 v0.2 alpha, the second public test version
 > ([release notes](docs/RELEASE_NOTES.md)). Installing custom firmware is at your own risk: the FM-1 has a single
 > firmware bank and no recovery button. If an install fails and the unit no longer starts, recovery needs extra
 > hardware (FM-1 Transporter with an RP2040).
@@ -45,7 +45,7 @@ explained. The same manual is in this repository at [`web/manual/manual.html`](w
 **You need:** an M-VAVE FM-1 that starts and runs normally, a Mac or Windows computer with **Python 3**, **Google
 Chrome or Microsoft Edge** (Web MIDI), and a good USB cable.
 
-1. Download **`M-Vave-OP1-Installer.zip`** from the
+1. Download the installer ZIP (**`JAN3000-v0.2-alpha-Installer.zip`**) from the
    [releases page](https://github.com/JanSchulten/JAN3000-M-Wave-Firmware/releases) (it is also in this repository
    at [`dist/M-Vave-OP1-Installer.zip`](dist/M-Vave-OP1-Installer.zip)).
 2. Unzip it into a new folder.
@@ -57,7 +57,7 @@ Chrome or Microsoft Edge** (Web MIDI), and a good USB cable.
    address shown in the starter window into Chrome or Edge. Keep the starter window open while you install.
 4. Connect the FM-1 via USB, click **Install** and allow MIDI (SysEx) access.
 5. Wait until the progress bar reports **done**. The FM-1 restarts; the splash and MENU > SYSTEM > INFO show
-   **JAN3000 v0.1-alpha**.
+   **JAN3000 v0.2-alpha**.
 
 **While installing, never** unplug the cable, switch off the FM-1, close or reload the browser tab, or let the
 computer go to sleep.

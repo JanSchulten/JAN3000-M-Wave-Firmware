@@ -1170,7 +1170,7 @@ static void draw_columns(void)
  * the saved palette */
 #define JAN_NAME "JAN3000"
 #ifndef JAN_VERSION
-#define JAN_VERSION "v0.1-alpha"                    /* M-Vave-OP1's own version (build.py --release X.Y; the Felucca it is
+#define JAN_VERSION "v0.2-alpha"                    /* M-Vave-OP1's own version (build.py --release X.Y; the Felucca it is
                                                      * based on: FELUCCA_VERSION) */
 #endif
 #define SPL_H 120                                   /* the band (the canvas holds 124 rows) */
