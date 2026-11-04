@@ -526,8 +526,8 @@ static void graph_rows(const uint8_t *r, uint32_t n)
 static void graph_arp(const track_t *t)
 {
     static const uint8_t BLACK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
-    uint8_t rr[2];
-    uint32_t i, j, n = 0, list[64], cnt = 0, len, lo = 127, hi = 0, keys, w;
+    uint8_t rr[2], jn[J6_SLOTS];
+    uint32_t i, j, n = 0, list[64], cnt = 0, len, lo = 127, hi = 0, keys, w, nj = j6_sounding(t, jn, J6_SLOTS);
     for (i = 0; i < NPAGES && n < 2u; i++)
         if (PAGES[i].graph == GR_ARP && page_visible(i))
             rr[n++] = (uint8_t)i;
@@ -553,6 +553,8 @@ static void graph_arp(const track_t *t)
                 st = j < cnt ? 2u : st > 1u ? st : 1u;
         if (note == t->arp_note || note == t->arp_ch[0] || note == t->arp_ch[1] || note == t->arp_ch[2])
             st = note ? 3u : st;
+        for (j = 0; j < nj; j++)                 /* (M-Vave-OP1, ARP 3: the phrase's notes sounding) */
+            st = jn[j] == note ? 3u : st;
         cv_rrect(kx, BLACK[note % 12u] ? 68 : 82, (int32_t)w - 2, 34, w > 6u ? 3 : 2,
                  st == 3u ? T_ACCENT : st == 2u ? T_THEME : st ? T_MID : T_RAISE, T_SURF);
     }

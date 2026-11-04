@@ -243,12 +243,19 @@ static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) &
  * C E C G (the bottom one); WALK a random step up or down the list (bouncing off its ends); CHORD all the held
  * notes together (the first 4), an octave higher each step through OCT */
 enum { AM_OFF, AM_UP, AM_DN, AM_UPDN, AM_RND, AM_ORD, AM_REPEAT, AM_DNUP, AM_UP8, AM_CONV, AM_DIVG, AM_PINKY,
-       AM_THUMB, AM_WALK, AM_CHORD };
+       AM_THUMB, AM_WALK, AM_CHORD, AM_J6 };   /* M-Vave-OP1: J-6 the phrase's own notes (ARP 3, j6phrase.c; with STYLE OFF
+                                                  * it plays as CHORD) */
 #include "cset.c"                                /* SCL > CSET (M-Vave-OP1): chord sets after the Roland J-6's */
+#include "j6phrase.c"                            /* ARP 3 (M-Vave-OP1): the arp timed by a J-6 phrase */
+static int arp_sounding(const track_t *t)        /* the arp (or ARP 3's phrase) sounds a note */
+{
+    return t->arp_note || j6run[trk_index(t)].on;
+}
 
 static void arp_forget(track_t *t)               /* (its notes ended otherwise: trk_all_off) */
 {
     t->arp_note = t->arp_ch[0] = t->arp_ch[1] = t->arp_ch[2] = 0;
+    j6_forget(t);
 }
 
 /* CHORD's notes. Not inlined: they run once an arp step, and kept out of the audio ISR's loop over the tracks
@@ -286,6 +293,8 @@ static __attribute__((noinline)) void arp_chord(track_t *t, const uint32_t *list
 
 static void arp_silence(track_t *t)              /* the sounding arp note(s) end */
 {
+    if (j6run[trk_index(t)].on)
+        j6_all_off(t, 0);
     if (t->arp_ch[0] | t->arp_ch[1] | t->arp_ch[2])
         arp_chord_off(t, 0);
     trk_note_off(t, t->arp_note);
@@ -294,6 +303,8 @@ static void arp_silence(track_t *t)              /* the sounding arp note(s) end
 
 static void arp_off(track_t *t)                  /* the sounding arp note(s) end (a recorded one too) */
 {
+    if (j6run[trk_index(t)].on)
+        j6_all_off(t, rec_on(t));
     if (t->arp_ch[0] | t->arp_ch[1] | t->arp_ch[2])
         arp_chord_off(t, rec_on(t));
     trk_note_off(t, t->arp_note);
@@ -426,12 +437,12 @@ static __attribute__((noinline)) void arp_fire(track_t *t, uint32_t period)
         return;
     }
     t->arp_idx++;
-    j = t->p[P_AMODE] == AM_CHORD ? 0u : arp_pick(t, list, len);
+    j = t->p[P_AMODE] >= AM_CHORD ? 0u : arp_pick(t, list, len);   /* (J-6 without a STYLE: as CHORD) */
     if (t->arp_note)
         arp_off(t);
     if ((uint32_t)(rng() & 127u) <= (uint32_t)t->p[P_APROB]) {
         t->arp_off = period * (uint32_t)t->p[P_AGATE] / 128u;
-        if (t->p[P_AMODE] == AM_CHORD) {            /* CHORD: the first 4 notes, an octave up each step */
+        if (t->p[P_AMODE] >= AM_CHORD) {            /* CHORD: the first 4 notes, an octave up each step */
             arp_chord(t, list, cnt);
             return;
         }
@@ -446,6 +457,12 @@ static void arp_step(track_t *t, uint32_t n, uint32_t gate_n)
 {
     uint32_t period;
     int32_t sw;
+    if (j6_active(t)) {                             /* ARP 3: a J-6 phrase times the arp (j6phrase.c) */
+        j6_step(t, n, gate_n);
+        return;
+    }
+    if (j6run[trk_index(t)].on)
+        j6_all_off(t, rec_on(t));                   /* (STYLE or MODE turned off over its notes) */
     if (t->arp_note) {
         if (t->arp_off <= gate_n)
             arp_off(t);
@@ -912,7 +929,7 @@ static void seq_stop(void)
     memset(cin_n, 0, sizeof cin_n);
     if (song.g[G_CLOCK])                           /* external clock: the arp stops with the transport, */
         for (i = 0; i < NPART; i++)                /* its sounding note too (HOLD keeps the latched chord) */
-            if (trk[i].arp_note)
+            if (arp_sounding(&trk[i]))
                 arp_off(&trk[i]);
     for (i = 0; i < NTRK; i++) {
         seq_release(&trk[i]);
@@ -1350,7 +1367,7 @@ static void events_block(uint32_t n)
             t->nheld = 0;
             if (!t->p[P_AMODE])
                 t->arp_phys = 0;
-            if (t->arp_note)
+            if (arp_sounding(t))
                 arp_silence(t);
         }
         t->armp = t->p[P_AMODE];

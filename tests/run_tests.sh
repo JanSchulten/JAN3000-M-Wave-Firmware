@@ -103,6 +103,12 @@
 #                   build/scene_shots.
 # ONE SWING (tests/swingfold_test.c, M-Vave-OP1 Phase 2): the global SWG retired; a project's goes into each track's
 #                   own as it loads (at most 100), into its stored scenes and, in a song, each slot's own; CLOCK no SWG.
+# ARP > ARP 3 (tests/j6phrase_test.c, M-Vave-OP1): the arp timed by the Roland J-6's 108 phrases (j6phrase.c,
+#                   j6phrase_data.h): the data (9 x 12, inside their cycles, the Phrase List's notated ones), STYLE / VAR /
+#                   MODE J-6 appended (OFF as before, J-6 without a STYLE as CHORD), every phrase over the J-6's chord
+#                   for two cycles (each note in its block, its tone, length, velocity; the rest before the first kept;
+#                   another tempo; GATE), the other modes on its rhythm, PROB, the note-offs (let go, STYLE / MODE off,
+#                   silenced, HOLD), kept with the project (an older one: OFF), the page after ARP 2.
 # SCL > CHORD's sets (tests/cset_test.c, M-Vave-OP1): the chord sets after the Roland J-6's (cset.c, cset_data.h): the
 #                   hundred sets (set 1's C, the names, 1..4 notes up), the genres KNOB 3 steps; the chords (F3 .. E4 as
 #                   listed, octaves away, TRN, one voice: the lowest); through the real key input (every key a chord, a
@@ -419,6 +425,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     mkdir -p build/dyn_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/dyn_test" tests/dyn_test.c -lm
     run "HOME > MASTER: compressor + limiter before the knob (as before at the defaults, the curve, times, LIMIT, meters), the page, kept" "$OUT/dyn_test" build/dyn_shots
+    mkdir -p build/j6phrase_shots
+    $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/j6phrase_test" tests/j6phrase_test.c -lm
+    run "ARP > ARP 3 (the J-6's phrases): the data, every phrase's timing and notes, the modes, the note-offs, kept, the page" "$OUT/j6phrase_test" build/j6phrase_shots
     mkdir -p build/cset_shots
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/cset_test" tests/cset_test.c -lm
     run "SCL > CHORD's sets (after the J-6's): the data, the chords, the key input, MIDI IN, the page, STEP entry, recording, kept" "$OUT/cset_test" build/cset_shots

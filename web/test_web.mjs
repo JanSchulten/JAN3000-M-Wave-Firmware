@@ -55,7 +55,7 @@ async function editorMock() {
   const info = E.parse[E.CMD.INFO](await rq(E.req.info()));
   ok(info.nengines === 23 && info.engines[17] === "WSHAPE" && info.engines[18] === "HRMNC" && info.engines[19] === "PRTCL" &&
      info.engines[20] === "WTABLE" && info.engines[21] === "SWARM" && info.engines[22] === "ACID" && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANLG2" && info.engines[15] === "VDRUM" && info.engines[16] === "-"
- && info.engines[2] === "-" && info.engines[5] === "-" && info.engines[6] === "-" && info.engines[7] === "WHEEL" && info.engines[8] === "GRAIN" && info.engines[9] === "PHYS" && info.engines[10] === "DRUM" && info.engines[11] === "NOISE" && info.pcount === 112 && info.pe0 === 104 && info.engines[4] === "SAMPLE",
+ && info.engines[2] === "-" && info.engines[5] === "-" && info.engines[6] === "-" && info.engines[7] === "WHEEL" && info.engines[8] === "GRAIN" && info.engines[9] === "PHYS" && info.engines[10] === "DRUM" && info.engines[11] === "NOISE" && info.pcount === 114 && info.pe0 === 106 && info.engines[4] === "SAMPLE",
     "editor: INFO");
   let descs = 0;
   for (let i = 0; i < info.pcount; i++) if (E.parse[E.CMD.DESC](await rq(E.req.desc(0, i))).label) descs++;
@@ -701,7 +701,7 @@ async function editorLibrarian() {
   const ctx = { keys, engines: info.engines, firmware: info.version, pe0: info.pe0 };
   const pts = [cap, { ...bass, engineName: info.engines[bass.engine], tags: ["bass", "device"] }];
   const file = JSON.parse(JSON.stringify(E.libraryFile("library", pts, ctx)));
-  ok(file.format === "felucca-library" && file.version === 1 && file.pCount === 112 && file.paramLabels.length === 112 && file.paramLabels[81] === "CHRD" && file.paramLabels[82] === "VOIC" &&
+  ok(file.format === "felucca-library" && file.version === 1 && file.pCount === 114 && file.paramLabels.length === 114 && file.paramLabels[81] === "CHRD" && file.paramLabels[82] === "VOIC" &&
     file.paramLabels[83] === "KICK" && file.paramLabels[90] === "BELL" && file.paramLabels.slice(91, 96).join() === "SYNC,TRIG,POL,QNTZ,SPRD" &&
     file.paramLabels.slice(96, 103).join() === "INSRT,INS A,INS B,INS C,MIX,TYPE,ESYNC" &&
     file.paramLabels[103] === "SHIM" && file.engines.length === 23,
@@ -722,10 +722,10 @@ async function editorLibrarian() {
   const bankFile = E.libraryFile("bank", [{ ...g, engineName: "ANALOG", slot: 10 }], ctx);
   ok(bankFile.kind === "bank" && bankFile.patches[0].slot === 10 && E.readLibraryFile(bankFile, ctx).patches[0].slot === 10, "library file: bank export keeps slot numbers");
   const presetFile = JSON.parse(JSON.stringify(E.libraryFile("presets", pts, ctx)));   /* M-Vave-OP1: "Export presets" */
-  ok(presetFile.kind === "presets" && presetFile.paramLabels.length === 112 && presetFile.patches[1].engineName === "ANLG2" &&
+  ok(presetFile.kind === "presets" && presetFile.paramLabels.length === 114 && presetFile.patches[1].engineName === "ANLG2" &&
     eq(presetFile.patches[1].tags, ["bass", "device"]) && E.readLibraryFile(presetFile, ctx).patches.length === 2,
     "library file: a preset file (tools/import_presets.py's input): labels, engine names, tags; it reads back as a library");
-  {   /* files from the 69-parameter firmware (P_E0 61): the engine's 8 land on E0..E7 (104..111), FM op ENV, the
+  {   /* files from the 69-parameter firmware (P_E0 61): the engine's 8 land on E0..E7 (106..113), FM op ENV, the
          chord keys and the lane levels stay unset */
     const p69 = [...cap.p.slice(0, 61), ...cap.p.slice(info.pe0, info.pcount)];
     const sp = E.readLibraryFile({ format: "felucca-patch", version: 1, engine: cap.engine, engineName: info.engines[cap.engine], p: p69 }, ctx).patches[0].p;
@@ -733,9 +733,9 @@ async function editorLibrarian() {
     const lp = E.readLibraryFile({ ...file, pCount: 69, paramLabels: keys69, patches: [{ ...file.patches[0], params: p69 }] }, ctx).patches[0].p;
     const nk = E.readLibraryFile({ ...file, paramLabels: undefined, patches: [{ ...file.patches[0], params: p69 }] }, ctx).patches[0].p;
     const good = (q) => q.length === info.pcount && eq(q.slice(0, 61), cap.p.slice(0, 61)) && eq(q.slice(info.pe0), cap.p.slice(info.pe0)) && q.slice(61, info.pe0).every((v) => v === null);
-    ok(good(sp) && good(lp) && good(nk), "library file: 69-parameter files (patch, labelled, unlabelled) map the engine's 8 to 104..111");
+    ok(good(sp) && good(lp) && good(nk), "library file: 69-parameter files (patch, labelled, unlabelled) map the engine's 8 to 106..113");
   }
-  {   /* files from the 89-parameter firmware (P_E0 81, before the chord keys): the engine's 8 land on 104..111, the FM
+  {   /* files from the 89-parameter firmware (P_E0 81, before the chord keys): the engine's 8 land on 106..113, the FM
          op ENV in place, CHRD VOIC unset (left as the track has them), the lane levels unset */
     const p89 = [...cap.p.slice(0, 81), ...cap.p.slice(info.pe0, info.pcount)];
     const keys89 = [...keys.slice(0, 81), ...keys.slice(info.pe0)];
@@ -744,9 +744,9 @@ async function editorLibrarian() {
     const nk = E.readLibraryFile({ ...file, paramLabels: undefined, patches: [{ ...file.patches[0], params: p89 }] }, ctx).patches[0].p;
     const good = (q) => q.length === info.pcount && eq(q.slice(0, 81), cap.p.slice(0, 81)) && q.slice(81, info.pe0).every((v) => v === null) && eq(q.slice(info.pe0), cap.p.slice(info.pe0));
     ok(keys89[81] === "E0" && good(sp) && good(lp) && good(nk),
-      "library file: 89-parameter files (patch, labelled, unlabelled) map the engine's 8 to 104..111, the chord keys unset");
+      "library file: 89-parameter files (patch, labelled, unlabelled) map the engine's 8 to 106..113, the chord keys unset");
   }
-  {   /* files from 1.0.x (91 parameters, P_E0 83, before the DRUM lane levels): the engine's 8 land on 104..111, the
+  {   /* files from 1.0.x (91 parameters, P_E0 83, before the DRUM lane levels): the engine's 8 land on 106..113, the
          chord keys in place, the lane levels unset (a sound load sets them to 100 %) */
     const p91 = [...cap.p.slice(0, 83), ...cap.p.slice(info.pe0, info.pcount)];
     const keys91 = [...keys.slice(0, 83), ...keys.slice(info.pe0)];
@@ -755,10 +755,10 @@ async function editorLibrarian() {
     const nk = E.readLibraryFile({ ...file, paramLabels: undefined, patches: [{ ...file.patches[0], params: p91 }] }, ctx).patches[0].p;
     const good = (q) => q.length === info.pcount && eq(q.slice(0, 83), cap.p.slice(0, 83)) && q.slice(83, info.pe0).every((v) => v === null) && eq(q.slice(info.pe0), cap.p.slice(info.pe0));
     ok(keys91[83] === "E0" && good(sp) && good(lp) && good(nk),
-      "library file: 91-parameter files (1.0.x: patch, labelled, unlabelled) map the engine's 8 to 104..111, the lane levels unset");
+      "library file: 91-parameter files (1.0.x: patch, labelled, unlabelled) map the engine's 8 to 106..113, the lane levels unset");
   }
   {   /* files from 1.2 .. 1.4 (104 parameters, P_E0 96, before 1.5's INSERT, filter TYPE and ENV SYNC): the engine's 8 land
-         on 104..111, SPREAD and the rest in place, the INSERT, TYPE, ESYNC unset (a sound load sets them to OFF, LP, OFF) */
+         on 106..113, SPREAD and the rest in place, the INSERT, TYPE, ESYNC unset (a sound load sets them to OFF, LP, OFF) */
     const p104 = [...cap.p.slice(0, 96), ...cap.p.slice(info.pe0, info.pcount)];
     const keys104 = [...keys.slice(0, 96), ...keys.slice(info.pe0)];
     const sp = E.readLibraryFile({ format: "felucca-patch", version: 1, engine: cap.engine, engineName: info.engines[cap.engine], p: p104 }, ctx).patches[0].p;
@@ -766,7 +766,7 @@ async function editorLibrarian() {
     const nk = E.readLibraryFile({ ...file, paramLabels: undefined, patches: [{ ...file.patches[0], params: p104 }] }, ctx).patches[0].p;
     const good = (q) => q.length === info.pcount && eq(q.slice(0, 96), cap.p.slice(0, 96)) && q.slice(96, info.pe0).every((v) => v === null) && eq(q.slice(info.pe0), cap.p.slice(info.pe0));
     ok(keys104[96] === "E0" && good(sp) && good(lp) && good(nk),
-      "library file: 104-parameter files (1.2 .. 1.4: patch, labelled, unlabelled) map the engine's 8 to 104..111, the INSERT, TYPE, ESYNC unset");
+      "library file: 104-parameter files (1.2 .. 1.4: patch, labelled, unlabelled) map the engine's 8 to 106..113, the INSERT, TYPE, ESYNC unset");
   }
   const old = E.readLibraryFile({ format: "felucca-patch", version: 1, engine: 0, preset: 4, engineName: "ANALOG", presetName: "ACID", p: d2.p, steps: E.stepsFromPattern(cap.pattern) }, ctx);
   ok(old.patches.length === 1 && eq(old.patches[0].p, d2.p) && js(old.patches[0].pattern) === js(cap.pattern), "library file: reads the old \"Save to file\" format");

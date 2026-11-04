@@ -257,7 +257,7 @@ static uint32_t midi_leds(const track_t *t)
 static uint32_t play_leds(void)
 {
     const track_t *t = TSEL;
-    uint8_t s[4 + NLANE + 4];
+    uint8_t s[4 + NLANE + 4 + J6_SLOTS];
     uint32_t n = t->seq_n < 4u + NLANE ? t->seq_n : 4u + NLANE, i, k, note, used = 0, m = 0, hit;
     for (i = 0; i < n; i++)
         s[i] = t->seq_notes[i];
@@ -266,6 +266,7 @@ static uint32_t play_leds(void)
     for (i = 0; i < 3u; i++)                            /* (the ARP's CHORD) */
         if (t->arp_ch[i])
             s[n++] = t->arp_ch[i];
+    n += j6_sounding(t, s + n, J6_SLOTS);               /* (M-Vave-OP1, ARP 3: the phrase's notes) */
     for (k = 0; n && k < 27u; k++) {
         note = kb_map(t, k);
         for (i = 0, hit = 0; i < n; i++)
