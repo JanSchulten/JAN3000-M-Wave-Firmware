@@ -8,7 +8,9 @@
 
 import { crc32, parseFM1, loadWasm, prepare, render, wavHeader, bounceFiles, zipParts } from "../bounce/bounce.js";
 
-export const MODES = ["Szene", "Szenen-Song", "Song-Kette"];
+// an error with a code and its values: the page says it in its language (bounce.js's errors carry the same; their
+// messages are German, as web/bounce's page, ours English)
+const fail = (code, message, args = []) => Object.assign(new Error(message), { code, args });
 const SONG_MAX_MS = 600000;                               // a song ends itself; this is the stop of one that does not
 export const TAIL_MS = 3000;
 const BATCH = 8;                                          // slices of 64 ms handed over together (about 0.5 s)
@@ -28,26 +30,26 @@ export async function unzip(bytes) {
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
   let e = u8.length - 22;
   while (e >= 0 && dv.getUint32(e, true) !== 0x06054B50) e--;
-  if (e < 0) throw new Error("Keine ZIP-Datei.");
+  if (e < 0) throw fail("nozip", "Not a ZIP file.");
   const n = dv.getUint16(e + 10, true), dec = new TextDecoder();
   let c = dv.getUint32(e + 16, true);
   const out = [];
   for (let i = 0; i < n; i++) {
-    if (c + 46 > u8.length || dv.getUint32(c, true) !== 0x02014B50) throw new Error("Die ZIP-Datei ist beschädigt.");
+    if (c + 46 > u8.length || dv.getUint32(c, true) !== 0x02014B50) throw fail("zipbad", "The ZIP file is damaged.");
     const method = dv.getUint16(c + 10, true), csize = dv.getUint32(c + 20, true), size = dv.getUint32(c + 24, true);
     const nl = dv.getUint16(c + 28, true), xl = dv.getUint16(c + 30, true), kl = dv.getUint16(c + 32, true);
     const at = dv.getUint32(c + 42, true), name = dec.decode(u8.subarray(c + 46, c + 46 + nl));
     c += 46 + nl + xl + kl;
     if (name.endsWith("/")) continue;
-    if (at + 30 > u8.length || dv.getUint32(at, true) !== 0x04034B50) throw new Error("Die ZIP-Datei ist beschädigt.");
+    if (at + 30 > u8.length || dv.getUint32(at, true) !== 0x04034B50) throw fail("zipbad", "The ZIP file is damaged.");
     const from = at + 30 + dv.getUint16(at + 26, true) + dv.getUint16(at + 28, true);
-    if (from + csize > u8.length) throw new Error("Die ZIP-Datei ist unvollständig.");
+    if (from + csize > u8.length) throw fail("zipshort", "The ZIP file is incomplete.");
     const raw = u8.subarray(from, from + csize);
     let data;
     if (method === 0) data = raw.slice();
-    else if (method === 8) data = await inflateRaw(raw).catch(() => { throw new Error(`${name}: lässt sich nicht entpacken.`); });
-    else throw new Error(`${name}: unbekannte ZIP-Kompression.`);
-    if (data.length !== size) throw new Error(`${name}: falsche Länge in der ZIP-Datei.`);
+    else if (method === 8) data = await inflateRaw(raw).catch(() => { throw fail("zipinflate", `${name}: cannot be unpacked.`, [name]); });
+    else throw fail("zipmethod", `${name}: unknown ZIP compression.`, [name]);
+    if (data.length !== size) throw fail("ziplen", `${name}: wrong length in the ZIP file.`, [name]);
     out.push({ name, data });
   }
   return out;
@@ -66,10 +68,10 @@ export async function candidates(files) {
     if (!isZip(f.data)) { out.push({ name: baseName(f.name), data: f.data }); continue; }
     try {
       const inner = (await unzip(f.data)).filter((x) => /\.fm1$/i.test(x.name) && !/(^|\/)\._/.test(x.name));
-      if (!inner.length) bad.push({ name: f.name, why: "Die ZIP-Datei enthält keine .FM1-Datei." });
+      if (!inner.length) bad.push({ name: f.name, why: "The ZIP file holds no .FM1 file.", code: "zipnofm1", args: [] });
       for (const x of inner) out.push({ name: baseName(x.name), data: x.data });
     } catch (err) {
-      bad.push({ name: f.name, why: err.message });
+      bad.push({ name: f.name, why: err.message, code: err.code, args: err.args });
     }
   }
   return { out, bad };
@@ -154,11 +156,11 @@ export async function stemsZip(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_
 export function openStore(idb = globalThis.indexedDB) {
   const req = (r) => new Promise((ok, no) => { r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
   const ready = new Promise((ok, no) => {
-    if (!idb) return no(new Error("Dieser Browser hat keinen Speicher für die Bibliothek (IndexedDB)."));
+    if (!idb) return no(fail("noidb", "This browser has no storage for the library (IndexedDB)."));
     const r = idb.open("jan3000-library", 1);
     r.onupgradeneeded = () => r.result.createObjectStore("saves", { keyPath: "key" });
     r.onsuccess = () => ok(r.result);
-    r.onerror = () => no(r.error || new Error("Die Bibliothek ließ sich nicht öffnen."));
+    r.onerror = () => no(fail("openfail", "The library could not be opened."));
   });
   const tx = async (mode, fn) => req(fn((await ready).transaction("saves", mode).objectStore("saves")));
   return {
@@ -170,7 +172,7 @@ export function openStore(idb = globalThis.indexedDB) {
 }
 
 // take the candidates in: checked, looked at by the firmware (look(bytes) -> inspect's), stored unless already there.
-// Returns {added: [records], known: [names], bad: [{name, why}]}
+// Returns {added: [records], known: [names], bad: [{name, why, code, args}]} (why: the message; code, args: as fail())
 export async function importFiles(store, files, look, now = Date.now()) {
   const { out, bad } = await candidates(files), added = [], known = [], seen = new Set();
   for (const f of out) {
@@ -182,7 +184,7 @@ export async function importFiles(store, files, look, now = Date.now()) {
       await store.put(rec);
       added.push(rec);
     } catch (err) {
-      bad.push({ name: f.name, why: err.message });
+      bad.push({ name: f.name, why: err.message, code: err.code, args: err.args });
     }
   }
   return { added, known, bad };

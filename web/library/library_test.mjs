@@ -22,7 +22,7 @@ const check = (what, ok) => { console.log(`library: ${what.padEnd(100)} ${ok ? "
 const join = (parts) => { const n = parts.reduce((a, p) => a + p.length, 0), o = new Uint8Array(n); let at = 0;
                           for (const p of parts) { o.set(p, at); at += p.length; } return o; };
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
-const throwsLike = async (fn, re) => { try { await fn(); return false; } catch (e) { return re.test(e.message); } };
+const throwsLike = async (fn, re) => { try { await fn(); return false; } catch (e) { return re.test(e.code); } };   // (by the code: the page words it)
 const file = (n) => new Uint8Array(readFileSync(`${dir}/${n}`));
 const a = file("PROJ_A.FM1"), c = file("PROJ_C.FM1"), cur = file("CURRENT.FM1");
 
@@ -44,8 +44,8 @@ function deflatedZip(name, data) {                        // as a computer's ZIP
 }
 const packed = deflatedZip("CURRENT.FM1", cur);
 check("  a deflated one (a computer's ZIP tool): unpacked, the same bytes", same((await unzip(packed))[0].data, cur));
-check("  not a ZIP: refused; cut short: refused", await throwsLike(() => unzip(a), /Keine ZIP/) &&
-      await throwsLike(() => unzip(ours.subarray(60)), /beschädigt|unvollständig/));
+check("  not a ZIP: refused; cut short: refused", await throwsLike(() => unzip(a), /^nozip$/) &&
+      await throwsLike(() => unzip(ours.subarray(60)), /^zip(bad|short)$/));
 
 // ---- IMPORT (the store: a Map standing in for IndexedDB)
 const map = new Map();
@@ -58,8 +58,9 @@ const r1 = await importFiles(store, [{ name: "PROJ_A.FM1", data: a }, { name: "C
 check("IMPORT: A, the ZIP's C and the packed CURRENT taken; A again (a copy, and in the ZIP) known, not stored twice",
       r1.added.length === 3 && map.size === 3 && r1.known.join() === "COPY.FM1,A.FM1" &&
       r1.added.map((r) => r.name).join() === "FIRST,THIRD,LIVE");
-check("  the damaged one and the text file refused, each with its reason; the rest kept",
-      r1.bad.length === 2 && /Prüfsumme/.test(r1.bad[0].why) && r1.bad[0].name === "HURT.FM1" && /FM1X/.test(r1.bad[1].why));
+check("  the damaged one and the text file refused, each with its reason (a code, its part); the rest kept",
+      r1.bad.length === 2 && r1.bad[0].code === "crc" && r1.bad[0].args[0] === "SMP1" && r1.bad[0].name === "HURT.FM1" &&
+      r1.bad[1].code === "notfm1");
 const ra = r1.added[0];
 check("  a record: the bytes as they came, slot A, its parts, what the firmware plays (120 BPM, 1 bar, no songs)",
       same(ra.bytes, a) && ra.slotName === "A" && ra.parts[0].tag === "PROJ" && ra.info.bpm === 120 && ra.info.bars === 1 &&
@@ -69,7 +70,7 @@ check("  defaults: the SONG chain before the scene song before the scene; a long
 const r2 = await importFiles(store, [{ name: "again.FM1", data: c }], look, 2000);
 check("  a later import of a file already there: known, nothing added", !r2.added.length && r2.known.length === 1 && map.size === 3);
 const zc = await candidates([{ name: "empty.zip", data: join(zipParts([{ name: "a.txt", parts: [new Uint8Array(3)] }])) }]);
-check("  a ZIP without a .FM1 file: said so", zc.out.length === 0 && /keine \.FM1/.test(zc.bad[0].why));
+check("  a ZIP without a .FM1 file: said so", zc.out.length === 0 && zc.bad[0].code === "zipnofm1");
 const recs = [...map.values()];
 recs[1].title = "First";                                  // a title given in the page, the same as another's name
 check("  names out: FIRST.FM1, FIRST_2.FM1, LIVE.FM1 (none twice); the title before the project's name",
@@ -98,7 +99,7 @@ const sz = await unzip(join(await stemsZip(wasm, a, { mode: 0, bars: 2 }, "FIRST
 check("  the stems' ZIP: FIRST_MIX.wav and T1 T2 T3 T4 FX, the master the same file",
       sz.map((f) => f.name).join() === "FIRST_MIX.wav,FIRST_T1.wav,FIRST_T2.wav,FIRST_T3.wav,FIRST_T4.wav,FIRST_FX.wav" &&
       same(sz[0].data, refWav));
-check("  a file that is not a project: the reason, not a crash", await throwsLike(() => play(wasm, new Uint8Array(64), {}, () => {}), /FM1X/));
+check("  a file that is not a project: the reason, not a crash", await throwsLike(() => play(wasm, new Uint8Array(64), {}, () => {}), /^notfm1$/));
 
 console.log(bad ? `library: ${bad} FAILED` : "library: all ok");
 process.exit(bad ? 1 : 0);

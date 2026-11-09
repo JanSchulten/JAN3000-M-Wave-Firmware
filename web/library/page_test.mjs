@@ -2,6 +2,7 @@
 // Copyright (C) 2026 M-Vave-OP1 contributors
 // The library page itself (build/library, web/library/build.sh) in a browser (Playwright's Chromium; not part of
 // tests/run_tests.sh, which has no browser: run it by hand after a change to the page):
+//   LANG    English first; DE: every word German, kept over a reload; EN: back
 //   IN      .FM1 files picked: listed with what the firmware says of them; the same again: known; a damaged one refused
 //   PLAY    a tap on a card: the worker renders, the sound runs meanwhile (the position moves, real samples leave the
 //           page), pause holds, the bar seeks, the end stops; another mode's length
@@ -69,17 +70,41 @@ await page.setInputFiles("#file", [`${dir}/PROJ_A.FM1`, `${dir}/PROJ_C.FM1`]);
 await page.waitForFunction(() => document.querySelectorAll("#list article").length === 2);
 s = await state();
 check("IN: two files picked: two cards, each its name, slot, tempo and length from the firmware",
-      s.cards.map((c) => c.name).sort().join() === "FIRST,THIRD" && /Platz [AC] · 120 BPM · 1 Takt · /.test(s.cards[0].meta) &&
-      /2 Projekte hinzugefügt/.test(s.status) && !s.err);
+      s.cards.map((c) => c.name).sort().join() === "FIRST,THIRD" && /Slot [AC] · 120 BPM · 1 bar · /.test(s.cards[0].meta) &&
+      /2 projects added/.test(s.status) && !s.err);
 await page.setInputFiles("#file", [`${dir}/PROJ_A.FM1`]);
-await page.waitForFunction(() => /schon in der Bibliothek/.test(document.getElementById("status").textContent));
+await page.waitForFunction(() => /already in the library/.test(document.getElementById("status").textContent));
 const hurt = readFileSync(`${dir}/CURRENT.FM1`); hurt[hurt.length - 10] ^= 1;
 await page.setInputFiles("#file", [{ name: "HURT.FM1", mimeType: "application/octet-stream", buffer: hurt }]);
-await page.waitForFunction(() => /Prüfsumme/.test(document.getElementById("status").textContent));
+await page.waitForFunction(() => /checksum/.test(document.getElementById("status").textContent));
 s = await state();
 check("  the same file again: known; a damaged one: refused with its reason, in the warning colour; still two cards",
       s.cards.length === 2 && s.err && /HURT\.FM1/.test(s.status));
 await shot("1-list.png");
+
+// ---- the language
+const words = () => page.evaluate(() => ({ lang: document.documentElement.lang, title: document.title,
+  h1: [...document.querySelectorAll("h1 span")].find((e) => getComputedStyle(e).display !== "none").textContent,
+  pick: [...document.querySelectorAll("#pick span")].find((e) => getComputedStyle(e).display !== "none").textContent,
+  meta: document.querySelector("#list .meta").textContent, status: document.getElementById("status").textContent,
+  more: document.querySelector("#list summary").textContent }));
+let w = await words();
+check("LANGUAGE: English first: the title, the heading, the button, a card, the refusal",
+      w.lang === "en" && w.title === "JAN3000 Library" && w.h1 === "Library" && w.pick === "Choose .FM1 files" &&
+      /Slot/.test(w.meta) && /HURT\.FM1: SMP1: wrong checksum/.test(w.status) && w.more === "More");
+await page.locator('.lang-sw button[data-lang="de"]').click();
+w = await words();
+check("  DE: all of it German, the refusal already on the page too",
+      w.lang === "de" && w.title === "JAN3000 Bibliothek" && w.h1 === "Bibliothek" && w.pick === ".FM1-Dateien wählen" &&
+      /Platz [AC] · 120 BPM · 1 Takt/.test(w.meta) && /HURT\.FM1: SMP1: Prüfsumme falsch/.test(w.status) && w.more === "Mehr");
+await page.reload();
+await page.waitForFunction(() => document.querySelectorAll("#list article").length === 2);
+w = await words();
+check("  a reload: still German (the user guide's choice, kept); EN: English again",
+      w.lang === "de" && w.h1 === "Bibliothek" && /Platz/.test(w.meta));
+await shot("1-list-de.png");
+await page.locator('.lang-sw button[data-lang="en"]').click();
+check("  (and back)", (await words()).h1 === "Library");
 
 // ---- PLAY
 const first = page.locator("#list article", { hasText: "FIRST" });
@@ -93,11 +118,11 @@ check("  the whole render is there long before the sound gets to it (4 bars and 
       !/rechnet/.test(s.time) && secs(s.time)[1] >= 8 && secs(s.time)[1] <= 11);
 await shot("2-playing.png");
 await page.locator("#pp").click();
-await page.waitForFunction(() => document.getElementById("pp").getAttribute("aria-label") === "Wiedergabe");
+await page.waitForFunction(() => document.getElementById("pp").getAttribute("aria-label") === "Play");
 const t1 = (await state()).time;
 await page.waitForTimeout(700);
 s = await state();
-check("  pause: the position holds, the button offers play", s.time === t1 && s.pp === "Wiedergabe");
+check("  pause: the position holds, the button offers play", s.time === t1 && s.pp === "Play");
 const box = await page.locator("#wave").boundingBox();
 await page.mouse.click(box.x + box.width * 0.75, box.y + box.height / 2);
 await page.waitForTimeout(100);                           // (the bar's text follows with the next frame)
@@ -106,7 +131,7 @@ const [at, len] = secs(s.time);
 check(`  a tap at three quarters of the bar: the position there (${s.time})`, Math.abs(at - 0.75 * len) <= 1.5);
 await page.locator("#pp").click();
 await page.waitForFunction(() => document.getElementById("pp").getAttribute("aria-label") === "Pause");
-await page.waitForFunction(() => document.getElementById("pp").getAttribute("aria-label") === "Wiedergabe", null, { timeout: 15000 });
+await page.waitForFunction(() => document.getElementById("pp").getAttribute("aria-label") === "Play", null, { timeout: 15000 });
 s = await state();
 check("  played on from there to the end: stopped at the end", secs(s.time)[0] >= secs(s.time)[1] - 1);
 await page.locator("#pbars").fill("1");
@@ -119,17 +144,17 @@ await first.locator("summary").click();
 const a = new Uint8Array(readFileSync(`${dir}/PROJ_A.FM1`));
 const ref = await render(prepare(await loadWasm(readFileSync(pjoin(root, "felucca_bounce.wasm"))), parseFM1(a)),
                          { mode: 0, maxMs: 2000, tailMs: 3000, stems: false });
-const wav = await dl(() => first.getByRole("button", { name: "WAV (Mix)" }).click());
+const wav = await dl(() => first.getByRole("button", { name: "WAV (mix)" }).click());
 check("OUT: WAV (Mix): FIRST_MIX.wav, byte for byte web/bounce's master of 1 bar",
       wav.name === "FIRST_MIX.wav" && same(wav.data, join(bounceFiles(ref, "X")[0].parts)));
 const third = page.locator("#list article", { hasText: "THIRD" });
 await third.locator("summary").click();
-const wav3 = await dl(() => third.getByRole("button", { name: "WAV (Mix)" }).click());
+const wav3 = await dl(() => third.getByRole("button", { name: "WAV (mix)" }).click());
 check("  the WAV of a project the player does not hold: rendered for it (4 bars: longer)", wav3.name === "THIRD_MIX.wav" &&
       wav3.data.length > wav.data.length);
-const fm1 = await dl(() => first.getByRole("button", { name: ".FM1-Datei sichern" }).click());
+const fm1 = await dl(() => first.getByRole("button", { name: "Save .FM1 file" }).click());
 check("  the .FM1 file: FIRST.FM1, the bytes as they came", fm1.name === "FIRST.FM1" && same(fm1.data, a));
-const stems = await dl(() => first.getByRole("button", { name: "Einzelspuren (ZIP)" }).click());
+const stems = await dl(() => first.getByRole("button", { name: "Stems (ZIP)" }).click());
 check("  the stems: FIRST.zip with the master and T1..T4, FX", (await unzip(stems.data)).length === 6 && stems.name === "FIRST.zip");
 await first.locator("input[type=text]").fill("Erster Versuch");
 await first.locator("input[type=text]").dispatchEvent("change");
@@ -141,7 +166,7 @@ await shot("3-details.png");
 const zip = await dl(() => page.locator("#zipall").click());
 const inZip = await unzip(zip.data);
 check("  the library's ZIP: both projects, the renamed one under its title",
-      /^JAN3000-Bibliothek-\d{4}-\d\d-\d\d\.zip$/.test(zip.name) && inZip.map((f) => f.name).sort().join() === "ERSTER_VERSUCH.FM1,THIRD.FM1");
+      /^JAN3000-Library-\d{4}-\d\d-\d\d\.zip$/.test(zip.name) && inZip.map((f) => f.name).sort().join() === "ERSTER_VERSUCH.FM1,THIRD.FM1");
 await page.reload();
 await page.waitForFunction(() => document.querySelectorAll("#list article").length === 2);
 s = await state();
@@ -152,7 +177,7 @@ page.on("dialog", (d) => d.accept());
 for (const name of ["Erster Versuch", "THIRD"]) {
   const c = page.locator("#list article", { hasText: name });
   await c.locator("summary").click();
-  await c.getByRole("button", { name: "Löschen" }).click();
+  await c.getByRole("button", { name: "Delete" }).click();
   await page.waitForFunction((n) => ![...document.querySelectorAll("#list .name")].some((e) => e.textContent === n), name);
 }
 check("  both deleted (asked first): the library is empty again", (await state()).cards.length === 0);

@@ -5,13 +5,14 @@
      sent anywhere), listened to (the FM-1's own firmware as WebAssembly renders a file in a worker, the master is
      played while it is made) and handed out again: the file as it came, the master as a WAV, the stems as a ZIP, the
      whole library as one ZIP (which this page takes back in, on this device or another). lib.js does the work,
-     worker.js runs the firmware; this page is the list and the player. In German, as web/bounce; the look is the user guide's (web/manual). -->
-<html lang="de">
+     worker.js runs the firmware; this page is the list and the player. English first, German by the switch (the user guide's: the same site keeps the choice); the look is the guide's too
+     (web/manual). -->
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>JAN3000 Bibliothek</title>
-<meta name="description" content="Projekte vom M-VAVE FM-1 (JAN3000, based on Felucca) sichern, anhören und als WAV rendern: lokal im Browser, ohne Konto.">
+<title>JAN3000 Library</title>
+<meta name="description" content="Keep, play and render projects of the M-VAVE FM-1 (JAN3000, based on Felucca) as WAV: locally in the browser, no account.">
 <meta name="theme-color" content="#eceee9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#131514" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,6 +21,8 @@
 <script>
 /* the accent picked in the user guide (the same site keeps it) */
 try { var a = localStorage.getItem("mvop1-manual-accent"); if (/^(ice|violet|rose|green)$/.test(a)) document.documentElement.dataset.accent = a; } catch (e) { /* storage off: AMBER */ }
+/* and the language picked there, else English (before the page is drawn: no flash of the other one) */
+try { if (localStorage.getItem("mvop1-manual-lang") === "de") document.documentElement.lang = "de"; } catch (e) { /* storage off: English */ }
 </script>
 <style>
 /* The user guide's look (web/manual/manual.html): its paper and ink, its three faces (Doto for the display line,
@@ -121,62 +124,82 @@ canvas { display: block; width: 100%; height: 56px; margin: 10px 0; cursor: poin
 .pmode input { width: 76px; }
 footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); font: 500 10.5px/1.7 var(--f-mono);
          letter-spacing: 0.03em; color: var(--mute); max-width: 80ch; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lang-sw { display: inline-flex; border: 1px solid var(--rule-2); border-radius: 8px; overflow: hidden; flex: none; }
+.lang-sw button { font: 600 11px/1 var(--f-mono); letter-spacing: 0.06em; color: var(--mute); background: transparent;
+                  border: 0; border-radius: 0; padding: 9px 11px; min-height: 0; cursor: pointer; }
+.lang-sw button + button { border-left: 1px solid var(--rule-2); }
+.lang-sw button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+:root[lang="en"] [data-l="de"], :root[lang="de"] [data-l="en"] { display: none !important; }
 [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <main>
-  <p class="eyebrow">JAN3000 @JAN@ · M-VAVE FM-1</p>
-  <h1>Bibliothek</h1>
-  <p class="lede">Projekte vom FM-1 sichern, anhören und als WAV rendern. Alles bleibt auf diesem Gerät: kein Konto,
-    kein Upload.</p>
+  <div class="top">
+    <p class="eyebrow">JAN3000 @JAN@ · M-VAVE FM-1</p>
+    <div class="lang-sw" role="group" aria-label="Language / Sprache">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button><button type="button" data-lang="de" aria-pressed="false">DE</button>
+    </div>
+  </div>
+  <h1><span data-l="en">Library</span><span data-l="de">Bibliothek</span></h1>
+  <p class="lede" data-l="en">Keep, play and render the projects of your FM-1 as WAV. Everything stays on this device: no
+    account, no upload.</p>
+  <p class="lede" data-l="de">Projekte vom FM-1 sichern, anhören und als WAV rendern. Alles bleibt auf diesem Gerät: kein
+    Konto, kein Upload.</p>
 
   <section id="add">
-    <h2>Hinzufügen</h2>
-    <label class="btn wide" for="file" id="pick" tabindex="0" role="button">.FM1-Dateien wählen</label>
+    <h2><span data-l="en">Add</span><span data-l="de">Hinzufügen</span></h2>
+    <label class="btn wide" for="file" id="pick" tabindex="0" role="button"><span data-l="en">Choose .FM1 files</span><span data-l="de">.FM1-Dateien wählen</span></label>
     <input id="file" type="file" multiple accept=".fm1,.FM1,.zip,application/zip,application/octet-stream" tabindex="-1">
-    <p class="status" id="status">Am FM-1: MENU › SYSTEM › USB DISK, dann die Dateien vom Laufwerk „FM-1“ hier wählen
-      (CURRENT.FM1 ist der Stand von gerade eben). Auch eine ZIP-Sicherung dieser Seite geht.</p>
+    <p class="status" id="status" role="status"></p>
   </section>
 
   <section>
-    <h2>Projekte <small id="count"></small></h2>
-    <div id="list" aria-live="polite"></div>
+    <h2><span><span data-l="en">Projects</span><span data-l="de">Projekte</span></span> <small id="count"></small></h2>
+    <div id="list"></div>
   </section>
 
   <section id="backup" hidden>
-    <h2>Sicherung</h2>
-    <button class="ghost wide" id="zipall">Alle Projekte als ZIP sichern</button>
-    <p class="hint"><span class="tag">Wichtig</span>Die Bibliothek liegt im Speicher dieses Browsers. Der kann verloren
-      gehen (Browserdaten gelöscht, Seite lange nicht geöffnet): bewahre die ZIP-Datei oder die .FM1-Dateien zusätzlich
-      auf. Die ZIP-Datei lässt sich auf jedem Gerät oben wieder hinzufügen.</p>
+    <h2><span data-l="en">Backup</span><span data-l="de">Sicherung</span></h2>
+    <button class="ghost wide" id="zipall"><span data-l="en">Save all projects as a ZIP</span><span data-l="de">Alle Projekte als ZIP sichern</span></button>
+    <p class="hint" data-l="en"><span class="tag">Important</span>The library lives in this browser's storage. That can be
+      lost (browser data cleared, the page not opened for a long time): keep the ZIP file or the .FM1 files as well.
+      The ZIP file can be added again above, on any device.</p>
+    <p class="hint" data-l="de"><span class="tag">Wichtig</span>Die Bibliothek liegt im Speicher dieses Browsers. Der kann
+      verloren gehen (Browserdaten gelöscht, Seite lange nicht geöffnet): bewahre die ZIP-Datei oder die .FM1-Dateien
+      zusätzlich auf. Die ZIP-Datei lässt sich auf jedem Gerät oben wieder hinzufügen.</p>
   </section>
 
   <footer>
     JAN3000 @JAN@, based on <a href="https://github.com/hugelton/Felucca">Felucca</a> @VERSION@ by Leo Kuroshita
-    (Hügelton Instruments), GPL-3.0-only. Quelltext: <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware">github.com/JanSchulten/JAN3000-M-Wave-Firmware</a>.
-    Was du hörst, rechnet die Firmware des FM-1 hier im Browser: der Mix, wie ihn das Gerät über USB-Audio ausgibt
-    (44,1 kHz). Zufall fällt bei jedem Rendern gleich.
+    (Hügelton Instruments), GPL-3.0-only.
+    <span data-l="en">Source: <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware">github.com/JanSchulten/JAN3000-M-Wave-Firmware</a>.
+      What you hear is computed by the FM-1's firmware here in the browser: the mix as the device sends it over USB
+      audio (44.1 kHz). Chance falls the same way on every render.</span>
+    <span data-l="de">Quelltext: <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware">github.com/JanSchulten/JAN3000-M-Wave-Firmware</a>.
+      Was du hörst, rechnet die Firmware des FM-1 hier im Browser: der Mix, wie ihn das Gerät über USB-Audio ausgibt
+      (44,1 kHz). Zufall fällt bei jedem Rendern gleich.</span>
   </footer>
 </main>
 
 <div id="player" hidden>
   <div>
     <div class="prow">
-      <button class="pp" id="pp" aria-label="Wiedergabe"></button>
+      <button class="pp" id="pp"></button>
       <div class="ptitle"><b id="ptitle"></b><small id="ptime"></small></div>
-      <button class="ghost" id="pclose" aria-label="Player schließen">✕</button>
+      <button class="ghost" id="pclose">✕</button>
     </div>
-    <canvas id="wave" tabindex="0" role="slider" aria-label="Position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
+    <canvas id="wave" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
     <div class="pmode">
-      <select id="pmodesel" aria-label="Was spielen"></select>
-      <label id="pbarsl">Takte <input id="pbars" type="number" min="1" max="512" inputmode="numeric"></label>
+      <select id="pmodesel"></select>
+      <label id="pbarsl"><span data-l="en">Bars</span><span data-l="de">Takte</span> <input id="pbars" type="number" min="1" max="512" inputmode="numeric"></label>
     </div>
   </div>
 </div>
 
 <script type="module">
-import { MODES, openStore, importFiles, titleOf, defaultMode, defaultBars, wavOfPcm, libraryZip, exportNames,
+import { openStore, importFiles, titleOf, defaultMode, defaultBars, wavOfPcm, libraryZip, exportNames,
          safeName } from "./lib.js";
 
 const $ = (id) => document.getElementById(id);
@@ -186,8 +209,75 @@ const ICON = { play: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 2l
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 const fmtSize = (n) => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.ceil(n / 1024))} KB`;
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-const fmtDate = (ms) => new Date(ms).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
 const say = (node, t, err) => { node.textContent = t; node.classList.toggle("err", !!err); };
+
+// ---- the page's words: English first, German by the switch. An error is said by its code (lib.js, bounce.js)
+const WORDS = {
+  en: {
+    title: "JAN3000 Library", locale: "en-GB", modes: ["Scene", "Scene song", "Song chain"],
+    intro: "On the FM-1: MENU › SYSTEM › USB DISK, then choose the files of the drive “FM-1” here (CURRENT.FM1 is the music as it is right now). A ZIP backup of this page works too.",
+    empty: "No projects yet. Add .FM1 files from the FM-1 above.",
+    check: (n) => (n === 1 ? "Checking the file …" : `Checking ${n} files …`),
+    added: (n, t) => (n === 1 ? `“${t}” added.` : `${n} projects added.`),
+    known: (n, f) => (n === 1 ? `${f} is already in the library.` : `${n} files are already in the library.`),
+    nothing: "Nothing added.",
+    slot: (r) => (r.slot === 4 ? "CURRENT" : `Slot ${r.slotName}`), bars: (n) => `${n} ${n === 1 ? "bar" : "bars"}`,
+    more: "More", ftitle: "Title", fnote: "Note", fw: (v) => `Firmware ${v}`,
+    fwHint: (a, b) => `Saved with firmware ${a}; this page runs ${b}: it may sound different from the device.`,
+    saveFm1: "Save .FM1 file", share: "Share / Save to Files", wav: "WAV (mix)", stems: "Stems (ZIP)", del: "Delete",
+    delAsk: (t) => `Delete “${t}” from the library?`, boot: "The FM-1 is starting …",
+    done: (t) => `${t} rendered …`, wavDone: (f, t) => `${f}: ${t}.`, stemsDone: (f, n) => `${f}: mix, T1–T4 and FX (${n}).`,
+    rendering: "rendering …", play: "Play", pause: "Pause", close: "Close the player", position: "Position", what: "What to play",
+    worker: "The render worker could not be started.", wasm: "The firmware (felucca_bounce.wasm) could not be loaded.",
+    err: {
+      notfm1: "Not a .FM1 file (FM1X is missing).", version: (v) => `FM1X version ${v}: this page only knows version 1.`,
+      short: (a, b) => `The file is incomplete (${a} of ${b} bytes).`, head: "The file's header is damaged.",
+      table: "The file's table of contents is damaged.", outside: (t) => `${t}: lies outside the file.`,
+      crc: (t) => `${t}: wrong checksum, the file is damaged.`, noproj: "The file holds no project.",
+      load: "The project could not be loaded.", nosong: "The project has no scene song.", nochain: "The project has no song chain.",
+      noplay: "PLAY did not start.", silent: "The device no longer gives any sound.", nozip: "Not a ZIP file.",
+      zipbad: "The ZIP file is damaged.", zipshort: "The ZIP file is incomplete.", zipinflate: (n) => `${n}: cannot be unpacked.`,
+      zipmethod: (n) => `${n}: unknown ZIP compression.`, ziplen: (n) => `${n}: wrong length in the ZIP file.`,
+      zipnofm1: "The ZIP file holds no .FM1 file.", noidb: "This browser has no storage for the library (IndexedDB).",
+      openfail: "The library could not be opened." },
+  },
+  de: {
+    title: "JAN3000 Bibliothek", locale: "de-DE", modes: ["Szene", "Szenen-Song", "Song-Kette"],
+    intro: "Am FM-1: MENU › SYSTEM › USB DISK, dann die Dateien vom Laufwerk „FM-1“ hier wählen (CURRENT.FM1 ist der Stand von gerade eben). Auch eine ZIP-Sicherung dieser Seite geht.",
+    empty: "Noch keine Projekte. Füge oben .FM1-Dateien vom FM-1 hinzu.",
+    check: (n) => (n === 1 ? "Die Datei wird geprüft …" : `${n} Dateien werden geprüft …`),
+    added: (n, t) => (n === 1 ? `„${t}“ hinzugefügt.` : `${n} Projekte hinzugefügt.`),
+    known: (n, f) => (n === 1 ? `${f} ist schon in der Bibliothek.` : `${n} Dateien sind schon in der Bibliothek.`),
+    nothing: "Nichts hinzugefügt.",
+    slot: (r) => (r.slot === 4 ? "CURRENT" : `Platz ${r.slotName}`), bars: (n) => `${n} ${n === 1 ? "Takt" : "Takte"}`,
+    more: "Mehr", ftitle: "Titel", fnote: "Notiz", fw: (v) => `Firmware ${v}`,
+    fwHint: (a, b) => `Gesichert mit Firmware ${a}, hier rechnet ${b}: es kann anders klingen als auf dem Gerät.`,
+    saveFm1: ".FM1-Datei sichern", share: "Teilen / In Dateien sichern", wav: "WAV (Mix)", stems: "Einzelspuren (ZIP)", del: "Löschen",
+    delAsk: (t) => `„${t}“ aus der Bibliothek löschen?`, boot: "Das FM-1 startet …",
+    done: (t) => `${t} gerechnet …`, wavDone: (f, t) => `${f}: ${t}.`, stemsDone: (f, n) => `${f}: Mix, T1–T4 und FX (${n}).`,
+    rendering: "rechnet …", play: "Abspielen", pause: "Pause", close: "Player schließen", position: "Position", what: "Was spielen",
+    worker: "Der Rechen-Worker ließ sich nicht starten.", wasm: "Die Firmware (felucca_bounce.wasm) ließ sich nicht laden.",
+    err: {
+      notfm1: "Keine .FM1-Datei (FM1X fehlt).", version: (v) => `FM1X Version ${v}: diese Seite kennt nur Version 1.`,
+      short: (a, b) => `Die Datei ist unvollständig (${a} von ${b} Bytes).`, head: "Der Kopf der Datei ist beschädigt.",
+      table: "Das Inhaltsverzeichnis der Datei ist beschädigt.", outside: (t) => `${t}: liegt außerhalb.`,
+      crc: (t) => `${t}: Prüfsumme falsch, die Datei ist beschädigt.`, noproj: "Die Datei enthält kein Projekt.",
+      load: "Das Projekt ließ sich nicht laden.", nosong: "Das Projekt hat keinen Szenen-Song.", nochain: "Das Projekt hat keine Song-Kette.",
+      noplay: "PLAY ging nicht.", silent: "Das Gerät gibt keinen Ton mehr aus.", nozip: "Keine ZIP-Datei.",
+      zipbad: "Die ZIP-Datei ist beschädigt.", zipshort: "Die ZIP-Datei ist unvollständig.", zipinflate: (n) => `${n}: lässt sich nicht entpacken.`,
+      zipmethod: (n) => `${n}: unbekannte ZIP-Kompression.`, ziplen: (n) => `${n}: falsche Länge in der ZIP-Datei.`,
+      zipnofm1: "Die ZIP-Datei enthält keine .FM1-Datei.", noidb: "Dieser Browser hat keinen Speicher für die Bibliothek (IndexedDB).",
+      openfail: "Die Bibliothek ließ sich nicht öffnen." },
+  },
+};
+let lang = document.documentElement.lang === "de" ? "de" : "en", W = WORDS[lang];
+const fmtDate = (ms) => new Date(ms).toLocaleString(W.locale, { dateStyle: "medium", timeStyle: "short" });
+// an error (or an import's refusal: {why, code, args}) in the page's language; one without a code as it says itself
+const errText = (e) => { if (e.say) return W[e.say]; const f = e.code && W.err[e.code]; return typeof f === "function" ? f(...(e.args || [])) : f || e.why || e.message || String(e); };
+const coded = (code) => Object.assign(new Error(code), { code, args: [] });
+// the line under "Add": kept as what makes it, so it follows the language
+let status = { text: () => W.intro, err: false };
+const setStatus = (text, err = false) => { status = { text, err }; say($("status"), text(), err); };
 
 let store = null, recs = [];
 const wasmReady = fetch("felucca_bounce.wasm").then((r) => {
@@ -204,12 +294,11 @@ function job(m, on) {
   const done = new Promise((ok, no) => {
     stop = () => { w.terminate(); no(Object.assign(new Error("stopped"), { stopped: true })); };
     w.onmessage = ({ data }) => {
-      if (data.type === "error") { w.terminate(); no(new Error(data.message)); }
+      if (data.type === "error") { w.terminate(); no(Object.assign(new Error(data.message), { code: data.code, args: data.args })); }
       else if (on(data) === true) { w.terminate(); ok(); }
     };
-    w.onerror = (e) => { w.terminate(); no(new Error(e.message || "Der Rechen-Worker ließ sich nicht starten.")); };
-    wasmReady.then((wasm) => w.postMessage({ ...m, wasm }),
-                   () => no(new Error("Die Firmware (felucca_bounce.wasm) ließ sich nicht laden.")));
+    w.onerror = () => { w.terminate(); no(Object.assign(new Error("worker"), { say: "worker" })); };
+    wasmReady.then((wasm) => w.postMessage({ ...m, wasm }), () => no(Object.assign(new Error("wasm"), { say: "wasm" })));
   });
   done.catch(() => {});
   return { done, stop };
@@ -234,7 +323,7 @@ const canShare = (() => { try { return !!navigator.canShare && navigator.canShar
 // ---- the player: the master as 16-bit pieces from the worker, scheduled a little ahead of the clock
 const SEG = 22050, AHEAD = 1.5, PEAK = 512;
 const P = { rec: null, ctx: null, rate: 44100, pcm: [], starts: [], frames: 0, done: false, planned: 0, peaks: [],
-            top: 0, playing: false, anchorT: 0, anchorF: 0, nextT: 0, nextF: 0, pos: 0, srcs: new Set(), job: null, err: "" };
+            top: 0, playing: false, anchorT: 0, anchorF: 0, nextT: 0, nextF: 0, pos: 0, srcs: new Set(), job: null, err: null };
 
 function audio() {
   if (!P.ctx) {
@@ -304,7 +393,7 @@ function unload() {
   if (P.job) P.job.stop();
   silence();
   Object.assign(P, { rec: null, pcm: [], starts: [], frames: 0, done: false, planned: 0, peaks: [], top: 0, playing: false,
-                     pos: 0, nextF: 0, nextT: 0, job: null, err: "" });
+                     pos: 0, nextF: 0, nextT: 0, job: null, err: null });
 }
 // load a record into the player and start: its render begins, the sound follows as soon as the first piece is there
 function load(rec) {
@@ -332,7 +421,7 @@ function load(rec) {
       return true;
     }
   });
-  mine.done.catch((err) => { if (P.job === mine && !err.stopped) { P.err = err.message; P.done = true; P.playing = false; silence(); } });
+  mine.done.catch((err) => { if (P.job === mine && !err.stopped) { P.err = err; P.done = true; P.playing = false; silence(); } });
   showPlayer();
 }
 setInterval(() => {
@@ -368,9 +457,9 @@ function frame() {
   if (P.rec) {
     const secs = position() / P.rate, len = P.frames / P.rate;
     $("pp").innerHTML = P.playing ? ICON.pause : ICON.play;
-    $("pp").setAttribute("aria-label", P.playing ? "Pause" : "Wiedergabe");
+    $("pp").setAttribute("aria-label", P.playing ? W.pause : W.play);
     const t = `${fmtTime(secs)} / ${fmtTime(len)}`;
-    $("ptime").textContent = P.err ? P.err : P.done ? t : `${t} · rechnet …`;
+    $("ptime").textContent = P.err ? errText(P.err) : P.done ? t : `${t} · ${W.rendering}`;
     $("ptime").style.color = P.err ? "var(--warn)" : "";
     wave.setAttribute("aria-valuemax", String(Math.round(len)));
     wave.setAttribute("aria-valuenow", String(Math.round(secs)));
@@ -381,7 +470,8 @@ function frame() {
     const on = P.rec && a.dataset.key === P.rec.key, b = a.querySelector(".play");
     a.classList.toggle("on", !!on);
     const icon = on && P.playing ? "pause" : "play";
-    if (b.dataset.icon !== icon) { b.dataset.icon = icon; b.innerHTML = ICON[icon]; b.setAttribute("aria-label", icon === "pause" ? "Pause" : "Abspielen"); }
+    if (b.dataset.icon !== icon) { b.dataset.icon = icon; b.innerHTML = ICON[icon]; }
+    b.setAttribute("aria-label", icon === "pause" ? W.pause : W.play);
   }
   requestAnimationFrame(frame);
 }
@@ -390,7 +480,10 @@ function showPlayer() {
   $("player").hidden = false;
   document.body.classList.add("has-player");
   $("ptitle").textContent = titleOf(r);
-  $("pmodesel").replaceChildren(...MODES.map((name, i) =>
+  $("pclose").setAttribute("aria-label", W.close);
+  wave.setAttribute("aria-label", W.position);
+  $("pmodesel").setAttribute("aria-label", W.what);
+  $("pmodesel").replaceChildren(...W.modes.map((name, i) =>
     el("option", { value: String(i), textContent: name, disabled: i > 0 && !r.info.has[i - 1], selected: i === o.mode })));
   $("pbars").value = o.bars;
   $("pbarsl").hidden = o.mode !== 0;
@@ -428,19 +521,18 @@ async function master(rec, row) {
   const chunks = [];
   let out;
   await job({ job: "play", bytes: rec.bytes, opts: optsOf(rec) }, (d) => {
-    if (d.type === "audio") { chunks.push(d.pcm); say(row, `${fmtTime(d.ms / 1000)} gerechnet …`); }
+    if (d.type === "audio") { chunks.push(d.pcm); say(row, W.done(fmtTime(d.ms / 1000))); }
     else if (d.type === "done") { out = { chunks, frames: d.frames, rate: d.rate }; return true; }
   }).done;
   return out;
 }
 function card(r) {
   const o = optsOf(r), row = el("p", { className: "status" });
-  const meta = [r.slot === 4 ? "CURRENT" : `Platz ${r.slotName}`, `${r.info.bpm} BPM`,
-                o.mode === 0 ? `${r.info.bars} ${r.info.bars === 1 ? "Takt" : "Takte"}` : MODES[o.mode],
+  const meta = [W.slot(r), `${r.info.bpm} BPM`, o.mode === 0 ? W.bars(r.info.bars) : W.modes[o.mode],
                 fmtDate(r.added)].join(" · ");
   const busy = async (btn, fn) => {
     btn.disabled = true;
-    try { await fn(); } catch (err) { if (!err.stopped && err.name !== "AbortError") say(row, err.message, true); }
+    try { await fn(); } catch (err) { if (!err.stopped && err.name !== "AbortError") say(row, errText(err), true); }
     btn.disabled = false;
   };
   const b = (text, cls, fn) => { const x = el("button", { className: cls, textContent: text }); x.addEventListener("click", () => busy(x, fn)); return x; };
@@ -453,39 +545,39 @@ function card(r) {
   play.addEventListener("click", () => { if (P.rec !== r) load(r); else if (P.playing) pause(); else resume(); });
   const base = safeName(titleOf(r)).toUpperCase();
   const acts = el("div", { className: "actions" },
-    b(".FM1-Datei sichern", "ghost", async () => download(new Blob([r.bytes], { type: "application/octet-stream" }), exportNames([r])[0])),
-    ...(canShare ? [b("Teilen / In Dateien sichern", "ghost", () => navigator.share({ files: [fm1File(r)], title: titleOf(r) }))] : []),
-    b("WAV (Mix)", "ghost", async () => {
-      say(row, "Das FM-1 startet …");
+    b(W.saveFm1, "ghost", async () => download(new Blob([r.bytes], { type: "application/octet-stream" }), exportNames([r])[0])),
+    ...(canShare ? [b(W.share, "ghost", () => navigator.share({ files: [fm1File(r)], title: titleOf(r) }))] : []),
+    b(W.wav, "ghost", async () => {
+      say(row, W.boot);
       const m = await master(r, row);
       download(new Blob(wavOfPcm(m.chunks, m.frames, m.rate), { type: "audio/wav" }), `${base}_MIX.wav`);
-      say(row, `${base}_MIX.wav: ${fmtTime(m.frames / m.rate)}.`);
+      say(row, W.wavDone(`${base}_MIX.wav`, fmtTime(m.frames / m.rate)));
     }),
-    b("Einzelspuren (ZIP)", "ghost", async () => {
-      say(row, "Das FM-1 startet …");
+    b(W.stems, "ghost", async () => {
+      say(row, W.boot);
       let blob;
       await job({ job: "stems", bytes: r.bytes, opts: optsOf(r), base }, (d) => {
-        if (d.type === "progress") say(row, `${fmtTime(d.ms / 1000)} gerechnet …`);
+        if (d.type === "progress") say(row, W.done(fmtTime(d.ms / 1000)));
         else if (d.type === "zip") { blob = d.blob; return true; }
       }).done;
       download(blob, `${base}.zip`);
-      say(row, `${base}.zip: Mix, T1–T4 und FX (${fmtSize(blob.size)}).`);
+      say(row, W.stemsDone(`${base}.zip`, fmtSize(blob.size)));
     }),
-    b("Löschen", "danger", async () => {
-      if (!confirm(`„${titleOf(r)}“ aus der Bibliothek löschen?`)) return;
+    b(W.del, "danger", async () => {
+      if (!confirm(W.delAsk(titleOf(r)))) return;
       if (P.rec === r) hidePlayer();
       await store.remove(r.key);
       recs = recs.filter((x) => x !== r);
       render();
     }));
   const more = el("details", {},
-    el("summary", { textContent: "Mehr" }),
-    el("label", { className: "field" }, el("span", { textContent: "Titel" }), title),
-    el("label", { className: "field" }, el("span", { textContent: "Notiz" }), note),
+    el("summary", { textContent: W.more }),
+    el("label", { className: "field" }, el("span", { textContent: W.ftitle }), title),
+    el("label", { className: "field" }, el("span", { textContent: W.fnote }), note),
     el("div", { className: "chips" }, ...r.parts.map((x) => el("span", { className: "chip", textContent: `${x.tag} ${fmtSize(x.len)}` })),
-       el("span", { className: "chip", textContent: `Firmware ${r.fw || "?"}` }), el("span", { className: "chip", textContent: r.file })),
+       el("span", { className: "chip", textContent: W.fw(r.fw || "?") }), el("span", { className: "chip", textContent: r.file })),
     ...(r.fw && r.fw !== FW ? [el("p", { className: "hint", textContent:
-      `Gesichert mit Firmware ${r.fw}, hier rechnet ${FW}: es kann anders klingen als auf dem Gerät.` })] : []),
+      W.fwHint(r.fw, FW) })] : []),
     acts, row);
   const a = el("article", {},
     el("div", { className: "head" }, play,
@@ -504,7 +596,7 @@ function render(keep) {
     const c = card(r);
     if (open.has(r.key)) c.querySelector("details").open = true;
     return c;
-  }) : [el("p", { className: "empty", textContent: "Noch keine Projekte. Füge oben .FM1-Dateien vom FM-1 hinzu." })]));
+  }) : [el("p", { className: "empty", textContent: W.empty })]));
   $("backup").hidden = !recs.length;
   $("count").textContent = recs.length ? String(recs.length).padStart(2, "0") : "";
 }
@@ -513,20 +605,19 @@ function render(keep) {
 async function take(fileList) {
   const files = [...fileList];
   if (!files.length) return;
-  say($("status"), files.length === 1 ? "Die Datei wird geprüft …" : `${files.length} Dateien werden geprüft …`);
+  const n = files.length;
+  setStatus(() => W.check(n));
   try {
     const data = await Promise.all(files.map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })));
     const r = await importFiles(store, data, look);
     recs = await store.all();
     render();
-    const lines = [];
-    if (r.added.length) lines.push(r.added.length === 1 ? `„${titleOf(r.added[0])}“ hinzugefügt.` : `${r.added.length} Projekte hinzugefügt.`);
-    if (r.known.length) lines.push(r.known.length === 1 ? `${r.known[0]} ist schon in der Bibliothek.` : `${r.known.length} Dateien sind schon in der Bibliothek.`);
-    for (const x of r.bad) lines.push(`${x.name}: ${x.why}`);
-    say($("status"), lines.join("\n") || "Nichts hinzugefügt.", !r.added.length && r.bad.length > 0);
+    setStatus(() => [...(r.added.length ? [W.added(r.added.length, titleOf(r.added[0]))] : []),
+                     ...(r.known.length ? [W.known(r.known.length, r.known[0])] : []),
+                     ...r.bad.map((x) => `${x.name}: ${errText(x)}`)].join("\n") || W.nothing, !r.added.length && r.bad.length > 0);
     if (r.added.length && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   } catch (err) {
-    say($("status"), err.message, true);
+    setStatus(() => errText(err), true);
   }
 }
 $("file").addEventListener("change", (e) => { take(e.target.files); e.target.value = ""; });
@@ -536,15 +627,33 @@ addEventListener("dragleave", () => document.body.classList.remove("drag"));
 addEventListener("drop", (e) => { e.preventDefault(); document.body.classList.remove("drag"); take(e.dataTransfer.files); });
 $("zipall").addEventListener("click", () => {
   const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  download(new Blob(libraryZip(recs), { type: "application/zip" }), `JAN3000-Bibliothek-${stamp}.zip`);
+  download(new Blob(libraryZip(recs), { type: "application/zip" }), `JAN3000-Library-${stamp}.zip`);
 });
+
+// ---- the language: the words above, the parts of the page marked data-l by the style sheet (html lang)
+function setLang(l) {
+  lang = l;
+  W = WORDS[l];
+  document.documentElement.lang = l;
+  document.title = W.title;
+  for (const b of document.querySelectorAll(".lang-sw button")) b.setAttribute("aria-pressed", String(b.dataset.lang === l));
+  say($("status"), status.text(), status.err);
+  render();
+  if (P.rec) showPlayer();
+}
+for (const b of document.querySelectorAll(".lang-sw button")) b.addEventListener("click", () => {
+  if (b.dataset.lang === lang) return;
+  setLang(b.dataset.lang);
+  try { localStorage.setItem("mvop1-manual-lang", lang); } catch { /* storage off: the choice lasts the visit */ }
+});
+setLang(lang);
 
 try {
   store = openStore();
   recs = await store.all();
   render();
 } catch (err) {
-  say($("status"), err.message || "Die Bibliothek ließ sich nicht öffnen.", true);
+  setStatus(() => errText(err), true);
 }
 requestAnimationFrame(frame);
 </script>

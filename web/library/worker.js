@@ -4,7 +4,7 @@
 // stop it: a render has no other way out), so the page stays smooth while the firmware runs. The job, in:
 //   {wasm: WebAssembly.Module, job: "inspect" | "play" | "stems", bytes, opts, base}
 // out: {type: "info", info} | {type: "audio", pcm, ms, total} .. {type: "done", rate, frames} |
-//      {type: "progress", ms, total} .. {type: "zip", blob} | {type: "error", message}
+//      {type: "progress", ms, total} .. {type: "zip", blob} | {type: "error", message, code, args}
 import { inspect, play, stemsZip } from "./lib.js";
 
 self.onmessage = async ({ data: m }) => {
@@ -25,6 +25,6 @@ self.onmessage = async ({ data: m }) => {
       self.postMessage({ type: "zip", blob: new Blob(parts, { type: "application/zip" }) });
     }
   } catch (err) {
-    self.postMessage({ type: "error", message: err.message || String(err) });
+    self.postMessage({ type: "error", message: err.message || String(err), code: err.code, args: err.args });
   }
 };
