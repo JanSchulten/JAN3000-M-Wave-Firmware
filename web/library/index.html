@@ -4,7 +4,9 @@
      M-Vave-OP1's library: the .FM1 files of MENU > USB DISK kept in this browser (IndexedDB: on this device, nothing is
      sent anywhere), listened to (the FM-1's own firmware as WebAssembly renders a file in a worker, the master is
      played while it is made) and handed out again: the file as it came, the master as a WAV, the stems as a ZIP, the
-     whole library as one ZIP (which this page takes back in, on this device or another). lib.js does the work,
+     whole library as one ZIP (which this page takes back in, on this device or another). It is the site's front
+     page (tools/make_vercel_site.sh puts it at site/): the user guide and the installer ZIP of the GitHub release
+     are linked from it (the installer's address names the release: docs/BACKLOG.md, release steps). lib.js does the work,
      worker.js runs the firmware; this page is the list and the player. English first, German by the switch (the user guide's: the same site keeps the choice); the look is the guide's too
      (web/manual). -->
 <html lang="en">
@@ -124,7 +126,19 @@ canvas { display: block; width: 100%; height: 56px; margin: 10px 0; cursor: poin
 .pmode input { width: 76px; }
 footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); font: 500 10.5px/1.7 var(--f-mono);
          letter-spacing: 0.03em; color: var(--mute); max-width: 80ch; }
-.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.top .eyebrow { flex: 1 1 100%; min-width: 0; order: 2; margin-top: 14px; }
+@media (min-width: 560px) { .top .eyebrow { flex: 1; order: 0; margin-top: 0; } }
+a.guide { font: 600 11px/1 var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none; flex: none;
+          border: 1px solid var(--rule-2); border-radius: 8px; padding: 9px 11px; color: var(--ink); }
+a.guide::after { content: " →"; color: var(--acc-ink); }
+a.card { display: block; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 15px 16px;
+         margin: 0 0 12px; text-decoration: none; }
+a.card:hover { color: inherit; border-color: var(--acc-ink); }
+a.card b { display: block; font: 600 19px/1.25 var(--f-body); letter-spacing: -0.01em; }
+a.card b::after { content: " →"; color: var(--acc-ink); }
+a.card > span { color: var(--mute); font-size: 15px; line-height: 1.5; margin-top: 4px; }
+a.card > span[data-l] { display: block; }
 .lang-sw { display: inline-flex; border: 1px solid var(--rule-2); border-radius: 8px; overflow: hidden; flex: none; }
 .lang-sw button { font: 600 11px/1 var(--f-mono); letter-spacing: 0.06em; color: var(--mute); background: transparent;
                   border: 0; border-radius: 0; padding: 9px 11px; min-height: 0; cursor: pointer; }
@@ -138,6 +152,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
 <main>
   <div class="top">
     <p class="eyebrow">JAN3000 @JAN@ · M-VAVE FM-1</p>
+    <a class="guide" href="manual/"><span data-l="en">User guide</span><span data-l="de">Anleitung</span></a>
     <div class="lang-sw" role="group" aria-label="Language / Sprache">
       <button type="button" data-lang="en" aria-pressed="true">EN</button><button type="button" data-lang="de" aria-pressed="false">DE</button>
     </div>
@@ -171,9 +186,23 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
       zusätzlich auf. Die ZIP-Datei lässt sich auf jedem Gerät oben wieder hinzufügen.</p>
   </section>
 
+  <section id="fw">
+    <h2>Firmware</h2>
+    <a class="card" href="manual/"><b><span data-l="en">User guide</span><span data-l="de">Anleitung</span></b>
+      <span data-l="en">Every function, the installation and the way back to the factory firmware, in English and German.</span>
+      <span data-l="de">Alle Funktionen, Installation und der Weg zurück zur Werks-Firmware, auf Deutsch und Englisch.</span></a>
+    <a class="card" href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware/releases/download/v0.2-alpha/JAN3000-v0.2-alpha-Installer.zip"><b><span data-l="en">Installer ZIP</span><span data-l="de">Installer-ZIP</span></b>
+      <span data-l="en">Unpack, start START-Mac.command or START-Windows.bat, install in Chrome or Edge. All versions: Releases (below).</span>
+      <span data-l="de">Entpacken, START-Mac.command oder START-Windows.bat starten, in Chrome oder Edge installieren. Alle Versionen: Releases (unten).</span></a>
+    <p class="hint" data-l="en"><span class="tag">Alpha</span>The first public test version. Install at your own risk; read
+      “Getting started” in the guide first.</p>
+    <p class="hint" data-l="de"><span class="tag">Alpha</span>Die erste öffentliche Testversion. Installation auf eigenes
+      Risiko; lies vorher in der Anleitung „Getting started“.</p>
+  </section>
+
   <footer>
     JAN3000 @JAN@, based on <a href="https://github.com/hugelton/Felucca">Felucca</a> @VERSION@ by Leo Kuroshita
-    (Hügelton Instruments), GPL-3.0-only.
+    (Hügelton Instruments), GPL-3.0-only. <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware/releases">Releases</a>.
     <span data-l="en">Source: <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware">github.com/JanSchulten/JAN3000-M-Wave-Firmware</a>.
       What you hear is computed by the FM-1's firmware here in the browser: the mix as the device sends it over USB
       audio (44.1 kHz). Chance falls the same way on every render.</span>

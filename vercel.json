@@ -16,5 +16,17 @@
       ]
     }
   ],
-  "trailingSlash": true
+  "trailingSlash": true,
+  "redirects": [
+    {
+      "source": "/library/",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/library",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
 }

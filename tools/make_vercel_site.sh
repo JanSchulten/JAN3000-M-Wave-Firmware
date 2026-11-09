@@ -3,20 +3,21 @@
 # Copyright (C) 2026 M-Vave-OP1 contributors
 # The static site Vercel serves (vercel.json: outputDirectory "site", no build there: Vercel has no Emscripten), made
 # here and committed:
-#   site/index.html   the front page (web/site/index.html): the guide and the installer ZIP of the GitHub release
-#   site/manual/      the user guide on its own (web/manual/manual.html as index.html: no link to the site's other
-#                     pages; written as a page body, as a claude.ai Artifact takes it: here it gets the document
-#                     around it)
+#   site/             the front page: the library (web/library/build.sh: .FM1 files kept in the browser, played and
+#                     rendered there by the firmware as WebAssembly), which links the guide and the installer ZIP of
+#                     the GitHub release: index.html, lib.js, worker.js, bounce.js, felucca_bounce.wasm. Made with
+#                     WITH_LIBRARY=1 (it needs Emscripten); without it the five files that are there stay as they are
+#                     (/library/, its first address, goes to / : vercel.json)
+#   site/manual/      the user guide on its own (web/manual/manual.html as index.html; written as a page body, as a
+#                     claude.ai Artifact takes it: here it gets the document around it)
 # and with WITH_EXTRAS=1 (in the backlog for the alpha, docs/BACKLOG.md; the front page does not link them):
 #   site/bounce/      the offline bounce (web/bounce/build.sh)
 #   site/emu/         the browser emulator (web/emu/build.sh)
-# and with WITH_LIBRARY=1 (the front page does not link it yet either: docs/BACKLOG.md):
-#   site/library/     the library (web/library/build.sh): .FM1 files kept in the browser, played and rendered there.
-#                     Without WITH_LIBRARY=1 a site/library that is there stays as it is (it needs Emscripten to make)
-# Run from anywhere (WITH_EXTRAS=1, WITH_LIBRARY=1: after ./build.sh, with Emscripten (emcc) on the PATH); then
-# commit site/.
+# Run from anywhere (WITH_EXTRAS=1, WITH_LIBRARY=1: after ./build.sh, or tools/build.py's generate(), with Emscripten
+# (emcc) on the PATH); then commit site/.
 set -e
 cd "$(dirname "$0")/.."
+FRONT="index.html lib.js worker.js bounce.js felucca_bounce.wasm"
 if [ "$WITH_EXTRAS" = 1 ]; then
     sh web/bounce/build.sh
     sh web/emu/build.sh
@@ -24,9 +25,13 @@ fi
 KEEP=
 if [ "$WITH_LIBRARY" = 1 ]; then
     sh web/library/build.sh
-elif [ -d site/library ]; then
+else
     KEEP=$(mktemp -d)
-    mv site/library "$KEEP/library"
+    for f in $FRONT; do
+        [ -f "site/$f" ] || { echo "site: no site/$f to keep: run with WITH_LIBRARY=1 (Emscripten) once"; exit 1; }
+        cp "site/$f" "$KEEP/$f"
+    done
+    grep -q 'id="list"' "$KEEP/index.html" || { echo "site: site/index.html is not the library: run with WITH_LIBRARY=1"; exit 1; }
 fi
 VERSION=$(sed -n 's/^#define FELUCCA_VERSION "\([^"]*\)".*/\1/p' firmware/src/felucca.c)
 JAN=$(sed -n 's/^#define JAN_VERSION "\([^"]*\)".*/\1/p' firmware/src/ui_draw.c)
@@ -37,13 +42,13 @@ if [ "$WITH_EXTRAS" = 1 ]; then
     cp -R build/emu site/emu
 fi
 if [ "$WITH_LIBRARY" = 1 ]; then
-    cp -R build/library site/library
-elif [ -n "$KEEP" ]; then
-    mv "$KEEP/library" site/library
+    for f in $FRONT; do cp "build/library/$f" "site/$f"; done
+else
+    for f in $FRONT; do mv "$KEEP/$f" "site/$f"; done
     rmdir "$KEEP"
-    echo "site: site/library kept as it was (WITH_LIBRARY=1 makes it again)"
+    echo "site: the front page (the library) kept as it was (WITH_LIBRARY=1 makes it again)"
 fi
-sed -e "s/@VERSION@/$VERSION/g" -e "s/@JAN@/$JAN/g" web/site/index.html > site/index.html
+chmod 644 site/felucca_bounce.wasm
 mkdir -p site/manual
 {   # (the reset a claude.ai Artifact gives its pages: no body margin, images inside their column, [hidden] hidden)
     printf '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
