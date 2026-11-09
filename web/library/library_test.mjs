@@ -6,6 +6,9 @@
 //   IMPORT  .FM1 files and a ZIP of them taken in: checked, looked at by the firmware, none twice (the same bytes
 //           under another name), a damaged one refused with its reason and the rest kept; the names out, none twice;
 //           every file as one ZIP and back in: the same bytes
+//   WHAT    what a project holds is what plays (tests/vdisk_test.c's second disk, build/vdisk/songs): its scene song;
+//           else its SONG chain, with the other slots' files taken in with it (refused without them, as on the
+//           FM-1); else its scenes one after another: the hits heard, bar by bar, and the length
 //   PLAY    the master handed over while it is made: the same samples as web/bounce's bounce, in pieces of about
 //           0.5 s, the WAV byte for byte web/bounce's; the stems' ZIP: six files
 // node web/library/library_test.mjs build/bounce/felucca_bounce.wasm build/vdisk/files
@@ -13,9 +16,9 @@ import { readFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
 import { crc32, parseFM1, loadWasm, prepare, render, bounceFiles, zipParts } from "../bounce/bounce.js";
 import { unzip, candidates, makeRecord, exportNames, libraryZip, inspect, defaultMode, defaultBars, play, wavOfPcm,
-         stemsZip, importFiles, titleOf } from "./lib.js";
+         stemsZip, importFiles, titleOf, siblings, chainSlots, SCENE, SSONG, CHAIN, SCENES } from "./lib.js";
 
-const [wasmPath = "build/bounce/felucca_bounce.wasm", dir = "build/vdisk/files"] = process.argv.slice(2);
+const [wasmPath = "build/bounce/felucca_bounce.wasm", dir = "build/vdisk/files", songs = `${dir}/../songs`] = process.argv.slice(2);
 const wasm = readFileSync(wasmPath);
 let bad = 0;
 const check = (what, ok) => { console.log(`library: ${what.padEnd(100)} ${ok ? "ok" : "FAIL"}`); if (!ok) bad++; };
@@ -49,7 +52,7 @@ check("  not a ZIP: refused; cut short: refused", await throwsLike(() => unzip(a
 
 // ---- IMPORT (the store: a Map standing in for IndexedDB)
 const map = new Map();
-const store = { has: async (k) => map.has(k), put: async (r) => void map.set(r.key, r) };
+const store = { get: async (k) => map.get(k), put: async (r) => void map.set(r.key, r) };
 const look = (bytes) => inspect(wasm, bytes);
 const hurt = a.slice(); hurt[hurt.length - 10] ^= 1;
 const r1 = await importFiles(store, [{ name: "PROJ_A.FM1", data: a }, { name: "COPY.FM1", data: a },
@@ -63,10 +66,12 @@ check("  the damaged one and the text file refused, each with its reason (a code
       r1.bad[1].code === "notfm1");
 const ra = r1.added[0];
 check("  a record: the bytes as they came, slot A, its parts, what the firmware plays (120 BPM, 1 bar, no songs)",
-      same(ra.bytes, a) && ra.slotName === "A" && ra.parts[0].tag === "PROJ" && ra.info.bpm === 120 && ra.info.bars === 1 &&
-      ra.info.rate === 44100 && !ra.info.has[0] && !ra.info.has[1] && defaultMode(ra.info) === 0 && defaultBars(ra.info) === 4);
-check("  defaults: the SONG chain before the scene song before the scene; a long scene twice",
-      defaultMode({ has: [true, true] }) === 2 && defaultMode({ has: [true, false] }) === 1 && defaultBars({ bars: 8 }) === 16);
+      same(ra.bytes, a) && ra.slotName === "A" && ra.parts[0].tag === "PROJ" && ra.info.bpm === 120 && ra.info.bars === 1 && ra.info.rate === 44100 &&
+      !ra.info.has[0] && !ra.info.has[1] && ra.info.scenes === 1 && defaultMode(ra.info) === SCENES && defaultBars(ra.info) === 4);
+check("  what plays unasked: the scene song, else the SONG chain when its projects are there, else the scenes in a row",
+      defaultMode({ has: [true, true], miss: 0 }) === SSONG && defaultMode({ has: [false, true], miss: 0 }) === CHAIN &&
+      defaultMode({ has: [false, true], miss: 5 }) === SCENES && defaultMode({ has: [false, true], miss: 5 }, 0) === CHAIN &&
+      defaultMode({ has: [false, false], miss: 0 }) === SCENES && defaultBars({ bars: 8 }) === 16);
 const r2 = await importFiles(store, [{ name: "again.FM1", data: c }], look, 2000);
 check("  a later import of a file already there: known, nothing added", !r2.added.length && r2.known.length === 1 && map.size === 3);
 const zc = await candidates([{ name: "empty.zip", data: join(zipParts([{ name: "a.txt", parts: [new Uint8Array(3)] }])) }]);
@@ -76,7 +81,7 @@ recs[1].title = "First";                                  // a title given in th
 check("  names out: FIRST.FM1, FIRST_2.FM1, LIVE.FM1 (none twice); the title before the project's name",
       exportNames(recs).join() === "FIRST.FM1,FIRST_2.FM1,LIVE.FM1" && titleOf(recs[1]) === "First" && titleOf(recs[0]) === "FIRST");
 const all = await unzip(join(libraryZip(recs)));
-const map2 = new Map(), store2 = { has: async (k) => map2.has(k), put: async (r) => void map2.set(r.key, r) };
+const map2 = new Map(), store2 = { get: async (k) => map2.get(k), put: async (r) => void map2.set(r.key, r) };
 const r3 = await importFiles(store2, [{ name: "JAN3000-Bibliothek.zip", data: join(libraryZip(recs)) }], look, 3000);
 check("  every file as one ZIP, and that ZIP into an empty library: the same three, byte for byte",
       all.length === 3 && r3.added.length === 3 && recs.every((r) => map2.has(r.key) && same(map2.get(r.key).bytes, r.bytes)));
@@ -100,6 +105,74 @@ check("  the stems' ZIP: FIRST_MIX.wav and T1 T2 T3 T4 FX, the master the same f
       sz.map((f) => f.name).join() === "FIRST_MIX.wav,FIRST_T1.wav,FIRST_T2.wav,FIRST_T3.wav,FIRST_T4.wav,FIRST_FX.wav" &&
       same(sz[0].data, refWav));
 check("  a file that is not a project: the reason, not a crash", await throwsLike(() => play(wasm, new Uint8Array(64), {}, () => {}), /^notfm1$/));
+
+// ---- WHAT PLAYS (tests/vdisk_test.c's second disk, its projects told by T1's hits in a bar: B three scenes of 4, 8
+// and 2; D the same with a scene song 2 2 1 4; CURRENT a SONG chain of project A once (4) and C twice (8), the
+// projects in their own files)
+const song = (n) => new Uint8Array(readFileSync(`${songs}/${n}`));
+const sa = song("PROJ_A.FM1"), sb = song("PROJ_B.FM1"), sc = song("PROJ_C.FM1"), sd = song("PROJ_D.FM1"), scur = song("CURRENT.FM1");
+// the hits in the bar (2 s at 120 BPM) that starts at t seconds: the level in 10 ms pieces, a hit where it jumps
+function hitsAt(pcm, t) {
+  const lv = [];
+  for (let k = -3; k < 200; k++) {
+    const from = Math.max(0, Math.round((t + k * 0.01) * 44100));
+    let e = 0;
+    for (let i = 0; i < 441; i++) e += (pcm[2 * (from + i)] || 0) ** 2;
+    lv.push(Math.sqrt(e / 441));
+  }
+  let n = 0, last = -99;
+  for (let k = 3; k < lv.length; k++)
+    if (lv[k] > 150 && lv[k] > 3 * Math.max(lv[k - 3], 1) && k - last > 10) { n++; last = k; }
+  return n;
+}
+async function heard(bytes, opts, starts) {
+  const got = [];
+  const r = await play(wasm, bytes, opts, (p) => got.push(p));
+  const all = new Int16Array(2 * r.frames);
+  let at = 0;
+  for (const p of got) { all.set(p, at); at += p.length; }
+  return { secs: r.frames / r.rate, notes: starts.map((t) => hitsAt(all, t)).join() };
+}
+const ib = await inspect(wasm, sb), id = await inspect(wasm, sd), ic = await inspect(wasm, scur);
+check("WHAT PLAYS: B holds 3 scenes and no song: its scenes in a row; D a scene song: that; CURRENT a SONG chain of A and C",
+      ib.scenes === 3 && !ib.has[0] && !ib.has[1] && defaultMode(ib) === SCENES && id.has[0] && defaultMode(id) === SSONG &&
+      ic.has[1] && ic.need === 5 && ic.miss === 5 && chainSlots(ic, 4).join() === "0,2");
+let h = await heard(sb, { mode: SCENES }, [0, 2, 4]);
+check(`  B, the scenes in a row: scene 1, 2, 4 (4 8 2 hits: ${h.notes}), each one pass, 6 s and what rings on (${h.secs.toFixed(2)} s)`,
+      h.notes === "4,8,2" && h.secs > 6 && h.secs < 9.1);
+h = await heard(sd, { mode: SSONG }, [0, 2, 4, 6]);
+check(`  D, its scene song: scene 2 twice, 1, 4 (8 8 4 2 hits: ${h.notes}), 8 s and what rings on (${h.secs.toFixed(2)} s), then STOP`,
+      h.notes === "8,8,4,2" && h.secs > 8 && h.secs < 11.1);
+h = await heard(sa, { mode: SCENES }, [0]);
+check(`  A, one scene: that scene once (4 hits: ${h.notes}; ${h.secs.toFixed(2)} s)`, h.notes === "4" && h.secs > 2 && h.secs < 5.1);
+h = await heard(sd, { mode: SCENE, bars: 3 }, [0, 2, 4]);
+check(`  D, the scene alone for 3 bars: the one the project was saved on, looping (4 4 4 hits: ${h.notes})`, h.notes === "4,4,4");
+check("  CURRENT's SONG chain without the projects it plays: refused as on the FM-1, naming them (A, C)",
+      await (async () => { try { await play(wasm, scur, { mode: CHAIN }, () => {}); return false; }
+                           catch (e) { return e.code === "chainmiss" && e.args[0] === "A, C"; } })());
+h = await heard(scur, { mode: CHAIN, sib: [sa, sc] }, [0, 2, 4]);
+check(`  .. with A's and C's files: A once, C twice (4 8 8 hits: ${h.notes}), 6 s and what rings on (${h.secs.toFixed(2)} s), then STOP`,
+      h.notes === "4,8,8" && h.secs > 6 && h.secs < 9.1 && (await inspect(wasm, scur, [sa, sc])).miss === 0);
+// the library finds those files: the ones taken in with the record (one read of the drive)
+const map3 = new Map(), store3 = { get: async (k) => map3.get(k), put: async (r) => void map3.set(r.key, r) };
+const look3 = (bytes) => inspect(wasm, bytes);
+await importFiles(store3, [{ name: "CURRENT.FM1", data: scur }, { name: "PROJ_A.FM1", data: sa }], look3, 5000);
+let lib = [...map3.values()], rc = lib.find((r) => r.name === "CHAIN"), sbs = siblings(rc, lib);
+check("  the library: CURRENT taken in with A only: A found, C missing; a project without a chain needs none",
+      sbs.sib.length === 1 && same(sbs.sib[0], sa) && sbs.miss.join() === "2" &&
+      siblings(lib.find((r) => r.name === "FIRST"), lib).miss.length === 0);
+await importFiles(store3, [{ name: "PROJ_C.FM1", data: sc }], look3, 6000);
+lib = [...map3.values()];
+check("  C taken in later, by itself: not the same read of the drive, still missing", siblings(rc, lib).miss.join() === "2");
+await importFiles(store3, [{ name: "CURRENT.FM1", data: scur }, { name: "PROJ_C.FM1", data: sc }], look3, 6500);
+lib = [...map3.values()];
+check("  both picked again together (nothing new: both known): now one read of the drive, C found too",
+      map3.size === 3 && siblings(rc, lib).miss.length === 0 && siblings(rc, lib).sib.length === 2);
+const map4 = new Map(), store4 = { get: async (k) => map4.get(k), put: async (r) => void map4.set(r.key, r) };
+await importFiles(store4, ["CURRENT", "PROJ_A", "PROJ_B", "PROJ_C", "PROJ_D"].map((n) => ({ name: `${n}.FM1`, data: song(`${n}.FM1`) })), look3, 7000);
+lib = [...map4.values()]; rc = lib.find((r) => r.name === "CHAIN"); sbs = siblings(rc, lib);
+check("  the whole drive taken in at once: A and C found, nothing missing",
+      sbs.miss.length === 0 && sbs.sib.length === 2 && same(sbs.sib[0], sa) && same(sbs.sib[1], sc));
 
 console.log(bad ? `library: ${bad} FAILED` : "library: all ok");
 process.exit(bad ? 1 : 0);

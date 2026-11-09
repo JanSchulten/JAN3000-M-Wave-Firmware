@@ -8,6 +8,7 @@
  *            (not ready), a load; every CSW's tag and residue
  *   DISK     the whole disk read with READ(10) (and a READ(6)) into build/vdisk/disk.img, then read back by
  *            tests/vdisk_check.py, a FAT16 reader of its own: MBR, boot sector, both FATs alike, the root, the files
+ *   SONGS    a second set of files in build/vdisk/songs for web/library: scenes, a scene song, a SONG chain
  *   FILES    README.TXT names the slots; CURRENT.FM1 (the music now, written into the autosave first) and PROJ_A /
  *            PROJ_C.FM1 (the slots saved; B and D empty: no file), each an FM1X whose entries' bytes are the flash's
  *            own at their offsets (the checker compares them with build/vdisk/nor.bin), the sample USR1 in them
@@ -141,6 +142,36 @@ static void demo_project(uint32_t base)          /* a few notes on T1, a differe
     }
 }
 
+/* file k of the disk made (0 CURRENT, 1..4 A..D) as the drive hands it out: the header, the table, each entry's bytes */
+static void dump_fm1(const char *dir, uint32_t k, const char *name)
+{
+    static const uint8_t pad[4];
+    char path[512];
+    uint32_t i;
+    FILE *f;
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    f = fopen(path, "wb");
+    if (!f) { perror(path); exit(1); }
+    fwrite(&dsk.h[k], 1, sizeof dsk.h[k], f);
+    fwrite(dsk.e[k], 1, dsk.h[k].n * sizeof dsk.e[k][0], f);
+    for (i = 0; i < dsk.h[k].n; i++) {
+        fwrite(DISK_FLASH(dsk.e[k][i].off), 1, dsk.e[k][i].len, f);
+        fwrite(pad, 1, ((dsk.e[k][i].len + 3u) & ~3u) - dsk.e[k][i].len, f);
+    }
+    fclose(f);
+}
+
+static void rhythm(uint32_t mask)                /* T1: a note on each step of the mask's 16, nothing else */
+{
+    uint32_t i;
+    uint8_t n = 60;
+    for (i = 0; i < 16u; i++) {
+        trk[0].step[i] = SCN_REST;
+        if ((mask >> i) & 1u)
+            put_step(&trk[0], i, 1, &n, ST_NOTE, 0);
+    }
+}
+
 static uint8_t img[VD_SECTORS * 512u];
 
 int main(int argc, char **argv)
@@ -231,6 +262,45 @@ int main(int argc, char **argv)
     snprintf(path, sizeof path, "python3 tests/vdisk_check.py %s/disk.img %s/nor.bin %s/files", dir, dir, dir);
     check("  tests/vdisk_check.py: a FAT16 that reads, the files as made, each FM1X entry the flash's bytes",
           system(path) == 0);
+    /* M-Vave-OP1, for web/library (its player renders what a project holds): a second disk in dir/songs, with songs,
+     * told apart by T1's hits in a bar (a test counts them): project A as it is (4), C saved again with 8;
+     * B "SCENES": scenes 1, 2 and 4 with 4, 8 and 2 hits, no song; D "SSONG": the same and a scene song (scene 2
+     * twice, 1, 4); the music now "CHAIN": a SONG chain of project A once, then C twice (the chain plays slots: their
+     * files are needed with it) */
+    rhythm(0x5555);
+    ok = project_save_as(2, "THIRD") == 0;
+    rhythm(0x1111);
+    ok &= scene_copy() == SC_OK && scn.cur == 1u;
+    rhythm(0x5555);
+    ok &= scene_queue(3) == SQ_NOW && scn.cur == 3u;
+    rhythm(0x0101);
+    ok &= scene_queue(0) == SQ_NOW && scn.cur == 0u;
+    scene_settle();
+    ok &= scene_used(0) && scene_used(1) && !scene_used(2) && scene_used(3);
+    ok &= project_save_as(1, "SCENES") == 0;
+    ssong.count = 3;
+    ssong.scene[0] = 1; ssong.repeat[0] = 2;
+    ssong.scene[1] = 0; ssong.repeat[1] = 1;
+    ssong.scene[2] = 3; ssong.repeat[2] = 1;
+    ok &= project_save_as(3, "SSONG") == 0;
+    memset(&ssong, 0, sizeof ssong);
+    chain_config.count = 2;
+    memset(chain_config.row[0].slot, 0, NTRK); chain_config.row[0].repeat = 1;
+    memset(chain_config.row[1].slot, 2, NTRK); chain_config.row[1].repeat = 2;
+    str_cpy(proj_name, "CHAIN", sizeof proj_name);
+    ok &= autosave_write(autosave_sig()) == 0;
+    dsk_make();
+    check("SONGS (for web/library): B three scenes, D with a scene song, the music now a SONG chain of A and C; the disk again",
+          ok && dsk.made && vd.nf == 6u && str_eq(dsk.h[2].name, "SCENES") && str_eq(dsk.h[4].name, "SSONG") &&
+          str_eq(dsk.h[0].name, "CHAIN"));
+    snprintf(path, sizeof path, "mkdir -p %s/songs", dir);
+    if (system(path)) return 1;
+    snprintf(path, sizeof path, "%s/songs", dir);
+    dump_fm1(path, 0, "CURRENT.FM1");
+    dump_fm1(path, 1, "PROJ_A.FM1");
+    dump_fm1(path, 2, "PROJ_B.FM1");
+    dump_fm1(path, 3, "PROJ_C.FM1");
+    dump_fm1(path, 4, "PROJ_D.FM1");
     printf(bad ? "vdisk: %d FAILED\n" : "vdisk: all ok\n", bad);
     return bad != 0;
 }

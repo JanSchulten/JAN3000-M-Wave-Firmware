@@ -200,7 +200,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
 
 <script type="module">
 import { openStore, importFiles, titleOf, defaultMode, defaultBars, wavOfPcm, libraryZip, exportNames,
-         safeName } from "./lib.js";
+         safeName, siblings, SCENE, SSONG, CHAIN, SCENES } from "./lib.js";
 
 const $ = (id) => document.getElementById(id);
 const FW = "v1.5.1";
@@ -214,7 +214,10 @@ const say = (node, t, err) => { node.textContent = t; node.classList.toggle("err
 // ---- the page's words: English first, German by the switch. An error is said by its code (lib.js, bounce.js)
 const WORDS = {
   en: {
-    title: "JAN3000 Library", locale: "en-GB", modes: ["Scene", "Scene song", "Song chain"],
+    title: "JAN3000 Library", locale: "en-GB",
+    modes: ["One scene, looped", "Scene song", "Song chain", "All scenes, one after another"],
+    scenes: (n) => `${n} ${n === 1 ? "scene" : "scenes"}`,
+    chainHint: (slots, files) => `This project's song chain plays project ${slots}, which is not here. Choose ${files} together with this file (one pick from the FM-1's drive) to hear the chain. Until then its scenes play.`,
     intro: "On the FM-1: MENU › SYSTEM › USB DISK, then choose the files of the drive “FM-1” here (CURRENT.FM1 is the music as it is right now). A ZIP backup of this page works too.",
     empty: "No projects yet. Add .FM1 files from the FM-1 above.",
     check: (n) => (n === 1 ? "Checking the file …" : `Checking ${n} files …`),
@@ -235,14 +238,17 @@ const WORDS = {
       table: "The file's table of contents is damaged.", outside: (t) => `${t}: lies outside the file.`,
       crc: (t) => `${t}: wrong checksum, the file is damaged.`, noproj: "The file holds no project.",
       load: "The project could not be loaded.", nosong: "The project has no scene song.", nochain: "The project has no song chain.",
-      noplay: "PLAY did not start.", silent: "The device no longer gives any sound.", nozip: "Not a ZIP file.",
+      noplay: "PLAY did not start.", chainmiss: (p) => `The song chain plays project ${p}: not in the library.`, silent: "The device no longer gives any sound.", nozip: "Not a ZIP file.",
       zipbad: "The ZIP file is damaged.", zipshort: "The ZIP file is incomplete.", zipinflate: (n) => `${n}: cannot be unpacked.`,
       zipmethod: (n) => `${n}: unknown ZIP compression.`, ziplen: (n) => `${n}: wrong length in the ZIP file.`,
       zipnofm1: "The ZIP file holds no .FM1 file.", noidb: "This browser has no storage for the library (IndexedDB).",
       openfail: "The library could not be opened." },
   },
   de: {
-    title: "JAN3000 Bibliothek", locale: "de-DE", modes: ["Szene", "Szenen-Song", "Song-Kette"],
+    title: "JAN3000 Bibliothek", locale: "de-DE",
+    modes: ["Eine Szene, wiederholt", "Szenen-Song", "Song-Kette", "Alle Szenen nacheinander"],
+    scenes: (n) => `${n} ${n === 1 ? "Szene" : "Szenen"}`,
+    chainHint: (slots, files) => `Die Song-Kette dieses Projekts spielt Projekt ${slots}, das hier fehlt. Wähle ${files} zusammen mit dieser Datei (in einem Zug vom Laufwerk des FM-1), um die Kette zu hören. Bis dahin spielen seine Szenen.`,
     intro: "Am FM-1: MENU › SYSTEM › USB DISK, dann die Dateien vom Laufwerk „FM-1“ hier wählen (CURRENT.FM1 ist der Stand von gerade eben). Auch eine ZIP-Sicherung dieser Seite geht.",
     empty: "Noch keine Projekte. Füge oben .FM1-Dateien vom FM-1 hinzu.",
     check: (n) => (n === 1 ? "Die Datei wird geprüft …" : `${n} Dateien werden geprüft …`),
@@ -263,7 +269,7 @@ const WORDS = {
       table: "Das Inhaltsverzeichnis der Datei ist beschädigt.", outside: (t) => `${t}: liegt außerhalb.`,
       crc: (t) => `${t}: Prüfsumme falsch, die Datei ist beschädigt.`, noproj: "Die Datei enthält kein Projekt.",
       load: "Das Projekt ließ sich nicht laden.", nosong: "Das Projekt hat keinen Szenen-Song.", nochain: "Das Projekt hat keine Song-Kette.",
-      noplay: "PLAY ging nicht.", silent: "Das Gerät gibt keinen Ton mehr aus.", nozip: "Keine ZIP-Datei.",
+      noplay: "PLAY ging nicht.", chainmiss: (p) => `Die Song-Kette spielt Projekt ${p}: nicht in der Bibliothek.`, silent: "Das Gerät gibt keinen Ton mehr aus.", nozip: "Keine ZIP-Datei.",
       zipbad: "Die ZIP-Datei ist beschädigt.", zipshort: "Die ZIP-Datei ist unvollständig.", zipinflate: (n) => `${n}: lässt sich nicht entpacken.`,
       zipmethod: (n) => `${n}: unbekannte ZIP-Kompression.`, ziplen: (n) => `${n}: falsche Länge in der ZIP-Datei.`,
       zipnofm1: "Die ZIP-Datei enthält keine .FM1-Datei.", noidb: "Dieser Browser hat keinen Speicher für die Bibliothek (IndexedDB).",
@@ -304,10 +310,15 @@ function job(m, on) {
   return { done, stop };
 }
 const look = (bytes) => { let info; return job({ job: "inspect", bytes }, (d) => { info = d.info; return true; }).done.then(() => info); };
+// what a record plays: the mode chosen for it if the project has that, else what the FM-1 would (lib.js defaultMode:
+// its song, else its scenes in a row); for a SONG chain the other slots' files taken in with it (sib)
 const optsOf = (r) => {
-  const mode = r.mode === 0 || (r.mode > 0 && r.info.has[r.mode - 1]) ? r.mode : defaultMode(r.info);
-  return { mode, bars: r.bars || defaultBars(r.info) };
+  const { sib, miss } = siblings(r, recs);
+  const has = (m) => m === SCENE || m === SCENES || (m === SSONG && r.info.has[0]) || (m === CHAIN && r.info.has[1]);
+  return { mode: r.mode >= 0 && has(r.mode) ? r.mode : defaultMode(r.info, miss.length), bars: r.bars || defaultBars(r.info), sib, miss };
 };
+const SLOTS = "ABCD";
+const jobOpts = (r) => { const { mode, bars, sib } = optsOf(r); return { mode, bars, sib }; };
 
 function download(blob, name) {
   const u = URL.createObjectURL(blob), a = el("a", { href: u, download: name });
@@ -402,7 +413,7 @@ function load(rec) {
   P.rec = rec;
   P.rate = rec.info.rate;
   P.playing = true;
-  const mine = P.job = job({ job: "play", bytes: rec.bytes, opts: optsOf(rec) }, (d) => {
+  const mine = P.job = job({ job: "play", bytes: rec.bytes, opts: jobOpts(rec) }, (d) => {
     if (P.job !== mine) return true;
     if (d.type === "audio") {
       P.starts.push(P.frames);
@@ -483,10 +494,11 @@ function showPlayer() {
   $("pclose").setAttribute("aria-label", W.close);
   wave.setAttribute("aria-label", W.position);
   $("pmodesel").setAttribute("aria-label", W.what);
-  $("pmodesel").replaceChildren(...W.modes.map((name, i) =>
-    el("option", { value: String(i), textContent: name, disabled: i > 0 && !r.info.has[i - 1], selected: i === o.mode })));
+  $("pmodesel").replaceChildren(...[SSONG, CHAIN, SCENES, SCENE].map((i) =>
+    el("option", { value: String(i), textContent: W.modes[i], selected: i === o.mode,
+                   disabled: (i === SSONG && !r.info.has[0]) || (i === CHAIN && !r.info.has[1]) })));
   $("pbars").value = o.bars;
-  $("pbarsl").hidden = o.mode !== 0;
+  $("pbarsl").hidden = o.mode !== SCENE;
 }
 function hidePlayer() {
   unload();
@@ -501,6 +513,7 @@ async function remode() {
   r.mode = +$("pmodesel").value;
   r.bars = Math.max(1, Math.min(512, Math.round(+$("pbars").value) || defaultBars(r.info)));
   await store.put(r).catch(() => {});
+  render();
   load(r);
 }
 $("pmodesel").addEventListener("change", remode);
@@ -520,7 +533,7 @@ async function master(rec, row) {
   if (P.rec === rec && P.done && !P.err) return { chunks: P.pcm, frames: P.frames, rate: P.rate };
   const chunks = [];
   let out;
-  await job({ job: "play", bytes: rec.bytes, opts: optsOf(rec) }, (d) => {
+  await job({ job: "play", bytes: rec.bytes, opts: jobOpts(rec) }, (d) => {
     if (d.type === "audio") { chunks.push(d.pcm); say(row, W.done(fmtTime(d.ms / 1000))); }
     else if (d.type === "done") { out = { chunks, frames: d.frames, rate: d.rate }; return true; }
   }).done;
@@ -528,7 +541,7 @@ async function master(rec, row) {
 }
 function card(r) {
   const o = optsOf(r), row = el("p", { className: "status" });
-  const meta = [W.slot(r), `${r.info.bpm} BPM`, o.mode === 0 ? W.bars(r.info.bars) : W.modes[o.mode],
+  const meta = [W.slot(r), `${r.info.bpm} BPM`, o.mode === SCENE ? W.bars(o.bars) : o.mode === SCENES ? W.scenes(r.info.scenes || 1) : W.modes[o.mode],
                 fmtDate(r.added)].join(" · ");
   const busy = async (btn, fn) => {
     btn.disabled = true;
@@ -556,7 +569,7 @@ function card(r) {
     b(W.stems, "ghost", async () => {
       say(row, W.boot);
       let blob;
-      await job({ job: "stems", bytes: r.bytes, opts: optsOf(r), base }, (d) => {
+      await job({ job: "stems", bytes: r.bytes, opts: jobOpts(r), base }, (d) => {
         if (d.type === "progress") say(row, W.done(fmtTime(d.ms / 1000)));
         else if (d.type === "zip") { blob = d.blob; return true; }
       }).done;
@@ -578,6 +591,8 @@ function card(r) {
        el("span", { className: "chip", textContent: W.fw(r.fw || "?") }), el("span", { className: "chip", textContent: r.file })),
     ...(r.fw && r.fw !== FW ? [el("p", { className: "hint", textContent:
       W.fwHint(r.fw, FW) })] : []),
+    ...(r.info.has[1] && o.miss.length ? [el("p", { className: "hint chain", textContent:
+      W.chainHint(o.miss.map((k) => SLOTS[k]).join(", "), o.miss.map((k) => `PROJ_${SLOTS[k]}.FM1`).join(", ")) })] : []),
     acts, row);
   const a = el("article", {},
     el("div", { className: "head" }, play,

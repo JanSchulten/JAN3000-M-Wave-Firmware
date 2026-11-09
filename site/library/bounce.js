@@ -71,11 +71,15 @@ const BOOT_MS = 1500;                                     // the splash and the 
 const SLICE_MS = 64;                                      // a slice (bounce_run): 64 ms of the device, < BN_CAP frames
 export const STEMS = ["MIX", "T1", "T2", "T3", "T4", "FX"];
 
-// boot a fresh instance with fm1's flash, load its project: {ex, rate, bpm, loopMs, has: [pattern, scene song, chain]}
-export function prepare(ex, fm1) {
+// boot a fresh instance with fm1's flash, load its project: {ex, rate, bpm, loopMs, has: [scene song, chain], scenes:
+// how many scenes hold something, chain: {need, miss}: the project slots (bit s: A + s) the SONG chain plays, and of
+// those the ones with no project here}. others: more parsed .FM1 files whose flash goes in first (the projects of the
+// other slots, which a SONG chain plays: a .FM1 file holds its own slot's only)
+export function prepare(ex, fm1, others = []) {
   ex._initialize();
   ex.web_nor_erase();
   const nor = new Uint8Array(ex.memory.buffer, ex.web_nor(), ex.web_nor_size());
+  for (const o of others) for (const e of o.entries) nor.set(e.data, e.off);
   for (const e of fm1.entries) nor.set(e.data, e.off);
   ex.web_seed(1);
   ex.web_master(1023);
@@ -85,10 +89,12 @@ export function prepare(ex, fm1) {
   if (!ex.bounce_load(fm1.slot)) throw fail("load", "Das Projekt ließ sich nicht laden.");
   for (let t = 0; t < 200; t += SLICE_MS) ex.bounce_run(SLICE_MS);
   return { ex, rate: ex.web_sample_rate(), bpm: ex.bounce_bpm10() / 10, loopMs: ex.bounce_loop_ms(),
-           has: [1, 2].map((m) => !!ex.bounce_has(m)) };
+           has: [1, 2].map((m) => !!ex.bounce_has(m)), scenes: ex.bounce_scenes().toString(2).replace(/0/g, "").length,
+           chain: { need: ex.bounce_chain(0), miss: ex.bounce_chain(1) } };
 }
 
-// play and gather: mode 0 the scene (maxMs long), 1 the scene song to its end, 2 the SONG chain (to its end, or maxMs);
+// play and gather: mode 0 the scene (maxMs long), 1 the scene song to its end, 2 the SONG chain (to its end, or maxMs),
+// 3 every scene that holds something, one after another, one pass each (to the end of the last);
 // then tailMs of the tails (ended early once the master has been silent for 0.5 s). onProgress(ms done, ms planned)
 // may return a promise (the page yields there). Returns {rate, frames, chunks: [stem][Float32Array interleaved]}.
 // With sink(stem, Float32Array) each slice is handed over as it is made and not kept (web/library plays it meanwhile):
@@ -97,6 +103,10 @@ export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stem
   const { ex, rate } = prep;
   const chunks = STEMS.map(() => []);
   let frames = 0, ms = 0, stopped = false, quiet = 0, tail = 0, last = null;
+  if (mode === 2 && prep.has[1] && prep.chain.miss) {      // (the FM-1 says PATTERN x EMPTY and does not start)
+    const slots = [0, 1, 2, 3].filter((k) => prep.chain.miss >> k & 1).map((k) => SLOT_NAMES[k]).join(", ");
+    throw fail("chainmiss", `Die Song-Kette spielt Projekt ${slots}: nicht in dieser Datei.`, [slots]);
+  }
   if (!ex.bounce_play(mode)) throw mode === 1 ? fail("nosong", "Das Projekt hat keinen Szenen-Song.") :
                               mode === 2 ? fail("nochain", "Das Projekt hat keine Song-Kette.") : fail("noplay", "PLAY ging nicht.");
   ex.bounce_gather(1);

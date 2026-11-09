@@ -6,6 +6,8 @@
 //   IN      .FM1 files picked: listed with what the firmware says of them; the same again: known; a damaged one refused
 //   PLAY    a tap on a card: the worker renders, the sound runs meanwhile (the position moves, real samples leave the
 //           page), pause holds, the bar seeks, the end stops; another mode's length
+//   WHAT    what a project holds is what plays: its song, else its scenes in a row; a SONG chain with the other
+//           slots' files of the same pick, a note and a refusal without them
 //   OUT     the WAV byte for byte web/bounce's; the .FM1 as it came; the library's ZIP, and that ZIP into an empty
 //           library; a reload keeps the list (IndexedDB), a title and a note; delete
 // NODE_PATH=$(npm root -g) node web/library/page_test.mjs [build/library] [build/vdisk/files] [screenshot directory]
@@ -17,7 +19,7 @@ import { parseFM1, loadWasm, prepare, render, bounceFiles } from "../bounce/boun
 import { unzip } from "./lib.js";
 
 const { chromium } = createRequire(import.meta.url)("playwright");   // (found by NODE_PATH too: a global install)
-const [root = "build/library", dir = "build/vdisk/files", shots = ""] = process.argv.slice(2);
+const [root = "build/library", dir = "build/vdisk/files", shots = "", songs = `${dir}/../songs`] = process.argv.slice(2);
 let bad = 0;
 const check = (what, ok) => { console.log(`page: ${what.padEnd(100)} ${ok ? "ok" : "FAIL"}`); if (!ok) bad++; };
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
@@ -70,7 +72,7 @@ await page.setInputFiles("#file", [`${dir}/PROJ_A.FM1`, `${dir}/PROJ_C.FM1`]);
 await page.waitForFunction(() => document.querySelectorAll("#list article").length === 2);
 s = await state();
 check("IN: two files picked: two cards, each its name, slot, tempo and length from the firmware",
-      s.cards.map((c) => c.name).sort().join() === "FIRST,THIRD" && /Slot [AC] · 120 BPM · 1 bar · /.test(s.cards[0].meta) &&
+      s.cards.map((c) => c.name).sort().join() === "FIRST,THIRD" && /Slot [AC] · 120 BPM · 1 scene · /.test(s.cards[0].meta) &&
       /2 projects added/.test(s.status) && !s.err);
 await page.setInputFiles("#file", [`${dir}/PROJ_A.FM1`]);
 await page.waitForFunction(() => /already in the library/.test(document.getElementById("status").textContent));
@@ -96,7 +98,7 @@ await page.locator('.lang-sw button[data-lang="de"]').click();
 w = await words();
 check("  DE: all of it German, the refusal already on the page too",
       w.lang === "de" && w.title === "JAN3000 Bibliothek" && w.h1 === "Bibliothek" && w.pick === ".FM1-Dateien wählen" &&
-      /Platz [AC] · 120 BPM · 1 Takt/.test(w.meta) && /HURT\.FM1: SMP1: Prüfsumme falsch/.test(w.status) && w.more === "Mehr");
+      /Platz [AC] · 120 BPM · 1 Szene/.test(w.meta) && /HURT\.FM1: SMP1: Prüfsumme falsch/.test(w.status) && w.more === "Mehr");
 await page.reload();
 await page.waitForFunction(() => document.querySelectorAll("#list article").length === 2);
 w = await words();
@@ -114,8 +116,16 @@ s = await state();
 const out1 = await page.evaluate(() => window.__out);
 check("PLAY: a tap: the player is up, the card marked, the position moves, samples leave the page",
       s.player && s.cards.find((c) => c.name === "FIRST").on && s.pp === "Pause" && out1.n > 0 && out1.peak > 0.01);
-check("  the whole render is there long before the sound gets to it (4 bars and what rings on: 0:08 to 0:11)",
-      !/rechnet/.test(s.time) && secs(s.time)[1] >= 8 && secs(s.time)[1] <= 11);
+check(`  what plays unasked: the project's scenes in a row (it has one: 2 s and what rings on, ${s.time})`,
+      secs(s.time)[1] >= 2 && secs(s.time)[1] <= 4 && await page.locator("#pmodesel").inputValue() === "3" &&
+      await page.locator("#pbarsl").isHidden());
+await page.locator("#pmodesel").selectOption("0");
+await page.waitForFunction(() => /\/ 0:(0[89]|1[01])$/.test(document.getElementById("ptime").textContent), null, { timeout: 20000 });
+await page.waitForFunction(() => /^0:0[1-9]/.test(document.getElementById("ptime").textContent), null, { timeout: 20000 });
+s = await state();
+check("  one scene, looped, chosen: 4 bars and what rings on, the bars to set, the card says 4 bars; all there before the sound",
+      !/rendering/.test(s.time) && await page.locator("#pbarsl").isVisible() && await page.locator("#pbars").inputValue() === "4" &&
+      /· 4 bars ·/.test(s.cards.find((c) => c.name === "FIRST").meta));
 await shot("2-playing.png");
 await page.locator("#pp").click();
 await page.waitForFunction(() => document.getElementById("pp").getAttribute("aria-label") === "Play");
@@ -150,8 +160,8 @@ check("OUT: WAV (Mix): FIRST_MIX.wav, byte for byte web/bounce's master of 1 bar
 const third = page.locator("#list article", { hasText: "THIRD" });
 await third.locator("summary").click();
 const wav3 = await dl(() => third.getByRole("button", { name: "WAV (mix)" }).click());
-check("  the WAV of a project the player does not hold: rendered for it (4 bars: longer)", wav3.name === "THIRD_MIX.wav" &&
-      wav3.data.length > wav.data.length);
+check("  the WAV of a project the player does not hold: rendered for it (its scene once)", wav3.name === "THIRD_MIX.wav" &&
+      wav3.data.length > 44 + 4 * 2 * 44100);
 const fm1 = await dl(() => first.getByRole("button", { name: "Save .FM1 file" }).click());
 check("  the .FM1 file: FIRST.FM1, the bytes as they came", fm1.name === "FIRST.FM1" && same(fm1.data, a));
 const stems = await dl(() => first.getByRole("button", { name: "Stems (ZIP)" }).click());
@@ -184,6 +194,53 @@ check("  both deleted (asked first): the library is empty again", (await state()
 await page.setInputFiles("#file", [{ name: zip.name, mimeType: "application/zip", buffer: Buffer.from(zip.data) }]);
 await page.waitForFunction(() => document.querySelectorAll("#list article").length === 2);
 check("  the ZIP back in: both projects again", (await state()).cards.map((c) => c.name).sort().join() === "FIRST,THIRD");
+
+// ---- WHAT PLAYS (another visitor: an empty library; tests/vdisk_test.c's second disk)
+const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const p2 = await ctx2.newPage();
+p2.on("pageerror", (e) => errors.push(e.message));
+await p2.goto(url);
+const card2 = (name) => p2.locator("#list article", { hasText: name });
+// the length of what the player holds once it is all rendered (the bar's text follows a frame after a tap: wait a moment)
+const total = async () => {
+  await p2.waitForTimeout(300);
+  await p2.waitForFunction(() => /^\d+:\d\d \/ \d+:\d\d$/.test(document.getElementById("ptime").textContent) &&
+                                 !/\/ 0:00$/.test(document.getElementById("ptime").textContent), null, { timeout: 20000 });
+  return secs(await p2.locator("#ptime").textContent())[1];
+};
+await p2.setInputFiles("#file", [`${songs}/CURRENT.FM1`]);
+await p2.waitForFunction(() => document.querySelectorAll("#list article").length === 1);
+await card2("CHAIN").locator("summary").click();
+check("WHAT PLAYS: a project with a SONG chain, taken in alone: its 3 scenes play; a note names the projects missing (A, C)",
+      /CURRENT · 120 BPM · 3 scenes ·/.test(await card2("CHAIN").locator(".meta").textContent()) &&
+      /project A, C.*PROJ_A\.FM1, PROJ_C\.FM1/.test(await card2("CHAIN").locator(".hint.chain").textContent()));
+await card2("CHAIN").locator(".play").click();
+let len2 = await total();
+await p2.locator("#pmodesel").selectOption("2");
+await p2.waitForFunction(() => /song chain plays project A, C/.test(document.getElementById("ptime").textContent), null, { timeout: 20000 });
+check(`  played: the scenes in a row (6 s and what rings on: ${len2} s); the chain chosen all the same: refused, saying why`,
+      len2 >= 6 && len2 <= 9);
+await p2.setInputFiles("#file", ["CURRENT", "PROJ_A", "PROJ_B", "PROJ_C", "PROJ_D"].map((n) => `${songs}/${n}.FM1`));
+await p2.waitForFunction(() => document.querySelectorAll("#list article").length === 5);
+const metas = Object.fromEntries(await p2.evaluate(() => [...document.querySelectorAll("#list article")].map((a) =>
+  [a.querySelector(".name").textContent, a.querySelector(".meta").textContent])));
+check("  the whole drive in one pick: CHAIN's card now says Song chain, no note; SSONG Scene song; SCENES 3 scenes",
+      /· Song chain ·/.test(metas.CHAIN) && await card2("CHAIN").locator(".hint.chain").count() === 0 &&
+      /· Scene song ·/.test(metas.SSONG) && /· 3 scenes ·/.test(metas.SCENES) && /already in the library/.test(await p2.locator("#status").textContent()));
+await card2("CHAIN").locator(".play").click();
+len2 = await total();
+check(`  CHAIN played: the chain, A once and C twice (6 s and what rings on: ${len2} s)`, len2 >= 6 && len2 <= 9 &&
+      await p2.locator("#pmodesel").inputValue() === "2");
+await card2("SSONG").locator(".play").click();
+len2 = await total();
+check(`  SSONG played: its scene song, four passes (8 s and what rings on: ${len2} s)`, len2 >= 8 && len2 <= 11 &&
+      await p2.locator("#pmodesel").inputValue() === "1");
+await card2("SCENES").locator(".play").click();
+len2 = await total();
+check(`  SCENES played: its three scenes in a row (6 s and what rings on: ${len2} s); no song to choose`, len2 >= 6 && len2 <= 9 &&
+      await p2.locator("#pmodesel").inputValue() === "3" && await p2.locator('#pmodesel option[value="1"]').isDisabled() &&
+      await p2.locator('#pmodesel option[value="2"]').isDisabled());
+if (shots) await p2.screenshot({ path: pjoin(shots, "4-songs.png") });
 check(`no error on the page${errors.length ? ": " + errors.join(" | ") : ""}`, errors.length === 0);
 
 await browser.close();

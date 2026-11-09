@@ -117,9 +117,28 @@ EXPORT uint32_t bounce_load(uint32_t slot)
     return ok;
 }
 /* start: 0 PLAY (the scene as it is: its patterns looping), 1 the scene song from its first row to its end (END
- * STOP for the bounce), 2 the SONG chain (the SONG page's PLAY). 1 started */
+ * STOP for the bounce), 2 the SONG chain (the SONG page's PLAY: refused as there when a project it plays is not in
+ * its slot, bounce_chain(1)), 3 every scene that holds something, in their order, one pass each: a scene song of them
+ * (so the FM-1's own change from scene to scene: at the end of the longest track's loop, the sample's remainder
+ * carried, scene.c), made here in place of the project's; a project with nothing in any scene: the one playing, once.
+ * 1 started */
 EXPORT uint32_t bounce_play(uint32_t mode)
 {
+    if (mode == 3u) {
+        uint32_t k;
+        memset(&ssong, 0, sizeof ssong);
+        for (k = 0; k < SCN_N; k++)
+            if (scene_used(k)) {
+                ssong.scene[ssong.count] = (uint8_t)k;
+                ssong.repeat[ssong.count++] = 1;
+            }
+        if (!ssong.count) {
+            ssong.scene[0] = scn.cur;
+            ssong.repeat[0] = 1;
+            ssong.count = 1;
+        }
+        return ssong_start(0) == SQ_NOW;
+    }
     if (mode == 1u) {
         if (!ssong.count)
             return 0;
@@ -129,11 +148,32 @@ EXPORT uint32_t bounce_play(uint32_t mode)
     if (mode == 2u) {
         if (!chain_config.count)
             return 0;
-        chain_play_ui();
-        return 1;
+        chain_config.rsv[0] &= (uint8_t)~CHAIN_LOOP;   /* (END STOP for the bounce, as the scene song) */
+        return chain_prepare() == 0u;
     }
     transport_req = 1;
     return 1;
+}
+/* the scenes that hold something: bit k scene k + 1 */
+EXPORT uint32_t bounce_scenes(void)
+{
+    uint32_t k, m = 0;
+    for (k = 0; k < SCN_N; k++)
+        m |= scene_used(k) ? 1u << k : 0u;
+    return m;
+}
+/* the SONG chain's projects: bit s slot A + s, of the slots its sections play (what 0), of those the ones that hold
+ * no project here (what 1: the chain does not start, "PATTERN x EMPTY" on the FM-1) */
+EXPORT uint32_t bounce_chain(uint32_t what)
+{
+    uint32_t i, k, m = 0;
+    for (i = 0; i < chain_config.count && i < CHAIN_ROWS; i++)
+        for (k = 0; k < NTRK; k++) {
+            uint32_t s = chain_config.row[i].slot[k];
+            if (s < 4u && (!what || !project_used(s)))
+                m |= 1u << s;
+        }
+    return m;
 }
 EXPORT void bounce_stop(void) { transport_req = 2; }   /* (as PLAY while playing: the tails ring on) */
 EXPORT uint32_t bounce_busy(void) { return song.playing || chain_busy() || seq_counting() || transport_req == 1u; }

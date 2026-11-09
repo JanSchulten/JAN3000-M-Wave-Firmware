@@ -77,14 +77,26 @@ export async function candidates(files) {
   return { out, bad };
 }
 
-// a checked .FM1 as a record (without what only the firmware knows: inspect() adds that)
+// a checked .FM1 as a record (without what only the firmware knows: inspect() adds that). batches: the times it was
+// taken in; files taken in together (one read of the FM-1's drive) share one: their slots belong together, which a
+// SONG chain needs
 export function makeRecord(name, data, now = Date.now()) {
   const fm1 = parseFM1(data);
   return { key: crc32(data).toString(16).padStart(8, "0") + "-" + data.length, file: name, bytes: data.slice(),
            name: fm1.name || name.replace(/\.fm1$/i, ""), title: "", note: "", slot: fm1.slot, slotName: fm1.slotName,
-           fw: fm1.fw, parts: fm1.entries.map((x) => ({ tag: x.tag, len: x.len })), added: now, mode: -1, bars: 0 };
+           fw: fm1.fw, parts: fm1.entries.map((x) => ({ tag: x.tag, len: x.len })), added: now, batches: [now], mode: -1, bars: 0 };
 }
 export const titleOf = (r) => r.title || r.name || r.file;
+// the files of the other slots a record's SONG chain plays, from the records taken in with it (a batch of its): {sib: their
+// bytes, miss: the slots (0..3) not there, or there more than once (which one, nobody can say)}
+export function siblings(rec, recs) {
+  const sib = [], miss = [];
+  for (const k of chainSlots(rec.info, rec.slot)) {
+    const c = recs.filter((x) => x !== rec && x.slot === k && (x.batches || []).some((b) => (rec.batches || []).includes(b)));
+    if (c.length === 1) sib.push(c[0].bytes); else miss.push(k);
+  }
+  return { sib, miss };
+}
 
 // file names for a set of records, none twice: NAME.FM1, NAME_2.FM1 ..
 export function exportNames(recs) {
@@ -102,14 +114,25 @@ export function libraryZip(recs) {
 
 // ---- the firmware at work (in the page: inside web/library/worker.js)
 
-// boot an FM-1 with the record's flash: what it would play. bars: one pass of the scene's patterns
-export async function inspect(wasm, bytes) {
-  const p = prepare(await loadWasm(wasm), parseFM1(bytes));
-  return { rate: p.rate, bpm: p.bpm, bars: Math.max(1, Math.ceil(p.loopMs / (240000 / p.bpm) - 0.01)), has: p.has };
+// the modes (bounce.js render): what the FM-1 would play of a project
+export const SCENE = 0, SSONG = 1, CHAIN = 2, SCENES = 3;
+const others = (sib) => sib.map((b) => parseFM1(b));
+
+// boot an FM-1 with the record's flash: what it holds. bars: one pass of the scene's patterns; has: [a scene song, a
+// SONG chain]; scenes: how many hold something; need, miss: the slots (bit s: A + s) the SONG chain plays, and those of
+// them with no project (sib: the .FM1 files of the other slots, their bytes, when the library has them)
+export async function inspect(wasm, bytes, sib = []) {
+  const p = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib));
+  return { rate: p.rate, bpm: p.bpm, bars: Math.max(1, Math.ceil(p.loopMs / (240000 / p.bpm) - 0.01)), has: p.has,
+           scenes: p.scenes, need: p.chain.need, miss: p.chain.miss };
 }
-// the mode a record plays when none was chosen: its SONG chain, else its scene song, else the scene
-export const defaultMode = (info) => (info.has[1] ? 2 : info.has[0] ? 1 : 0);
+// what a record plays when nothing was chosen, as it is on the FM-1: its song when it has one (the scene song, which
+// the file holds whole, before the SONG chain; the chain only when every project it plays is there: miss, as inspect
+// with the siblings says), else its scenes one after another
+export const defaultMode = (info, miss = info.miss) => (info.has[0] ? SSONG : info.has[1] && !miss ? CHAIN : SCENES);
 export const defaultBars = (info) => Math.max(4, 2 * info.bars);
+// the slots a SONG chain needs from other files: need without the record's own (slot 4, CURRENT: all of them)
+export const chainSlots = (info, slot) => [0, 1, 2, 3].filter((k) => info.has[1] && info.need >> k & 1 && k !== slot);
 
 export const toPcm16 = (f32) => {
   const p = new Int16Array(f32.length);
@@ -117,11 +140,11 @@ export const toPcm16 = (f32) => {
   return p;
 };
 
-// play the record (mode, bars for the scene) and hand the master out as it is made: onAudio(Int16Array interleaved,
+// play the record (mode, bars for the scene; sib: the other slots' files for a SONG chain) and hand the master out as it is made: onAudio(Int16Array interleaved,
 // ms done, ms planned or 0 when the song says where it ends), about twice a second of music. The master is 16-bit as
 // USB audio sends it, so nothing is lost. Returns {rate, frames}
-export async function play(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS } = {}, onAudio) {
-  const prep = prepare(await loadWasm(wasm), parseFM1(bytes));
+export async function play(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [] } = {}, onAudio) {
+  const prep = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib));
   const maxMs = mode === 0 ? Math.max(1, bars) * 240000 / prep.bpm : SONG_MAX_MS;
   let held = [], n = 0;
   const flush = (ms) => {
@@ -145,8 +168,8 @@ export function wavOfPcm(chunks, frames, rate) {
 }
 
 // the master and the stems (T1..T4, FX) as a ZIP of WAVs, as web/bounce: a list of byte arrays
-export async function stemsZip(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS } = {}, base = "FM1", onProgress) {
-  const prep = prepare(await loadWasm(wasm), parseFM1(bytes));
+export async function stemsZip(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [] } = {}, base = "FM1", onProgress) {
+  const prep = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib));
   const maxMs = mode === 0 ? Math.max(1, bars) * 240000 / prep.bpm : SONG_MAX_MS;
   return zipParts(bounceFiles(await render(prep, { mode, maxMs, tailMs, stems: true, onProgress }), base));
 }
@@ -165,20 +188,27 @@ export function openStore(idb = globalThis.indexedDB) {
   const tx = async (mode, fn) => req(fn((await ready).transaction("saves", mode).objectStore("saves")));
   return {
     all: async () => (await tx("readonly", (s) => s.getAll())).sort((a, b) => b.added - a.added),
-    has: async (key) => !!(await tx("readonly", (s) => s.getKey(key))),
+    get: (key) => tx("readonly", (s) => s.get(key)),
     put: (rec) => tx("readwrite", (s) => s.put(rec)),
     remove: (key) => tx("readwrite", (s) => s.delete(key)),
   };
 }
 
-// take the candidates in: checked, looked at by the firmware (look(bytes) -> inspect's), stored unless already there.
+// take the candidates in: checked, looked at by the firmware (look(bytes) -> inspect's), stored unless already there
+// (one already there joins this batch).
 // Returns {added: [records], known: [names], bad: [{name, why, code, args}]} (why: the message; code, args: as fail())
 export async function importFiles(store, files, look, now = Date.now()) {
   const { out, bad } = await candidates(files), added = [], known = [], seen = new Set();
   for (const f of out) {
     try {
       const rec = makeRecord(f.name, f.data, now + added.length);
-      if (seen.has(rec.key) || await store.has(rec.key)) { known.push(f.name); continue; }
+      rec.batches = [now];
+      const old = seen.has(rec.key) ? null : await store.get(rec.key);
+      if (old) {                                          // already there: it belongs to this read of the drive too
+        old.batches = [...(old.batches || []), now];
+        await store.put(old);
+      }
+      if (old || seen.has(rec.key)) { known.push(f.name); seen.add(rec.key); continue; }
       seen.add(rec.key);
       rec.info = await look(rec.bytes);
       await store.put(rec);

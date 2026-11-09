@@ -228,7 +228,10 @@
 # Library (web/library, M-Vave-OP1, with the offline bounce): .FM1 files and ZIPs of them (stored, deflated) taken in:
 #                   checked, looked at by the firmware, none twice, a damaged one refused and the rest kept; the names
 #                   out; the library's ZIP back into an empty one; the master handed over in pieces while it is made:
-#                   the WAV byte for byte the bounce's. (The page itself: web/library/page_test.mjs, by hand.)
+#                   the WAV byte for byte the bounce's; what a project holds is what plays (tests/vdisk_test.c's second
+#                   disk, build/vdisk/songs): its scene song, else its SONG chain with the other slots' files (refused
+#                   without them), else its scenes in a row: the hits heard bar by bar, the length. (The page itself:
+#                   web/library/page_test.mjs, by hand.)
 # Browser emulator (web/emu, when emcc is there): the firmware in WebAssembly (build/emu) boots, plays keys and MIDI,
 #                   draws, lights its LEDs, keeps a save across instances, plays a song bit for bit as the same file
 #                   built with cc (web/emu/native_check.c); the cost of 1 s of a heavy song against real time.

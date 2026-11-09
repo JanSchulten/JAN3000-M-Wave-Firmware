@@ -76,8 +76,13 @@ RANDOM fall the same way each time, not as a particular run on the device did).
 `web/library` is the page for the `.FM1` files of USB DISK (above): pick them (or drop them, or a ZIP of them) and they
 are kept in that browser (IndexedDB: on that device only, no account, nothing sent anywhere), listed with what the
 firmware says of each (slot, tempo, length). A tap plays one: the FM-1's own firmware (the bounce's WebAssembly) renders
-it in a worker and the master is played while it is made, a waveform to seek in; the scene (so many bars), the scene
-song or the SONG chain. Out again: the `.FM1` as it came (or shared into the Files app), the master as a WAV (byte for
+it in a worker and the master is played while it is made, a waveform to seek in. What plays is what the project holds,
+as the FM-1 would play it: its scene song (SEQ > SCENE SONG) from the first row to its end; else its SONG chain, to its
+end; else every scene that holds something, in their order, one pass each (the bounce's mode 3: a scene song of them,
+so the changes are the firmware's own). One scene looped for so many bars can be chosen too. A SONG chain plays the
+projects of other slots, and a `.FM1` file holds its own slot's only: the page takes the others from the files picked
+together with it (one read of the drive); without them the chain is refused, as "PATTERN x EMPTY" on the FM-1, a note
+on the card names the files missing, and the scenes play. English first, German by the guide's switch. Out again: the `.FM1` as it came (or shared into the Files app), the master as a WAV (byte for
 byte the bounce's), the stems as a ZIP, the whole library as one ZIP, which the page takes back in on any device (the
 way from a phone to a computer: there is no sync). A file is known by its bytes: the same project is not kept twice. A
 title and a note can be given to each. What is not there: putting a file back onto the FM-1 (the drive is read-only;
