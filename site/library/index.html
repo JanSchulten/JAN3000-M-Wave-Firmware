@@ -1,0 +1,676 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Copyright (C) 2026 M-Vave-OP1 contributors
+     M-Vave-OP1's library: the .FM1 files of MENU > USB DISK kept in this browser (IndexedDB: on this device, nothing is
+     sent anywhere), listened to (the FM-1's own firmware as WebAssembly renders a file in a worker, the master is
+     played while it is made) and handed out again: the file as it came, the master as a WAV, the stems as a ZIP, the
+     whole library as one ZIP (which this page takes back in, on this device or another). lib.js does the work,
+     worker.js runs the firmware; this page is the list and the player. English first, German by the switch (the user guide's: the same site keeps the choice); the look is the guide's too
+     (web/manual). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JAN3000 Library</title>
+<meta name="description" content="Keep, play and render projects of the M-VAVE FM-1 (JAN3000, based on Felucca) as WAV: locally in the browser, no account.">
+<meta name="theme-color" content="#eceee9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131514" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@600;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Martian+Mono:wght@400;500;600&display=swap">
+<script>
+/* the accent picked in the user guide (the same site keeps it) */
+try { var a = localStorage.getItem("mvop1-manual-accent"); if (/^(ice|violet|rose|green)$/.test(a)) document.documentElement.dataset.accent = a; } catch (e) { /* storage off: AMBER */ }
+/* and the language picked there, else English (before the page is drawn: no flash of the other one) */
+try { if (localStorage.getItem("mvop1-manual-lang") === "de") document.documentElement.lang = "de"; } catch (e) { /* storage off: English */ }
+</script>
+<style>
+/* The user guide's look (web/manual/manual.html): its paper and ink, its three faces (Doto for the display line,
+   Instrument Sans to read, Martian Mono for labels and numbers), ink rules above the parts, the firmware's accent
+   (AMBER, or the one picked in the guide: the same site keeps it). */
+:root {
+  --paper: #eceee9; --sheet: #f7f8f4; --ink: #1a1d1b; --mute: #5b615c; --rule: #d1d5ce; --rule-2: #b4b9b1;
+  --faint: #e2e5df; --warn: #a8321f;
+  --acc: #f2a33a; --acc-l: #8f5400; --acc-d: #f6bb64; --acc-ink: var(--acc-l); --on-acc: #18130a;
+  --f-dot: "Doto", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --f-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "Martian Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+:root[data-accent="ice"] { --acc: #6cc3e8; --acc-l: #1b6789; --acc-d: #8ed4f2; }
+:root[data-accent="violet"] { --acc: #ab92fb; --acc-l: #5d3fc4; --acc-d: #c0aaff; }
+:root[data-accent="rose"] { --acc: #f27a9b; --acc-l: #a83154; --acc-d: #f79bb4; }
+:root[data-accent="green"] { --acc: #5fd08a; --acc-l: #1c7342; --acc-d: #80dea4; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #131514; --sheet: #1b1e1c; --ink: #e5e8e2; --mute: #9ba19a; --rule: #2f3431;
+                                    --rule-2: #4a504c; --faint: #222624; --warn: #ff8a73; --acc-ink: var(--acc-d);
+                                    color-scheme: dark; }
+}
+:root[data-theme="dark"] { --paper: #131514; --sheet: #1b1e1c; --ink: #e5e8e2; --mute: #9ba19a; --rule: #2f3431;
+                           --rule-2: #4a504c; --faint: #222624; --warn: #ff8a73; --acc-ink: var(--acc-d); color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); }
+body { font: 16.5px/1.6 var(--f-body); -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration-color: var(--acc); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+a:hover { color: var(--acc-ink); }
+p { margin: 0; }
+main { max-width: 720px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 40px) max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px)); }
+body.has-player main { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+.eyebrow { font: 500 11.5px/1.5 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); }
+.eyebrow a { text-decoration: none; }
+h1 { font: 800 clamp(46px, 13vw, 84px)/0.9 var(--f-dot); letter-spacing: -0.005em; margin: 14px 0 16px; overflow-wrap: anywhere; }
+.lede { font-size: 18.5px; line-height: 1.5; max-width: 56ch; }
+section { margin-top: 44px; padding-top: 18px; border-top: 1.5px solid var(--ink); }
+h2 { font: 600 13px/1.2 var(--f-mono); letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 16px;
+     display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+h2 small { font: 500 11px/1.2 var(--f-mono); letter-spacing: 0.06em; color: var(--mute); font-variant-numeric: tabular-nums; }
+button, .btn { appearance: none; border: 1px solid transparent; border-radius: 10px; padding: 11px 16px; font: 600 16px/1.2 var(--f-body);
+               background: var(--acc); color: var(--on-acc); cursor: pointer; text-decoration: none;
+               display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; }
+button.ghost, .btn.ghost { background: var(--paper); color: var(--ink); border-color: var(--rule-2); }
+button.danger { background: var(--paper); color: var(--warn); border-color: color-mix(in oklab, var(--warn) 45%, var(--rule-2)); }
+button:disabled { opacity: 0.45; cursor: default; }
+:focus-visible { outline: 2px solid var(--acc-ink); outline-offset: 2px; border-radius: 4px; }
+.wide { width: 100%; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.actions { display: grid; gap: 10px; grid-template-columns: 1fr; margin-top: 14px; }
+@media (min-width: 480px) { .actions { grid-template-columns: 1fr 1fr; } }
+.status { color: var(--mute); font-size: 14.5px; line-height: 1.5; min-height: 22px; margin: 12px 0 0; overflow-wrap: anywhere; white-space: pre-line; max-width: 68ch; }
+.status.err { color: var(--warn); }
+body.drag section#add { border-top-color: var(--acc); }
+.empty { color: var(--mute); padding: 4px 0 0; max-width: 56ch; }
+#list { display: grid; gap: 12px; }
+article { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 15px 12px; }
+article.on { border-color: var(--acc-ink); }
+.head { display: flex; align-items: center; gap: 14px; }
+.play, .pp { flex: none; width: 46px; height: 46px; min-height: 0; padding: 0; border-radius: 50%; background: var(--ink); color: var(--paper); }
+article.on .play, .pp { background: var(--acc); color: var(--on-acc); }
+.play svg, .pp svg { width: 16px; height: 16px; fill: currentColor; }
+.what { flex: 1; min-width: 0; }
+.name { font: 600 19px/1.25 var(--f-body); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.meta { font: 500 11px/1.6 var(--f-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--mute);
+        margin-top: 3px; font-variant-numeric: tabular-nums; }
+.note { font-size: 15px; line-height: 1.5; margin-top: 6px; overflow-wrap: anywhere; white-space: pre-line; }
+details { margin-top: 12px; border-top: 1px solid var(--rule); }
+summary { cursor: pointer; font: 500 11px/1.2 var(--f-mono); letter-spacing: 0.07em; text-transform: uppercase; color: var(--mute);
+          padding: 12px 0 4px; list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: " +"; color: var(--acc-ink); }
+details[open] summary::after { content: " −"; }
+.field { display: block; margin-top: 12px; }
+.field span { display: block; font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); margin-bottom: 6px; }
+input[type=text], input[type=number], textarea, select { width: 100%; padding: 9px 11px; font: 16px/1.3 var(--f-body); border-radius: 8px;
+  border: 1px solid var(--rule); background: var(--paper); color: var(--ink); }
+textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.chip { font: 500 11px/1 var(--f-mono); letter-spacing: 0.03em; background: var(--faint); border-radius: 4px; padding: 5px 7px;
+        font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.hint { background: var(--faint); border-radius: 10px; padding: 14px 18px 15px; font-size: 15.5px; margin-top: 14px; max-width: 68ch; }
+.hint .tag { display: block; margin-bottom: 5px; font: 600 10.5px/1.2 var(--f-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--acc-ink); }
+#player { position: fixed; left: 0; right: 0; bottom: 0; background: var(--sheet); border-top: 1.5px solid var(--ink);
+          padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); z-index: 20; }
+#player > div { max-width: 720px; margin: 0 auto; }
+.prow { display: flex; align-items: center; gap: 14px; }
+.ptitle { flex: 1; min-width: 0; }
+.ptitle b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptitle small { display: block; font: 500 11px/1.5 var(--f-mono); letter-spacing: 0.04em; color: var(--mute); font-variant-numeric: tabular-nums;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pclose { min-height: 0; width: 40px; height: 40px; padding: 0; font: 500 14px/1 var(--f-mono); }
+canvas { display: block; width: 100%; height: 56px; margin: 10px 0; cursor: pointer; touch-action: none; }
+.pmode { display: flex; gap: 10px; align-items: center; }
+.pmode select { flex: 1; min-width: 0; }
+.pmode label { font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute);
+               display: flex; align-items: center; gap: 8px; }
+.pmode input { width: 76px; }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); font: 500 10.5px/1.7 var(--f-mono);
+         letter-spacing: 0.03em; color: var(--mute); max-width: 80ch; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lang-sw { display: inline-flex; border: 1px solid var(--rule-2); border-radius: 8px; overflow: hidden; flex: none; }
+.lang-sw button { font: 600 11px/1 var(--f-mono); letter-spacing: 0.06em; color: var(--mute); background: transparent;
+                  border: 0; border-radius: 0; padding: 9px 11px; min-height: 0; cursor: pointer; }
+.lang-sw button + button { border-left: 1px solid var(--rule-2); }
+.lang-sw button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+:root[lang="en"] [data-l="de"], :root[lang="de"] [data-l="en"] { display: none !important; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <p class="eyebrow">JAN3000 v0.2-alpha · M-VAVE FM-1</p>
+    <div class="lang-sw" role="group" aria-label="Language / Sprache">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button><button type="button" data-lang="de" aria-pressed="false">DE</button>
+    </div>
+  </div>
+  <h1><span data-l="en">Library</span><span data-l="de">Bibliothek</span></h1>
+  <p class="lede" data-l="en">Keep, play and render the projects of your FM-1 as WAV. Everything stays on this device: no
+    account, no upload.</p>
+  <p class="lede" data-l="de">Projekte vom FM-1 sichern, anhören und als WAV rendern. Alles bleibt auf diesem Gerät: kein
+    Konto, kein Upload.</p>
+
+  <section id="add">
+    <h2><span data-l="en">Add</span><span data-l="de">Hinzufügen</span></h2>
+    <label class="btn wide" for="file" id="pick" tabindex="0" role="button"><span data-l="en">Choose .FM1 files</span><span data-l="de">.FM1-Dateien wählen</span></label>
+    <input id="file" type="file" multiple accept=".fm1,.FM1,.zip,application/zip,application/octet-stream" tabindex="-1">
+    <p class="status" id="status" role="status"></p>
+  </section>
+
+  <section>
+    <h2><span><span data-l="en">Projects</span><span data-l="de">Projekte</span></span> <small id="count"></small></h2>
+    <div id="list"></div>
+  </section>
+
+  <section id="backup" hidden>
+    <h2><span data-l="en">Backup</span><span data-l="de">Sicherung</span></h2>
+    <button class="ghost wide" id="zipall"><span data-l="en">Save all projects as a ZIP</span><span data-l="de">Alle Projekte als ZIP sichern</span></button>
+    <p class="hint" data-l="en"><span class="tag">Important</span>The library lives in this browser's storage. That can be
+      lost (browser data cleared, the page not opened for a long time): keep the ZIP file or the .FM1 files as well.
+      The ZIP file can be added again above, on any device.</p>
+    <p class="hint" data-l="de"><span class="tag">Wichtig</span>Die Bibliothek liegt im Speicher dieses Browsers. Der kann
+      verloren gehen (Browserdaten gelöscht, Seite lange nicht geöffnet): bewahre die ZIP-Datei oder die .FM1-Dateien
+      zusätzlich auf. Die ZIP-Datei lässt sich auf jedem Gerät oben wieder hinzufügen.</p>
+  </section>
+
+  <footer>
+    JAN3000 v0.2-alpha, based on <a href="https://github.com/hugelton/Felucca">Felucca</a> v1.5.1 by Leo Kuroshita
+    (Hügelton Instruments), GPL-3.0-only.
+    <span data-l="en">Source: <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware">github.com/JanSchulten/JAN3000-M-Wave-Firmware</a>.
+      What you hear is computed by the FM-1's firmware here in the browser: the mix as the device sends it over USB
+      audio (44.1 kHz). Chance falls the same way on every render.</span>
+    <span data-l="de">Quelltext: <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware">github.com/JanSchulten/JAN3000-M-Wave-Firmware</a>.
+      Was du hörst, rechnet die Firmware des FM-1 hier im Browser: der Mix, wie ihn das Gerät über USB-Audio ausgibt
+      (44,1 kHz). Zufall fällt bei jedem Rendern gleich.</span>
+  </footer>
+</main>
+
+<div id="player" hidden>
+  <div>
+    <div class="prow">
+      <button class="pp" id="pp"></button>
+      <div class="ptitle"><b id="ptitle"></b><small id="ptime"></small></div>
+      <button class="ghost" id="pclose">✕</button>
+    </div>
+    <canvas id="wave" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
+    <div class="pmode">
+      <select id="pmodesel"></select>
+      <label id="pbarsl"><span data-l="en">Bars</span><span data-l="de">Takte</span> <input id="pbars" type="number" min="1" max="512" inputmode="numeric"></label>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { openStore, importFiles, titleOf, defaultMode, defaultBars, wavOfPcm, libraryZip, exportNames,
+         safeName, siblings, SCENE, SSONG, CHAIN, SCENES } from "./lib.js";
+
+const $ = (id) => document.getElementById(id);
+const FW = "v1.5.1";
+const ICON = { play: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 2l12 7-12 7z"/></svg>',
+               pause: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 2h4v14H3zM11 2h4v14h-4z"/></svg>' };
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+const fmtSize = (n) => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.ceil(n / 1024))} KB`;
+const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const say = (node, t, err) => { node.textContent = t; node.classList.toggle("err", !!err); };
+
+// ---- the page's words: English first, German by the switch. An error is said by its code (lib.js, bounce.js)
+const WORDS = {
+  en: {
+    title: "JAN3000 Library", locale: "en-GB",
+    modes: ["One scene, looped", "Scene song", "Song chain", "All scenes, one after another"],
+    scenes: (n) => `${n} ${n === 1 ? "scene" : "scenes"}`,
+    chainHint: (slots, files) => `This project's song chain plays project ${slots}, which is not here. Choose ${files} together with this file (one pick from the FM-1's drive) to hear the chain. Until then its scenes play.`,
+    intro: "On the FM-1: MENU › SYSTEM › USB DISK, then choose the files of the drive “FM-1” here (CURRENT.FM1 is the music as it is right now). A ZIP backup of this page works too.",
+    empty: "No projects yet. Add .FM1 files from the FM-1 above.",
+    check: (n) => (n === 1 ? "Checking the file …" : `Checking ${n} files …`),
+    added: (n, t) => (n === 1 ? `“${t}” added.` : `${n} projects added.`),
+    known: (n, f) => (n === 1 ? `${f} is already in the library.` : `${n} files are already in the library.`),
+    nothing: "Nothing added.",
+    slot: (r) => (r.slot === 4 ? "CURRENT" : `Slot ${r.slotName}`), bars: (n) => `${n} ${n === 1 ? "bar" : "bars"}`,
+    more: "More", ftitle: "Title", fnote: "Note", fw: (v) => `Firmware ${v}`,
+    fwHint: (a, b) => `Saved with firmware ${a}; this page runs ${b}: it may sound different from the device.`,
+    saveFm1: "Save .FM1 file", share: "Share / Save to Files", wav: "WAV (mix)", stems: "Stems (ZIP)", del: "Delete",
+    delAsk: (t) => `Delete “${t}” from the library?`, boot: "The FM-1 is starting …",
+    done: (t) => `${t} rendered …`, wavDone: (f, t) => `${f}: ${t}.`, stemsDone: (f, n) => `${f}: mix, T1–T4 and FX (${n}).`,
+    rendering: "rendering …", play: "Play", pause: "Pause", close: "Close the player", position: "Position", what: "What to play",
+    worker: "The render worker could not be started.", wasm: "The firmware (felucca_bounce.wasm) could not be loaded.",
+    err: {
+      notfm1: "Not a .FM1 file (FM1X is missing).", version: (v) => `FM1X version ${v}: this page only knows version 1.`,
+      short: (a, b) => `The file is incomplete (${a} of ${b} bytes).`, head: "The file's header is damaged.",
+      table: "The file's table of contents is damaged.", outside: (t) => `${t}: lies outside the file.`,
+      crc: (t) => `${t}: wrong checksum, the file is damaged.`, noproj: "The file holds no project.",
+      load: "The project could not be loaded.", nosong: "The project has no scene song.", nochain: "The project has no song chain.",
+      noplay: "PLAY did not start.", chainmiss: (p) => `The song chain plays project ${p}: not in the library.`, silent: "The device no longer gives any sound.", nozip: "Not a ZIP file.",
+      zipbad: "The ZIP file is damaged.", zipshort: "The ZIP file is incomplete.", zipinflate: (n) => `${n}: cannot be unpacked.`,
+      zipmethod: (n) => `${n}: unknown ZIP compression.`, ziplen: (n) => `${n}: wrong length in the ZIP file.`,
+      zipnofm1: "The ZIP file holds no .FM1 file.", noidb: "This browser has no storage for the library (IndexedDB).",
+      openfail: "The library could not be opened." },
+  },
+  de: {
+    title: "JAN3000 Bibliothek", locale: "de-DE",
+    modes: ["Eine Szene, wiederholt", "Szenen-Song", "Song-Kette", "Alle Szenen nacheinander"],
+    scenes: (n) => `${n} ${n === 1 ? "Szene" : "Szenen"}`,
+    chainHint: (slots, files) => `Die Song-Kette dieses Projekts spielt Projekt ${slots}, das hier fehlt. Wähle ${files} zusammen mit dieser Datei (in einem Zug vom Laufwerk des FM-1), um die Kette zu hören. Bis dahin spielen seine Szenen.`,
+    intro: "Am FM-1: MENU › SYSTEM › USB DISK, dann die Dateien vom Laufwerk „FM-1“ hier wählen (CURRENT.FM1 ist der Stand von gerade eben). Auch eine ZIP-Sicherung dieser Seite geht.",
+    empty: "Noch keine Projekte. Füge oben .FM1-Dateien vom FM-1 hinzu.",
+    check: (n) => (n === 1 ? "Die Datei wird geprüft …" : `${n} Dateien werden geprüft …`),
+    added: (n, t) => (n === 1 ? `„${t}“ hinzugefügt.` : `${n} Projekte hinzugefügt.`),
+    known: (n, f) => (n === 1 ? `${f} ist schon in der Bibliothek.` : `${n} Dateien sind schon in der Bibliothek.`),
+    nothing: "Nichts hinzugefügt.",
+    slot: (r) => (r.slot === 4 ? "CURRENT" : `Platz ${r.slotName}`), bars: (n) => `${n} ${n === 1 ? "Takt" : "Takte"}`,
+    more: "Mehr", ftitle: "Titel", fnote: "Notiz", fw: (v) => `Firmware ${v}`,
+    fwHint: (a, b) => `Gesichert mit Firmware ${a}, hier rechnet ${b}: es kann anders klingen als auf dem Gerät.`,
+    saveFm1: ".FM1-Datei sichern", share: "Teilen / In Dateien sichern", wav: "WAV (Mix)", stems: "Einzelspuren (ZIP)", del: "Löschen",
+    delAsk: (t) => `„${t}“ aus der Bibliothek löschen?`, boot: "Das FM-1 startet …",
+    done: (t) => `${t} gerechnet …`, wavDone: (f, t) => `${f}: ${t}.`, stemsDone: (f, n) => `${f}: Mix, T1–T4 und FX (${n}).`,
+    rendering: "rechnet …", play: "Abspielen", pause: "Pause", close: "Player schließen", position: "Position", what: "Was spielen",
+    worker: "Der Rechen-Worker ließ sich nicht starten.", wasm: "Die Firmware (felucca_bounce.wasm) ließ sich nicht laden.",
+    err: {
+      notfm1: "Keine .FM1-Datei (FM1X fehlt).", version: (v) => `FM1X Version ${v}: diese Seite kennt nur Version 1.`,
+      short: (a, b) => `Die Datei ist unvollständig (${a} von ${b} Bytes).`, head: "Der Kopf der Datei ist beschädigt.",
+      table: "Das Inhaltsverzeichnis der Datei ist beschädigt.", outside: (t) => `${t}: liegt außerhalb.`,
+      crc: (t) => `${t}: Prüfsumme falsch, die Datei ist beschädigt.`, noproj: "Die Datei enthält kein Projekt.",
+      load: "Das Projekt ließ sich nicht laden.", nosong: "Das Projekt hat keinen Szenen-Song.", nochain: "Das Projekt hat keine Song-Kette.",
+      noplay: "PLAY ging nicht.", chainmiss: (p) => `Die Song-Kette spielt Projekt ${p}: nicht in der Bibliothek.`, silent: "Das Gerät gibt keinen Ton mehr aus.", nozip: "Keine ZIP-Datei.",
+      zipbad: "Die ZIP-Datei ist beschädigt.", zipshort: "Die ZIP-Datei ist unvollständig.", zipinflate: (n) => `${n}: lässt sich nicht entpacken.`,
+      zipmethod: (n) => `${n}: unbekannte ZIP-Kompression.`, ziplen: (n) => `${n}: falsche Länge in der ZIP-Datei.`,
+      zipnofm1: "Die ZIP-Datei enthält keine .FM1-Datei.", noidb: "Dieser Browser hat keinen Speicher für die Bibliothek (IndexedDB).",
+      openfail: "Die Bibliothek ließ sich nicht öffnen." },
+  },
+};
+let lang = document.documentElement.lang === "de" ? "de" : "en", W = WORDS[lang];
+const fmtDate = (ms) => new Date(ms).toLocaleString(W.locale, { dateStyle: "medium", timeStyle: "short" });
+// an error (or an import's refusal: {why, code, args}) in the page's language; one without a code as it says itself
+const errText = (e) => { if (e.say) return W[e.say]; const f = e.code && W.err[e.code]; return typeof f === "function" ? f(...(e.args || [])) : f || e.why || e.message || String(e); };
+const coded = (code) => Object.assign(new Error(code), { code, args: [] });
+// the line under "Add": kept as what makes it, so it follows the language
+let status = { text: () => W.intro, err: false };
+const setStatus = (text, err = false) => { status = { text, err }; say($("status"), text(), err); };
+
+let store = null, recs = [];
+const wasmReady = fetch("felucca_bounce.wasm").then((r) => {
+  if (!r.ok) throw new Error(`felucca_bounce.wasm: ${r.status}`);
+  return r.arrayBuffer();
+}).then((b) => WebAssembly.compile(b));
+wasmReady.catch(() => {});
+
+// a job in a worker of its own (web/library/worker.js). on(message) returns true at the job's last message.
+// stop() ends it at once
+function job(m, on) {
+  const w = new Worker("worker.js", { type: "module" });
+  let stop;
+  const done = new Promise((ok, no) => {
+    stop = () => { w.terminate(); no(Object.assign(new Error("stopped"), { stopped: true })); };
+    w.onmessage = ({ data }) => {
+      if (data.type === "error") { w.terminate(); no(Object.assign(new Error(data.message), { code: data.code, args: data.args })); }
+      else if (on(data) === true) { w.terminate(); ok(); }
+    };
+    w.onerror = () => { w.terminate(); no(Object.assign(new Error("worker"), { say: "worker" })); };
+    wasmReady.then((wasm) => w.postMessage({ ...m, wasm }), () => no(Object.assign(new Error("wasm"), { say: "wasm" })));
+  });
+  done.catch(() => {});
+  return { done, stop };
+}
+const look = (bytes) => { let info; return job({ job: "inspect", bytes }, (d) => { info = d.info; return true; }).done.then(() => info); };
+// what a record plays: the mode chosen for it if the project has that, else what the FM-1 would (lib.js defaultMode:
+// its song, else its scenes in a row); for a SONG chain the other slots' files taken in with it (sib)
+const optsOf = (r) => {
+  const { sib, miss } = siblings(r, recs);
+  const has = (m) => m === SCENE || m === SCENES || (m === SSONG && r.info.has[0]) || (m === CHAIN && r.info.has[1]);
+  return { mode: r.mode >= 0 && has(r.mode) ? r.mode : defaultMode(r.info, miss.length), bars: r.bars || defaultBars(r.info), sib, miss };
+};
+const SLOTS = "ABCD";
+const jobOpts = (r) => { const { mode, bars, sib } = optsOf(r); return { mode, bars, sib }; };
+
+function download(blob, name) {
+  const u = URL.createObjectURL(blob), a = el("a", { href: u, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 60000);
+}
+const fm1File = (r) => new File([r.bytes], exportNames([r])[0], { type: "application/octet-stream" });
+const canShare = (() => { try { return !!navigator.canShare && navigator.canShare({ files: [new File([new Uint8Array(4)], "A.FM1", { type: "application/octet-stream" })] }); }
+                          catch { return false; } })();
+
+// ---- the player: the master as 16-bit pieces from the worker, scheduled a little ahead of the clock
+const SEG = 22050, AHEAD = 1.5, PEAK = 512;
+const P = { rec: null, ctx: null, rate: 44100, pcm: [], starts: [], frames: 0, done: false, planned: 0, peaks: [],
+            top: 0, playing: false, anchorT: 0, anchorF: 0, nextT: 0, nextF: 0, pos: 0, srcs: new Set(), job: null, err: null };
+
+function audio() {
+  if (!P.ctx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    try { P.ctx = new AC({ sampleRate: 44100, latencyHint: "playback" }); } catch { P.ctx = new AC(); }
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch { /* (iOS: sound with the mute switch on) */ }
+  }
+  if (P.ctx.state !== "running") P.ctx.resume().catch(() => {});
+  return P.ctx;
+}
+function copyOut(from, n, L, R) {
+  let lo = 0, hi = P.starts.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (P.starts[mid] <= from) lo = mid; else hi = mid - 1; }
+  for (let o = 0, k = lo; o < n; k++) {
+    const c = P.pcm[k], i0 = from + o - P.starts[k], m = Math.min(n - o, c.length / 2 - i0);
+    for (let i = 0; i < m; i++) { L[o + i] = c[2 * (i0 + i)] / 32768; R[o + i] = c[2 * (i0 + i) + 1] / 32768; }
+    o += m;
+  }
+}
+function silence() {
+  for (const s of P.srcs) { s.onended = null; try { s.stop(); } catch { /* not started */ } s.disconnect(); }
+  P.srcs.clear();
+}
+function schedule() {
+  if (!P.playing || !P.ctx) return;
+  const now = P.ctx.currentTime;
+  if (P.nextT < now + 0.02) {                             // the start, or the render fell behind: from here on
+    P.nextT = now + 0.06;
+    P.anchorT = P.nextT;
+    P.anchorF = P.nextF;
+  }
+  while (P.nextT < now + AHEAD && P.nextF < P.frames) {
+    const n = Math.min(SEG, P.frames - P.nextF), buf = P.ctx.createBuffer(2, n, P.rate);
+    copyOut(P.nextF, n, buf.getChannelData(0), buf.getChannelData(1));
+    const s = P.ctx.createBufferSource();
+    s.buffer = buf;
+    s.connect(P.ctx.destination);
+    s.start(P.nextT);
+    s.onended = () => { P.srcs.delete(s); s.disconnect(); };
+    P.srcs.add(s);
+    P.nextT += n / P.rate;
+    P.nextF += n;
+  }
+}
+const position = () => !P.playing || !P.ctx ? P.pos :
+  Math.max(P.anchorF, Math.min(P.nextF, P.anchorF + (P.ctx.currentTime - P.anchorT) * P.rate));
+function pause() {
+  if (!P.playing) return;
+  P.pos = position();
+  P.playing = false;
+  silence();
+}
+function resume() {
+  if (P.playing || !P.rec) return;
+  audio();
+  if (P.done && P.pos >= P.frames) P.pos = 0;
+  P.nextF = Math.floor(P.pos);
+  P.nextT = 0;
+  P.playing = true;
+  schedule();
+}
+function seek(frame) {
+  const f = Math.max(0, Math.min(P.frames, Math.floor(frame)));
+  if (P.playing) { silence(); P.nextF = f; P.nextT = 0; schedule(); } else P.pos = f;
+}
+function unload() {
+  if (P.job) P.job.stop();
+  silence();
+  Object.assign(P, { rec: null, pcm: [], starts: [], frames: 0, done: false, planned: 0, peaks: [], top: 0, playing: false,
+                     pos: 0, nextF: 0, nextT: 0, job: null, err: null });
+}
+// load a record into the player and start: its render begins, the sound follows as soon as the first piece is there
+function load(rec) {
+  unload();
+  audio();                                                // (inside the tap: iOS lets sound start only there)
+  P.rec = rec;
+  P.rate = rec.info.rate;
+  P.playing = true;
+  const mine = P.job = job({ job: "play", bytes: rec.bytes, opts: jobOpts(rec) }, (d) => {
+    if (P.job !== mine) return true;
+    if (d.type === "audio") {
+      P.starts.push(P.frames);
+      P.pcm.push(d.pcm);
+      for (let i = 0, f = P.frames; i < d.pcm.length; i += 2, f++) {
+        const k = (f / PEAK) | 0, v = Math.max(Math.abs(d.pcm[i]), Math.abs(d.pcm[i + 1]));
+        if (!(P.peaks[k] >= v)) P.peaks[k] = v;
+        if (v > P.top) P.top = v;
+      }
+      P.frames += d.pcm.length / 2;
+      P.planned = d.total;
+      schedule();
+    } else if (d.type === "done") {
+      P.done = true;
+      schedule();
+      return true;
+    }
+  });
+  mine.done.catch((err) => { if (P.job === mine && !err.stopped) { P.err = err; P.done = true; P.playing = false; silence(); } });
+  showPlayer();
+}
+setInterval(() => {
+  if (!P.rec) return;
+  schedule();
+  if (P.playing && P.done && position() >= P.frames) { P.playing = false; P.pos = P.frames; silence(); }
+}, 100);
+
+// ---- the player's bar
+const wave = $("wave"), g = wave.getContext("2d");
+function span() {                                          // the frames the bar stands for
+  if (P.done) return Math.max(1, P.frames);
+  return Math.max(1, P.frames, P.planned ? P.planned * P.rate / 1000 : 0);
+}
+function draw() {
+  const dpr = window.devicePixelRatio || 1, w = Math.round(wave.clientWidth * dpr), h = Math.round(wave.clientHeight * dpr);
+  if (!w || !h) return;
+  if (wave.width !== w || wave.height !== h) { wave.width = w; wave.height = h; }
+  const css = getComputedStyle(document.documentElement), total = span(), pos = position();
+  const cols = Math.floor(w / (3 * dpr)), bw = 2 * dpr, px = pos / total * cols;
+  const top = Math.max(P.top, 1024);                       // the loudest piece fills the height (a quiet project too)
+  g.clearRect(0, 0, w, h);
+  for (let x = 0; x < cols; x++) {
+    const a = Math.floor(x / cols * total / PEAK), b = Math.max(a + 1, Math.floor((x + 1) / cols * total / PEAK));
+    let v = -1;
+    for (let k = a; k < b && k < P.peaks.length; k++) if (P.peaks[k] > v) v = P.peaks[k];
+    const bar = v < 0 ? dpr : Math.max(dpr, v / top * (h - 2 * dpr));
+    g.fillStyle = css.getPropertyValue(v >= 0 && x < px ? "--acc" : v >= 0 ? "--rule-2" : "--rule");
+    g.fillRect(x * 3 * dpr, (h - bar) / 2, bw, bar);
+  }
+}
+function frame() {
+  if (P.rec) {
+    const secs = position() / P.rate, len = P.frames / P.rate;
+    $("pp").innerHTML = P.playing ? ICON.pause : ICON.play;
+    $("pp").setAttribute("aria-label", P.playing ? W.pause : W.play);
+    const t = `${fmtTime(secs)} / ${fmtTime(len)}`;
+    $("ptime").textContent = P.err ? errText(P.err) : P.done ? t : `${t} · ${W.rendering}`;
+    $("ptime").style.color = P.err ? "var(--warn)" : "";
+    wave.setAttribute("aria-valuemax", String(Math.round(len)));
+    wave.setAttribute("aria-valuenow", String(Math.round(secs)));
+    wave.setAttribute("aria-valuetext", t);
+    draw();
+  }
+  for (const a of document.querySelectorAll("#list article")) {
+    const on = P.rec && a.dataset.key === P.rec.key, b = a.querySelector(".play");
+    a.classList.toggle("on", !!on);
+    const icon = on && P.playing ? "pause" : "play";
+    if (b.dataset.icon !== icon) { b.dataset.icon = icon; b.innerHTML = ICON[icon]; }
+    b.setAttribute("aria-label", icon === "pause" ? W.pause : W.play);
+  }
+  requestAnimationFrame(frame);
+}
+function showPlayer() {
+  const r = P.rec, o = optsOf(r);
+  $("player").hidden = false;
+  document.body.classList.add("has-player");
+  $("ptitle").textContent = titleOf(r);
+  $("pclose").setAttribute("aria-label", W.close);
+  wave.setAttribute("aria-label", W.position);
+  $("pmodesel").setAttribute("aria-label", W.what);
+  $("pmodesel").replaceChildren(...[SSONG, CHAIN, SCENES, SCENE].map((i) =>
+    el("option", { value: String(i), textContent: W.modes[i], selected: i === o.mode,
+                   disabled: (i === SSONG && !r.info.has[0]) || (i === CHAIN && !r.info.has[1]) })));
+  $("pbars").value = o.bars;
+  $("pbarsl").hidden = o.mode !== SCENE;
+}
+function hidePlayer() {
+  unload();
+  $("player").hidden = true;
+  document.body.classList.remove("has-player");
+}
+$("pp").addEventListener("click", () => (P.playing ? pause() : resume()));
+$("pclose").addEventListener("click", hidePlayer);
+async function remode() {
+  const r = P.rec;
+  if (!r) return;
+  r.mode = +$("pmodesel").value;
+  r.bars = Math.max(1, Math.min(512, Math.round(+$("pbars").value) || defaultBars(r.info)));
+  await store.put(r).catch(() => {});
+  render();
+  load(r);
+}
+$("pmodesel").addEventListener("change", remode);
+$("pbars").addEventListener("change", remode);
+const seekAt = (e) => { const b = wave.getBoundingClientRect(); seek((e.clientX - b.left) / b.width * span()); };
+wave.addEventListener("pointerdown", (e) => { wave.setPointerCapture(e.pointerId); seekAt(e); });
+wave.addEventListener("pointermove", (e) => { if (e.buttons) seekAt(e); });
+wave.addEventListener("keydown", (e) => {
+  const d = { ArrowLeft: -5, ArrowRight: 5, Home: -1e9, End: 1e9 }[e.key];
+  if (d) { e.preventDefault(); seek(position() + d * P.rate); }
+  if (e.key === " " || e.key === "Enter") { e.preventDefault(); P.playing ? pause() : resume(); }
+});
+
+// ---- the list
+// the master of a record, whole: the player's if it holds this record's, else rendered now
+async function master(rec, row) {
+  if (P.rec === rec && P.done && !P.err) return { chunks: P.pcm, frames: P.frames, rate: P.rate };
+  const chunks = [];
+  let out;
+  await job({ job: "play", bytes: rec.bytes, opts: jobOpts(rec) }, (d) => {
+    if (d.type === "audio") { chunks.push(d.pcm); say(row, W.done(fmtTime(d.ms / 1000))); }
+    else if (d.type === "done") { out = { chunks, frames: d.frames, rate: d.rate }; return true; }
+  }).done;
+  return out;
+}
+function card(r) {
+  const o = optsOf(r), row = el("p", { className: "status" });
+  const meta = [W.slot(r), `${r.info.bpm} BPM`, o.mode === SCENE ? W.bars(o.bars) : o.mode === SCENES ? W.scenes(r.info.scenes || 1) : W.modes[o.mode],
+                fmtDate(r.added)].join(" · ");
+  const busy = async (btn, fn) => {
+    btn.disabled = true;
+    try { await fn(); } catch (err) { if (!err.stopped && err.name !== "AbortError") say(row, errText(err), true); }
+    btn.disabled = false;
+  };
+  const b = (text, cls, fn) => { const x = el("button", { className: cls, textContent: text }); x.addEventListener("click", () => busy(x, fn)); return x; };
+  const title = el("input", { type: "text", value: r.title, placeholder: r.name || r.file, maxLength: 60 });
+  const note = el("textarea", { value: r.note, maxLength: 500 });
+  const save = async () => { r.title = title.value.trim(); r.note = note.value.trim(); await store.put(r); render(r.key); if (P.rec === r) $("ptitle").textContent = titleOf(r); };
+  title.addEventListener("change", save);
+  note.addEventListener("change", save);
+  const play = el("button", { className: "play" });
+  play.addEventListener("click", () => { if (P.rec !== r) load(r); else if (P.playing) pause(); else resume(); });
+  const base = safeName(titleOf(r)).toUpperCase();
+  const acts = el("div", { className: "actions" },
+    b(W.saveFm1, "ghost", async () => download(new Blob([r.bytes], { type: "application/octet-stream" }), exportNames([r])[0])),
+    ...(canShare ? [b(W.share, "ghost", () => navigator.share({ files: [fm1File(r)], title: titleOf(r) }))] : []),
+    b(W.wav, "ghost", async () => {
+      say(row, W.boot);
+      const m = await master(r, row);
+      download(new Blob(wavOfPcm(m.chunks, m.frames, m.rate), { type: "audio/wav" }), `${base}_MIX.wav`);
+      say(row, W.wavDone(`${base}_MIX.wav`, fmtTime(m.frames / m.rate)));
+    }),
+    b(W.stems, "ghost", async () => {
+      say(row, W.boot);
+      let blob;
+      await job({ job: "stems", bytes: r.bytes, opts: jobOpts(r), base }, (d) => {
+        if (d.type === "progress") say(row, W.done(fmtTime(d.ms / 1000)));
+        else if (d.type === "zip") { blob = d.blob; return true; }
+      }).done;
+      download(blob, `${base}.zip`);
+      say(row, W.stemsDone(`${base}.zip`, fmtSize(blob.size)));
+    }),
+    b(W.del, "danger", async () => {
+      if (!confirm(W.delAsk(titleOf(r)))) return;
+      if (P.rec === r) hidePlayer();
+      await store.remove(r.key);
+      recs = recs.filter((x) => x !== r);
+      render();
+    }));
+  const more = el("details", {},
+    el("summary", { textContent: W.more }),
+    el("label", { className: "field" }, el("span", { textContent: W.ftitle }), title),
+    el("label", { className: "field" }, el("span", { textContent: W.fnote }), note),
+    el("div", { className: "chips" }, ...r.parts.map((x) => el("span", { className: "chip", textContent: `${x.tag} ${fmtSize(x.len)}` })),
+       el("span", { className: "chip", textContent: W.fw(r.fw || "?") }), el("span", { className: "chip", textContent: r.file })),
+    ...(r.fw && r.fw !== FW ? [el("p", { className: "hint", textContent:
+      W.fwHint(r.fw, FW) })] : []),
+    ...(r.info.has[1] && o.miss.length ? [el("p", { className: "hint chain", textContent:
+      W.chainHint(o.miss.map((k) => SLOTS[k]).join(", "), o.miss.map((k) => `PROJ_${SLOTS[k]}.FM1`).join(", ")) })] : []),
+    acts, row);
+  const a = el("article", {},
+    el("div", { className: "head" }, play,
+       el("div", { className: "what" }, el("p", { className: "name", textContent: titleOf(r) }),
+          el("p", { className: "meta", textContent: meta }),
+          ...(r.note ? [el("p", { className: "note", textContent: r.note })] : []))),
+    more);
+  a.dataset.key = r.key;
+  return a;
+}
+// the list again; keep: the key of a card whose "Mehr" stays open
+function render(keep) {
+  const open = new Set([...document.querySelectorAll("#list details[open]")].map((d) => d.parentElement.dataset.key));
+  if (keep) open.add(keep);
+  $("list").replaceChildren(...(recs.length ? recs.map((r) => {
+    const c = card(r);
+    if (open.has(r.key)) c.querySelector("details").open = true;
+    return c;
+  }) : [el("p", { className: "empty", textContent: W.empty })]));
+  $("backup").hidden = !recs.length;
+  $("count").textContent = recs.length ? String(recs.length).padStart(2, "0") : "";
+}
+
+// ---- in
+async function take(fileList) {
+  const files = [...fileList];
+  if (!files.length) return;
+  const n = files.length;
+  setStatus(() => W.check(n));
+  try {
+    const data = await Promise.all(files.map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })));
+    const r = await importFiles(store, data, look);
+    recs = await store.all();
+    render();
+    setStatus(() => [...(r.added.length ? [W.added(r.added.length, titleOf(r.added[0]))] : []),
+                     ...(r.known.length ? [W.known(r.known.length, r.known[0])] : []),
+                     ...r.bad.map((x) => `${x.name}: ${errText(x)}`)].join("\n") || W.nothing, !r.added.length && r.bad.length > 0);
+    if (r.added.length && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  } catch (err) {
+    setStatus(() => errText(err), true);
+  }
+}
+$("file").addEventListener("change", (e) => { take(e.target.files); e.target.value = ""; });
+$("pick").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } });
+addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("drag"); });
+addEventListener("dragleave", () => document.body.classList.remove("drag"));
+addEventListener("drop", (e) => { e.preventDefault(); document.body.classList.remove("drag"); take(e.dataTransfer.files); });
+$("zipall").addEventListener("click", () => {
+  const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  download(new Blob(libraryZip(recs), { type: "application/zip" }), `JAN3000-Library-${stamp}.zip`);
+});
+
+// ---- the language: the words above, the parts of the page marked data-l by the style sheet (html lang)
+function setLang(l) {
+  lang = l;
+  W = WORDS[l];
+  document.documentElement.lang = l;
+  document.title = W.title;
+  for (const b of document.querySelectorAll(".lang-sw button")) b.setAttribute("aria-pressed", String(b.dataset.lang === l));
+  say($("status"), status.text(), status.err);
+  render();
+  if (P.rec) showPlayer();
+}
+for (const b of document.querySelectorAll(".lang-sw button")) b.addEventListener("click", () => {
+  if (b.dataset.lang === lang) return;
+  setLang(b.dataset.lang);
+  try { localStorage.setItem("mvop1-manual-lang", lang); } catch { /* storage off: the choice lasts the visit */ }
+});
+setLang(lang);
+
+try {
+  store = openStore();
+  recs = await store.all();
+  render();
+} catch (err) {
+  setStatus(() => errText(err), true);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

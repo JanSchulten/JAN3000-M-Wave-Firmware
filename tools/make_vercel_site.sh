@@ -10,12 +10,23 @@
 # and with WITH_EXTRAS=1 (in the backlog for the alpha, docs/BACKLOG.md; the front page does not link them):
 #   site/bounce/      the offline bounce (web/bounce/build.sh)
 #   site/emu/         the browser emulator (web/emu/build.sh)
-# Run from anywhere (WITH_EXTRAS=1: after ./build.sh, with Emscripten (emcc) on the PATH); then commit site/.
+# and with WITH_LIBRARY=1 (the front page does not link it yet either: docs/BACKLOG.md):
+#   site/library/     the library (web/library/build.sh): .FM1 files kept in the browser, played and rendered there.
+#                     Without WITH_LIBRARY=1 a site/library that is there stays as it is (it needs Emscripten to make)
+# Run from anywhere (WITH_EXTRAS=1, WITH_LIBRARY=1: after ./build.sh, with Emscripten (emcc) on the PATH); then
+# commit site/.
 set -e
 cd "$(dirname "$0")/.."
 if [ "$WITH_EXTRAS" = 1 ]; then
     sh web/bounce/build.sh
     sh web/emu/build.sh
+fi
+KEEP=
+if [ "$WITH_LIBRARY" = 1 ]; then
+    sh web/library/build.sh
+elif [ -d site/library ]; then
+    KEEP=$(mktemp -d)
+    mv site/library "$KEEP/library"
 fi
 VERSION=$(sed -n 's/^#define FELUCCA_VERSION "\([^"]*\)".*/\1/p' firmware/src/felucca.c)
 JAN=$(sed -n 's/^#define JAN_VERSION "\([^"]*\)".*/\1/p' firmware/src/ui_draw.c)
@@ -24,6 +35,13 @@ mkdir -p site
 if [ "$WITH_EXTRAS" = 1 ]; then
     cp -R build/bounce site/bounce
     cp -R build/emu site/emu
+fi
+if [ "$WITH_LIBRARY" = 1 ]; then
+    cp -R build/library site/library
+elif [ -n "$KEEP" ]; then
+    mv "$KEEP/library" site/library
+    rmdir "$KEEP"
+    echo "site: site/library kept as it was (WITH_LIBRARY=1 makes it again)"
 fi
 sed -e "s/@VERSION@/$VERSION/g" -e "s/@JAN@/$JAN/g" web/site/index.html > site/index.html
 mkdir -p site/manual

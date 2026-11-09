@@ -26,6 +26,10 @@ function crc32Parts(parts) {
   return (c ^ 0xFFFFFFFF) >>> 0;
 }
 
+// an error with its message (German, as web/bounce's page) and a code and its values, for a page in another language
+// (web/library: its own words by the code)
+const fail = (code, message, args = []) => Object.assign(new Error(message), { code, args });
+
 export const SLOT_NAMES = ["A", "B", "C", "D", "CURRENT"];
 const cstr = (b) => { const z = b.indexOf(0); return new TextDecoder("latin1").decode(z < 0 ? b : b.subarray(0, z)); };
 
@@ -34,25 +38,25 @@ const cstr = (b) => { const z = b.indexOf(0); return new TextDecoder("latin1").d
 export function parseFM1(bytes) {
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
-  if (u8.length < 64 || cstr(u8.subarray(0, 4)) !== "FM1X") throw new Error("Keine .FM1-Datei (FM1X fehlt).");
+  if (u8.length < 64 || cstr(u8.subarray(0, 4)) !== "FM1X") throw fail("notfm1", "Keine .FM1-Datei (FM1X fehlt).");
   const ver = dv.getUint16(4, true), n = dv.getUint16(6, true), size = dv.getUint32(8, true), slot = u8[12];
-  if (ver !== 1) throw new Error(`FM1X Version ${ver}: diese Seite kennt nur Version 1.`);
-  if (size !== u8.length) throw new Error(`Die Datei ist unvollständig (${u8.length} von ${size} Bytes).`);
-  if (n < 1 || n > 16 || slot > 4) throw new Error("Der Kopf der Datei ist beschädigt.");
+  if (ver !== 1) throw fail("version", `FM1X Version ${ver}: diese Seite kennt nur Version 1.`, [ver]);
+  if (size !== u8.length) throw fail("short", `Die Datei ist unvollständig (${u8.length} von ${size} Bytes).`, [u8.length, size]);
+  if (n < 1 || n > 16 || slot > 4) throw fail("head", "Der Kopf der Datei ist beschädigt.");
   const table = u8.subarray(64, 64 + 16 * n);
-  if (crc32(table) !== dv.getUint32(48, true)) throw new Error("Das Inhaltsverzeichnis der Datei ist beschädigt.");
+  if (crc32(table) !== dv.getUint32(48, true)) throw fail("table", "Das Inhaltsverzeichnis der Datei ist beschädigt.");
   const entries = [];
   let at = 64 + 16 * n;
   for (let i = 0; i < n; i++) {
     const tag = cstr(table.subarray(16 * i, 16 * i + 4)), off = dv.getUint32(64 + 16 * i + 4, true);
     const len = dv.getUint32(64 + 16 * i + 8, true), crc = dv.getUint32(64 + 16 * i + 12, true);
-    if (off + len > 0x100000 || at + len > u8.length) throw new Error(`${tag}: liegt außerhalb.`);
+    if (off + len > 0x100000 || at + len > u8.length) throw fail("outside", `${tag}: liegt außerhalb.`, [tag]);
     const data = u8.subarray(at, at + len);
-    if (crc32(data) !== crc) throw new Error(`${tag}: Prüfsumme falsch, die Datei ist beschädigt.`);
+    if (crc32(data) !== crc) throw fail("crc", `${tag}: Prüfsumme falsch, die Datei ist beschädigt.`, [tag]);
     entries.push({ tag, off, len, data });
     at += (len + 3) & ~3;
   }
-  if (!entries.length || entries[0].tag !== "PROJ") throw new Error("Die Datei enthält kein Projekt.");
+  if (!entries.length || entries[0].tag !== "PROJ") throw fail("noproj", "Die Datei enthält kein Projekt.");
   return { slot, slotName: SLOT_NAMES[slot], fw: cstr(u8.subarray(16, 32)), name: cstr(u8.subarray(32, 48)), entries };
 }
 
@@ -67,37 +71,52 @@ const BOOT_MS = 1500;                                     // the splash and the 
 const SLICE_MS = 64;                                      // a slice (bounce_run): 64 ms of the device, < BN_CAP frames
 export const STEMS = ["MIX", "T1", "T2", "T3", "T4", "FX"];
 
-// boot a fresh instance with fm1's flash, load its project: {ex, rate, bpm, loopMs, has: [pattern, scene song, chain]}
-export function prepare(ex, fm1) {
+// boot a fresh instance with fm1's flash, load its project: {ex, rate, bpm, loopMs, has: [scene song, chain], scenes:
+// how many scenes hold something, chain: {need, miss}: the project slots (bit s: A + s) the SONG chain plays, and of
+// those the ones with no project here}. others: more parsed .FM1 files whose flash goes in first (the projects of the
+// other slots, which a SONG chain plays: a .FM1 file holds its own slot's only)
+export function prepare(ex, fm1, others = []) {
   ex._initialize();
   ex.web_nor_erase();
   const nor = new Uint8Array(ex.memory.buffer, ex.web_nor(), ex.web_nor_size());
+  for (const o of others) for (const e of o.entries) nor.set(e.data, e.off);
   for (const e of fm1.entries) nor.set(e.data, e.off);
   ex.web_seed(1);
   ex.web_master(1023);
   ex.web_boot();
   ex.bounce_gather(0);
   for (let t = 0; t < BOOT_MS; t += SLICE_MS) ex.bounce_run(SLICE_MS);
-  if (!ex.bounce_load(fm1.slot)) throw new Error("Das Projekt ließ sich nicht laden.");
+  if (!ex.bounce_load(fm1.slot)) throw fail("load", "Das Projekt ließ sich nicht laden.");
   for (let t = 0; t < 200; t += SLICE_MS) ex.bounce_run(SLICE_MS);
   return { ex, rate: ex.web_sample_rate(), bpm: ex.bounce_bpm10() / 10, loopMs: ex.bounce_loop_ms(),
-           has: [1, 2].map((m) => !!ex.bounce_has(m)) };
+           has: [1, 2].map((m) => !!ex.bounce_has(m)), scenes: ex.bounce_scenes().toString(2).replace(/0/g, "").length,
+           chain: { need: ex.bounce_chain(0), miss: ex.bounce_chain(1) } };
 }
 
-// play and gather: mode 0 the scene (maxMs long), 1 the scene song to its end, 2 the SONG chain (to its end, or maxMs);
+// play and gather: mode 0 the scene (maxMs long), 1 the scene song to its end, 2 the SONG chain (to its end, or maxMs),
+// 3 every scene that holds something, one after another, one pass each (to the end of the last);
 // then tailMs of the tails (ended early once the master has been silent for 0.5 s). onProgress(ms done, ms planned)
-// may return a promise (the page yields there). Returns {rate, frames, chunks: [stem][Float32Array interleaved]}
-export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stems = true, onProgress } = {}) {
+// may return a promise (the page yields there). Returns {rate, frames, chunks: [stem][Float32Array interleaved]}.
+// With sink(stem, Float32Array) each slice is handed over as it is made and not kept (web/library plays it meanwhile):
+// chunks comes back empty
+export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stems = true, onProgress, sink } = {}) {
   const { ex, rate } = prep;
   const chunks = STEMS.map(() => []);
-  let frames = 0, ms = 0, stopped = false, quiet = 0, tail = 0;
-  if (!ex.bounce_play(mode)) throw new Error(mode === 1 ? "Das Projekt hat keinen Szenen-Song." :
-                                             mode === 2 ? "Das Projekt hat keine Song-Kette." : "PLAY ging nicht.");
+  let frames = 0, ms = 0, stopped = false, quiet = 0, tail = 0, last = null;
+  if (mode === 2 && prep.has[1] && prep.chain.miss) {      // (the FM-1 says PATTERN x EMPTY and does not start)
+    const slots = [0, 1, 2, 3].filter((k) => prep.chain.miss >> k & 1).map((k) => SLOT_NAMES[k]).join(", ");
+    throw fail("chainmiss", `Die Song-Kette spielt Projekt ${slots}: nicht in dieser Datei.`, [slots]);
+  }
+  if (!ex.bounce_play(mode)) throw mode === 1 ? fail("nosong", "Das Projekt hat keinen Szenen-Song.") :
+                              mode === 2 ? fail("nochain", "Das Projekt hat keine Song-Kette.") : fail("noplay", "PLAY ging nicht.");
   ex.bounce_gather(1);
   const take = () => {
     const n = ex.bounce_take();
-    for (let s = 0; s < (stems ? STEMS.length : 1); s++)
-      chunks[s].push(new Float32Array(ex.memory.buffer, ex.bounce_buf(s), 2 * n).slice());
+    for (let s = 0; s < (stems ? STEMS.length : 1); s++) {
+      const c = new Float32Array(ex.memory.buffer, ex.bounce_buf(s), 2 * n).slice();
+      if (!s) last = c;
+      if (sink) sink(s, c); else chunks[s].push(c);
+    }
     frames += n;
     return n;
   };
@@ -109,7 +128,6 @@ export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stem
       stopped = true;
       ex.bounce_stop();
     } else if (stopped) {
-      const last = chunks[0][chunks[0].length - 1];
       let peak = 0;
       for (let i = 0; i < last.length; i++) peak = Math.max(peak, Math.abs(last[i]));
       quiet = peak < 1 / 32768 ? quiet + SLICE_MS : 0;
@@ -117,13 +135,13 @@ export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stem
       if (tail >= tailMs || quiet >= 500) break;
     }
     if (onProgress) await onProgress(ms, stopped ? ms : Math.max(maxMs, ms) + tailMs);
-    if (!n && ms > maxMs + 600000) throw new Error("Das Gerät gibt keinen Ton mehr aus.");
+    if (!n && ms > maxMs + 600000) throw fail("silent", "Das Gerät gibt keinen Ton mehr aus.");
   }
   ex.bounce_gather(0);
   return { rate, frames, chunks: stems ? chunks : [chunks[0]] };
 }
 
-function wavHeader(frames, rate, float) {
+export function wavHeader(frames, rate, float) {
   const bps = float ? 4 : 2, data = frames * 2 * bps, h = new DataView(new ArrayBuffer(44));
   const s = (o, t) => { for (let i = 0; i < 4; i++) h.setUint8(o + i, t.charCodeAt(i)); };
   s(0, "RIFF"); h.setUint32(4, 36 + data, true); s(8, "WAVE"); s(12, "fmt ");
