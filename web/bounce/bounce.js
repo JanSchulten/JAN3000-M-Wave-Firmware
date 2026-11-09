@@ -86,18 +86,23 @@ export function prepare(ex, fm1) {
 
 // play and gather: mode 0 the scene (maxMs long), 1 the scene song to its end, 2 the SONG chain (to its end, or maxMs);
 // then tailMs of the tails (ended early once the master has been silent for 0.5 s). onProgress(ms done, ms planned)
-// may return a promise (the page yields there). Returns {rate, frames, chunks: [stem][Float32Array interleaved]}
-export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stems = true, onProgress } = {}) {
+// may return a promise (the page yields there). Returns {rate, frames, chunks: [stem][Float32Array interleaved]}.
+// With sink(stem, Float32Array) each slice is handed over as it is made and not kept (web/library plays it meanwhile):
+// chunks comes back empty
+export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stems = true, onProgress, sink } = {}) {
   const { ex, rate } = prep;
   const chunks = STEMS.map(() => []);
-  let frames = 0, ms = 0, stopped = false, quiet = 0, tail = 0;
+  let frames = 0, ms = 0, stopped = false, quiet = 0, tail = 0, last = null;
   if (!ex.bounce_play(mode)) throw new Error(mode === 1 ? "Das Projekt hat keinen Szenen-Song." :
                                              mode === 2 ? "Das Projekt hat keine Song-Kette." : "PLAY ging nicht.");
   ex.bounce_gather(1);
   const take = () => {
     const n = ex.bounce_take();
-    for (let s = 0; s < (stems ? STEMS.length : 1); s++)
-      chunks[s].push(new Float32Array(ex.memory.buffer, ex.bounce_buf(s), 2 * n).slice());
+    for (let s = 0; s < (stems ? STEMS.length : 1); s++) {
+      const c = new Float32Array(ex.memory.buffer, ex.bounce_buf(s), 2 * n).slice();
+      if (!s) last = c;
+      if (sink) sink(s, c); else chunks[s].push(c);
+    }
     frames += n;
     return n;
   };
@@ -109,7 +114,6 @@ export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stem
       stopped = true;
       ex.bounce_stop();
     } else if (stopped) {
-      const last = chunks[0][chunks[0].length - 1];
       let peak = 0;
       for (let i = 0; i < last.length; i++) peak = Math.max(peak, Math.abs(last[i]));
       quiet = peak < 1 / 32768 ? quiet + SLICE_MS : 0;
@@ -123,7 +127,7 @@ export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stem
   return { rate, frames, chunks: stems ? chunks : [chunks[0]] };
 }
 
-function wavHeader(frames, rate, float) {
+export function wavHeader(frames, rate, float) {
   const bps = float ? 4 : 2, data = frames * 2 * bps, h = new DataView(new ArrayBuffer(44));
   const s = (o, t) => { for (let i = 0; i < 4; i++) h.setUint8(o + i, t.charCodeAt(i)); };
   s(0, "RIFF"); h.setUint32(4, 36 + data, true); s(8, "WAVE"); s(12, "fmt ");

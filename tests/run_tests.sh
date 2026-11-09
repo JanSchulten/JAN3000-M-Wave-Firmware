@@ -225,6 +225,10 @@
 #                   FX_PART_TAP / FX_MIX_TAP); tests/vdisk_test.c's .FM1 files checked (a byte changed, cut short: refused),
 #                   loaded (a slot, the autosave), bounced for 2 bars: the master and T1 sound, the empty tracks silent,
 #                   the stems add up to the master below its limiter, twice the same samples; the WAVs and the ZIP.
+# Library (web/library, M-Vave-OP1, with the offline bounce): .FM1 files and ZIPs of them (stored, deflated) taken in:
+#                   checked, looked at by the firmware, none twice, a damaged one refused and the rest kept; the names
+#                   out; the library's ZIP back into an empty one; the master handed over in pieces while it is made:
+#                   the WAV byte for byte the bounce's. (The page itself: web/library/page_test.mjs, by hand.)
 # Browser emulator (web/emu, when emcc is there): the firmware in WebAssembly (build/emu) boots, plays keys and MIDI,
 #                   draws, lights its LEDs, keeps a save across instances, plays a song bit for bit as the same file
 #                   built with cc (web/emu/native_check.c); the cost of 1 s of a heavy song against real time.
@@ -679,6 +683,8 @@ else
         sh web/bounce/build.sh
     run "offline bounce: USB DISK's .FM1 files read, loaded, bounced (master + stems, = twice), WAV and ZIP" \
         node web/bounce/bounce_test.mjs build/bounce/felucca_bounce.wasm build/vdisk/files
+    run "library: .FM1 files and ZIPs taken in (none twice, damaged ones refused), the master handed over while made = the bounce's" \
+        node web/library/library_test.mjs build/bounce/felucca_bounce.wasm build/vdisk/files
 fi
 
 [ $fail -eq 0 ] && echo "ALL HOST TESTS PASSED" || { echo "HOST TESTS FAILED"; exit 1; }

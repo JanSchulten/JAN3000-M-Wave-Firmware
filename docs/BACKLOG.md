@@ -15,6 +15,7 @@ before the alpha; English ids `st-browser`, `sv-disk`, `sv-editor`, German `de-s
 | **Editor without a device** (NO DEVICE: the firmware as WebAssembly inside the editor) | ZIP, guide, README | `web/emu/` | `WITH_EDITOR=1` with Emscripten on the PATH | Comes with the editor. |
 | **Browser emulator** (the panel on screen, played with mouse, touch and keyboard) | site, guide, README | `web/emu/`, `web/lab/` | `WITH_EXTRAS=1 sh tools/make_vercel_site.sh` (after `./build.sh`, with emsdk) and a card on `web/site/index.html` | A decision which page is the public one (`site/emu` or `web/lab` with its guided workflows, German only). |
 | **Bounce** (a `.FM1` file to WAV, offline) | site, README | `web/bounce/` | `WITH_EXTRAS=1 sh tools/make_vercel_site.sh` and a card on `web/site/index.html` | USB DISK (it reads its files). |
+| **Library** (the `.FM1` files kept in the browser, played while the firmware renders them, out again as `.FM1`, WAV, stems, one ZIP) | site, README | `web/library/` (on `web/bounce/`) | `WITH_LIBRARY=1 sh tools/make_vercel_site.sh` (`site/library/` is in the tree, not linked) and a card on `web/site/index.html` | USB DISK (it reads its files); an iPhone and a computer have not opened the page with a real FM-1's file yet. |
 | **USB DISK** (the projects as files, read-only) | guide, README | `firmware/src/usbdisk.c`, `tests/vdisk_test.c` | Already in the firmware (MENU > SYSTEM > USB DISK, `FELUCCA_DISK`); only the description is out | A phone and a computer have not seen the drive yet: test both, then the guide's section back. |
 | **FLUTE and SAX slot files** | ZIP, guide, README | `dist/samples/*.slot`, `tools/gen_samples.py --user-slot` | `WITH_EDITOR=1` (the ZIP's `samples/`) | The editor (its Samples tab writes them into USR1). |
 | **Own samples into USR1, FM6 voice bank B1–B32** | guide | the editor; `tools/fm1_sample_upload.py` | with the editor | The guide now says these come with a later release. |
@@ -69,6 +70,20 @@ mix, and the FX buses' returns with the FX layer's punch-ins; together they make
 one or as a ZIP, or shared into the Files app on a phone. What it plays: the scene (so many bars), the scene song to
 its end, or the SONG chain. Each bounce boots a fresh FM-1: the same file gives the same samples every time (chance and
 RANDOM fall the same way each time, not as a particular run on the device did).
+
+### Library: the projects kept, heard and rendered in the browser
+
+`web/library` is the page for the `.FM1` files of USB DISK (above): pick them (or drop them, or a ZIP of them) and they
+are kept in that browser (IndexedDB: on that device only, no account, nothing sent anywhere), listed with what the
+firmware says of each (slot, tempo, length). A tap plays one: the FM-1's own firmware (the bounce's WebAssembly) renders
+it in a worker and the master is played while it is made, a waveform to seek in; the scene (so many bars), the scene
+song or the SONG chain. Out again: the `.FM1` as it came (or shared into the Files app), the master as a WAV (byte for
+byte the bounce's), the stems as a ZIP, the whole library as one ZIP, which the page takes back in on any device (the
+way from a phone to a computer: there is no sync). A file is known by its bytes: the same project is not kept twice. A
+title and a note can be given to each. What is not there: putting a file back onto the FM-1 (the drive is read-only;
+over USB that is the editor's backup, Chrome and Edge only), and the page offline (no service worker yet).
+`web/library/library_test.mjs` is in `tests/run_tests.sh` (when emcc is there); `web/library/page_test.mjs` drives the
+built page in a browser (Playwright, by hand).
 
 The site (front page, bounce, emulator) is static: `sh tools/make_vercel_site.sh` (after `./build.sh`, with the
 emsdk) builds it into `site/`, which is committed; `vercel.json` serves `site/` as it is (no build on Vercel, which has

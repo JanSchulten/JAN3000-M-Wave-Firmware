@@ -1,0 +1,513 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Copyright (C) 2026 M-Vave-OP1 contributors
+     M-Vave-OP1's library: the .FM1 files of MENU > USB DISK kept in this browser (IndexedDB: on this device, nothing is
+     sent anywhere), listened to (the FM-1's own firmware as WebAssembly renders a file in a worker, the master is
+     played while it is made) and handed out again: the file as it came, the master as a WAV, the stems as a ZIP, the
+     whole library as one ZIP (which this page takes back in, on this device or another). lib.js does the work,
+     worker.js runs the firmware; this page is the list and the player. In German, as web/bounce. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JAN3000 Bibliothek</title>
+<meta name="description" content="Projekte vom M-VAVE FM-1 (JAN3000, based on Felucca) sichern, anhören und als WAV rendern: lokal im Browser, ohne Konto.">
+<meta name="theme-color" content="#101312">
+<style>
+:root { --bg: #f4f5f2; --card: #ffffff; --text: #161a18; --mid: #5d6661; --line: #dde1dc; --accent: #12a150;
+        --accent-ink: #ffffff; --warn: #b3261e; --field: #eef0ec; --wave: #b9c1bb; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #101312; --card: #191d1b; --text: #e9ece9; --mid: #9aa39e; --line: #2a302d;
+                                    --accent: #3ddc84; --accent-ink: #06210f; --warn: #ff8a80; --field: #222825;
+                                    --wave: #4a544e; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #101312; --card: #191d1b; --text: #e9ece9; --mid: #9aa39e; --line: #2a302d;
+                           --accent: #3ddc84; --accent-ink: #06210f; --warn: #ff8a80; --field: #222825; --wave: #4a544e;
+                           color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 640px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 40px; }
+body.has-player main { padding-bottom: calc(190px + env(safe-area-inset-bottom)); }
+h1 { font-size: 28px; line-height: 1.2; margin: 8px 0 2px; letter-spacing: -0.01em; }
+h1 span { color: var(--accent); }
+.sub { color: var(--mid); margin: 0 0 20px; }
+section, article { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 0 0 14px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--mid); margin: 0 0 12px; font-weight: 600; }
+button, .btn { appearance: none; border: 0; border-radius: 10px; padding: 12px 16px; font: inherit; font-weight: 600;
+               background: var(--accent); color: var(--accent-ink); cursor: pointer; text-decoration: none;
+               display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; }
+button.ghost, .btn.ghost { background: var(--field); color: var(--text); }
+button.danger { background: var(--field); color: var(--warn); }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, .btn:focus-visible, summary:focus-visible, canvas:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wide { width: 100%; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.actions { display: grid; gap: 10px; grid-template-columns: 1fr; margin-top: 12px; }
+@media (min-width: 480px) { .actions { grid-template-columns: 1fr 1fr; } }
+.status { color: var(--mid); font-size: 14px; min-height: 21px; margin: 10px 0 0; overflow-wrap: anywhere; white-space: pre-line; }
+.status.err { color: var(--warn); }
+body.drag section#add { border-color: var(--accent); }
+.empty { color: var(--mid); text-align: center; padding: 28px 8px; }
+article { padding: 12px 16px; }
+article.on { border-color: var(--accent); }
+.head { display: flex; align-items: center; gap: 12px; }
+.play { flex: none; width: 46px; height: 46px; min-height: 0; padding: 0; border-radius: 50%; }
+.play svg, .pp svg { width: 18px; height: 18px; fill: currentColor; }
+.what { flex: 1; min-width: 0; }
+.name { font-size: 18px; font-weight: 700; margin: 0; overflow-wrap: anywhere; line-height: 1.25; }
+.meta { color: var(--mid); font-size: 13px; margin: 2px 0 0; font-variant-numeric: tabular-nums; }
+.note { font-size: 14px; margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-line; }
+details { margin-top: 8px; border-top: 1px solid var(--line); }
+summary { cursor: pointer; color: var(--mid); font-size: 14px; padding: 10px 0 2px; list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: " ▾"; }
+details[open] summary::after { content: " ▴"; }
+.field { display: block; margin-top: 10px; }
+.field span { display: block; color: var(--mid); font-size: 13px; margin-bottom: 4px; }
+input[type=text], input[type=number], textarea, select { width: 100%; padding: 10px; font: inherit; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--field); color: var(--text); }
+textarea { resize: vertical; min-height: 64px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip { background: var(--field); border-radius: 999px; padding: 2px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.hint { color: var(--mid); font-size: 13px; margin: 10px 0 0; }
+#player { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line);
+          padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+#player > div { max-width: 640px; margin: 0 auto; }
+.prow { display: flex; align-items: center; gap: 12px; }
+.pp { flex: none; width: 46px; height: 46px; min-height: 0; padding: 0; border-radius: 50%; }
+.ptitle { flex: 1; min-width: 0; }
+.ptitle b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptitle small { color: var(--mid); font-variant-numeric: tabular-nums; }
+canvas { display: block; width: 100%; height: 56px; margin: 8px 0; cursor: pointer; touch-action: none; border-radius: 6px; }
+.pmode { display: flex; gap: 10px; align-items: center; }
+.pmode select { flex: 1; min-width: 0; padding: 8px 10px; }
+.pmode label { color: var(--mid); font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.pmode input { width: 76px; padding: 8px 10px; }
+footer { color: var(--mid); font-size: 13px; margin-top: 22px; }
+footer a { color: inherit; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>JAN3000 <span>Bibliothek</span></h1>
+  <p class="sub">Projekte vom M-VAVE FM-1 sichern, anhören und als WAV rendern. Alles bleibt auf diesem Gerät: kein
+    Konto, kein Upload.</p>
+
+  <section id="add">
+    <h2>Hinzufügen</h2>
+    <label class="btn wide" for="file" id="pick" tabindex="0" role="button">.FM1-Dateien wählen</label>
+    <input id="file" type="file" multiple accept=".fm1,.FM1,.zip,application/zip,application/octet-stream" tabindex="-1">
+    <p class="status" id="status">Am FM-1: MENU › SYSTEM › USB DISK, dann die Dateien vom Laufwerk „FM-1“ hier wählen
+      (CURRENT.FM1 ist der Stand von gerade eben). Auch eine ZIP-Sicherung dieser Seite geht.</p>
+  </section>
+
+  <div id="list" aria-live="polite"></div>
+
+  <section id="backup" hidden>
+    <h2>Sicherung</h2>
+    <button class="ghost wide" id="zipall">Alle Projekte als ZIP sichern</button>
+    <p class="hint">Die Bibliothek liegt im Speicher dieses Browsers. Der kann verloren gehen (Browserdaten gelöscht,
+      Seite lange nicht geöffnet): bewahre die ZIP-Datei oder die .FM1-Dateien zusätzlich auf. Die ZIP-Datei lässt
+      sich auf jedem Gerät oben wieder hinzufügen.</p>
+  </section>
+
+  <footer>
+    JAN3000 @JAN@, based on <a href="https://github.com/hugelton/Felucca">Felucca</a> @VERSION@ by Leo Kuroshita
+    (Hügelton Instruments), GPL-3.0-only. Quelltext: <a href="https://github.com/JanSchulten/JAN3000-M-Wave-Firmware">github.com/JanSchulten/JAN3000-M-Wave-Firmware</a>.
+    Was du hörst, rechnet die Firmware des FM-1 hier im Browser: der Mix, wie ihn das Gerät über USB-Audio ausgibt
+    (44,1 kHz). Zufall fällt bei jedem Rendern gleich.
+  </footer>
+</main>
+
+<div id="player" hidden>
+  <div>
+    <div class="prow">
+      <button class="pp" id="pp" aria-label="Wiedergabe"></button>
+      <div class="ptitle"><b id="ptitle"></b><small id="ptime"></small></div>
+      <button class="ghost" id="pclose" aria-label="Player schließen">✕</button>
+    </div>
+    <canvas id="wave" tabindex="0" role="slider" aria-label="Position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></canvas>
+    <div class="pmode">
+      <select id="pmodesel" aria-label="Was spielen"></select>
+      <label id="pbarsl">Takte <input id="pbars" type="number" min="1" max="512" inputmode="numeric"></label>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { MODES, openStore, importFiles, titleOf, defaultMode, defaultBars, wavOfPcm, libraryZip, exportNames,
+         safeName } from "./lib.js";
+
+const $ = (id) => document.getElementById(id);
+const FW = "@VERSION@";
+const ICON = { play: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 2l12 7-12 7z"/></svg>',
+               pause: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 2h4v14H3zM11 2h4v14h-4z"/></svg>' };
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+const fmtSize = (n) => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.ceil(n / 1024))} KB`;
+const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const fmtDate = (ms) => new Date(ms).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+const say = (node, t, err) => { node.textContent = t; node.classList.toggle("err", !!err); };
+
+let store = null, recs = [];
+const wasmReady = fetch("felucca_bounce.wasm").then((r) => {
+  if (!r.ok) throw new Error(`felucca_bounce.wasm: ${r.status}`);
+  return r.arrayBuffer();
+}).then((b) => WebAssembly.compile(b));
+wasmReady.catch(() => {});
+
+// a job in a worker of its own (web/library/worker.js). on(message) returns true at the job's last message.
+// stop() ends it at once
+function job(m, on) {
+  const w = new Worker("worker.js", { type: "module" });
+  let stop;
+  const done = new Promise((ok, no) => {
+    stop = () => { w.terminate(); no(Object.assign(new Error("stopped"), { stopped: true })); };
+    w.onmessage = ({ data }) => {
+      if (data.type === "error") { w.terminate(); no(new Error(data.message)); }
+      else if (on(data) === true) { w.terminate(); ok(); }
+    };
+    w.onerror = (e) => { w.terminate(); no(new Error(e.message || "Der Rechen-Worker ließ sich nicht starten.")); };
+    wasmReady.then((wasm) => w.postMessage({ ...m, wasm }),
+                   () => no(new Error("Die Firmware (felucca_bounce.wasm) ließ sich nicht laden.")));
+  });
+  done.catch(() => {});
+  return { done, stop };
+}
+const look = (bytes) => { let info; return job({ job: "inspect", bytes }, (d) => { info = d.info; return true; }).done.then(() => info); };
+const optsOf = (r) => {
+  const mode = r.mode === 0 || (r.mode > 0 && r.info.has[r.mode - 1]) ? r.mode : defaultMode(r.info);
+  return { mode, bars: r.bars || defaultBars(r.info) };
+};
+
+function download(blob, name) {
+  const u = URL.createObjectURL(blob), a = el("a", { href: u, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 60000);
+}
+const fm1File = (r) => new File([r.bytes], exportNames([r])[0], { type: "application/octet-stream" });
+const canShare = (() => { try { return !!navigator.canShare && navigator.canShare({ files: [new File([new Uint8Array(4)], "A.FM1", { type: "application/octet-stream" })] }); }
+                          catch { return false; } })();
+
+// ---- the player: the master as 16-bit pieces from the worker, scheduled a little ahead of the clock
+const SEG = 22050, AHEAD = 1.5, PEAK = 512;
+const P = { rec: null, ctx: null, rate: 44100, pcm: [], starts: [], frames: 0, done: false, planned: 0, peaks: [],
+            top: 0, playing: false, anchorT: 0, anchorF: 0, nextT: 0, nextF: 0, pos: 0, srcs: new Set(), job: null, err: "" };
+
+function audio() {
+  if (!P.ctx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    try { P.ctx = new AC({ sampleRate: 44100, latencyHint: "playback" }); } catch { P.ctx = new AC(); }
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch { /* (iOS: sound with the mute switch on) */ }
+  }
+  if (P.ctx.state !== "running") P.ctx.resume().catch(() => {});
+  return P.ctx;
+}
+function copyOut(from, n, L, R) {
+  let lo = 0, hi = P.starts.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (P.starts[mid] <= from) lo = mid; else hi = mid - 1; }
+  for (let o = 0, k = lo; o < n; k++) {
+    const c = P.pcm[k], i0 = from + o - P.starts[k], m = Math.min(n - o, c.length / 2 - i0);
+    for (let i = 0; i < m; i++) { L[o + i] = c[2 * (i0 + i)] / 32768; R[o + i] = c[2 * (i0 + i) + 1] / 32768; }
+    o += m;
+  }
+}
+function silence() {
+  for (const s of P.srcs) { s.onended = null; try { s.stop(); } catch { /* not started */ } s.disconnect(); }
+  P.srcs.clear();
+}
+function schedule() {
+  if (!P.playing || !P.ctx) return;
+  const now = P.ctx.currentTime;
+  if (P.nextT < now + 0.02) {                             // the start, or the render fell behind: from here on
+    P.nextT = now + 0.06;
+    P.anchorT = P.nextT;
+    P.anchorF = P.nextF;
+  }
+  while (P.nextT < now + AHEAD && P.nextF < P.frames) {
+    const n = Math.min(SEG, P.frames - P.nextF), buf = P.ctx.createBuffer(2, n, P.rate);
+    copyOut(P.nextF, n, buf.getChannelData(0), buf.getChannelData(1));
+    const s = P.ctx.createBufferSource();
+    s.buffer = buf;
+    s.connect(P.ctx.destination);
+    s.start(P.nextT);
+    s.onended = () => { P.srcs.delete(s); s.disconnect(); };
+    P.srcs.add(s);
+    P.nextT += n / P.rate;
+    P.nextF += n;
+  }
+}
+const position = () => !P.playing || !P.ctx ? P.pos :
+  Math.max(P.anchorF, Math.min(P.nextF, P.anchorF + (P.ctx.currentTime - P.anchorT) * P.rate));
+function pause() {
+  if (!P.playing) return;
+  P.pos = position();
+  P.playing = false;
+  silence();
+}
+function resume() {
+  if (P.playing || !P.rec) return;
+  audio();
+  if (P.done && P.pos >= P.frames) P.pos = 0;
+  P.nextF = Math.floor(P.pos);
+  P.nextT = 0;
+  P.playing = true;
+  schedule();
+}
+function seek(frame) {
+  const f = Math.max(0, Math.min(P.frames, Math.floor(frame)));
+  if (P.playing) { silence(); P.nextF = f; P.nextT = 0; schedule(); } else P.pos = f;
+}
+function unload() {
+  if (P.job) P.job.stop();
+  silence();
+  Object.assign(P, { rec: null, pcm: [], starts: [], frames: 0, done: false, planned: 0, peaks: [], top: 0, playing: false,
+                     pos: 0, nextF: 0, nextT: 0, job: null, err: "" });
+}
+// load a record into the player and start: its render begins, the sound follows as soon as the first piece is there
+function load(rec) {
+  unload();
+  audio();                                                // (inside the tap: iOS lets sound start only there)
+  P.rec = rec;
+  P.rate = rec.info.rate;
+  P.playing = true;
+  const mine = P.job = job({ job: "play", bytes: rec.bytes, opts: optsOf(rec) }, (d) => {
+    if (P.job !== mine) return true;
+    if (d.type === "audio") {
+      P.starts.push(P.frames);
+      P.pcm.push(d.pcm);
+      for (let i = 0, f = P.frames; i < d.pcm.length; i += 2, f++) {
+        const k = (f / PEAK) | 0, v = Math.max(Math.abs(d.pcm[i]), Math.abs(d.pcm[i + 1]));
+        if (!(P.peaks[k] >= v)) P.peaks[k] = v;
+        if (v > P.top) P.top = v;
+      }
+      P.frames += d.pcm.length / 2;
+      P.planned = d.total;
+      schedule();
+    } else if (d.type === "done") {
+      P.done = true;
+      schedule();
+      return true;
+    }
+  });
+  mine.done.catch((err) => { if (P.job === mine && !err.stopped) { P.err = err.message; P.done = true; P.playing = false; silence(); } });
+  showPlayer();
+}
+setInterval(() => {
+  if (!P.rec) return;
+  schedule();
+  if (P.playing && P.done && position() >= P.frames) { P.playing = false; P.pos = P.frames; silence(); }
+}, 100);
+
+// ---- the player's bar
+const wave = $("wave"), g = wave.getContext("2d");
+function span() {                                          // the frames the bar stands for
+  if (P.done) return Math.max(1, P.frames);
+  return Math.max(1, P.frames, P.planned ? P.planned * P.rate / 1000 : 0);
+}
+function draw() {
+  const dpr = window.devicePixelRatio || 1, w = Math.round(wave.clientWidth * dpr), h = Math.round(wave.clientHeight * dpr);
+  if (!w || !h) return;
+  if (wave.width !== w || wave.height !== h) { wave.width = w; wave.height = h; }
+  const css = getComputedStyle(document.documentElement), total = span(), pos = position();
+  const cols = Math.floor(w / (3 * dpr)), bw = 2 * dpr, px = pos / total * cols;
+  const top = Math.max(P.top, 1024);                       // the loudest piece fills the height (a quiet project too)
+  g.clearRect(0, 0, w, h);
+  for (let x = 0; x < cols; x++) {
+    const a = Math.floor(x / cols * total / PEAK), b = Math.max(a + 1, Math.floor((x + 1) / cols * total / PEAK));
+    let v = -1;
+    for (let k = a; k < b && k < P.peaks.length; k++) if (P.peaks[k] > v) v = P.peaks[k];
+    const bar = v < 0 ? dpr : Math.max(dpr, v / top * (h - 2 * dpr));
+    g.fillStyle = css.getPropertyValue(v >= 0 && x < px ? "--accent" : v >= 0 ? "--wave" : "--line");
+    g.fillRect(x * 3 * dpr, (h - bar) / 2, bw, bar);
+  }
+}
+function frame() {
+  if (P.rec) {
+    const secs = position() / P.rate, len = P.frames / P.rate;
+    $("pp").innerHTML = P.playing ? ICON.pause : ICON.play;
+    $("pp").setAttribute("aria-label", P.playing ? "Pause" : "Wiedergabe");
+    const t = `${fmtTime(secs)} / ${fmtTime(len)}`;
+    $("ptime").textContent = P.err ? P.err : P.done ? t : `${t} · rechnet …`;
+    $("ptime").style.color = P.err ? "var(--warn)" : "";
+    wave.setAttribute("aria-valuemax", String(Math.round(len)));
+    wave.setAttribute("aria-valuenow", String(Math.round(secs)));
+    wave.setAttribute("aria-valuetext", t);
+    draw();
+  }
+  for (const a of document.querySelectorAll("#list article")) {
+    const on = P.rec && a.dataset.key === P.rec.key, b = a.querySelector(".play");
+    a.classList.toggle("on", !!on);
+    const icon = on && P.playing ? "pause" : "play";
+    if (b.dataset.icon !== icon) { b.dataset.icon = icon; b.innerHTML = ICON[icon]; b.setAttribute("aria-label", icon === "pause" ? "Pause" : "Abspielen"); }
+  }
+  requestAnimationFrame(frame);
+}
+function showPlayer() {
+  const r = P.rec, o = optsOf(r);
+  $("player").hidden = false;
+  document.body.classList.add("has-player");
+  $("ptitle").textContent = titleOf(r);
+  $("pmodesel").replaceChildren(...MODES.map((name, i) =>
+    el("option", { value: String(i), textContent: name, disabled: i > 0 && !r.info.has[i - 1], selected: i === o.mode })));
+  $("pbars").value = o.bars;
+  $("pbarsl").hidden = o.mode !== 0;
+}
+function hidePlayer() {
+  unload();
+  $("player").hidden = true;
+  document.body.classList.remove("has-player");
+}
+$("pp").addEventListener("click", () => (P.playing ? pause() : resume()));
+$("pclose").addEventListener("click", hidePlayer);
+async function remode() {
+  const r = P.rec;
+  if (!r) return;
+  r.mode = +$("pmodesel").value;
+  r.bars = Math.max(1, Math.min(512, Math.round(+$("pbars").value) || defaultBars(r.info)));
+  await store.put(r).catch(() => {});
+  load(r);
+}
+$("pmodesel").addEventListener("change", remode);
+$("pbars").addEventListener("change", remode);
+const seekAt = (e) => { const b = wave.getBoundingClientRect(); seek((e.clientX - b.left) / b.width * span()); };
+wave.addEventListener("pointerdown", (e) => { wave.setPointerCapture(e.pointerId); seekAt(e); });
+wave.addEventListener("pointermove", (e) => { if (e.buttons) seekAt(e); });
+wave.addEventListener("keydown", (e) => {
+  const d = { ArrowLeft: -5, ArrowRight: 5, Home: -1e9, End: 1e9 }[e.key];
+  if (d) { e.preventDefault(); seek(position() + d * P.rate); }
+  if (e.key === " " || e.key === "Enter") { e.preventDefault(); P.playing ? pause() : resume(); }
+});
+
+// ---- the list
+// the master of a record, whole: the player's if it holds this record's, else rendered now
+async function master(rec, row) {
+  if (P.rec === rec && P.done && !P.err) return { chunks: P.pcm, frames: P.frames, rate: P.rate };
+  const chunks = [];
+  let out;
+  await job({ job: "play", bytes: rec.bytes, opts: optsOf(rec) }, (d) => {
+    if (d.type === "audio") { chunks.push(d.pcm); say(row, `${fmtTime(d.ms / 1000)} gerechnet …`); }
+    else if (d.type === "done") { out = { chunks, frames: d.frames, rate: d.rate }; return true; }
+  }).done;
+  return out;
+}
+function card(r) {
+  const o = optsOf(r), row = el("p", { className: "status" });
+  const meta = [r.slot === 4 ? "CURRENT" : `Platz ${r.slotName}`, `${r.info.bpm} BPM`,
+                o.mode === 0 ? `${r.info.bars} ${r.info.bars === 1 ? "Takt" : "Takte"}` : MODES[o.mode],
+                fmtDate(r.added)].join(" · ");
+  const busy = async (btn, fn) => {
+    btn.disabled = true;
+    try { await fn(); } catch (err) { if (!err.stopped && err.name !== "AbortError") say(row, err.message, true); }
+    btn.disabled = false;
+  };
+  const b = (text, cls, fn) => { const x = el("button", { className: cls, textContent: text }); x.addEventListener("click", () => busy(x, fn)); return x; };
+  const title = el("input", { type: "text", value: r.title, placeholder: r.name || r.file, maxLength: 60 });
+  const note = el("textarea", { value: r.note, maxLength: 500 });
+  const save = async () => { r.title = title.value.trim(); r.note = note.value.trim(); await store.put(r); render(r.key); if (P.rec === r) $("ptitle").textContent = titleOf(r); };
+  title.addEventListener("change", save);
+  note.addEventListener("change", save);
+  const play = el("button", { className: "play" });
+  play.addEventListener("click", () => { if (P.rec !== r) load(r); else if (P.playing) pause(); else resume(); });
+  const base = safeName(titleOf(r)).toUpperCase();
+  const acts = el("div", { className: "actions" },
+    b(".FM1-Datei sichern", "ghost", async () => download(new Blob([r.bytes], { type: "application/octet-stream" }), exportNames([r])[0])),
+    ...(canShare ? [b("Teilen / In Dateien sichern", "ghost", () => navigator.share({ files: [fm1File(r)], title: titleOf(r) }))] : []),
+    b("WAV (Mix)", "ghost", async () => {
+      say(row, "Das FM-1 startet …");
+      const m = await master(r, row);
+      download(new Blob(wavOfPcm(m.chunks, m.frames, m.rate), { type: "audio/wav" }), `${base}_MIX.wav`);
+      say(row, `${base}_MIX.wav: ${fmtTime(m.frames / m.rate)}.`);
+    }),
+    b("Einzelspuren (ZIP)", "ghost", async () => {
+      say(row, "Das FM-1 startet …");
+      let blob;
+      await job({ job: "stems", bytes: r.bytes, opts: optsOf(r), base }, (d) => {
+        if (d.type === "progress") say(row, `${fmtTime(d.ms / 1000)} gerechnet …`);
+        else if (d.type === "zip") { blob = d.blob; return true; }
+      }).done;
+      download(blob, `${base}.zip`);
+      say(row, `${base}.zip: Mix, T1–T4 und FX (${fmtSize(blob.size)}).`);
+    }),
+    b("Löschen", "danger", async () => {
+      if (!confirm(`„${titleOf(r)}“ aus der Bibliothek löschen?`)) return;
+      if (P.rec === r) hidePlayer();
+      await store.remove(r.key);
+      recs = recs.filter((x) => x !== r);
+      render();
+    }));
+  const more = el("details", {},
+    el("summary", { textContent: "Mehr" }),
+    el("label", { className: "field" }, el("span", { textContent: "Titel" }), title),
+    el("label", { className: "field" }, el("span", { textContent: "Notiz" }), note),
+    el("div", { className: "chips" }, ...r.parts.map((x) => el("span", { className: "chip", textContent: `${x.tag} ${fmtSize(x.len)}` })),
+       el("span", { className: "chip", textContent: `Firmware ${r.fw || "?"}` }), el("span", { className: "chip", textContent: r.file })),
+    ...(r.fw && r.fw !== FW ? [el("p", { className: "hint", textContent:
+      `Gesichert mit Firmware ${r.fw}, hier rechnet ${FW}: es kann anders klingen als auf dem Gerät.` })] : []),
+    acts, row);
+  const a = el("article", {},
+    el("div", { className: "head" }, play,
+       el("div", { className: "what" }, el("p", { className: "name", textContent: titleOf(r) }),
+          el("p", { className: "meta", textContent: meta }),
+          ...(r.note ? [el("p", { className: "note", textContent: r.note })] : []))),
+    more);
+  a.dataset.key = r.key;
+  return a;
+}
+// the list again; keep: the key of a card whose "Mehr" stays open
+function render(keep) {
+  const open = new Set([...document.querySelectorAll("#list details[open]")].map((d) => d.parentElement.dataset.key));
+  if (keep) open.add(keep);
+  $("list").replaceChildren(...(recs.length ? recs.map((r) => {
+    const c = card(r);
+    if (open.has(r.key)) c.querySelector("details").open = true;
+    return c;
+  }) : [el("p", { className: "empty", textContent: "Noch keine Projekte. Füge oben .FM1-Dateien vom FM-1 hinzu." })]));
+  $("backup").hidden = !recs.length;
+}
+
+// ---- in
+async function take(fileList) {
+  const files = [...fileList];
+  if (!files.length) return;
+  say($("status"), files.length === 1 ? "Die Datei wird geprüft …" : `${files.length} Dateien werden geprüft …`);
+  try {
+    const data = await Promise.all(files.map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })));
+    const r = await importFiles(store, data, look);
+    recs = await store.all();
+    render();
+    const lines = [];
+    if (r.added.length) lines.push(r.added.length === 1 ? `„${titleOf(r.added[0])}“ hinzugefügt.` : `${r.added.length} Projekte hinzugefügt.`);
+    if (r.known.length) lines.push(r.known.length === 1 ? `${r.known[0]} ist schon in der Bibliothek.` : `${r.known.length} Dateien sind schon in der Bibliothek.`);
+    for (const x of r.bad) lines.push(`${x.name}: ${x.why}`);
+    say($("status"), lines.join("\n") || "Nichts hinzugefügt.", !r.added.length && r.bad.length > 0);
+    if (r.added.length && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  } catch (err) {
+    say($("status"), err.message, true);
+  }
+}
+$("file").addEventListener("change", (e) => { take(e.target.files); e.target.value = ""; });
+$("pick").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } });
+addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("drag"); });
+addEventListener("dragleave", () => document.body.classList.remove("drag"));
+addEventListener("drop", (e) => { e.preventDefault(); document.body.classList.remove("drag"); take(e.dataTransfer.files); });
+$("zipall").addEventListener("click", () => {
+  const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  download(new Blob(libraryZip(recs), { type: "application/zip" }), `JAN3000-Bibliothek-${stamp}.zip`);
+});
+
+try {
+  store = openStore();
+  recs = await store.all();
+  render();
+} catch (err) {
+  say($("status"), err.message || "Die Bibliothek ließ sich nicht öffnen.", true);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
