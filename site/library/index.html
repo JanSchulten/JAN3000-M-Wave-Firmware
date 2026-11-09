@@ -5,96 +5,131 @@
      sent anywhere), listened to (the FM-1's own firmware as WebAssembly renders a file in a worker, the master is
      played while it is made) and handed out again: the file as it came, the master as a WAV, the stems as a ZIP, the
      whole library as one ZIP (which this page takes back in, on this device or another). lib.js does the work,
-     worker.js runs the firmware; this page is the list and the player. In German, as web/bounce. -->
+     worker.js runs the firmware; this page is the list and the player. In German, as web/bounce; the look is the user guide's (web/manual). -->
 <html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>JAN3000 Bibliothek</title>
 <meta name="description" content="Projekte vom M-VAVE FM-1 (JAN3000, based on Felucca) sichern, anhören und als WAV rendern: lokal im Browser, ohne Konto.">
-<meta name="theme-color" content="#101312">
+<meta name="theme-color" content="#eceee9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131514" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@600;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Martian+Mono:wght@400;500;600&display=swap">
+<script>
+/* the accent picked in the user guide (the same site keeps it) */
+try { var a = localStorage.getItem("mvop1-manual-accent"); if (/^(ice|violet|rose|green)$/.test(a)) document.documentElement.dataset.accent = a; } catch (e) { /* storage off: AMBER */ }
+</script>
 <style>
-:root { --bg: #f4f5f2; --card: #ffffff; --text: #161a18; --mid: #5d6661; --line: #dde1dc; --accent: #12a150;
-        --accent-ink: #ffffff; --warn: #b3261e; --field: #eef0ec; --wave: #b9c1bb; color-scheme: light; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --bg: #101312; --card: #191d1b; --text: #e9ece9; --mid: #9aa39e; --line: #2a302d;
-                                    --accent: #3ddc84; --accent-ink: #06210f; --warn: #ff8a80; --field: #222825;
-                                    --wave: #4a544e; color-scheme: dark; }
+/* The user guide's look (web/manual/manual.html): its paper and ink, its three faces (Doto for the display line,
+   Instrument Sans to read, Martian Mono for labels and numbers), ink rules above the parts, the firmware's accent
+   (AMBER, or the one picked in the guide: the same site keeps it). */
+:root {
+  --paper: #eceee9; --sheet: #f7f8f4; --ink: #1a1d1b; --mute: #5b615c; --rule: #d1d5ce; --rule-2: #b4b9b1;
+  --faint: #e2e5df; --warn: #a8321f;
+  --acc: #f2a33a; --acc-l: #8f5400; --acc-d: #f6bb64; --acc-ink: var(--acc-l); --on-acc: #18130a;
+  --f-dot: "Doto", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --f-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "Martian Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
 }
-:root[data-theme="dark"] { --bg: #101312; --card: #191d1b; --text: #e9ece9; --mid: #9aa39e; --line: #2a302d;
-                           --accent: #3ddc84; --accent-ink: #06210f; --warn: #ff8a80; --field: #222825; --wave: #4a544e;
-                           color-scheme: dark; }
+:root[data-accent="ice"] { --acc: #6cc3e8; --acc-l: #1b6789; --acc-d: #8ed4f2; }
+:root[data-accent="violet"] { --acc: #ab92fb; --acc-l: #5d3fc4; --acc-d: #c0aaff; }
+:root[data-accent="rose"] { --acc: #f27a9b; --acc-l: #a83154; --acc-d: #f79bb4; }
+:root[data-accent="green"] { --acc: #5fd08a; --acc-l: #1c7342; --acc-d: #80dea4; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #131514; --sheet: #1b1e1c; --ink: #e5e8e2; --mute: #9ba19a; --rule: #2f3431;
+                                    --rule-2: #4a504c; --faint: #222624; --warn: #ff8a73; --acc-ink: var(--acc-d);
+                                    color-scheme: dark; }
+}
+:root[data-theme="dark"] { --paper: #131514; --sheet: #1b1e1c; --ink: #e5e8e2; --mute: #9ba19a; --rule: #2f3431;
+                           --rule-2: #4a504c; --faint: #222624; --warn: #ff8a73; --acc-ink: var(--acc-d); color-scheme: dark; }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--text); }
-body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
-main { max-width: 640px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 40px; }
-body.has-player main { padding-bottom: calc(190px + env(safe-area-inset-bottom)); }
-h1 { font-size: 28px; line-height: 1.2; margin: 8px 0 2px; letter-spacing: -0.01em; }
-h1 span { color: var(--accent); }
-.sub { color: var(--mid); margin: 0 0 20px; }
-section, article { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 0 0 14px; }
-h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--mid); margin: 0 0 12px; font-weight: 600; }
-button, .btn { appearance: none; border: 0; border-radius: 10px; padding: 12px 16px; font: inherit; font-weight: 600;
-               background: var(--accent); color: var(--accent-ink); cursor: pointer; text-decoration: none;
+html, body { margin: 0; background: var(--paper); color: var(--ink); }
+body { font: 16.5px/1.6 var(--f-body); -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration-color: var(--acc); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+a:hover { color: var(--acc-ink); }
+p { margin: 0; }
+main { max-width: 720px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 40px) max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px)); }
+body.has-player main { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+.eyebrow { font: 500 11.5px/1.5 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); }
+.eyebrow a { text-decoration: none; }
+h1 { font: 800 clamp(46px, 13vw, 84px)/0.9 var(--f-dot); letter-spacing: -0.005em; margin: 14px 0 16px; overflow-wrap: anywhere; }
+.lede { font-size: 18.5px; line-height: 1.5; max-width: 56ch; }
+section { margin-top: 44px; padding-top: 18px; border-top: 1.5px solid var(--ink); }
+h2 { font: 600 13px/1.2 var(--f-mono); letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 16px;
+     display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+h2 small { font: 500 11px/1.2 var(--f-mono); letter-spacing: 0.06em; color: var(--mute); font-variant-numeric: tabular-nums; }
+button, .btn { appearance: none; border: 1px solid transparent; border-radius: 10px; padding: 11px 16px; font: 600 16px/1.2 var(--f-body);
+               background: var(--acc); color: var(--on-acc); cursor: pointer; text-decoration: none;
                display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; }
-button.ghost, .btn.ghost { background: var(--field); color: var(--text); }
-button.danger { background: var(--field); color: var(--warn); }
+button.ghost, .btn.ghost { background: var(--paper); color: var(--ink); border-color: var(--rule-2); }
+button.danger { background: var(--paper); color: var(--warn); border-color: color-mix(in oklab, var(--warn) 45%, var(--rule-2)); }
 button:disabled { opacity: 0.45; cursor: default; }
-button:focus-visible, .btn:focus-visible, summary:focus-visible, canvas:focus-visible, input:focus-visible,
-select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--acc-ink); outline-offset: 2px; border-radius: 4px; }
 .wide { width: 100%; }
 input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.actions { display: grid; gap: 10px; grid-template-columns: 1fr; margin-top: 12px; }
+.actions { display: grid; gap: 10px; grid-template-columns: 1fr; margin-top: 14px; }
 @media (min-width: 480px) { .actions { grid-template-columns: 1fr 1fr; } }
-.status { color: var(--mid); font-size: 14px; min-height: 21px; margin: 10px 0 0; overflow-wrap: anywhere; white-space: pre-line; }
+.status { color: var(--mute); font-size: 14.5px; line-height: 1.5; min-height: 22px; margin: 12px 0 0; overflow-wrap: anywhere; white-space: pre-line; max-width: 68ch; }
 .status.err { color: var(--warn); }
-body.drag section#add { border-color: var(--accent); }
-.empty { color: var(--mid); text-align: center; padding: 28px 8px; }
-article { padding: 12px 16px; }
-article.on { border-color: var(--accent); }
-.head { display: flex; align-items: center; gap: 12px; }
-.play { flex: none; width: 46px; height: 46px; min-height: 0; padding: 0; border-radius: 50%; }
-.play svg, .pp svg { width: 18px; height: 18px; fill: currentColor; }
+body.drag section#add { border-top-color: var(--acc); }
+.empty { color: var(--mute); padding: 4px 0 0; max-width: 56ch; }
+#list { display: grid; gap: 12px; }
+article { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 15px 12px; }
+article.on { border-color: var(--acc-ink); }
+.head { display: flex; align-items: center; gap: 14px; }
+.play, .pp { flex: none; width: 46px; height: 46px; min-height: 0; padding: 0; border-radius: 50%; background: var(--ink); color: var(--paper); }
+article.on .play, .pp { background: var(--acc); color: var(--on-acc); }
+.play svg, .pp svg { width: 16px; height: 16px; fill: currentColor; }
 .what { flex: 1; min-width: 0; }
-.name { font-size: 18px; font-weight: 700; margin: 0; overflow-wrap: anywhere; line-height: 1.25; }
-.meta { color: var(--mid); font-size: 13px; margin: 2px 0 0; font-variant-numeric: tabular-nums; }
-.note { font-size: 14px; margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-line; }
-details { margin-top: 8px; border-top: 1px solid var(--line); }
-summary { cursor: pointer; color: var(--mid); font-size: 14px; padding: 10px 0 2px; list-style: none; }
+.name { font: 600 19px/1.25 var(--f-body); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.meta { font: 500 11px/1.6 var(--f-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--mute);
+        margin-top: 3px; font-variant-numeric: tabular-nums; }
+.note { font-size: 15px; line-height: 1.5; margin-top: 6px; overflow-wrap: anywhere; white-space: pre-line; }
+details { margin-top: 12px; border-top: 1px solid var(--rule); }
+summary { cursor: pointer; font: 500 11px/1.2 var(--f-mono); letter-spacing: 0.07em; text-transform: uppercase; color: var(--mute);
+          padding: 12px 0 4px; list-style: none; }
 summary::-webkit-details-marker { display: none; }
-summary::after { content: " ▾"; }
-details[open] summary::after { content: " ▴"; }
-.field { display: block; margin-top: 10px; }
-.field span { display: block; color: var(--mid); font-size: 13px; margin-bottom: 4px; }
-input[type=text], input[type=number], textarea, select { width: 100%; padding: 10px; font: inherit; border-radius: 8px;
-  border: 1px solid var(--line); background: var(--field); color: var(--text); }
-textarea { resize: vertical; min-height: 64px; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.chip { background: var(--field); border-radius: 999px; padding: 2px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
-.hint { color: var(--mid); font-size: 13px; margin: 10px 0 0; }
-#player { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line);
-          padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
-#player > div { max-width: 640px; margin: 0 auto; }
-.prow { display: flex; align-items: center; gap: 12px; }
-.pp { flex: none; width: 46px; height: 46px; min-height: 0; padding: 0; border-radius: 50%; }
+summary::after { content: " +"; color: var(--acc-ink); }
+details[open] summary::after { content: " −"; }
+.field { display: block; margin-top: 12px; }
+.field span { display: block; font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); margin-bottom: 6px; }
+input[type=text], input[type=number], textarea, select { width: 100%; padding: 9px 11px; font: 16px/1.3 var(--f-body); border-radius: 8px;
+  border: 1px solid var(--rule); background: var(--paper); color: var(--ink); }
+textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.chip { font: 500 11px/1 var(--f-mono); letter-spacing: 0.03em; background: var(--faint); border-radius: 4px; padding: 5px 7px;
+        font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.hint { background: var(--faint); border-radius: 10px; padding: 14px 18px 15px; font-size: 15.5px; margin-top: 14px; max-width: 68ch; }
+.hint .tag { display: block; margin-bottom: 5px; font: 600 10.5px/1.2 var(--f-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--acc-ink); }
+#player { position: fixed; left: 0; right: 0; bottom: 0; background: var(--sheet); border-top: 1.5px solid var(--ink);
+          padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); z-index: 20; }
+#player > div { max-width: 720px; margin: 0 auto; }
+.prow { display: flex; align-items: center; gap: 14px; }
 .ptitle { flex: 1; min-width: 0; }
-.ptitle b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ptitle small { color: var(--mid); font-variant-numeric: tabular-nums; }
-canvas { display: block; width: 100%; height: 56px; margin: 8px 0; cursor: pointer; touch-action: none; border-radius: 6px; }
+.ptitle b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptitle small { display: block; font: 500 11px/1.5 var(--f-mono); letter-spacing: 0.04em; color: var(--mute); font-variant-numeric: tabular-nums;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pclose { min-height: 0; width: 40px; height: 40px; padding: 0; font: 500 14px/1 var(--f-mono); }
+canvas { display: block; width: 100%; height: 56px; margin: 10px 0; cursor: pointer; touch-action: none; }
 .pmode { display: flex; gap: 10px; align-items: center; }
-.pmode select { flex: 1; min-width: 0; padding: 8px 10px; }
-.pmode label { color: var(--mid); font-size: 14px; display: flex; align-items: center; gap: 6px; }
-.pmode input { width: 76px; padding: 8px 10px; }
-footer { color: var(--mid); font-size: 13px; margin-top: 22px; }
-footer a { color: inherit; }
+.pmode select { flex: 1; min-width: 0; }
+.pmode label { font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute);
+               display: flex; align-items: center; gap: 8px; }
+.pmode input { width: 76px; }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); font: 500 10.5px/1.7 var(--f-mono);
+         letter-spacing: 0.03em; color: var(--mute); max-width: 80ch; }
 [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <main>
-  <h1>JAN3000 <span>Bibliothek</span></h1>
-  <p class="sub">Projekte vom M-VAVE FM-1 sichern, anhören und als WAV rendern. Alles bleibt auf diesem Gerät: kein
-    Konto, kein Upload.</p>
+  <p class="eyebrow">JAN3000 v0.2-alpha · M-VAVE FM-1</p>
+  <h1>Bibliothek</h1>
+  <p class="lede">Projekte vom FM-1 sichern, anhören und als WAV rendern. Alles bleibt auf diesem Gerät: kein Konto,
+    kein Upload.</p>
 
   <section id="add">
     <h2>Hinzufügen</h2>
@@ -104,14 +139,17 @@ footer a { color: inherit; }
       (CURRENT.FM1 ist der Stand von gerade eben). Auch eine ZIP-Sicherung dieser Seite geht.</p>
   </section>
 
-  <div id="list" aria-live="polite"></div>
+  <section>
+    <h2>Projekte <small id="count"></small></h2>
+    <div id="list" aria-live="polite"></div>
+  </section>
 
   <section id="backup" hidden>
     <h2>Sicherung</h2>
     <button class="ghost wide" id="zipall">Alle Projekte als ZIP sichern</button>
-    <p class="hint">Die Bibliothek liegt im Speicher dieses Browsers. Der kann verloren gehen (Browserdaten gelöscht,
-      Seite lange nicht geöffnet): bewahre die ZIP-Datei oder die .FM1-Dateien zusätzlich auf. Die ZIP-Datei lässt
-      sich auf jedem Gerät oben wieder hinzufügen.</p>
+    <p class="hint"><span class="tag">Wichtig</span>Die Bibliothek liegt im Speicher dieses Browsers. Der kann verloren
+      gehen (Browserdaten gelöscht, Seite lange nicht geöffnet): bewahre die ZIP-Datei oder die .FM1-Dateien zusätzlich
+      auf. Die ZIP-Datei lässt sich auf jedem Gerät oben wieder hinzufügen.</p>
   </section>
 
   <footer>
@@ -322,7 +360,7 @@ function draw() {
     let v = -1;
     for (let k = a; k < b && k < P.peaks.length; k++) if (P.peaks[k] > v) v = P.peaks[k];
     const bar = v < 0 ? dpr : Math.max(dpr, v / top * (h - 2 * dpr));
-    g.fillStyle = css.getPropertyValue(v >= 0 && x < px ? "--accent" : v >= 0 ? "--wave" : "--line");
+    g.fillStyle = css.getPropertyValue(v >= 0 && x < px ? "--acc" : v >= 0 ? "--rule-2" : "--rule");
     g.fillRect(x * 3 * dpr, (h - bar) / 2, bw, bar);
   }
 }
@@ -468,6 +506,7 @@ function render(keep) {
     return c;
   }) : [el("p", { className: "empty", textContent: "Noch keine Projekte. Füge oben .FM1-Dateien vom FM-1 hinzu." })]));
   $("backup").hidden = !recs.length;
+  $("count").textContent = recs.length ? String(recs.length).padStart(2, "0") : "";
 }
 
 // ---- in
