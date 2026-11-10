@@ -175,6 +175,11 @@ EXPORT uint32_t bounce_chain(uint32_t what)
         }
     return m;
 }
+/* the mixer: track t's LEVEL (0..127: the track's LVL, params.c P_LEVEL), as the project has it, and set for this
+ * bounce (after bounce_load, before bounce_play; the file is not touched); the gain a value stands for (Q12, fx.c) */
+EXPORT uint32_t bounce_level(uint32_t t) { return (uint32_t)trk[t % NTRK].p[P_LEVEL] & 127u; }
+EXPORT void bounce_set_level(uint32_t t, uint32_t v) { trk[t % NTRK].p[P_LEVEL] = (int16_t)(v > 127u ? 127u : v); }
+EXPORT uint32_t bounce_level_q12(uint32_t v) { return (uint32_t)LEVEL_Q12[v & 127u]; }
 EXPORT void bounce_stop(void) { transport_req = 2; }   /* (as PLAY while playing: the tails ring on) */
 EXPORT uint32_t bounce_busy(void) { return song.playing || chain_busy() || seq_counting() || transport_req == 1u; }
 EXPORT uint32_t bounce_bpm10(void) { return (uint32_t)song.g[G_BPM] * 10u; }   /* (G_BPM: whole BPM) */

@@ -60,6 +60,9 @@ export function parseFM1(bytes) {
   return { slot, slotName: SLOT_NAMES[slot], fw: cstr(u8.subarray(16, 32)), name: cstr(u8.subarray(32, 48)), entries };
 }
 
+// the gain of each LEVEL value 0..127 in dB (the firmware's table; -Infinity: silent), from any instance
+export const levelDb = (ex) => Array.from({ length: 128 }, (_, v) => 20 * Math.log10(ex.bounce_level_q12(v) / 4096));
+
 // a fresh instance (each bounce boots its own FM-1): from the bytes, or from a module compiled once (the page's)
 export async function loadWasm(src) {
   if (src instanceof WebAssembly.Module) return (await WebAssembly.instantiate(src, {})).exports;
@@ -74,8 +77,9 @@ export const STEMS = ["MIX", "T1", "T2", "T3", "T4", "FX"];
 // boot a fresh instance with fm1's flash, load its project: {ex, rate, bpm, loopMs, has: [scene song, chain], scenes:
 // how many scenes hold something, chain: {need, miss}: the project slots (bit s: A + s) the SONG chain plays, and of
 // those the ones with no project here}. others: more parsed .FM1 files whose flash goes in first (the projects of the
-// other slots, which a SONG chain plays: a .FM1 file holds its own slot's only)
-export function prepare(ex, fm1, others = []) {
+// other slots, which a SONG chain plays: a .FM1 file holds its own slot's only). levels: the four tracks' LEVEL for this
+// bounce (0..127 each; null or a null entry: the project's own); what comes back as levels is the project's own
+export function prepare(ex, fm1, others = [], levels = null) {
   ex._initialize();
   ex.web_nor_erase();
   const nor = new Uint8Array(ex.memory.buffer, ex.web_nor(), ex.web_nor_size());
@@ -88,7 +92,9 @@ export function prepare(ex, fm1, others = []) {
   for (let t = 0; t < BOOT_MS; t += SLICE_MS) ex.bounce_run(SLICE_MS);
   if (!ex.bounce_load(fm1.slot)) throw fail("load", "Das Projekt ließ sich nicht laden.");
   for (let t = 0; t < 200; t += SLICE_MS) ex.bounce_run(SLICE_MS);
-  return { ex, rate: ex.web_sample_rate(), bpm: ex.bounce_bpm10() / 10, loopMs: ex.bounce_loop_ms(),
+  const own = [0, 1, 2, 3].map((t) => ex.bounce_level(t));
+  if (levels) levels.forEach((v, t) => { if (v != null && t < 4) ex.bounce_set_level(t, Math.max(0, Math.min(127, Math.round(v)))); });
+  return { ex, levels: own, rate: ex.web_sample_rate(), bpm: ex.bounce_bpm10() / 10, loopMs: ex.bounce_loop_ms(),
            has: [1, 2].map((m) => !!ex.bounce_has(m)), scenes: ex.bounce_scenes().toString(2).replace(/0/g, "").length,
            chain: { need: ex.bounce_chain(0), miss: ex.bounce_chain(1) } };
 }

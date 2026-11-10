@@ -6,7 +6,7 @@
 // (web/bounce/bounce.js on felucca_bounce.wasm) with the master handed over slice by slice while it is made, and the
 // way back out: the .FM1 as it came, the master as a WAV, the stems as a ZIP, every file as one ZIP.
 
-import { crc32, parseFM1, loadWasm, prepare, render, wavHeader, bounceFiles, zipParts } from "./bounce.js";
+import { crc32, parseFM1, loadWasm, prepare, render, wavHeader, bounceFiles, zipParts, levelDb } from "./bounce.js";
 
 // an error with a code and its values: the page says it in its language (bounce.js's errors carry the same; their
 // messages are German, as web/bounce's page, ours English)
@@ -124,8 +124,11 @@ const others = (sib) => sib.map((b) => parseFM1(b));
 export async function inspect(wasm, bytes, sib = []) {
   const p = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib));
   return { rate: p.rate, bpm: p.bpm, bars: Math.max(1, Math.ceil(p.loopMs / (240000 / p.bpm) - 0.01)), has: p.has,
-           scenes: p.scenes, need: p.chain.need, miss: p.chain.miss };
+           scenes: p.scenes, need: p.chain.need, miss: p.chain.miss, levels: p.levels };
 }
+// the four tracks' LEVEL as the project has them is info.levels (0..127, the FM-1's LVL); a record may carry its own
+// (rec.levels, the page's faders: null entries keep the project's). What each value is in dB:
+export const levelTable = async (wasm) => levelDb(await loadWasm(wasm));
 // what a record plays when nothing was chosen, as it is on the FM-1: its song when it has one (the scene song, which
 // the file holds whole, before the SONG chain; the chain only when every project it plays is there: miss, as inspect
 // with the siblings says), else its scenes one after another
@@ -140,11 +143,12 @@ export const toPcm16 = (f32) => {
   return p;
 };
 
-// play the record (mode, bars for the scene; sib: the other slots' files for a SONG chain) and hand the master out as it is made: onAudio(Int16Array interleaved,
+// play the record (mode, bars for the scene; sib: the other slots' files for a SONG chain; levels: the tracks' LEVEL
+// in place of the project's) and hand the master out as it is made: onAudio(Int16Array interleaved,
 // ms done, ms planned or 0 when the song says where it ends), about twice a second of music. The master is 16-bit as
 // USB audio sends it, so nothing is lost. Returns {rate, frames}
-export async function play(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [] } = {}, onAudio) {
-  const prep = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib));
+export async function play(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [], levels = null } = {}, onAudio) {
+  const prep = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib), levels);
   const maxMs = mode === 0 ? Math.max(1, bars) * 240000 / prep.bpm : SONG_MAX_MS;
   let held = [], n = 0;
   const flush = (ms) => {
@@ -168,8 +172,8 @@ export function wavOfPcm(chunks, frames, rate) {
 }
 
 // the master and the stems (T1..T4, FX) as a ZIP of WAVs, as web/bounce: a list of byte arrays
-export async function stemsZip(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [] } = {}, base = "FM1", onProgress) {
-  const prep = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib));
+export async function stemsZip(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [], levels = null } = {}, base = "FM1", onProgress) {
+  const prep = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib), levels);
   const maxMs = mode === 0 ? Math.max(1, bars) * 240000 / prep.bpm : SONG_MAX_MS;
   return zipParts(bounceFiles(await render(prep, { mode, maxMs, tailMs, stems: true, onProgress }), base));
 }

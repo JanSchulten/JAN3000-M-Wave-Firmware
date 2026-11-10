@@ -82,7 +82,10 @@ end; else every scene that holds something, in their order, one pass each (the b
 so the changes are the firmware's own). One scene looped for so many bars can be chosen too. A SONG chain plays the
 projects of other slots, and a `.FM1` file holds its own slot's only: the page takes the others from the files picked
 together with it (one read of the drive); without them the chain is refused, as "PATTERN x EMPTY" on the FM-1, a note
-on the card names the files missing, and the scenes play. English first, German by the guide's switch. Out again: the `.FM1` as it came (or shared into the Files app), the master as a WAV (byte for
+on the card names the files missing, and the scenes play. The open card has four faders, the tracks' LEVEL (the
+FM-1's LVL, 0..127, shown in dB): set for the render in the firmware before PLAY, kept with the record (the file
+stays as it came), heard at once (what plays is rendered again from where it is) and in the WAV and the stems.
+English first, German by the guide's switch. Out again: the `.FM1` as it came (or shared into the Files app), the master as a WAV (byte for
 byte the bounce's), the stems as a ZIP, the whole library as one ZIP, which the page takes back in on any device (the
 way from a phone to a computer: there is no sync). A file is known by its bytes: the same project is not kept twice. A
 title and a note can be given to each. What is not there: putting a file back onto the FM-1 (the drive is read-only;

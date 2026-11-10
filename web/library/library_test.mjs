@@ -9,6 +9,7 @@
 //   WHAT    what a project holds is what plays (tests/vdisk_test.c's second disk, build/vdisk/songs): its scene song;
 //           else its SONG chain, with the other slots' files taken in with it (refused without them, as on the
 //           FM-1); else its scenes one after another: the hits heard, bar by bar, and the length
+//   LEVELS  a track's LEVEL set for the render (the page's faders): quieter by the table's dB, 0 silent, the stems too
 //   PLAY    the master handed over while it is made: the same samples as web/bounce's bounce, in pieces of about
 //           0.5 s, the WAV byte for byte web/bounce's; the stems' ZIP: six files
 // node web/library/library_test.mjs build/bounce/felucca_bounce.wasm build/vdisk/files
@@ -16,7 +17,7 @@ import { readFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
 import { crc32, parseFM1, loadWasm, prepare, render, bounceFiles, zipParts } from "../bounce/bounce.js";
 import { unzip, candidates, makeRecord, exportNames, libraryZip, inspect, defaultMode, defaultBars, play, wavOfPcm,
-         stemsZip, importFiles, titleOf, siblings, chainSlots, SCENE, SSONG, CHAIN, SCENES } from "./lib.js";
+         stemsZip, importFiles, titleOf, siblings, chainSlots, levelTable, SCENE, SSONG, CHAIN, SCENES } from "./lib.js";
 
 const [wasmPath = "build/bounce/felucca_bounce.wasm", dir = "build/vdisk/files", songs = `${dir}/../songs`] = process.argv.slice(2);
 const wasm = readFileSync(wasmPath);
@@ -173,6 +174,20 @@ await importFiles(store4, ["CURRENT", "PROJ_A", "PROJ_B", "PROJ_C", "PROJ_D"].ma
 lib = [...map4.values()]; rc = lib.find((r) => r.name === "CHAIN"); sbs = siblings(rc, lib);
 check("  the whole drive taken in at once: A and C found, nothing missing",
       sbs.miss.length === 0 && sbs.sib.length === 2 && same(sbs.sib[0], sa) && same(sbs.sib[1], sc));
+
+// ---- LEVELS (the page's faders: a track's LEVEL for the render, the project's own left in the file)
+const db = await levelTable(wasm);
+const loud = async (levels) => { let e = 0, n = 0; await play(wasm, sb, { mode: SCENES, levels }, (p) => { for (const v of p) { e += v * v; n++; } });
+                                 return 10 * Math.log10(e / n); };
+const l0 = await loud(null), l1 = await loud([104, null, null, null]), l2 = await loud([80, null, null, null]);
+check("LEVELS: the project's own are 104 on every track (-4 dB); the table: 0 silent, 104 -4 dB, 127 the loudest",
+      ib.levels.join() === "104,104,104,104" && db[0] === -Infinity && Math.abs(db[104] + 4) < 0.05 && db[127] > db[126] && db.length === 128);
+check(`  T1 at its own value: the same level; at 80 (${(db[80] - db[104]).toFixed(1)} dB): that much quieter (${(l2 - l0).toFixed(1)} dB)`,
+      l1 === l0 && Math.abs((l2 - l0) - (db[80] - db[104])) < 0.5);
+check("  T1 at 0: silence (the project plays T1 only); the other tracks' faders change nothing there",
+      await loud([0, null, null, null]) === -Infinity && await loud([null, 0, 0, 0]) === l0);
+const st = await unzip(join(await stemsZip(wasm, sb, { mode: SCENES, levels: [0, null, null, null] }, "X")));
+check("  the stems with T1 at 0: T1's file silent too", st[1].name === "X_T1.wav" && st[1].data.subarray(44).every((x) => x === 0));
 
 console.log(bad ? `library: ${bad} FAILED` : "library: all ok");
 process.exit(bad ? 1 : 0);

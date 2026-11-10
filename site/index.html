@@ -104,6 +104,15 @@ details[open] summary::after { content: " −"; }
 input[type=text], input[type=number], textarea, select { width: 100%; padding: 9px 11px; font: 16px/1.3 var(--f-body); border-radius: 8px;
   border: 1px solid var(--rule); background: var(--paper); color: var(--ink); }
 textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
+.mixer { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 6px; background: var(--paper);
+         border: 1px solid var(--rule); border-radius: 10px; padding: 14px 6px 12px; }
+.fader { display: grid; justify-items: center; gap: 8px; }
+.fader b { font: 600 11px/1 var(--f-mono); letter-spacing: 0.06em; }
+.fader input[type=range] { writing-mode: vertical-lr; direction: rtl; width: 32px; height: 150px; margin: 0; padding: 0; border: 0;
+                           background: transparent; accent-color: var(--acc-ink); touch-action: none; cursor: pointer; }
+.fader output { font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.02em; color: var(--mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fader.own output { color: var(--acc-ink); }
+button.small { min-height: 0; padding: 9px 12px; font: 600 11px/1.2 var(--f-mono); letter-spacing: 0.05em; text-transform: uppercase; margin-top: 10px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
 .chip { font: 500 11px/1 var(--f-mono); letter-spacing: 0.03em; background: var(--faint); border-radius: 4px; padding: 5px 7px;
         font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -246,6 +255,7 @@ const WORDS = {
     title: "JAN3000 Library", locale: "en-GB",
     modes: ["One scene, looped", "Scene song", "Song chain", "All scenes, one after another"],
     scenes: (n) => `${n} ${n === 1 ? "scene" : "scenes"}`,
+    mixer: "Track levels", mixReset: "Back to the project's levels", fader: (t) => `Level of track ${t}`,
     chainHint: (slots, files) => `This project's song chain plays project ${slots}, which is not here. Choose ${files} together with this file (one pick from the FM-1's drive) to hear the chain. Until then its scenes play.`,
     intro: "On the FM-1: MENU › SYSTEM › USB DISK, then choose the files of the drive “FM-1” here (CURRENT.FM1 is the music as it is right now). A ZIP backup of this page works too.",
     empty: "No projects yet. Add .FM1 files from the FM-1 above.",
@@ -277,6 +287,7 @@ const WORDS = {
     title: "JAN3000 Bibliothek", locale: "de-DE",
     modes: ["Eine Szene, wiederholt", "Szenen-Song", "Song-Kette", "Alle Szenen nacheinander"],
     scenes: (n) => `${n} ${n === 1 ? "Szene" : "Szenen"}`,
+    mixer: "Pegel der Tracks", mixReset: "Zurück zu den Pegeln des Projekts", fader: (t) => `Pegel von Track ${t}`,
     chainHint: (slots, files) => `Die Song-Kette dieses Projekts spielt Projekt ${slots}, das hier fehlt. Wähle ${files} zusammen mit dieser Datei (in einem Zug vom Laufwerk des FM-1), um die Kette zu hören. Bis dahin spielen seine Szenen.`,
     intro: "Am FM-1: MENU › SYSTEM › USB DISK, dann die Dateien vom Laufwerk „FM-1“ hier wählen (CURRENT.FM1 ist der Stand von gerade eben). Auch eine ZIP-Sicherung dieser Seite geht.",
     empty: "Noch keine Projekte. Füge oben .FM1-Dateien vom FM-1 hinzu.",
@@ -347,7 +358,12 @@ const optsOf = (r) => {
   return { mode: r.mode >= 0 && has(r.mode) ? r.mode : defaultMode(r.info, miss.length), bars: r.bars || defaultBars(r.info), sib, miss };
 };
 const SLOTS = "ABCD";
-const jobOpts = (r) => { const { mode, bars, sib } = optsOf(r); return { mode, bars, sib }; };
+const jobOpts = (r) => { const { mode, bars, sib } = optsOf(r); return { mode, bars, sib, levels: r.levels || null }; };
+// the tracks' levels: the project's own (what the firmware read from the file), a record's (its faders), in dB
+let DB = null;
+const ownLevel = (r, t) => (r.info.levels ? r.info.levels[t] : 104);
+const levelOf = (r, t) => (r.levels && r.levels[t] != null ? r.levels[t] : ownLevel(r, t));
+const dbText = (v) => { const d = DB ? DB[v] : NaN; return d === -Infinity ? "−∞ dB" : Number.isFinite(d) ? `${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d).toFixed(1)} dB` : String(v); };
 
 function download(blob, name) {
   const u = URL.createObjectURL(blob), a = el("a", { href: u, download: name });
@@ -436,12 +452,14 @@ function unload() {
                      pos: 0, nextF: 0, nextT: 0, job: null, err: null });
 }
 // load a record into the player and start: its render begins, the sound follows as soon as the first piece is there
-function load(rec) {
+// (at, playing: where it goes on and whether it sounds, for a render made again while it plays: the faders)
+function load(rec, at = 0, playing = true) {
   unload();
   audio();                                                // (inside the tap: iOS lets sound start only there)
   P.rec = rec;
   P.rate = rec.info.rate;
-  P.playing = true;
+  P.nextF = P.anchorF = P.pos = Math.max(0, Math.floor(at));
+  P.playing = playing;
   const mine = P.job = job({ job: "play", bytes: rec.bytes, opts: jobOpts(rec) }, (d) => {
     if (P.job !== mine) return true;
     if (d.type === "audio") {
@@ -612,8 +630,31 @@ function card(r) {
       recs = recs.filter((x) => x !== r);
       render();
     }));
+  const faders = [0, 1, 2, 3].map((t) => {
+    const input = el("input", { type: "range", min: "0", max: "127", step: "1", value: String(levelOf(r, t)) });
+    const out = el("output", { textContent: dbText(levelOf(r, t)) });
+    const box = el("label", { className: "fader" }, el("b", { textContent: `T${t + 1}` }), input, out);
+    input.setAttribute("aria-label", W.fader(t + 1));
+    const show = () => { out.textContent = dbText(+input.value); box.classList.toggle("own", +input.value !== ownLevel(r, t)); };
+    show();
+    input.addEventListener("input", show);
+    input.addEventListener("change", () => setLevels(faders.map((f) => +f.input.value)));
+    return { input, box, show };
+  });
+  // the faders' levels kept with the record (none when they are the project's own); what plays is rendered again
+  // from where it is
+  const setLevels = async (v) => {
+    r.levels = v.every((x, t) => x === ownLevel(r, t)) ? null : v;
+    faders.forEach((f, t) => { f.input.value = String(levelOf(r, t)); f.show(); });
+    reset.hidden = !r.levels;
+    await store.put(r).catch(() => {});
+    if (P.rec === r) load(r, position(), P.playing);
+  };
+  const reset = el("button", { className: "ghost small", textContent: W.mixReset, hidden: !r.levels });
+  reset.addEventListener("click", () => setLevels([0, 1, 2, 3].map((t) => ownLevel(r, t))));
   const more = el("details", {},
     el("summary", { textContent: W.more }),
+    el("div", { className: "field" }, el("span", { textContent: W.mixer }), el("div", { className: "mixer" }, ...faders.map((f) => f.box)), reset),
     el("label", { className: "field" }, el("span", { textContent: W.ftitle }), title),
     el("label", { className: "field" }, el("span", { textContent: W.fnote }), note),
     el("div", { className: "chips" }, ...r.parts.map((x) => el("span", { className: "chip", textContent: `${x.tag} ${fmtSize(x.len)}` })),
@@ -691,6 +732,7 @@ for (const b of document.querySelectorAll(".lang-sw button")) b.addEventListener
   try { localStorage.setItem("mvop1-manual-lang", lang); } catch { /* storage off: the choice lasts the visit */ }
 });
 setLang(lang);
+job({ job: "levels" }, (d) => { DB = d.db; return true; }).done.then(render, () => {});
 
 try {
   store = openStore();

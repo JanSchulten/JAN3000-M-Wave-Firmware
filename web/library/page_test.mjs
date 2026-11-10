@@ -162,6 +162,39 @@ await third.locator("summary").click();
 const wav3 = await dl(() => third.getByRole("button", { name: "WAV (mix)" }).click());
 check("  the WAV of a project the player does not hold: rendered for it (its scene once)", wav3.name === "THIRD_MIX.wav" &&
       wav3.data.length > 44 + 4 * 2 * 44100);
+// ---- the faders (THIRD's card is open)
+const fader = (card, t) => card.locator(".fader").nth(t);
+const setFader = (card, t, v) => fader(card, t).locator("input").evaluate((e, val) => {
+  e.value = String(val); e.dispatchEvent(new Event("input", { bubbles: true })); e.dispatchEvent(new Event("change", { bubbles: true })); }, v);
+check("FADERS: four in the open card, T1..T4, each at the project's level (−4.0 dB); no way back offered yet",
+      await third.locator(".fader").count() === 4 && await fader(third, 0).locator("b").textContent() === "T1" &&
+      await fader(third, 3).locator("output").textContent() === "−4.0 dB" && await third.locator("button.small").isHidden());
+await setFader(third, 0, 0);
+await page.waitForFunction(() => !!document.querySelector("#list .fader.own"));
+const mute = await dl(() => third.getByRole("button", { name: "WAV (mix)" }).click());
+check("  T1 pulled down to nothing: −∞ dB, marked as changed; the WAV of it: silence",
+      await fader(third, 0).locator("output").textContent() === "−∞ dB" && mute.data.subarray(44).every((x) => x === 0) &&
+      !wav3.data.subarray(44).every((x) => x === 0));
+await third.locator(".play").click();
+await page.waitForFunction(() => /^0:0\d \/ 0:0[1-9]$/.test(document.getElementById("ptime").textContent), null, { timeout: 20000 });
+await page.evaluate(() => { window.__out = { n: 0, peak: 0 }; });   // (all that left the page so far was silence)
+await setFader(third, 0, 90);
+await page.waitForTimeout(1500);
+const out3 = await page.evaluate(() => window.__out);
+check("  played (silent), the fader moved up while it plays: rendered again, the sound is there",
+      out3.n > 0 && out3.peak > 0.005 && (await state()).cards.find((c) => c.name === "THIRD").on);
+await page.locator("#pp").click();
+await page.reload();
+await page.waitForFunction(() => document.querySelectorAll("#list article").length === 2);
+await page.locator("#list article", { hasText: "THIRD" }).locator("summary").click();
+await page.locator("#list article", { hasText: "FIRST" }).locator("summary").click();
+check("  a reload: THIRD's T1 still at 90, the way back offered; FIRST's faders untouched",
+      await fader(third, 0).locator("input").inputValue() === "90" && await third.locator("button.small").isVisible() &&
+      await fader(first, 0).locator("input").inputValue() === "104");
+await third.locator("button.small").click();
+await page.waitForFunction(() => !document.querySelector("#list .fader.own"));
+check("  back to the project's levels: 104 again, nothing marked", await fader(third, 0).locator("input").inputValue() === "104");
+await shot("3b-faders.png");
 const fm1 = await dl(() => first.getByRole("button", { name: "Save .FM1 file" }).click());
 check("  the .FM1 file: FIRST.FM1, the bytes as they came", fm1.name === "FIRST.FM1" && same(fm1.data, a));
 const stems = await dl(() => first.getByRole("button", { name: "Stems (ZIP)" }).click());
