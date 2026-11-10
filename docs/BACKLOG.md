@@ -85,6 +85,9 @@ together with it (one read of the drive); without them the chain is refused, as 
 on the card names the files missing, and the scenes play. The open card has four faders, the tracks' LEVEL (the
 FM-1's LVL, 0..127, shown in dB): set for the render in the firmware before PLAY, kept with the record (the file
 stays as it came), heard at once (what plays is rendered again from where it is) and in the WAV and the stems.
+Under them an own scene order: rows of a scene (those the project holds) and its repeats (1..16), up to 16 rows, added,
+moved, removed; with a row it is what plays ("Own scene order"), as a scene song of those rows in the firmware (the
+bounce's mode 4, so each change is the FM-1's own, at the scene's end), kept with the record, in the WAV and the stems.
 English first, German by the guide's switch. Out again: the `.FM1` as it came (or shared into the Files app), the master as a WAV (byte for
 byte the bounce's), the stems as a ZIP, the whole library as one ZIP, which the page takes back in on any device (the
 way from a phone to a computer: there is no sync). A file is known by its bytes: the same project is not kept twice. A

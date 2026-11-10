@@ -115,7 +115,8 @@ export function libraryZip(recs) {
 // ---- the firmware at work (in the page: inside web/library/worker.js)
 
 // the modes (bounce.js render): what the FM-1 would play of a project
-export const SCENE = 0, SSONG = 1, CHAIN = 2, SCENES = 3;
+export const SCENE = 0, SSONG = 1, CHAIN = 2, SCENES = 3, OWN = 4;
+export const ORDER_MAX = 16;                              // rows of an own order (the scene song's, scene.c SSG_ROWS)
 const others = (sib) => sib.map((b) => parseFM1(b));
 
 // boot an FM-1 with the record's flash: what it holds. bars: one pass of the scene's patterns; has: [a scene song, a
@@ -124,7 +125,7 @@ const others = (sib) => sib.map((b) => parseFM1(b));
 export async function inspect(wasm, bytes, sib = []) {
   const p = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib));
   return { rate: p.rate, bpm: p.bpm, bars: Math.max(1, Math.ceil(p.loopMs / (240000 / p.bpm) - 0.01)), has: p.has,
-           scenes: p.scenes, need: p.chain.need, miss: p.chain.miss, levels: p.levels };
+           scenes: p.scenes, sceneMask: p.sceneMask, need: p.chain.need, miss: p.chain.miss, levels: p.levels };
 }
 // the four tracks' LEVEL as the project has them is info.levels (0..127, the FM-1's LVL); a record may carry its own
 // (rec.levels, the page's faders: null entries keep the project's). What each value is in dB:
@@ -147,7 +148,7 @@ export const toPcm16 = (f32) => {
 // in place of the project's) and hand the master out as it is made: onAudio(Int16Array interleaved,
 // ms done, ms planned or 0 when the song says where it ends), about twice a second of music. The master is 16-bit as
 // USB audio sends it, so nothing is lost. Returns {rate, frames}
-export async function play(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [], levels = null } = {}, onAudio) {
+export async function play(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [], levels = null, order = [] } = {}, onAudio) {
   const prep = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib), levels);
   const maxMs = mode === 0 ? Math.max(1, bars) * 240000 / prep.bpm : SONG_MAX_MS;
   let held = [], n = 0;
@@ -159,7 +160,7 @@ export async function play(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, 
     held = []; n = 0;
     onAudio(all, ms, mode === 0 ? maxMs + tailMs : 0);
   };
-  const r = await render(prep, { mode, maxMs, tailMs, stems: false,
+  const r = await render(prep, { mode, maxMs, tailMs, stems: false, order,
     sink: (s, c) => { const p = toPcm16(c); held.push(p); n += p.length; },
     onProgress: (ms) => { if (held.length >= BATCH) flush(ms); } });
   flush(r.frames / r.rate * 1000);
@@ -172,10 +173,10 @@ export function wavOfPcm(chunks, frames, rate) {
 }
 
 // the master and the stems (T1..T4, FX) as a ZIP of WAVs, as web/bounce: a list of byte arrays
-export async function stemsZip(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [], levels = null } = {}, base = "FM1", onProgress) {
+export async function stemsZip(wasm, bytes, { mode = 0, bars = 4, tailMs = TAIL_MS, sib = [], levels = null, order = [] } = {}, base = "FM1", onProgress) {
   const prep = prepare(await loadWasm(wasm), parseFM1(bytes), others(sib), levels);
   const maxMs = mode === 0 ? Math.max(1, bars) * 240000 / prep.bpm : SONG_MAX_MS;
-  return zipParts(bounceFiles(await render(prep, { mode, maxMs, tailMs, stems: true, onProgress }), base));
+  return zipParts(bounceFiles(await render(prep, { mode, maxMs, tailMs, stems: true, onProgress, order }), base));
 }
 
 // ---- the store (IndexedDB "jan3000-library", one object store of records by key). idb: the browser's, or a stand-in

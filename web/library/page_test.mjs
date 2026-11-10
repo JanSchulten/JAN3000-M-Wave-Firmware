@@ -8,6 +8,7 @@
 //           page), pause holds, the bar seeks, the end stops; another mode's length
 //   WHAT    what a project holds is what plays: its song, else its scenes in a row; a SONG chain with the other
 //           slots' files of the same pick, a note and a refusal without them
+//   ORDER   an own order of scenes: added, removed, moved, repeated; what plays, kept over a reload, cleared
 //   OUT     the WAV byte for byte web/bounce's; the .FM1 as it came; the library's ZIP, and that ZIP into an empty
 //           library; a reload keeps the list (IndexedDB), a title and a note; delete
 // NODE_PATH=$(npm root -g) node web/library/page_test.mjs [build/library] [build/vdisk/files] [screenshot directory]
@@ -168,7 +169,7 @@ const setFader = (card, t, v) => fader(card, t).locator("input").evaluate((e, va
   e.value = String(val); e.dispatchEvent(new Event("input", { bubbles: true })); e.dispatchEvent(new Event("change", { bubbles: true })); }, v);
 check("FADERS: four in the open card, T1..T4, each at the project's level (−4.0 dB); no way back offered yet",
       await third.locator(".fader").count() === 4 && await fader(third, 0).locator("b").textContent() === "T1" &&
-      await fader(third, 3).locator("output").textContent() === "−4.0 dB" && await third.locator("button.small").isHidden());
+      await fader(third, 3).locator("output").textContent() === "−4.0 dB" && await third.locator("button.mixreset").isHidden());
 await setFader(third, 0, 0);
 await page.waitForFunction(() => !!document.querySelector("#list .fader.own"));
 const mute = await dl(() => third.getByRole("button", { name: "WAV (mix)" }).click());
@@ -189,9 +190,9 @@ await page.waitForFunction(() => document.querySelectorAll("#list article").leng
 await page.locator("#list article", { hasText: "THIRD" }).locator("summary").click();
 await page.locator("#list article", { hasText: "FIRST" }).locator("summary").click();
 check("  a reload: THIRD's T1 still at 90, the way back offered; FIRST's faders untouched",
-      await fader(third, 0).locator("input").inputValue() === "90" && await third.locator("button.small").isVisible() &&
+      await fader(third, 0).locator("input").inputValue() === "90" && await third.locator("button.mixreset").isVisible() &&
       await fader(first, 0).locator("input").inputValue() === "104");
-await third.locator("button.small").click();
+await third.locator("button.mixreset").click();
 await page.waitForFunction(() => !document.querySelector("#list .fader.own"));
 check("  back to the project's levels: 104 again, nothing marked", await fader(third, 0).locator("input").inputValue() === "104");
 await shot("3b-faders.png");
@@ -233,7 +234,7 @@ const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, d
 const p2 = await ctx2.newPage();
 p2.on("pageerror", (e) => errors.push(e.message));
 await p2.goto(url);
-const card2 = (name) => p2.locator("#list article", { hasText: name });
+const card2 = (name) => p2.locator("#list article", { has: p2.locator(".name", { hasText: new RegExp(`^${name}$`) }) });   // (by its name: hasText also finds it in other words)
 // the length of what the player holds once it is all rendered (the bar's text follows a frame after a tap: wait a moment)
 const total = async () => {
   await p2.waitForTimeout(300);
@@ -274,6 +275,38 @@ check(`  SCENES played: its three scenes in a row (6 s and what rings on: ${len2
       await p2.locator("#pmodesel").inputValue() === "3" && await p2.locator('#pmodesel option[value="1"]').isDisabled() &&
       await p2.locator('#pmodesel option[value="2"]').isDisabled());
 if (shots) await p2.screenshot({ path: pjoin(shots, "4-songs.png") });
+
+// ---- OWN ORDER (SCENES: scenes 1, 2, 4; it is in the player)
+const sc2 = card2("SCENES");
+const rowsN = () => sc2.locator(".orow").count();
+const waitRows = (n) => p2.waitForFunction((k) => [...document.querySelectorAll("#list article")].find((a) =>
+  a.querySelector(".name").textContent === "SCENES").querySelectorAll(".orow").length === k, n);
+await sc2.locator("summary").click();
+check("OWN ORDER: the open card offers it, no rows yet: a word on what it does; not in the player's list yet",
+      await rowsN() === 0 && await sc2.locator(".ohint").isVisible() && await p2.locator('#pmodesel option[value="4"]').isDisabled());
+for (let k = 1; k <= 4; k++) { await sc2.getByRole("button", { name: "+ Add scene" }).click(); await waitRows(k); }
+const rowScenes = () => sc2.locator(".orow select:first-of-type").evaluateAll((l) => l.map((e) => e.selectedOptions[0].textContent).join());
+check("  four added: each the project's next scene that holds something, round to the first (1, 2, 4, 1); only those offered",
+      await rowScenes() === "Scene 1,Scene 2,Scene 4,Scene 1" &&
+      (await sc2.locator(".orow").first().locator("select").first().locator("option").allTextContents()).join() === "Scene 1,Scene 2,Scene 4");
+await sc2.getByRole("button", { name: "Remove row 4" }).click(); await waitRows(3);
+await sc2.getByRole("button", { name: "Row 3 up" }).click();
+await p2.waitForFunction(() => /Scene 1,Scene 4,Scene 2/.test([...document.querySelectorAll("#list .orow select:first-of-type")].map((e) => e.selectedOptions[0].textContent).join()));
+await sc2.getByRole("button", { name: "Row 2 up" }).click();
+await p2.waitForFunction(() => /Scene 4,Scene 1,Scene 2/.test([...document.querySelectorAll("#list .orow select:first-of-type")].map((e) => e.selectedOptions[0].textContent).join()));
+await sc2.getByLabel("Repeats of row 2").selectOption("2");
+await p2.waitForFunction(() => /Own scene order \(3\)/.test(document.body.textContent));
+len2 = await total();
+check(`  one removed, moved up twice, row 2 ×2: 4, 1 ×2, 2; the card and the player say Own scene order; 8 s and what rings on (${len2} s)`,
+      await rowScenes() === "Scene 4,Scene 1,Scene 2" && await p2.locator("#pmodesel").inputValue() === "4" &&
+      /· Own scene order \(3\) ·/.test(await sc2.locator(".meta").textContent()) && len2 >= 8 && len2 <= 11);
+if (shots) await p2.screenshot({ path: pjoin(shots, "7-order.png"), fullPage: false });
+await p2.reload();
+await p2.waitForFunction(() => document.querySelectorAll("#list article").length === 5);
+await sc2.locator("summary").click();
+check("  a reload: the order is still there", await rowScenes() === "Scene 4,Scene 1,Scene 2");
+await sc2.getByRole("button", { name: "Clear the order" }).click(); await waitRows(0);
+check("  cleared: the scenes in a row again", /· 3 scenes ·/.test(await sc2.locator(".meta").textContent()));
 check(`no error on the page${errors.length ? ": " + errors.join(" | ") : ""}`, errors.length === 0);
 
 await browser.close();

@@ -9,6 +9,7 @@
 //   WHAT    what a project holds is what plays (tests/vdisk_test.c's second disk, build/vdisk/songs): its scene song;
 //           else its SONG chain, with the other slots' files taken in with it (refused without them, as on the
 //           FM-1); else its scenes one after another: the hits heard, bar by bar, and the length
+//   OWN     the page's own order of scenes (up to 16 rows, each repeated 1..16 times): those scenes, in that order
 //   LEVELS  a track's LEVEL set for the render (the page's faders): quieter by the table's dB, 0 silent, the stems too
 //   PLAY    the master handed over while it is made: the same samples as web/bounce's bounce, in pieces of about
 //           0.5 s, the WAV byte for byte web/bounce's; the stems' ZIP: six files
@@ -17,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
 import { crc32, parseFM1, loadWasm, prepare, render, bounceFiles, zipParts } from "../bounce/bounce.js";
 import { unzip, candidates, makeRecord, exportNames, libraryZip, inspect, defaultMode, defaultBars, play, wavOfPcm,
-         stemsZip, importFiles, titleOf, siblings, chainSlots, levelTable, SCENE, SSONG, CHAIN, SCENES } from "./lib.js";
+         stemsZip, importFiles, titleOf, siblings, chainSlots, levelTable, SCENE, SSONG, CHAIN, SCENES, OWN } from "./lib.js";
 
 const [wasmPath = "build/bounce/felucca_bounce.wasm", dir = "build/vdisk/files", songs = `${dir}/../songs`] = process.argv.slice(2);
 const wasm = readFileSync(wasmPath);
@@ -174,6 +175,20 @@ await importFiles(store4, ["CURRENT", "PROJ_A", "PROJ_B", "PROJ_C", "PROJ_D"].ma
 lib = [...map4.values()]; rc = lib.find((r) => r.name === "CHAIN"); sbs = siblings(rc, lib);
 check("  the whole drive taken in at once: A and C found, nothing missing",
       sbs.miss.length === 0 && sbs.sib.length === 2 && same(sbs.sib[0], sa) && same(sbs.sib[1], sc));
+
+// ---- OWN ORDER (the page's own row of scenes: B's scenes 1, 2, 4 hold 4, 8, 2 hits)
+check("OWN ORDER: which scenes B holds: 1, 2 and 4 (bits 0, 1, 3)", ib.sceneMask === 0b1011);
+h = await heard(sb, { mode: OWN, order: [{ scene: 3, repeat: 1 }, { scene: 0, repeat: 2 }, { scene: 1, repeat: 1 }] }, [0, 2, 4, 6]);
+check(`  scene 4, scene 1 twice, scene 2 (2 4 4 8 hits: ${h.notes}), 8 s and what rings on (${h.secs.toFixed(2)} s), then STOP`,
+      h.notes === "2,4,4,8" && h.secs > 8 && h.secs < 11.1);
+h = await heard(sb, { mode: OWN, order: [{ scene: 1, repeat: 1 }, { scene: 1, repeat: 1 }, { scene: 3, repeat: 2 }] }, [0, 2, 4, 6]);
+check(`  the same scene in two rows one after another, then one twice (8 8 2 2 hits: ${h.notes})`, h.notes === "8,8,2,2");
+check("  no rows, or more than 16: refused, saying why",
+      await throwsLike(() => play(wasm, sb, { mode: OWN, order: [] }, () => {}), /^noorder$/) &&
+      await throwsLike(() => play(wasm, sb, { mode: OWN, order: Array(17).fill({ scene: 0, repeat: 1 }) }, () => {}), /^noorder$/));
+const so = await unzip(join(await stemsZip(wasm, sb, { mode: OWN, order: [{ scene: 3, repeat: 1 }] }, "X")));
+check("  the stems follow the order too (one pass of scene 4: 2 s and what rings on)", so.length === 6 &&
+      (so[0].data.length - 44) / 4 / 44100 > 2 && (so[0].data.length - 44) / 4 / 44100 < 5.1);
 
 // ---- LEVELS (the page's faders: a track's LEVEL for the render, the project's own left in the file)
 const db = await levelTable(wasm);

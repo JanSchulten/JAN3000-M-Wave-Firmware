@@ -120,10 +120,34 @@ EXPORT uint32_t bounce_load(uint32_t slot)
  * STOP for the bounce), 2 the SONG chain (the SONG page's PLAY: refused as there when a project it plays is not in
  * its slot, bounce_chain(1)), 3 every scene that holds something, in their order, one pass each: a scene song of them
  * (so the FM-1's own change from scene to scene: at the end of the longest track's loop, the sample's remainder
- * carried, scene.c), made here in place of the project's; a project with nothing in any scene: the one playing, once.
- * 1 started */
+ * carried, scene.c), made here in place of the project's; a project with nothing in any scene: the one playing, once;
+ * 4 an order of scenes of the page's own (bounce_order_row): a scene song of those rows, as 3. 1 started */
+static uint8_t bn_ord_n, bn_ord_sc[SSG_ROWS], bn_ord_rep[SSG_ROWS];
+/* the page's own order (mode 4), row by row: row i plays scene (0..15) repeat times (1..16); n rows in all (<= 16) */
+EXPORT void bounce_order_clear(void) { bn_ord_n = 0; }
+EXPORT uint32_t bounce_order_row(uint32_t i, uint32_t scene, uint32_t repeat)
+{
+    if (i >= SSG_ROWS || scene >= SCN_N)
+        return 0;
+    bn_ord_sc[i] = (uint8_t)scene;
+    bn_ord_rep[i] = (uint8_t)(repeat < 1u ? 1u : repeat > 16u ? 16u : repeat);
+    bn_ord_n = (uint8_t)(i + 1u > bn_ord_n ? i + 1u : bn_ord_n);
+    return 1;
+}
 EXPORT uint32_t bounce_play(uint32_t mode)
 {
+    if (mode == 4u) {
+        uint32_t i;
+        if (!bn_ord_n)
+            return 0;
+        memset(&ssong, 0, sizeof ssong);
+        for (i = 0; i < bn_ord_n; i++) {
+            ssong.scene[i] = bn_ord_sc[i];
+            ssong.repeat[i] = bn_ord_rep[i];
+        }
+        ssong.count = bn_ord_n;
+        return ssong_start(0) == SQ_NOW;
+    }
     if (mode == 3u) {
         uint32_t k;
         memset(&ssong, 0, sizeof ssong);

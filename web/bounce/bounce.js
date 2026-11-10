@@ -96,16 +96,18 @@ export function prepare(ex, fm1, others = [], levels = null) {
   if (levels) levels.forEach((v, t) => { if (v != null && t < 4) ex.bounce_set_level(t, Math.max(0, Math.min(127, Math.round(v)))); });
   return { ex, levels: own, rate: ex.web_sample_rate(), bpm: ex.bounce_bpm10() / 10, loopMs: ex.bounce_loop_ms(),
            has: [1, 2].map((m) => !!ex.bounce_has(m)), scenes: ex.bounce_scenes().toString(2).replace(/0/g, "").length,
+           sceneMask: ex.bounce_scenes(),
            chain: { need: ex.bounce_chain(0), miss: ex.bounce_chain(1) } };
 }
 
 // play and gather: mode 0 the scene (maxMs long), 1 the scene song to its end, 2 the SONG chain (to its end, or maxMs),
-// 3 every scene that holds something, one after another, one pass each (to the end of the last);
+// 3 every scene that holds something, one after another, one pass each (to the end of the last), 4 order: [{scene
+// 0..15, repeat 1..16}] up to 16 rows, those scenes in that order (to the end of the last);
 // then tailMs of the tails (ended early once the master has been silent for 0.5 s). onProgress(ms done, ms planned)
 // may return a promise (the page yields there). Returns {rate, frames, chunks: [stem][Float32Array interleaved]}.
 // With sink(stem, Float32Array) each slice is handed over as it is made and not kept (web/library plays it meanwhile):
 // chunks comes back empty
-export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stems = true, onProgress, sink } = {}) {
+export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stems = true, onProgress, sink, order = [] } = {}) {
   const { ex, rate } = prep;
   const chunks = STEMS.map(() => []);
   let frames = 0, ms = 0, stopped = false, quiet = 0, tail = 0, last = null;
@@ -113,7 +115,12 @@ export async function render(prep, { mode = 0, maxMs = 8000, tailMs = 3000, stem
     const slots = [0, 1, 2, 3].filter((k) => prep.chain.miss >> k & 1).map((k) => SLOT_NAMES[k]).join(", ");
     throw fail("chainmiss", `Die Song-Kette spielt Projekt ${slots}: nicht in dieser Datei.`, [slots]);
   }
-  if (!ex.bounce_play(mode)) throw mode === 1 ? fail("nosong", "Das Projekt hat keinen Szenen-Song.") :
+  if (mode === 4) {
+    if (!order.length || order.length > 16) throw fail("noorder", "Keine eigene Szenenfolge.");
+    ex.bounce_order_clear();
+    order.forEach((r, i) => ex.bounce_order_row(i, r.scene, r.repeat));
+  }
+  if (!ex.bounce_play(mode)) throw mode === 4 ? fail("noorder", "Keine eigene Szenenfolge.") : mode === 1 ? fail("nosong", "Das Projekt hat keinen Szenen-Song.") :
                               mode === 2 ? fail("nochain", "Das Projekt hat keine Song-Kette.") : fail("noplay", "PLAY ging nicht.");
   ex.bounce_gather(1);
   const take = () => {

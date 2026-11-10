@@ -100,7 +100,7 @@ summary::-webkit-details-marker { display: none; }
 summary::after { content: " +"; color: var(--acc-ink); }
 details[open] summary::after { content: " −"; }
 .field { display: block; margin-top: 12px; }
-.field span { display: block; font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); margin-bottom: 6px; }
+.field > span { display: block; font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); margin-bottom: 6px; }
 input[type=text], input[type=number], textarea, select { width: 100%; padding: 9px 11px; font: 16px/1.3 var(--f-body); border-radius: 8px;
   border: 1px solid var(--rule); background: var(--paper); color: var(--ink); }
 textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
@@ -113,6 +113,13 @@ textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
 .fader output { font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.02em; color: var(--mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .fader.own output { color: var(--acc-ink); }
 button.small { min-height: 0; padding: 9px 12px; font: 600 11px/1.2 var(--f-mono); letter-spacing: 0.05em; text-transform: uppercase; margin-top: 10px; }
+.orows { display: grid; gap: 6px; margin-top: 6px; }
+.orow { display: grid; grid-template-columns: 20px minmax(0, 1fr) 60px 34px 34px 34px; gap: 5px; align-items: center; }
+.orow .n { font: 500 11px/1 var(--f-mono); color: var(--mute); font-variant-numeric: tabular-nums; }
+.orow select { padding: 8px 4px 8px 8px; font-size: 15px; }
+.orow button { min-height: 0; height: 40px; padding: 0; font: 600 15px/1 var(--f-mono); }
+.ohint { color: var(--mute); font-size: 14.5px; line-height: 1.5; margin-top: 2px; }
+.obtns { display: flex; gap: 8px; flex-wrap: wrap; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
 .chip { font: 500 11px/1 var(--f-mono); letter-spacing: 0.03em; background: var(--faint); border-radius: 4px; padding: 5px 7px;
         font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -238,7 +245,7 @@ a.card > span[data-l] { display: block; }
 
 <script type="module">
 import { openStore, importFiles, titleOf, defaultMode, defaultBars, wavOfPcm, libraryZip, exportNames,
-         safeName, siblings, SCENE, SSONG, CHAIN, SCENES } from "./lib.js";
+         safeName, siblings, SCENE, SSONG, CHAIN, SCENES, OWN, ORDER_MAX } from "./lib.js";
 
 const $ = (id) => document.getElementById(id);
 const FW = "v1.5.1";
@@ -253,9 +260,12 @@ const say = (node, t, err) => { node.textContent = t; node.classList.toggle("err
 const WORDS = {
   en: {
     title: "JAN3000 Library", locale: "en-GB",
-    modes: ["One scene, looped", "Scene song", "Song chain", "All scenes, one after another"],
+    modes: ["One scene, looped", "Scene song", "Song chain", "All scenes, one after another", "Own scene order"],
     scenes: (n) => `${n} ${n === 1 ? "scene" : "scenes"}`,
     mixer: "Track levels", mixReset: "Back to the project's levels", fader: (t) => `Level of track ${t}`,
+    order: "Own scene order", sceneN: (n) => `Scene ${n}`, orderAdd: "+ Add scene", orderClear: "Clear the order",
+    orderHint: "Line the project's scenes up as you like: up to 16 rows, each played 1 to 16 times, each change at the end of the scene as on the FM-1. With a row here it plays as “Own scene order”.",
+    rowUp: (n) => `Row ${n} up`, rowDown: (n) => `Row ${n} down`, rowDel: (n) => `Remove row ${n}`, rowScene: (n) => `Scene of row ${n}`, rowRep: (n) => `Repeats of row ${n}`,
     chainHint: (slots, files) => `This project's song chain plays project ${slots}, which is not here. Choose ${files} together with this file (one pick from the FM-1's drive) to hear the chain. Until then its scenes play.`,
     intro: "On the FM-1: MENU › SYSTEM › USB DISK, then choose the files of the drive “FM-1” here (CURRENT.FM1 is the music as it is right now). A ZIP backup of this page works too.",
     empty: "No projects yet. Add .FM1 files from the FM-1 above.",
@@ -277,7 +287,7 @@ const WORDS = {
       table: "The file's table of contents is damaged.", outside: (t) => `${t}: lies outside the file.`,
       crc: (t) => `${t}: wrong checksum, the file is damaged.`, noproj: "The file holds no project.",
       load: "The project could not be loaded.", nosong: "The project has no scene song.", nochain: "The project has no song chain.",
-      noplay: "PLAY did not start.", chainmiss: (p) => `The song chain plays project ${p}: not in the library.`, silent: "The device no longer gives any sound.", nozip: "Not a ZIP file.",
+      noplay: "PLAY did not start.", noorder: "The own scene order has no rows.", chainmiss: (p) => `The song chain plays project ${p}: not in the library.`, silent: "The device no longer gives any sound.", nozip: "Not a ZIP file.",
       zipbad: "The ZIP file is damaged.", zipshort: "The ZIP file is incomplete.", zipinflate: (n) => `${n}: cannot be unpacked.`,
       zipmethod: (n) => `${n}: unknown ZIP compression.`, ziplen: (n) => `${n}: wrong length in the ZIP file.`,
       zipnofm1: "The ZIP file holds no .FM1 file.", noidb: "This browser has no storage for the library (IndexedDB).",
@@ -285,9 +295,12 @@ const WORDS = {
   },
   de: {
     title: "JAN3000 Bibliothek", locale: "de-DE",
-    modes: ["Eine Szene, wiederholt", "Szenen-Song", "Song-Kette", "Alle Szenen nacheinander"],
+    modes: ["Eine Szene, wiederholt", "Szenen-Song", "Song-Kette", "Alle Szenen nacheinander", "Eigene Szenenfolge"],
     scenes: (n) => `${n} ${n === 1 ? "Szene" : "Szenen"}`,
     mixer: "Pegel der Tracks", mixReset: "Zurück zu den Pegeln des Projekts", fader: (t) => `Pegel von Track ${t}`,
+    order: "Eigene Szenenfolge", sceneN: (n) => `Szene ${n}`, orderAdd: "+ Szene hinzufügen", orderClear: "Folge löschen",
+    orderHint: "Reihe die Szenen des Projekts nach Belieben aneinander: bis zu 16 Zeilen, jede 1- bis 16-mal gespielt, jeder Wechsel am Ende der Szene wie am FM-1. Mit einer Zeile hier spielt sie als „Eigene Szenenfolge“.",
+    rowUp: (n) => `Zeile ${n} nach oben`, rowDown: (n) => `Zeile ${n} nach unten`, rowDel: (n) => `Zeile ${n} entfernen`, rowScene: (n) => `Szene von Zeile ${n}`, rowRep: (n) => `Wiederholungen von Zeile ${n}`,
     chainHint: (slots, files) => `Die Song-Kette dieses Projekts spielt Projekt ${slots}, das hier fehlt. Wähle ${files} zusammen mit dieser Datei (in einem Zug vom Laufwerk des FM-1), um die Kette zu hören. Bis dahin spielen seine Szenen.`,
     intro: "Am FM-1: MENU › SYSTEM › USB DISK, dann die Dateien vom Laufwerk „FM-1“ hier wählen (CURRENT.FM1 ist der Stand von gerade eben). Auch eine ZIP-Sicherung dieser Seite geht.",
     empty: "Noch keine Projekte. Füge oben .FM1-Dateien vom FM-1 hinzu.",
@@ -309,7 +322,7 @@ const WORDS = {
       table: "Das Inhaltsverzeichnis der Datei ist beschädigt.", outside: (t) => `${t}: liegt außerhalb.`,
       crc: (t) => `${t}: Prüfsumme falsch, die Datei ist beschädigt.`, noproj: "Die Datei enthält kein Projekt.",
       load: "Das Projekt ließ sich nicht laden.", nosong: "Das Projekt hat keinen Szenen-Song.", nochain: "Das Projekt hat keine Song-Kette.",
-      noplay: "PLAY ging nicht.", chainmiss: (p) => `Die Song-Kette spielt Projekt ${p}: nicht in der Bibliothek.`, silent: "Das Gerät gibt keinen Ton mehr aus.", nozip: "Keine ZIP-Datei.",
+      noplay: "PLAY ging nicht.", noorder: "Die eigene Szenenfolge hat keine Zeilen.", chainmiss: (p) => `Die Song-Kette spielt Projekt ${p}: nicht in der Bibliothek.`, silent: "Das Gerät gibt keinen Ton mehr aus.", nozip: "Keine ZIP-Datei.",
       zipbad: "Die ZIP-Datei ist beschädigt.", zipshort: "Die ZIP-Datei ist unvollständig.", zipinflate: (n) => `${n}: lässt sich nicht entpacken.`,
       zipmethod: (n) => `${n}: unbekannte ZIP-Kompression.`, ziplen: (n) => `${n}: falsche Länge in der ZIP-Datei.`,
       zipnofm1: "Die ZIP-Datei enthält keine .FM1-Datei.", noidb: "Dieser Browser hat keinen Speicher für die Bibliothek (IndexedDB).",
@@ -354,11 +367,14 @@ const look = (bytes) => { let info; return job({ job: "inspect", bytes }, (d) =>
 // its song, else its scenes in a row); for a SONG chain the other slots' files taken in with it (sib)
 const optsOf = (r) => {
   const { sib, miss } = siblings(r, recs);
-  const has = (m) => m === SCENE || m === SCENES || (m === SSONG && r.info.has[0]) || (m === CHAIN && r.info.has[1]);
+  const has = (m) => m === SCENE || m === SCENES || (m === SSONG && r.info.has[0]) || (m === CHAIN && r.info.has[1]) ||
+                     (m === OWN && !!(r.order && r.order.length));
   return { mode: r.mode >= 0 && has(r.mode) ? r.mode : defaultMode(r.info, miss.length), bars: r.bars || defaultBars(r.info), sib, miss };
 };
 const SLOTS = "ABCD";
-const jobOpts = (r) => { const { mode, bars, sib } = optsOf(r); return { mode, bars, sib, levels: r.levels || null }; };
+const jobOpts = (r) => { const { mode, bars, sib } = optsOf(r); return { mode, bars, sib, levels: r.levels || null, order: r.order || [] }; };
+// the scenes a record's project holds (0..15; not known yet, from a record taken in before the page knew: all 16)
+const usedScenes = (r) => { const m = r.info.sceneMask; return [...Array(16).keys()].filter((k) => m == null || (m >> k & 1)); };
 // the tracks' levels: the project's own (what the firmware read from the file), a record's (its faders), in dB
 let DB = null;
 const ownLevel = (r, t) => (r.info.levels ? r.info.levels[t] : 104);
@@ -541,9 +557,9 @@ function showPlayer() {
   $("pclose").setAttribute("aria-label", W.close);
   wave.setAttribute("aria-label", W.position);
   $("pmodesel").setAttribute("aria-label", W.what);
-  $("pmodesel").replaceChildren(...[SSONG, CHAIN, SCENES, SCENE].map((i) =>
+  $("pmodesel").replaceChildren(...[SSONG, CHAIN, OWN, SCENES, SCENE].map((i) =>
     el("option", { value: String(i), textContent: W.modes[i], selected: i === o.mode,
-                   disabled: (i === SSONG && !r.info.has[0]) || (i === CHAIN && !r.info.has[1]) })));
+                   disabled: (i === SSONG && !r.info.has[0]) || (i === CHAIN && !r.info.has[1]) || (i === OWN && !(r.order && r.order.length)) })));
   $("pbars").value = o.bars;
   $("pbarsl").hidden = o.mode !== SCENE;
 }
@@ -588,7 +604,7 @@ async function master(rec, row) {
 }
 function card(r) {
   const o = optsOf(r), row = el("p", { className: "status" });
-  const meta = [W.slot(r), `${r.info.bpm} BPM`, o.mode === SCENE ? W.bars(o.bars) : o.mode === SCENES ? W.scenes(r.info.scenes || 1) : W.modes[o.mode],
+  const meta = [W.slot(r), `${r.info.bpm} BPM`, o.mode === OWN ? `${W.modes[OWN]} (${r.order.length})` : o.mode === SCENE ? W.bars(o.bars) : o.mode === SCENES ? W.scenes(r.info.scenes || 1) : W.modes[o.mode],
                 fmtDate(r.added)].join(" · ");
   const busy = async (btn, fn) => {
     btn.disabled = true;
@@ -650,11 +666,47 @@ function card(r) {
     await store.put(r).catch(() => {});
     if (P.rec === r) load(r, position(), P.playing);
   };
-  const reset = el("button", { className: "ghost small", textContent: W.mixReset, hidden: !r.levels });
+  const reset = el("button", { className: "ghost small mixreset", textContent: W.mixReset, hidden: !r.levels });
   reset.addEventListener("click", () => setLevels([0, 1, 2, 3].map((t) => ownLevel(r, t))));
+  // the own order: rows of {scene, repeat}, kept with the record; with a row it is what plays (OWN), none: what played
+  // before. What plays is rendered again from its start
+  const used = usedScenes(r), rows = r.order || [];
+  const setOrder = async (v) => {
+    r.order = v.length ? v.slice(0, ORDER_MAX) : null;
+    if (r.order) r.mode = OWN; else if (r.mode === OWN) r.mode = -1;
+    await store.put(r).catch(() => {});
+    render(r.key);
+    if (P.rec === r) load(r, 0, P.playing);
+  };
+  const edit = (i, row) => setOrder(rows.map((x, k) => (k === i ? row : x)));
+  const move = (i, d) => { const v = rows.slice(); [v[i], v[i + d]] = [v[i + d], v[i]]; setOrder(v); };
+  const orderRows = rows.map((x, i) => {
+    const sc = el("select", {}, ...[...new Set([...used, x.scene])].sort((p, q) => p - q).map((k) =>
+      el("option", { value: String(k), textContent: W.sceneN(k + 1), selected: k === x.scene })));
+    const rp = el("select", {}, ...Array.from({ length: 16 }, (_, k) =>
+      el("option", { value: String(k + 1), textContent: `×${k + 1}`, selected: k + 1 === x.repeat })));
+    sc.setAttribute("aria-label", W.rowScene(i + 1));
+    rp.setAttribute("aria-label", W.rowRep(i + 1));
+    sc.addEventListener("change", () => edit(i, { scene: +sc.value, repeat: x.repeat }));
+    rp.addEventListener("change", () => edit(i, { scene: x.scene, repeat: +rp.value }));
+    const ib = (text, label, off, fn) => { const k = el("button", { className: "ghost", textContent: text, disabled: off }); k.setAttribute("aria-label", label); k.addEventListener("click", fn); return k; };
+    return el("div", { className: "orow" }, el("span", { className: "n", textContent: String(i + 1).padStart(2, "0") }), sc, rp,
+      ib("↑", W.rowUp(i + 1), i === 0, () => move(i, -1)), ib("↓", W.rowDown(i + 1), i === rows.length - 1, () => move(i, 1)),
+      ib("✕", W.rowDel(i + 1), false, () => setOrder(rows.filter((_, k) => k !== i))));
+  });
+  const addRow = el("button", { className: "ghost small", textContent: W.orderAdd, disabled: rows.length >= ORDER_MAX });
+  addRow.addEventListener("click", () => {             // the scene after the last row's, round to the first
+    const last = rows.length ? rows[rows.length - 1].scene : -1, next = used.find((k) => k > last);
+    setOrder([...rows, { scene: next != null ? next : used[0] || 0, repeat: 1 }]);
+  });
+  const clearRows = el("button", { className: "ghost small", textContent: W.orderClear, hidden: !rows.length });
+  clearRows.addEventListener("click", () => setOrder([]));
   const more = el("details", {},
     el("summary", { textContent: W.more }),
     el("div", { className: "field" }, el("span", { textContent: W.mixer }), el("div", { className: "mixer" }, ...faders.map((f) => f.box)), reset),
+    el("div", { className: "field order" }, el("span", { textContent: W.order }),
+       ...(rows.length ? [el("div", { className: "orows" }, ...orderRows)] : [el("p", { className: "ohint", textContent: W.orderHint })]),
+       el("div", { className: "obtns" }, addRow, clearRows)),
     el("label", { className: "field" }, el("span", { textContent: W.ftitle }), title),
     el("label", { className: "field" }, el("span", { textContent: W.fnote }), note),
     el("div", { className: "chips" }, ...r.parts.map((x) => el("span", { className: "chip", textContent: `${x.tag} ${fmtSize(x.len)}` })),
@@ -738,6 +790,12 @@ try {
   store = openStore();
   recs = await store.all();
   render();
+  // records taken in before the page read their scenes or levels: looked at again (the firmware, in a worker)
+  const old = recs.filter((r) => r.info.sceneMask == null || !r.info.levels);
+  for (const r of old) {
+    try { r.info = { ...r.info, ...(await look(r.bytes)) }; await store.put(r); } catch { /* left as it was */ }
+  }
+  if (old.length) render();
 } catch (err) {
   setStatus(() => errText(err), true);
 }
