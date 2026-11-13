@@ -67,6 +67,10 @@ Run `scripts/budget_report.sh` to get the current numbers.
 
 ### Flash (1 MB SPI NOR, XIP at 0x02000000)
 
+Two parts are in the field, the same size and the same commands: JEDEC `0x856014`, and in newer units the UC25HQ80,
+`0xB36014` (Felucca 1.8.2). `flash_part_known()` (project.c) accepts both at boot; with any other id the firmware
+stays RAM-only and starts no update (`flash_ok`). The emulator and the host tests simulate the first part only.
+
 | Range | What |
 | --- | --- |
 | 0x00000 .. ~0x96FFF | boot code, app image |

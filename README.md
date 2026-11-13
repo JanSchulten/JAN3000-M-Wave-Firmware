@@ -45,6 +45,12 @@ explained. The same manual is in this repository at [`web/manual/manual.html`](w
 **You need:** an M-VAVE FM-1 that starts and runs normally, a Mac or Windows computer with **Python 3**, **Google
 Chrome or Microsoft Edge** (Web MIDI), and a good USB cable.
 
+**Newer FM-1 units (UC25HQ80 flash, JEDEC ID `0xB36014`): do not install v0.2-alpha.** It knows only the first
+flash part: on a newer unit it saves nothing and cannot start an update over USB (Felucca's
+[1.8.2 release notes](https://github.com/hugelton/Felucca/releases/tag/v1.8.2) describe the way back through the
+official V15). The source in this repository recognises both parts, as Felucca 1.8.2 does; the next release will carry it.
+It has not yet been tried on a unit with the newer part.
+
 1. Download the installer ZIP (**`JAN3000-v0.2-alpha-Installer.zip`**) from the
    [releases page](https://github.com/JanSchulten/JAN3000-M-Wave-Firmware/releases) (it is also in this repository
    at [`dist/M-Vave-OP1-Installer.zip`](dist/M-Vave-OP1-Installer.zip)).
