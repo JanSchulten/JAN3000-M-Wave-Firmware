@@ -10,6 +10,10 @@ AL-255/FM-1-RE (reverse engineering of the stock firmware), measurements from bu
 - **Toolchain:** JieLi Linux toolchain, clang 4.0.1 for pi32v2 (`~/.jieli/toolchain`, from
   `pkgman.jieliapp.com`). Newer toolchain drops produce slightly different code: the stock Felucca 1.5.1 ISR
   already measures 38 871 against its 37 502 budget line with toolchain 20260730.
+- **Second core (CPU1):** built in (`FELUCCA_CPU2`, `firmware/hal/fm1_cpu1.h` from felucca-bsp, MPL-2.0), started at
+  power-on only with MENU > SYSTEM > 2ND CORE ON (BETA, OFF by default; `firmware/src/cpu2.c`); it renders some of
+  the four parts each block (`fx.c mix_block`). Held first thing at every start and before every reset. Not yet run
+  on a unit: `docs/DUALCORE_PLAN.md` section 9 has what was built and the device test.
 - **FPU:** the chip has one: JieLi's SDK builds for WL82 with `-mcpu=r3 -mfprev1`. Felucca builds without (soft float,
   and its code is integer only). `__attribute__((target("fprev1")))` turns it on for one function (every float helper it
   calls needs the attribute too, or that helper is not inlined and runs as soft float). Measured on a unit (MENU >

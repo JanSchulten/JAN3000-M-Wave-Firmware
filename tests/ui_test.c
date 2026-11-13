@@ -1720,11 +1720,11 @@ static int test_menu_tabs(void)
             }
     }
     ui_prefs = 0;
-    bad += check("MENU tabs: DISPLAY CONTROL AUDIO MIDI SYSTEM (8 7 4 2 7 rows), 1..8 each in a run, fit the page; tab gaps "
+    bad += check("MENU tabs: DISPLAY CONTROL AUDIO MIDI SYSTEM (8 7 4 2 8 rows), 1..8 each in a run, fit the page; tab gaps "
                  "constant (S, LARGE)",
                  ok && MTAB_COUNT == 5u && str_eq(MTAB_NAME[0], "DISPLAY") && str_eq(MTAB_NAME[MTAB_MIDI], "MIDI") &&
                  mtab_rows(MTAB_DISPLAY) == 8u && MI_TAB[MI_HOME] == MTAB_DISPLAY && mtab_rows(MTAB_CONTROL) == 7u && MI_TAB[MI_SCENE] == MTAB_CONTROL && mtab_rows(MTAB_AUDIO) == 4u &&
-                 mtab_rows(MTAB_MIDI) == 2u && MI_TAB[MI_LCLEAR] == MTAB_MIDI && mtab_rows(MTAB_SYSTEM) == 7u && MI_TAB[MI_TUNE] == MTAB_AUDIO &&   /* (1.5: LEARN CLEAR, HELP) */
+                 mtab_rows(MTAB_MIDI) == 2u && MI_TAB[MI_LCLEAR] == MTAB_MIDI && mtab_rows(MTAB_SYSTEM) == 7u + FELUCCA_CPU2 && MI_TAB[MI_TUNE] == MTAB_AUDIO &&   /* (1.5: LEARN CLEAR, HELP) */
                  MI_TAB[MI_MIDIIN] == MTAB_MIDI && MI_TAB[MI_INFO] == MTAB_SYSTEM && MI_INFO >= MI_VALUES &&
                  MI_TAB[MI_DISK] == MTAB_SYSTEM && MI_DISK >= MI_VALUES);
 
@@ -8849,6 +8849,47 @@ static int help_fits(const char *s)
     if (!ok || w > 224) printf("  help: \"%s\" %u hints, %d px of 224\n", s, n, w);
     return ok && w <= 224;
 }
+/* M-Vave-OP1, the second core (docs/DUALCORE_PLAN.md step 4): MENU > SYSTEM > 2ND CORE, OFF by default, a bit of
+ * its own, its values as words; what a start does about it and how it turns itself OFF (cpu2.c) */
+#if FELUCCA_CPU2
+#include "../firmware/src/cpu2.c"
+static int test_cpu2(void)
+{
+    int bad = 0, ok;
+    uint32_t i;
+    uint8_t before[32];
+    ui_power_on();
+    memcpy(before, favorites.factory[15], sizeof before);
+    ok = !c1_set() && menu_get(MI_CPU2) == 0u && str_eq(MI_NAME[MI_CPU2], "2ND CORE") && MI_TAB[MI_CPU2] == MTAB_SYSTEM &&
+         MI_CPU2 < MI_VALUES && menu_n(MI_CPU2) == 2u && str_eq(menu_vname(MI_CPU2, 0), "OFF") &&
+         str_eq(menu_vname(MI_CPU2, 1), "ON (BETA)") && MI_TEXT(MI_CPU2) && !MI_TEXT(MI_HELP);
+    ui.msg_t = 0;
+    menu_put(MI_CPU2, 1);
+    ok &= c1_set() && menu_get(MI_CPU2) == 1u && favorites.factory[15][24] == (uint8_t)(before[24] | 0x80u) &&
+          msg_is("2ND CORE ON: RESTART");
+    for (i = 0; i < sizeof before; i++)
+        ok &= i == 24u || favorites.factory[15][i] == before[i];
+    ok &= menu_step(MI_CPU2, 1) == 1u && menu_step(MI_CPU2, -1) == 0u;
+    menu_put(MI_CPU2, 0);
+    ok &= !c1_set() && favorites.factory[15][24] == before[24] && msg_is("2ND CORE OFF: RESTART");
+    bad += check("MENU > SYSTEM > 2ND CORE: OFF by default, ON (BETA) a bit of its own (ui_prefs2 bit 7), said: from the restart", ok);
+
+    ok = c1_boot_plan(0, 0) == C1B_NONE && c1_boot_plan(1, 0) == C1B_NONE && c1_boot_plan(0, 1) == C1B_START &&
+         c1_boot_plan(1, 1) == C1B_OFF && c1_boot_plan(2, 1) == C1B_OFF;
+    bad += check("second core: started only with 2ND CORE ON and never on a start that follows a failed one", ok);
+
+    menu_put(MI_CPU2, 1); ui.msg_t = 0;
+    c1_tell(C1N_GAVE_UP);
+    ok = !c1_set() && msg_is("2ND CORE MISREAD: OFF") && favorites.factory[15][24] == before[24];
+    menu_put(MI_CPU2, 1); ui.msg_t = 0;
+    c1_tell(C1N_BAD_START);
+    ok &= !c1_set() && msg_is("2ND CORE OFF: BAD START");
+    ok &= str_len(c1_note_text(C1N_GAVE_UP)) <= 23u && str_len(c1_note_text(C1N_BAD_START)) <= 23u;
+    bad += check("second core: a misread or a failed start turns 2ND CORE OFF and says why (23 characters at most)", ok);
+    return bad;
+}
+#endif
+
 static int test_help(void)
 {
     int bad = 0, ok;
@@ -9441,6 +9482,9 @@ int main(void)
     bad += test_home_tracks();
     bad += test_fx_map_columns();
     bad += test_help();
+#if FELUCCA_CPU2
+    bad += test_cpu2();
+#endif
     bad += test_no_flash();
 #if FELUCCA_FM4
     bad += test_fm_charts();                        /* (DIGITAL's charts: built with FELUCCA_FM4=1 only) */

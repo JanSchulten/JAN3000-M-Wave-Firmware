@@ -88,3 +88,6 @@ static uint32_t c1h_split(void)
 #define C1_RUN(fn, arg) c1h_run(fn, arg)
 #define C1_WAIT() c1h_wait()
 #define C1_SPLIT() c1h_split()
+static uint8_t c1h_fpu = 1;                         /* the second core's FPU is right (fx.c mix_split: 0 keeps the parts
+                                                     * that compute on it on core 0) */
+#define C1_FPU() c1h_fpu

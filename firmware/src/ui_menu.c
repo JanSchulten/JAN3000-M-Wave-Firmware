@@ -329,7 +329,7 @@ static void menu_row(uint32_t k, uint32_t row)
                   vy, &AF_M, row == MI_TUNE ? v : b, val, bg);
         return;
     }
-    if (menu_n(row) == 2u && (str_eq(v, "ON") || str_eq(v, "OFF"))) {
+    if (menu_n(row) == 2u && (str_eq(v, "ON") || str_eq(v, "OFF")) && !MI_TEXT(row)) {
         menu_switch(MR_VR, y, h, str_eq(v, "ON"), sel);
         return;
     }
@@ -363,13 +363,22 @@ static uint32_t info_usb(void)                         /* 0 OFF, 1 WAIT, 2 BUS, 
 {
     return !usb.up ? 0u : usb.config ? 4u : usb.setups ? 3u : usb.sof_seen ? 2u : 1u;
 }
+/* M-Vave-OP1: the CPU row's name says when the second core renders parts with this one (fx.c C1_ON; MENU > 2ND CORE) */
+static uint32_t info_c1(void)
+{
+#if FELUCCA_CPU2
+    return C1_ON() != 0;
+#else
+    return 0;
+#endif
+}
 static uint32_t info_sig(void)
 {
     if (fm1_ms - info.t >= INFO_CPU_MS) {
         info.t = fm1_ms;
         info.cpu = (uint8_t)(song.cpu_q8 * 100u / 256u);
     }
-    return info.cpu * 7u + info_usb() * 131u + fpb.runs * 7919u + fpb.state * 65537u + 1u;
+    return info.cpu * 7u + info_usb() * 131u + fpb.runs * 7919u + fpb.state * 65537u + info_c1() * 257u + 1u;
 }
 static void info_rows(void)                            /* (in screen rows: cv_oy set by the caller) */
 {
@@ -386,7 +395,7 @@ static void info_rows(void)                            /* (in screen rows: cv_oy
         if (k)
             cv_rect(MR_X + 6, y - 1, MR_W - 12, 1, ux.style ? T_RULE : T_LINE);
         GFX_HOOK_ALIGN(0, y, 0, y + h, AL_V, "info row name centred up/down");
-        cv_text_on(MR_LX, vy, &AF_M, LBL[k], T_TEXT, T_SURF);
+        cv_text_on(MR_LX, vy, &AF_M, k == 2u && info_c1() ? "CPU 1+2" : LBL[k], T_TEXT, T_SURF);
         GFX_HOOK_ALIGN(0, y, 0, y + h, AL_V, "info row value centred up/down");
         if (k == 2u) {                                 /* CPU: the value and its unit, as HOLD's */
             GFX_HOOK_ALIGN(0, 0, 0, vy + AF_M.asc, AL_B, "info row unit on its value's baseline");

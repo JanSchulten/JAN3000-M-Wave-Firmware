@@ -4,10 +4,11 @@ Stand 2026-11-02. Der AC791N hat zwei pi32v2-Kerne; M-Vave-OP1 nutzt bisher nur 
 Hauptschleife, alles nacheinander). Andere FM-1-Firmwares nutzen CPU1 schon auf dem Gerät. Dieser Plan beschreibt, wie
 wir das übernehmen: was es bringt, was dafür im Code geändert werden muss, in welcher Reihenfolge und mit welchen Risiken.
 
-**Fortschritt:** Schritt 1 und 2 (Abschnitt 5) sind erledigt: die Parts teilen beim Rendern nichts mehr, die Firmware ist
-zweikernfähig gebaut (`FELUCCA_CPU2 1`), rendert auf dem Gerät aber weiter mit einem Kern, bitgleich zu vorher. Was genau
-geändert wurde: 3.3 (Spalte „Umgesetzt“), Tests: 3.4, Zahlen: Abschnitt 4. Schritt 3 (HAL, Build) ist der nächste; für
-Schritt 4 braucht es die Entscheidungen aus Abschnitt 8.
+**Fortschritt:** Schritt 1 bis 4 (Abschnitt 5) sind im Code: die Parts teilen beim Rendern nichts mehr (Schritt 2), die
+Hardware-Schicht für CPU1 ist eingebaut (Schritt 3) und MENU > SYSTEM > 2ND CORE startet sie beim Einschalten (Schritt 4,
+Standard OFF). **Auf einem Gerät ist noch nichts davon gelaufen:** Schritt 5 (Gerätetest) steht aus. Was genau geändert
+wurde: 3.3 (Spalte „Umgesetzt“), Tests: 3.4, Zahlen: Abschnitt 4, Schritt 3 und 4: Abschnitt 9, die Entscheidungen:
+Abschnitt 8.
 
 ## 1. Was es schon gibt
 
@@ -205,3 +206,52 @@ Ursprüngliche Schätzung (Zahlen vom 2026-10-27):
 2. Fallback: nach einem CPU1-Fehler mit einem Kern weiter (vorgeschlagen) oder Neustart (Melodee-Standard)?
 3. Ist Wiederherstellungshardware vorhanden, bevor Schritt 5 aufs Gerät geht?
 4. Schritt 2 zuerst allein ausliefern (vorgeschlagen), oder alles in einem Zug?
+
+Entschieden am 2026-11-13: (1) ja, Start-, Reset- und Update-Pfad dürfen dafür angefasst werden; (2) nach einem
+CPU1-Fehler mit einem Kern weiter; (3) Wiederherstellungshardware ist vorhanden.
+
+## 9. Schritt 3 und 4, wie sie umgesetzt sind (2026-11-13)
+
+- **Hardware-Schicht:** `firmware/hal/fm1_cpu1.h`, `fm1_cpu1.S`, `fm1_cpu1_stop.h` aus felucca-bsp (Stand 5942e68,
+  MPL-2.0, Kopfzeilen unverändert). Einzige Änderung: der Stack von CPU1 (3 KB) liegt im Pool statt in `.bss`.
+  `fm1_irq.h` reicht Fehler von CPU1 weiter, `fm1_vec.S` kehrt danach zu CPU0 zurück, `app.ld` hat `.c1_text` in
+  `.ram_text`, `build.py` assembliert `fm1_cpu1.S` und prüft, dass die Warteschleife nur ihren Auftrag aufruft.
+  `FELUCCA_CPU2=0 ./build.sh` baut ohne all das.
+- **Halten vor jedem Reset:** `fm1_cpu1_stop()` als Erstes in `fm1_cstart` und in `fm1_reboot`, `fm1_enter_uboot`,
+  `fm1_core_reset`, `fm1_enter_update` (`fm1_sys.h`). Das läuft bei **jedem** Start und Reset, auch mit 2ND CORE OFF
+  (nur Register; so auch in Felucca seit 1.6.1). Der Update-Loader wird ohne gebaut und ist Byte für Byte derselbe wie
+  vorher (`build/loader/ota.bin`, SHA-256 92de7616…).
+- **Start** (`firmware/src/cpu2.c` `c1_boot`, aus `fm1_main` vor Audio und Timern): nur mit 2ND CORE ON und nie bei
+  einem Start, der auf einen gescheiterten folgt (`bootguard.failed`). Ein solcher Start läuft mit einem Kern, stellt
+  die Option auf OFF und meldet „2ND CORE OFF: BAD START“. Ein Gerät, auf dem der Start von CPU1 abstürzt, ist also nach
+  einem Neustart wieder auf einem Kern.
+- **FPU auf CPU1 (anders als in 3.6 geplant):** nicht auf Anforderung in INFO, sondern gleich nach dem Start als erster
+  Auftrag: die vier exakten Ergebnisse und der Waveshaper-Hash der FPU-Probe, auf CPU1 gerechnet. Stimmen sie, dürfen
+  alle Parts hinüber; sonst bleiben Parts mit FPU-Engine (WSHAPE, HRMNC, PRTCL, WTABLE, SWARM, ACID) oder laufendem EQ
+  auf CPU0 (`fx.c` `mix_fpu_parts`). Ein Fault dabei legt CPU1 still (Fallback), kein Absturz. Begründung: das Ergebnis
+  müsste sonst gespeichert werden, und der Boot-Guard fängt den schlimmsten Fall ab (siehe Start). Konsole: `cpu2_fpu`.
+- **Fehler im Betrieb:** Lesefehler, Fault, verspäteter Auftrag oder keine Antwort: CPU1 wird gehalten, CPU0 rendert
+  allein weiter, bis zum Ausschalten gesperrt; `c1_poll` stellt die Option auf OFF und meldet „2ND CORE MISREAD: OFF“.
+- **Menü:** MENU > SYSTEM > 2ND CORE, OFF / ON (BETA), Bit 7 von `ui_prefs2`, Editor-Id 27; wirkt ab dem nächsten
+  Einschalten. INFO: die CPU-Zeile heißt „CPU 1+2“, solange CPU1 mitrendert. Konsole: `cpu2_set`, `cpu2`,
+  `cpu2_gave_up`, `cpu2_bad`, `cpu2_fpu`, `cpu2_blocks`, `cpu2_stack`. (Last von CPU1 und Stack-Tiefe stehen nur in der
+  Konsole, nicht in INFO.)
+- **Aufteilung:** weiter aus der Kostenschätzung (`ENG_VCOST`), nicht aus gemessenen Ticks (3.5 offen).
+- **Budgets** (Toolchain 20260730), vor → nach Schritt 3 und 4: Image 549 664 → 553 244 B, RAM 42 992 → 43 120 B von
+  51 200, Pool 377 536 → 380 608 B von 391 168 (Reserve 10 560, Pflicht 8 192). `track_t` ist mit `FELUCCA_CPU2` 16 Byte
+  größer (die J-6-Einstellungen hatten 6 Byte des Pads belegt).
+- **Tests:** `dualcore_test` (38 Szenen bitgleich, dazu die Aufteilung mit ungeprüfter FPU), `ui_test` (Menüzeile,
+  Startentscheidung, Abschalten mit Meldung). Was kein Host-Test zeigen kann: der Start selbst, das Halten, der
+  Fehlerpfad, die FPU auf CPU1, die Last.
+
+### Gerätetest (Schritt 5), mit Wiederherstellungshardware und Flash-Backup
+
+1. Installieren, mit 2ND CORE **OFF** einschalten: alles wie vorher (Klang, Speichern, USB, Update-Modus). Das prüft
+   das Halten bei jedem Start.
+2. Alle Reset-Wege mit OFF: OCT- + OCT+ 5 s (UBOOT), „Return to official V15“ bzw. ein Update, Neustart nach Absturz.
+3. 2ND CORE **ON**, aus- und einschalten. INFO zeigt „CPU 1+2“; Konsole: `cpu2 1`, `cpu2_fpu 1`, `cpu2_bad 0`.
+4. Lastszenen aus `CHECKLISTE.md` Abschnitt 4 messen, einmal OFF, einmal ON. 10 Minuten Volllast; `cpu2_bad` und
+   `cpu2_gave_up` bleiben 0, `cpu2_stack` deutlich unter 2816.
+5. Mit ON: Projekt speichern und laden, Einstellungen, eigene Samples, USB DISK, Update, alle Reset-Wege.
+6. Klangvergleich OFF gegen ON an denselben Szenen (auf dem Host bitgleich).
+

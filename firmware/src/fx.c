@@ -1283,6 +1283,10 @@ static __attribute__((noinline)) void perf_master(int32_t *out, uint32_t n)
 #ifndef C1_SPLIT
 #define C1_SPLIT() mix_split()
 #endif
+#ifndef C1_FPU
+#define C1_FPU() 1                                      /* the second core's FPU is right (the unit: checked at its start,
+                                                         * cpu2.c; the host: plain float either way) */
+#endif
 static uint32_t c1_blocks;                              /* blocks the second core took parts of (console, INFO) */
 
 static void c1_parts(uint32_t arg)                      /* arg: the parts (bit k = part k) | n << 8 */
@@ -1296,17 +1300,30 @@ static void c1_parts(uint32_t arg)                      /* arg: the parts (bit k
             mix_part(&trk[i], n, sm);
 }
 
+/* the parts that compute on the FPU: the Plaits engines and ACID (ENGINES[] 17..22, core.h FM1_FPU) and a part whose
+ * EQ runs (eq.c). Nobody had run the second core's FPU on an FM-1 before: until it has given the right results at its
+ * start (C1_FPU), these stay on this core */
+static __attribute__((noinline)) uint32_t mix_fpu_parts(void)
+{
+    uint32_t i, m = 0;
+    for (i = 0; i < NPART; i++)
+        if (eng_idx(trk[i].engine) >= 17u || (eqa.run[i] | eqa.live[i] | eqx.req[i]))
+            m |= 1u << i;
+    return m;
+}
 /* which parts go to the second core: the split of the last block's costs that leaves the busier core the least; none
  * when that saves less than handing them over costs (C1_HAND) */
 #define C1_HAND 40u
 static uint32_t mix_split(void)
 {
-    uint32_t m, i, best = 0, all = 0, lo;
+    uint32_t m, i, best = 0, all = 0, lo, keep = C1_FPU() ? 0u : mix_fpu_parts();
     for (i = 0; i < NPART; i++)
         all += part_cost[i];
     lo = all;
     for (m = 1; m < (1u << NPART) - 1u; m++) {
         uint32_t a = 0, w;
+        if (m & keep)
+            continue;
         for (i = 0; i < NPART; i++)
             if (m >> i & 1u)
                 a += part_cost[i];

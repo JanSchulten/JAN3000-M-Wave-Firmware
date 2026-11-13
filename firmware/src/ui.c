@@ -91,6 +91,10 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 #define PREF_SYNC_INV (0x20u << 16)            /* .. bit 5, with it: PO INV (the pulses upside down) */
 #define PREF_SCENE_BAR (0x40u << 16)           /* M-Vave-OP1: bit 6, a scene picked while playing switches at the next
                                                 * bar (0: AT END, at the end of the scene playing) */
+#define PREF_CPU2_ON (0x80u << 16)             /* M-Vave-OP1: bit 7, MENU > SYSTEM > 2ND CORE ON (BETA): the second core
+                                                * from the next power-on (cpu2.c); clear = OFF, one core (every older
+                                                * setting: nothing set bit 7 before). It turns itself OFF when core 1
+                                                * misreads or a start with it fails (cpu2.c c1_tell) */
 /* 1.3 (Discussions #112, #134): MENU > DISPLAY > HOME, what the HOME page shows under its four cards: 0 SCOPE (the
  * oscilloscope, as before), 1 TRACKS (the four tracks as rows: ui_graph.c draw_home_tracks), 2 LEVELS (1.5, #134: the
  * rows of TRACKS, and KNOB 1..4 the LEVEL of T1..T4 in place of the engine's four: home_param). A byte of its own no

@@ -137,6 +137,48 @@ static uint64_t render_fork(const scen_t *sc, int dual, const char *mask, uint32
     return h;
 }
 
+/* the split while the second core's FPU is not known to be right (fx.c mix_split, C1_FPU 0): the parts that compute
+ * on it (a Plaits engine or ACID, a part whose EQ runs) stay on core 0, the others are split as ever */
+static uint32_t split_of(const uint8_t eng[NPART], const uint16_t cost[NPART], uint32_t eq, uint32_t fpu)
+{
+    uint32_t k, m;
+    host_tracks_init();
+    eq_power_on();
+    for (k = 0; k < NPART; k++) {
+        trk[k].engine = eng[k];
+        part_cost[k] = cost[k];
+        eqa.run[k] = (uint8_t)(eq >> k & 1u);
+    }
+    c1h_fpu = (uint8_t)fpu;
+    m = mix_split();
+    c1h_fpu = 1;
+    for (k = 0; k < NPART; k++)
+        part_cost[k] = 0, eqa.run[k] = 0;
+    return m;
+}
+static uint32_t split_test(void)
+{
+    static const uint8_t MIX[NPART] = {ENGI_WSHAPE, 0, 0, 0}, INT[NPART] = {0, 14, 0, 14},
+                         FPU[NPART] = {ENGI_WSHAPE, ENGI_HARMON, ENGI_ACID, ENGI_SWARM};
+    static const uint16_t C1[NPART] = {900, 300, 300, 300}, C2[NPART] = {300, 300, 300, 300};
+    uint32_t bad = 0, m;
+    m = split_of(MIX, C1, 0, 1);
+    if (m != 1u && m != 14u) bad++, printf("dualcore: split, FPU right: WSHAPE against three ANALOG is %u, not 1 or 14   FAIL\n", m);
+    m = split_of(MIX, C1, 0, 0);
+    if (m != 14u) bad++, printf("dualcore: split, FPU unknown: the WSHAPE part must stay (14), is %u   FAIL\n", m);
+    m = split_of(INT, C2, 1u << 2, 0);
+    if (!m || (m & 4u)) bad++, printf("dualcore: split, FPU unknown: the part with an EQ must stay, is %u   FAIL\n", m);
+    m = split_of(INT, C2, 0, 0);
+    if (!m) bad++, printf("dualcore: split, FPU unknown: integer parts are split as ever, is 0   FAIL\n");
+    m = split_of(FPU, C1, 0, 0);
+    if (m) bad++, printf("dualcore: split, FPU unknown: four FPU parts all stay (0), is %u   FAIL\n", m);
+    m = split_of(FPU, C1, 0, 1);
+    if (!m) bad++, printf("dualcore: split, FPU right: four FPU parts are split, is 0   FAIL\n");
+    if (!bad)
+        printf("dualcore: until core 1's FPU is checked, the parts that compute on it stay on core 0   ok\n");
+    return bad;
+}
+
 int main(void)
 {
     static scen_t sc[256];
@@ -197,6 +239,10 @@ int main(void)
             printf("dualcore: %-34s the same on two cores, every split   ok\n", sc[i].name);
         fail += bad != 0;
     }
+#ifndef DUALCORE_BREAK
+    if (!getenv("SCENE"))
+        fail += split_test();
+#endif
 #ifdef DUALCORE_BREAK
     printf("dualcore: the parts' copies put back into one: %u scenes differ (must be some)   %s\n", fail,
            fail ? "ok" : "FAIL");

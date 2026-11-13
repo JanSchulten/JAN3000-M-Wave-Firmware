@@ -21,8 +21,9 @@ Eleven source files are ports and keep the licence of their originals:
 `firmware/src/plaits_ws.c`, `firmware/src/plaits_add.c`, `firmware/src/plaits_part.c`, `firmware/src/plaits_wt.c`,
 `firmware/src/plaits_swarm.c`, `firmware/src/plaits_tables.h`, `firmware/src/plaits_wt8.h` and
 `firmware/src/stmlib_tables.h` (Plaits and stmlib, MIT) and
-`firmware/src/fm6_core.c` (msfa, Apache-2.0). The firmware built with them is GPL-3.0-only as
-a whole.
+`firmware/src/fm6_core.c` (msfa, Apache-2.0). Three files of the hardware layer come from felucca-bsp and keep its
+MPL-2.0: `firmware/hal/fm1_cpu1.h`, `firmware/hal/fm1_cpu1.S` and `firmware/hal/fm1_cpu1_stop.h` (the second core). The
+firmware built with them is GPL-3.0-only as a whole.
 
 You may use, study, change and share Felucca under the GPL. If you distribute Felucca, or
 firmware derived from it, you must also give your recipients its complete corresponding
@@ -54,6 +55,7 @@ All by Hügelton Instruments (Leo Kuroshita), in this tree:
 | Open303 by Robin Schmidt (<https://github.com/RobinSchmidt/Open303>): the structure of the ACID engine's diode ladder (four coupled one-pole stages, the feedback from the last), credited as a design; no code taken, the coefficients are this firmware's own | MIT (credited only) | `firmware/src/eng_acid.c` |
 | X0X by charlesvestal (<https://github.com/charlesvestal/fm1-x0x>), a Felucca fork: the design of the browser emulator (the worklet, the device clock driven by its audio, the exports); its files credit it in their headers | GPL-3.0 | `web/emu/` |
 | Felucca 1.6.1's second core (<https://github.com/hugelton/Felucca>, PR #247, by gospodindilly-ops) after Jangada by zednaked (<https://github.com/zednaked/jangada>), M-Vave-OP1: the design of the parts' render split (fx.c `mix_block`: the sums per core, the split, the LFO's S&H after the parts) and its host test with a thread as CPU1, ported by hand; the test files keep their authors' copyright lines (docs/DUALCORE_PLAN.md) | GPL-3.0 | `firmware/src/fx.c`, `tests/c1_host.h`, `tests/dualcore_test.c` |
+| felucca-bsp by Leo Kuroshita, with Melodee's second core by Kerem Kilic (<https://github.com/hugelton/felucca-bsp>, <https://github.com/keremimo/melodee>; MPL-2.0 by agreement, felucca-bsp issue 5) and parts by Charles Vestal, M-Vave-OP1: the second core's start, its mailbox with the check word, its fault path and its safe hold, taken as files (the stack moved into the pool); their fault hook in `firmware/hal/fm1_irq.h`, the resume in `firmware/hal/fm1_vec.S` and the hold before every reset in `firmware/hal/fm1_sys.h` follow felucca-bsp's and say so in their headers. The units whose second core misreads shared RAM were measured by Jangada's maintainer (zednaked) | MPL-2.0 | `firmware/hal/fm1_cpu1.h`, `firmware/hal/fm1_cpu1.S`, `firmware/hal/fm1_cpu1_stop.h`, `LICENSES/MPL-2.0.txt` |
 | DotGothic16 font by The DotGothic16 Project Authors (<https://github.com/fontworks-fonts/DotGothic16>): the browser emulator's knob labels, served with its page (cut to printable ASCII; the font declares no Reserved Font Name) | SIL OFL 1.1 | `web/emu/fonts/DotGothic16-subset.woff`, `LICENSES/OFL-DotGothic16.txt` (also `web/emu/fonts/OFL.txt`) |
 | graphify by Safi Shamsi and the Graphify contributors (<https://github.com/Graphify-Labs/graphify>), M-Vave-OP1: its Claude Code skill, as `graphify install --project` writes it (a development aid for Claude's code graph: CLAUDE.md; nothing of it is in the firmware or the web pages) | Apache-2.0 (parts also MIT) | `.claude/skills/graphify/` (with its `LICENSE`, `LICENSE-MIT` and `NOTICE`) |
 | JieLi AC79 SDK by JieLi Technology: three of its files go into every `.fwsc` package (below); none are in this tree | Apache-2.0 | `LICENSES/Apache-2.0.txt` |
