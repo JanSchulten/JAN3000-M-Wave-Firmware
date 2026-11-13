@@ -46,6 +46,7 @@ FUNCS = ["analog_render", "analog2_render", "a2_osc", "digital_render", "digital
          "shimmer_pitch", "shimmer_send", "shimmer_bus", "chain_shimmer_in", "chain_delay_in", "chain_reverb", "shimmer_return",
          "cho_bus", "cho_side_mix", "chain_scale",          # .. M-Vave-OP1: the CHORUS, the chain's first stage (stereo); a level
          "track_insert", "ins_drive",                       # the per-track DRIVE (fx.c; the INSERT of 1.5), while a TYPE plays
+         "mix_parts_end",                                   # the second core's structure (fx.c): after the parts, every block
          "cloud_render", "cl_spawn", "fx1_block", "cloud_side"]   # M-Vave-OP1: FX1's CLOUD (fx1.c), while it is the TYPE
 # built only with FELUCCA_FM4=1 (DIGITAL, src/eng_digital.c; not in the default build, so not in BUDGET): absent,
 # they are skipped; present, checked against these (their budget lines until the engine was retired in 1.0)

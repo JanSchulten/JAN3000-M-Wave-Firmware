@@ -713,7 +713,41 @@ static void rev_clear(void)
     hl.shlp = 0;
 }
 
+#if FELUCCA_CPU2
+/* the dry mix and the sends, as each core adds its parts into them (after Felucca 1.6.1 / Jangada: mx[1] is the
+ * second core's, mix_block), a part's own block (b; mx[0].b also the fade of a reverb model change, after the parts)
+ * and whether a part fed the SHIMMER (shl: shimmer_send, taken into shim_live after the parts). In the pool: the same
+ * SRAM as .bss, its budget has the room */
+typedef struct {
+    int32_t l[CTL], r[CTL], c[CTL], d[CTL], v[CTL], sh[CTL], b[CTL];
+    uint8_t shl;
+} mixsum_t;
+static mixsum_t mx[2] __attribute__((section(".pool")));
+#define mix_l (mx[0].l)
+#define mix_r (mx[0].r)
+#define send_c (mx[0].c)
+#define send_d (mx[0].d)
+#define send_r (mx[0].v)
+#define send_sh (mx[0].sh)
+#define part_buf (mx[0].b)
+#define SM_DECL , mixsum_t *sm                          /* mix_part, mix_spread, shimmer_send: the sums they add into */
+#define SM_ARG(x) , (x)
+#define SM(f) (sm->f)
+#else
+/* one core: the arrays of before, the same code (SM(l) = mix_l, ...; send_c .. mix_r are declared below) */
 static int32_t part_buf[CTL];                            /* a part's block (mix_part); the fade of a model change */
+#define SM_DECL
+#define SM_ARG(x)
+#define SM(f) SM1_##f
+#define SM1_l mix_l
+#define SM1_r mix_r
+#define SM1_c send_c
+#define SM1_d send_d
+#define SM1_v send_r
+#define SM1_sh send_sh
+#define SM1_b part_buf
+#define SM1_shl shim_live
+#endif
 
 /* the model changed (to rt): the old one's block fades out (HALL's stereo difference with it), its buffers are
  * cleared, the new one starts from silence */
@@ -968,20 +1002,24 @@ static __attribute__((noinline)) void track_insert(track_t *t, int32_t *b, uint3
 /* one block of the whole mix (shared with hostsim.c): events -> each part (with its modulation matrix)
  * -> SLICER -> DRIVE -> EQ (M-Vave-OP1) -> level / pan / sends -> buses -> master; out: stereo Q15 */
 static void events_block(uint32_t n);                    /* seq.c */
+#if FELUCCA_CPU2
+static int32_t wet[CTL];                                 /* (the dry mix and the sends: mx[0], above) */
+#else
 static int32_t send_c[CTL], send_d[CTL], send_r[CTL], send_sh[CTL], wet[CTL], mix_l[CTL], mix_r[CTL];
+#endif
 
 /* Silent buses sleep only after 256 zero-output blocks and empty delay/filter states. A low-pass can retain
  * an inaudible +/-1 rounding residue, and its fractional remainder alone cannot produce output. */
 static uint8_t shim_live, shim_quiet;
-static __attribute__((noinline)) void shimmer_send(const track_t *t, const int32_t *b, uint32_t n)
+static __attribute__((noinline)) void shimmer_send(const track_t *t, const int32_t *b, uint32_t n SM_DECL)
 {
     uint32_t i;
     int32_t g = t->p[P_SHIM] * 258, lvl = LEVEL_Q12[t->p[P_LEVEL] & 127];
     int32_t lim = 0x7FFFFFFF / (g | 1);
-    shim_live = 1;
+    SM(shl) = 1;                                        /* (two cores: the sums' flag, shim_live after the parts) */
     for (i = 0; i < n; i++) {
         int32_t x = ((b[i] >> 2) * lvl) >> 10;
-        send_sh[i] += mulq15(clamp(x, -lim, lim), g);
+        SM(sh)[i] += mulq15(clamp(x, -lim, lim), g);
     }
 }
 
@@ -1056,9 +1094,9 @@ static __attribute__((noinline)) void shimmer_return(uint32_t n)
  * perf_mute_sd) and passes the DRIVE by (the spread of a distorted chord is its voices' clean difference). The sends
  * take b, mono, as before. SPRD 0, MONO or LEGATO: mix_part's own loop, bit for bit as before. The cost: a block's
  * clear and sum of spread_buf, the side and a wider mix loop, per part; per voice none (it picks its buffer) */
-static __attribute__((noinline)) void mix_spread(track_t *t, int32_t *b, uint32_t n)
+static __attribute__((noinline)) void mix_spread(track_t *t, int32_t *b, uint32_t n SM_DECL)
 {
-    int32_t *d = spread_buf;
+    int32_t *d = SPREAD_BUF(t);
     uint32_t i;
     int32_t lvl = LEVEL_Q12[t->p[P_LEVEL] & 127], pan = t->p[P_PAN], s = (t->p[P_SPRD] + 1) >> 1;
     int32_t pa = clamp(pan - s, -64, 63), pb = clamp(pan + s, -64, 63);
@@ -1083,49 +1121,86 @@ static __attribute__((noinline)) void mix_spread(track_t *t, int32_t *b, uint32_
         if (a > pk)
             pk = a;
         if (c)
-            send_c[i] += mulq15(xs, c);
+            SM(c)[i] += mulq15(xs, c);
         if (dl)
-            send_d[i] += mulq15(xs, dl);
+            SM(d)[i] += mulq15(xs, dl);
         if (r)
-            send_r[i] += mulq15(xs, r);
-        mix_l[i] += ((x * glm) >> 12) + ((y * gld) >> 12);
-        mix_r[i] += ((x * grm) >> 12) + ((y * grd) >> 12);
+            SM(v)[i] += mulq15(xs, r);
+        SM(l)[i] += ((x * glm) >> 12) + ((y * gld) >> 12);
+        SM(r)[i] += ((x * grm) >> 12) + ((y * grd) >> 12);
     }
     t->peak = pk;
 }
 
-/* one synth part into the dry mix and the sends; a part with no voice sounding costs
- * the LFO tick and a cleared buffer only (after the DRIVE tail has run out) */
-static void mix_part(track_t *t, uint32_t n)
+/* a part's cost for the second core's split (mix_split, after Felucca 1.6.1 / Jangada): its voices rendered x its
+ * engine's cost a voice (ENG_VCOST: the host's instructions a sample, tests/cpu_baseline.txt at 8 notes held less the
+ * idle mix, over 8 voices; the engines it lacks scaled from the host's time a voice, ~9 instructions a ns; the FPU
+ * engines by the unit's measure, a WSHAPE voice ~6.3 % of the audio's time, about three ANALOG voices), and the DRIVE,
+ * EQ and sends while it sounds or its tail runs. ENGINES[] order, a retired number 0. An estimate: it only steers the
+ * split, the sound does not depend on it (plan step 4 may measure the parts' time on the unit instead) */
+#if FELUCCA_CPU2
+static uint16_t part_cost[NPART];                       /* the last block's, per part */
+static const uint16_t ENG_VCOST[NENGINES] = {
+    147,                /* 0 ANALOG */
+    0, 0,               /* 1 DIGITAL, 2 PHASE (retired) */
+    65,                 /* 3 LOFI */
+    78,                 /* 4 SAMPLE */
+    0, 0,               /* 5 VOICE, 6 TRIO (retired) */
+    142,                /* 7 WHEEL */
+    78,                 /* 8 GRAIN */
+    146,                /* 9 PHYS */
+    116,                /* 10 DRUM */
+    139,                /* 11 NOISE */
+    149,                /* 12 FM6 */
+    0,                  /* 13 SLICE (retired) */
+    170,                /* 14 ANALOG2 */
+    130,                /* 15 VDRUM */
+    0,                  /* 16 DBOX (retired) */
+    450,                /* 17 WSHAPE (the FPU, as the four after it) */
+    600,                /* 18 HRMNC */
+    600,                /* 19 PRTCL */
+    600,                /* 20 WTABLE */
+    900,                /* 21 SWARM */
+    400,                /* 22 ACID (one voice, its ladder on the FPU) */
+};
+#endif
+
+/* one synth part into the dry mix and the sends of sm (mx[0]; mx[1] on the second core); a part with no voice sounding
+ * costs the LFO tick and a cleared buffer only (after the DRIVE tail has run out) */
+static void mix_part(track_t *t, uint32_t n SM_DECL)
 {
-    int32_t *b = part_buf;
-    uint32_t i;
+    int32_t *b = SM(b);
+    uint32_t i, k = (uint32_t)(t - trk), nr;
     mod_begin(t);                                       /* the matrix's per-block values into t->p (mod.c) */
-    spread_on = t->p[P_SPRD] > 0 && (trk_vmode(t) == V_POLY || trk_vmode(t) == V_UNISON);   /* (SPREAD, mix_spread) */
-    if (track_render(t, b, n))
+    T_SPREAD(t) = t->p[P_SPRD] > 0 && (trk_vmode(t) == V_POLY || trk_vmode(t) == V_UNISON);   /* (SPREAD, mix_spread) */
+    nr = track_render(t, b, n);
+#if FELUCCA_CPU2
+    part_cost[k % NPART] = (uint16_t)(nr * ENG_VCOST[eng_idx(t->engine)] + (nr || t->tail ? 60u : 0u));
+#endif
+    if (nr)
         t->tail = 16;                                   /* blocks of DRIVE / EQ state to run out after the last voice */
-    else if ((!t->tail || !(t->p[P_ITYPE] | eqa.run[t - trk]) || !--t->tail) && !slicer_busy(t)) {
+    else if ((!t->tail || !(t->p[P_ITYPE] | eqa.run[k]) || !--t->tail) && !slicer_busy(t)) {
         slicer_track(t, 0, n);                          /* (the SLICER's step clock runs on) */
-        if (eqa.live[t - trk] | eqx.req[t - trk])
+        if (eqa.live[k] | eqx.req[k])
             eq_rest(t);                                 /* (M-Vave-OP1: the EQ from rest at the next note) */
         if (t->ins_run && !t->p[P_ITYPE])
             ins_rest(t);                                /* TYPE OFF while silent: no fade-out left for the next note */
-        if (mod.on)
+        if (MOD(t).on)
             mod_end(t);
         return;
     }
-    if (spread_on)
-        mix_spread(t, b, n);
+    if (T_SPREAD(t))
+        mix_spread(t, b, n SM_ARG(sm));
     else {
         slicer_track(t, b, n);                          /* slicer.c (M-Vave-OP1: first, before the DRIVE) */
         if (t->p[P_ITYPE] | t->ins_run)
             track_insert(t, b, n);                      /* the DRIVE: off, nothing */
-        if (eqa.run[t - trk] | eqx.req[t - trk])
+        if (eqa.run[k] | eqx.req[k])
             track_eq(t, b, 0, n);                       /* M-Vave-OP1: the EQ (flat: nothing) */
-        if ((pf.mute >> (t - trk)) & 1u)
-            perf_mute((uint32_t)(t - trk), b, n);       /* perform.c: a black key in the FX layer */
+        if ((pf.mute >> k) & 1u)
+            perf_mute(k, b, n);                         /* perform.c: a black key in the FX layer */
     }
-    if (!spread_on) {                                   /* (the mix's values read after the calls: none is held over
+    if (!T_SPREAD(t)) {                                 /* (the mix's values read after the calls: none is held over
                                                          * them, no spill in the loop: the ISR's cost as before 1.5) */
         int32_t lvl = LEVEL_Q12[t->p[P_LEVEL] & 127], pan = t->p[P_PAN];
         int32_t gl = 4096 - (pan > 0 ? pan * 64 : 0), gr = 4096 + (pan < 0 ? pan * 64 : 0);
@@ -1138,21 +1213,21 @@ static void mix_part(track_t *t, uint32_t n)
             if (a > pk)
                 pk = a;
             if (c)
-                send_c[i] += mulq15(xs, c);
+                SM(c)[i] += mulq15(xs, c);
             if (d)
-                send_d[i] += mulq15(xs, d);
+                SM(d)[i] += mulq15(xs, d);
             if (r)
-                send_r[i] += mulq15(xs, r);
-            mix_l[i] += (x * gl) >> 12;
-            mix_r[i] += (x * gr) >> 12;
+                SM(v)[i] += mulq15(xs, r);
+            SM(l)[i] += (x * gl) >> 12;
+            SM(r)[i] += (x * gr) >> 12;
         }
         t->peak = pk;
     }
     if (t->p[P_SHIM])
-        shimmer_send(t, b, n);
+        shimmer_send(t, b, n SM_ARG(sm));
     if (pf.thr)
-        perf_throw(t, b, send_d, send_r, n);            /* perform.c: REV / ECHO THROW (1.5.1), the sends towards full */
-    if (mod.on)
+        perf_throw(t, b, SM(d), SM(v), n);              /* perform.c: REV / ECHO THROW (1.5.1), the sends towards full */
+    if (MOD(t).on)
         mod_end(t);                                     /* the stored values back */
 }
 
@@ -1188,6 +1263,108 @@ static __attribute__((noinline)) void perf_master(int32_t *out, uint32_t n)
     master_block(out, n, ~0);
 }
 
+/* ---- the second core (docs/DUALCORE_PLAN.md; after Felucca 1.6.1 and Jangada, github.com/zednaked/jangada, GPL-3.0)
+ * renders some of the parts of each block into its own sums (mx[1]) while this core renders the others; then this core
+ * adds them in and goes on (the LFOs' blocks, the FX layer, the chain, the master) as with one core. The sums are
+ * integers, so the order they add up in changes nothing: the output is bit for bit one core's. A part's render touches
+ * its own state only (its track_t with its SPREAD, ENV SYNC and LFO phase, its voices, its matrix: mod.c MOD, its SPREAD
+ * buffer, its engine's memory, its SLICER, DRIVE and EQ; the engines' scratch is on the stack) and what nobody writes
+ * meanwhile (song, the settings, the tables, the FX layer's values of this block); what the parts share is done before
+ * the split (events_block: the notes, voice stealing; perf_begin) or after it (the LFOs' S&H draw from the shared
+ * generator, part by part: voice.c track_lfo_end; shim_live). tests/dualcore_test.c checks it, under ThreadSanitizer
+ * too. Without a second core (the host, the browser, until it is started, one that stopped answering) C1_ON() is 0 and
+ * this core renders them all */
+#if FELUCCA_CPU2
+#ifndef C1_RUN
+#define C1_ON() 0                                       /* a second core is answering */
+#define C1_RUN(fn, arg) 0                               /* hand it fn(arg): 1 = taken */
+#define C1_WAIT() 0                                     /* wait for it: 0 = done, else it stopped (its parts not done) */
+#endif
+#ifndef C1_SPLIT
+#define C1_SPLIT() mix_split()
+#endif
+static uint32_t c1_blocks;                              /* blocks the second core took parts of (console, INFO) */
+
+static void c1_parts(uint32_t arg)                      /* arg: the parts (bit k = part k) | n << 8 */
+{
+    uint32_t i, n = arg >> 8;
+    mixsum_t *sm = &mx[1];
+    for (i = 0; i < n; i++)
+        sm->l[i] = sm->r[i] = sm->c[i] = sm->d[i] = sm->v[i] = sm->sh[i] = 0;
+    for (i = 0; i < NPART; i++)
+        if (arg >> i & 1u)
+            mix_part(&trk[i], n, sm);
+}
+
+/* which parts go to the second core: the split of the last block's costs that leaves the busier core the least; none
+ * when that saves less than handing them over costs (C1_HAND) */
+#define C1_HAND 40u
+static uint32_t mix_split(void)
+{
+    uint32_t m, i, best = 0, all = 0, lo;
+    for (i = 0; i < NPART; i++)
+        all += part_cost[i];
+    lo = all;
+    for (m = 1; m < (1u << NPART) - 1u; m++) {
+        uint32_t a = 0, w;
+        for (i = 0; i < NPART; i++)
+            if (m >> i & 1u)
+                a += part_cost[i];
+        w = (a > all - a ? a : all - a) + C1_HAND;
+        if (w < lo) {
+            lo = w;
+            best = m;
+        }
+    }
+    return best;
+}
+
+/* the second core's sums into this core's (and the parts' SHIMMER flags into shim_live) */
+static __attribute__((noinline)) void c1_add(uint32_t n)
+{
+    const mixsum_t *sm = &mx[1];
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        mix_l[i] += sm->l[i];
+        mix_r[i] += sm->r[i];
+        send_c[i] += sm->c[i];
+        send_d[i] += sm->d[i];
+        send_r[i] += sm->v[i];
+        send_sh[i] += sm->sh[i];
+    }
+}
+
+/* the parts of a block: those of the split (mix_split) on the second core, the others here, then its sums added */
+static __attribute__((noinline)) void mix_parts2(uint32_t n)
+{
+    uint32_t i, m = C1_SPLIT() & ((1u << NPART) - 1u);
+    if (m && !C1_RUN(c1_parts, m | n << 8))
+        m = 0;
+    c1_blocks += m != 0;
+    for (i = 0; i < NPART; i++)
+        if (!(m >> i & 1u))
+            mix_part(&trk[i], n, &mx[0]);
+    if (m) {
+        if (C1_WAIT())                                  /* it stopped answering (held from now on): its parts here */
+            c1_parts(m | n << 8);
+        c1_add(n);
+    }
+}
+
+/* after the parts, on this core: what they share (the LFOs' S&H from the shared generator, part by part as one core
+ * draws it: voice.c; shim_live, from the sums' flags) */
+static __attribute__((noinline)) void mix_parts_end(void)
+{
+    uint32_t i;
+    for (i = 0; i < NPART; i++)
+        track_lfo_end(&trk[i]);
+    if (mx[0].shl | mx[1].shl) {                        /* a part fed the SHIMMER (shimmer_send) */
+        shim_live = 1;
+        mx[0].shl = mx[1].shl = 0;
+    }
+}
+#endif
+
 static void mix_block(int32_t *out, uint32_t n)
 {
     uint32_t i;
@@ -1196,12 +1373,21 @@ static void mix_block(int32_t *out, uint32_t n)
         send_c[i] = send_d[i] = send_r[i] = send_sh[i] = shim_wet[i] = mix_l[i] = mix_r[i] = 0;
     events_block(n);
     perf = perf_begin(n);                               /* the FX hold layer at work (perform.c) */
-    for (i = 0; i < NPART; i++) {
-        mix_part(&trk[i], n);
-#ifdef FX_PART_TAP
-        FX_PART_TAP(i, n);                              /* (M-Vave-OP1, web/bounce: each part's share of mix_l / mix_r) */
+#if FELUCCA_CPU2
+    if (C1_ON())
+        mix_parts2(n);
+    else
 #endif
-    }
+        for (i = 0; i < NPART; i++) {
+            mix_part(&trk[i], n SM_ARG(&mx[0]));
+#ifdef FX_PART_TAP
+            FX_PART_TAP(i, n);                          /* (M-Vave-OP1, web/bounce: each part's share of mix_l / mix_r;
+                                                         * one core) */
+#endif
+        }
+#if FELUCCA_CPU2
+    mix_parts_end();
+#endif
     if (perf)
         perf_pre(mix_l, mix_r, send_d, send_r, n);
     cho_bus(send_c, n);                                 /* the chain: CHORUS -> SHIMMER -> DELAY -> REVERB */

@@ -36,6 +36,15 @@ The RAM / POOL split is only a budget line in the linker script; both are the sa
 96 / 336 KB -> 72 / 360 KB; M-Vave-OP1's 128 steps 72 / 360 -> 56 / 376 KB (the song chain's four sources, 25 KB,
 went to the pool); back to 64 steps with the SHIMMER bus and the grouped undo: 50 / 382 KB.
 
+### Budgets (the second core's structure, docs/DUALCORE_PLAN.md step 2; 2026-11-02)
+
+| | Used | Limit | Note |
+| --- | --- | --- | --- |
+| RAM `.data`+`.bss` | 42 624 B | 51 200 B | before 44 528: the mix sums, SPREAD and Plaits buffers moved to the pool |
+| Pool | 377 500 B | 391 168 B | before 373 652 (`mx[2]` 1 800, `plv_w` 1 536, `spread_buf` 512) |
+| App image (XIP) | 540 820 B | 581 564 B | before 541 380 |
+| Audio ISR static cost `fm1_alnk0_irq` | 37 478 | 44 810 | `tests/target_budget.txt` 40 736 + 10 % |
+
 ### Budgets (64 steps, SHIMMER bus, grouped undo, PUMPER; 2026-10-27)
 
 | | Used | Limit | Note |

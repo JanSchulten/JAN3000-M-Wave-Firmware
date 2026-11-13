@@ -13,6 +13,12 @@
 #                   (tests/target_budget.txt, +10 %; exact, static).
 #   voices          the budget of 8, steal fades, MONO / LEGATO / UNISON keep their note, the VOICE cap,
 #                   no hanging notes on any MIDI / key routing.
+# SECOND CORE (tests/dualcore_test.c, tests/c1_host.h; docs/DUALCORE_PLAN.md): a thread plays CPU1 and renders the
+#                   parts fx.c mix_block hands it: 4 parts of every preset of every engine and mixes, with the DRIVE,
+#                   EQ, SLICER, SPREAD, SHIMMER send, THROW, mutes, the matrix's S&H, ENV SYNC and a PHYS model change,
+#                   bit for bit on one core and on two at every split; the golden renders with the thread
+#                   (regress -DC1_HOST) and in a FELUCCA_CPU2=0 build; DUALCORE_BREAK (the parts' copies put back into
+#                   one) must differ. TSAN=1: the same under ThreadSanitizer (~8 min), no state two parts share.
 # ENGINE MEMORY (tests/union_test.c, 1.5): engine switches on a part (every pair and A -> B -> A of the engines that
 #                   share the part's state region, with others), hashed against 1.4's (tests/union_golden.txt).
 # UI renders (tests/ui_render.c): every screen in every palette from the real drawing code: the layout lint (no text
@@ -545,6 +551,25 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "REVERB TYPE: ROOM / SPRING bit-identical, ROOM silence, the delay TIME crossfade, SPRING and HALL decay / stability / level, HALL silence / stereo / ringing, model changes, cost, demos" "$OUT/reverb_test" build/fx_demo build/reverb_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/regress" tests/regress.c -lm
     run "regression: golden renders, health, voices, CPU budget" "$OUT/regress" tests/golden.txt tests/cpu_baseline.txt
+    # the second core (docs/DUALCORE_PLAN.md; fx.c mix_block, tests/c1_host.h): the parts share nothing while they render,
+    # so a thread taking some of them gives the same samples, bit for bit; a FELUCCA_CPU2=0 build renders as before too
+    $CC -O2 -w -DFELUCCA_CPU2=0 -Ibuild/gen -Ifirmware/src -o "$OUT/regress_cpu2_0" tests/regress.c -lm
+    run "regression, a FELUCCA_CPU2=0 build (none of the second core): the same golden renders" \
+        "$OUT/regress_cpu2_0" tests/golden.txt tests/cpu_baseline.txt
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -Itests -DC1_HOST -pthread -o "$OUT/regress_c1" tests/regress.c -lm
+    run "second core: the golden renders with a thread taking every split of the parts in turn" \
+        "$OUT/regress_c1" tests/golden.txt tests/cpu_baseline.txt
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -Itests -pthread -o "$OUT/dualcore_test" tests/dualcore_test.c -lm
+    run "second core: 4 parts of every preset of every engine, mixes: bit for bit on one core and on two, every split" \
+        "$OUT/dualcore_test"
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -Itests -pthread -DDUALCORE_BREAK -o "$OUT/dualcore_break" tests/dualcore_test.c -lm
+    run "second core: the parts' copies put back into one, the test sees it (the mixes differ)" "$OUT/dualcore_break"
+    if [ -n "$TSAN" ]; then                     # TSAN=1: the same under ThreadSanitizer (~8 min): shared state
+        TSAN_CC="cc -O1 -g -w -Ibuild/gen -Ifirmware/src -Itests -fsanitize=thread -pthread"
+        $TSAN_CC -o "$OUT/dualcore_tsan" tests/dualcore_test.c -lm
+        run "second core under ThreadSanitizer: 4 parts of every preset, mixes" \
+            env TSAN_OPTIONS=halt_on_error=1 "$OUT/dualcore_tsan"
+    fi
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/union_test" tests/union_test.c -lm
     run "engine memory (1.5): every switch between the engines with per-part state sounds as in 1.4 (720 sequences)" \
         "$OUT/union_test" tests/union_golden.txt

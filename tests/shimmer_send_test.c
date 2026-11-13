@@ -19,7 +19,7 @@ static uint64_t mix_hash(int send, int spread)
     ui_power_on(); reset_shimmer();
     memset(&hl, 0, sizeof hl); rev_clear(); memset(&fx, 0, sizeof fx);
     memset(dly_buf, 0, sizeof dly_buf); memset(cho_buf, 0, sizeof cho_buf); memset(&pf, 0, sizeof pf);
-    memset(ins, 0, sizeof ins); memset(&mod, 0, sizeof mod); memset(sl, 0, sizeof sl);
+    memset(ins, 0, sizeof ins); MOD_W_CLEAR(); memset(sl, 0, sizeof sl);
     perf_held = perf_latched = 0; lim_env = LIM_T; dc_l = dc_r = dce_l = dce_r = 0;
     vage = 0; rng_state = 0x1234567u; mod_seed = 0x2545F491u;
     host_preset(&trk[0], 0, 0); song.master_q12 = 4096;
@@ -44,7 +44,7 @@ static void test_audio(void)
     memset(send_sh, 0, sizeof send_sh);
     for (k = 0; k < NTRK; k++) {
         trk[k].p[P_LEVEL] = 100 + k; trk[k].p[P_SHIM] = 30 + 20 * k;
-        shimmer_send(&trk[k], in, CTL);
+        shimmer_send(&trk[k], in, CTL SM_ARG(&mx[0]));
         for (i = 0; i < CTL; i++) expected[i] += mulq15(((in[i] >> 2) * LEVEL_Q12[100 + k]) >> 10, (30 + 20 * k) * 258);
     }
     ck("all four tracks feed one post-LEVEL send", !memcmp(expected, send_sh, sizeof expected));
