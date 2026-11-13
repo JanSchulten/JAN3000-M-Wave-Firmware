@@ -255,3 +255,13 @@ CPU1-Fehler mit einem Kern weiter; (3) Wiederherstellungshardware ist vorhanden.
 5. Mit ON: Projekt speichern und laden, Einstellungen, eigene Samples, USB DISK, Update, alle Reset-Wege.
 6. Klangvergleich OFF gegen ON an denselben Szenen (auf dem Host bitgleich).
 
+### Erster Gerätetest (2026-11-13, JAN3000 v0.3-test, Stand b7249a7, ein Gerät)
+
+- Installiert über den Web-Installer, startet normal.
+- 2ND CORE ON: INFO zeigt „CPU 1+2“, der zweite Kern rendert mit.
+- Szene mit 8 Stimmen (vier Spuren): **75 % mit OFF, 61 % mit ON.**
+- Dichte Szene mit mehr als 8 Stimmen: 69–77 % mit OFF und mit ON. Vermutlich die Stimmenregelung (`voice_space` lässt
+  bis 75 % Last weitere Stimmen zu); nicht nachgemessen, ob mit ON mehr Stimmen klingen.
+- Noch offen aus der Liste oben: Dauerlauf unter Volllast, Speichern und Laden mit ON, die Reset-Wege, der
+  Klangvergleich, die Konsolenwerte (`cpu2_fpu`, `cpu2_bad`, `cpu2_stack`).
+
