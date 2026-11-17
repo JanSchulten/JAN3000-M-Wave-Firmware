@@ -37,6 +37,8 @@ static uint32_t kb_prev;
 static volatile uint8_t kb_boot_hold;    /* #137: set from power-on to the end of the splash (main.c): the keys sound nothing,
                                           * and one held across its end stays silent until it is let go and pressed again */
 static uint8_t kb_note[27], kb_trk[27];  /* per key: the note it started and on which track */
+static uint32_t kb_sent;                 /* M-Vave-OP1: bit k: key k's notes went to MIDI OUT (not with the ARP / J-6 on: the
+                                          * notes they play go out instead, note_out); its release sends their offs */
 static uint8_t in_key;                   /* the key (+ 1) whose notes go into input_on now (key_on), 0: none (MIDI IN) */
 /* #191: where each track's held[i] came from, so the arp maps it again as it plays (arp_list: TRN, ROOT, SCALE, QNT as
  * they are now). held_key: the key + 1 (bits 0..4) and the octave buttons then + 3 (bits 5..7); 0: not a key's own
@@ -63,6 +65,11 @@ static int32_t midi_base(void)
 }
 /* MIDI channel 0..15 of track i (keys -> MIDI out): its channel in ROUT's block (SEL, CH1-4: 1..4) */
 static uint32_t trk_midi_ch(uint32_t i) { return (midi_base() > 0 ? (uint32_t)midi_base() : 0u) + i % NTRK; }
+/* M-Vave-OP1: MIDI OUT (midi_out.c, included after midi_control.c): a track's notes (vel 0: its note-off), the clock */
+static __attribute__((noinline)) void note_out(const track_t *t, uint32_t note, uint32_t vel);
+static void clk_out_start(void);
+static void clk_out_stop(void);
+static void cc_out_param(const track_t *t, uint32_t id);   /* (CC OUT: the automation as it plays, motion.c) */
 
 static int drum_track(const track_t *t) { return ENGINES[eng_idx(t->eng_req)] == &ENG_DRUM; }
 /* a track with a kit's grid (DRUM, M-Vave-OP1: VDRUM; kitlane.c): its lanes, 0 for the piano roll */
@@ -257,6 +264,12 @@ static int arp_on(const track_t *t)              /* the keys go to the arp: MODE
 
 static void arp_forget(track_t *t)               /* (its notes ended otherwise: trk_all_off) */
 {
+    uint32_t i;
+    if (t->arp_note)                              /* (M-Vave-OP1: MIDI OUT, they end there too) */
+        note_out(t, t->arp_note, 0);
+    for (i = 0; i < 3u; i++)
+        if (t->arp_ch[i])
+            note_out(t, t->arp_ch[i], 0);
     t->arp_note = t->arp_ch[0] = t->arp_ch[1] = t->arp_ch[2] = 0;
     j6_forget(t);
 }
@@ -271,6 +284,7 @@ static __attribute__((noinline)) void arp_chord_off(track_t *t, int rec)   /* th
             if (rec)
                 rec_release(t, t->arp_ch[i]);
             trk_note_off(t, t->arp_ch[i]);
+            note_out(t, t->arp_ch[i], 0);
             t->arp_ch[i] = 0;
         }
 }
@@ -291,6 +305,7 @@ static __attribute__((noinline)) void arp_chord(track_t *t, const uint32_t *list
         if (rec_on(t))
             rec_note(t, nt, 100, 0);
         trk_note_on(t, nt, 100);
+        note_out(t, nt, 100);
     }
 }
 
@@ -301,6 +316,8 @@ static void arp_silence(track_t *t)              /* the sounding arp note(s) end
     if (t->arp_ch[0] | t->arp_ch[1] | t->arp_ch[2])
         arp_chord_off(t, 0);
     trk_note_off(t, t->arp_note);
+    if (t->arp_note)
+        note_out(t, t->arp_note, 0);
     t->arp_note = 0;
 }
 
@@ -311,6 +328,8 @@ static void arp_off(track_t *t)                  /* the sounding arp note(s) end
     if (t->arp_ch[0] | t->arp_ch[1] | t->arp_ch[2])
         arp_chord_off(t, rec_on(t));
     trk_note_off(t, t->arp_note);
+    if (t->arp_note)
+        note_out(t, t->arp_note, 0);
     if (rec_on(t))
         rec_release(t, t->arp_note);
     t->arp_note = 0;
@@ -453,6 +472,7 @@ static __attribute__((noinline)) void arp_fire(track_t *t, uint32_t period)
         if (rec_on(t))
             rec_note(t, t->arp_note, 100, 0);        /* recording: what the arp plays */
         trk_note_on(t, t->arp_note, 100);
+        note_out(t, t->arp_note, 100);
     }
 }
 
@@ -761,8 +781,9 @@ static __attribute__((noinline)) void perf_key_remap(void)
  * its notes */
 static void key_on(uint32_t k, track_t *t)
 {
-    uint32_t cs = cset_on(t) && !song.grid, i, mc = trk_midi_ch(trk_index(t)), kit = kit_track(t);
+    uint32_t cs = cset_on(t) && !song.grid, i, kit = kit_track(t);
     uint32_t n = cs ? cset_build(t, kb_note[k], t->p[P_TRANS], kb_chord[k]) : chord_build(t, kb_note[k], kb_chord[k]);
+    uint32_t send = !arp_on(t);                     /* (M-Vave-OP1: with the ARP / J-6 on, the notes they play go out) */
     kb_chn[k] = 0;                                  /* (M-Vave-OP1, SCL > CSET: its set's chord, cset.c) */
     in_key = (uint8_t)(cs ? 0u : k + 1u);           /* (the arp keeps the key: arp_add; a chord set's notes as they are) */
     for (i = 0; i < n; i++) {
@@ -770,8 +791,10 @@ static void key_on(uint32_t k, track_t *t)
         if (!kit && midi_local_held(t, x))        /* (M-Vave-OP1: a kit's keys strike again: the white keys all */
             continue;                             /* strike the lane picked, its black key may still be held) */
         input_on(t, x, 100);
-        midi_out_event(0x09u | (0x90u | mc) << 8 | x << 16 | 100u << 24);
+        if (send)
+            note_out(t, x, 100);
     }
+    kb_sent = send ? kb_sent | 1u << k : kb_sent & ~(1u << k);
     in_key = 0;
     kb_chn[k] = (uint8_t)n;
     last_note = kb_note[k];                         /* (step entry, the SAMPLE zone: the key's note) */
@@ -780,14 +803,16 @@ static void key_on(uint32_t k, track_t *t)
 /* key k is up: the notes it started end, but those another key still holds */
 static void key_off(uint32_t k, track_t *t)
 {
-    uint32_t n = kb_chn[k], i, mc = trk_midi_ch(trk_index(t));
+    uint32_t n = kb_chn[k], i, sent = (kb_sent >> k) & 1u;
     kb_chn[k] = 0;
+    kb_sent &= ~(1u << k);
     for (i = 0; i < n; i++) {
         uint32_t x = kb_chord[k][i];
         if (midi_local_held(t, x))
             continue;
         input_off(t, x);
-        midi_out_event(0x08u | (0x80u | mc) << 8 | x << 16);
+        if (sent)
+            note_out(t, x, 0);
     }
 }
 
@@ -904,6 +929,7 @@ static void seq_start(void)
             t->lfo_ph = (uint32_t)t->p[P_LPHASE] << 25;
     }
     song.tick = 0;
+    clk_out_start();                               /* (M-Vave-OP1: MIDI OUT Start, the clock from its first pulse) */
     beat_pos = 0; beat_n = 0;                      /* the ARP LED's beat from the top too */
     clk_pos = CLK_START;                           /* the metronome's first beat with step 0 */
     song.playing = 1;
@@ -913,25 +939,15 @@ static void seq_start(void)
     fxt_stop();                                    /* fxtrack.c: the FX tracks' step 1 with the first block */
 }
 
-/* M-Vave-OP1: the sequencer's notes go to MIDI OUT (USB) as the keys' do (key_on): each track on its channel
- * (trk_midi_ch), a step's notes and its kit hits with the velocity they sound with (an external drum machine gets
- * the kit's GM notes, kitlane.c). seq_notes is what was sent: every place that lets go of them (seq_release, a
- * slide's notes not held over, seq_out_drop where they are forgotten) sends their note-offs, so nothing hangs on the
- * device they play. A muted track (P_MUTE) sends no note-on, as it sounds none (trk_note_on). One packet into the
- * ring (usb.c midi_out_event): O(1) per note, in seq_step (noinline) and the releases only */
-static void seq_out(const track_t *t, uint32_t note, uint32_t vel)
-{
-    uint32_t mc = trk_midi_ch(trk_index(t));
-    if (!vel)
-        midi_out_event(0x08u | (0x80u | mc) << 8 | note << 16);
-    else if (!t->p[P_MUTE])
-        midi_out_event(0x09u | (0x90u | mc) << 8 | note << 16 | vel << 24);
-}
+/* M-Vave-OP1: the sequencer's notes go to MIDI OUT (USB) as the keys' do (note_out, midi_out.c): each track on its
+ * channel, a step's notes and its kit hits with the velocity they sound with (an external drum machine gets the kit's
+ * GM notes, kitlane.c). seq_notes is what was sent: every place that lets go of them (seq_release, a slide's notes not
+ * held over, seq_out_drop where they are forgotten) sends their note-offs, so nothing hangs on the device they play */
 static __attribute__((noinline)) void seq_out_drop(const track_t *t)   /* seq_notes about to be forgotten */
 {
     uint32_t i;
     for (i = 0; i < t->seq_n; i++)
-        seq_out(t, t->seq_notes[i], 0);
+        note_out(t, t->seq_notes[i], 0);
 }
 
 static void seq_release(track_t *t)
@@ -939,7 +955,7 @@ static void seq_release(track_t *t)
     uint32_t i;
     for (i = 0; i < t->seq_n; i++) {
         trk_note_off(t, t->seq_notes[i]);
-        seq_out(t, t->seq_notes[i], 0);
+        note_out(t, t->seq_notes[i], 0);
     }
     t->seq_n = 0;
     t->seq_hold = 0;
@@ -968,6 +984,7 @@ static void seq_stop(void)
     motion_end();
     key_start();
     fxt_stop();
+    clk_out_stop();                                /* (M-Vave-OP1: MIDI OUT Stop, if it sent a Start) */
 }
 
 /* play one step: TIE extends, REST releases, NOTE (re)triggers its notes, then its lane hits (their GM
@@ -1053,7 +1070,7 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
             for (j = 0; slide_in && j < t->seq_n && t->seq_notes[j] != nn[i]; j++)
                 ;
             if (!slide_in || j == t->seq_n)         /* (MIDI OUT: a note held over by a slide is not sent again) */
-                seq_out(t, nn[i], vv[i]);
+                note_out(t, nn[i], vv[i]);
         }
     if (slide_in)                                   /* release what is not held over */
         for (i = 0; i < t->seq_n; i++) {
@@ -1061,7 +1078,7 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
                 ;
             if (j == m) {
                 trk_note_off(t, t->seq_notes[i]);
-                seq_out(t, t->seq_notes[i], 0);
+                note_out(t, t->seq_notes[i], 0);
             }
         }
     t->seq_n = 0;
@@ -1244,6 +1261,7 @@ static track_t *midi_track(uint32_t ch) { return midi_in_block(ch) ? &trk[ch - (
 
 #include "midi_control.c"
 #include "midi_clock.c"
+#include "midi_out.c"                            /* M-Vave-OP1: MIDI OUT: notes, the clock, CCs, T1..T4 OUT */
 
 /* the count-in: its first beat now (accented) */
 static __attribute__((noinline)) void cin_begin(void)
@@ -1385,10 +1403,12 @@ static void events_block(uint32_t n)
         transport_req = 0;
     }
     if (midi_route != (uint8_t)song.g[G_ROUTE]) {     /* ROUT changed: a block lets go of the other channels */
+        out_route_left(midi_route);                   /* (M-Vave-OP1: MIDI OUT, the notes sent on the old ones end) */
         midi_route = (uint8_t)song.g[G_ROUTE];
         if (midi_route != 1u)
             midi_route_block();
     }
+    midi_out_block(n);                                /* M-Vave-OP1: the MIDI clock's pulses, the knobs' CCs (midi_out.c) */
     pr = panic_req;
     panic_req = 0;
     if (midi_in_overflow) {                            /* a lost note-off must never leave a held note */

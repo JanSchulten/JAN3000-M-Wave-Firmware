@@ -1461,7 +1461,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="midi-in">
     <h3>MIDI in</h3>
-    <div class="prose"><p>MENU &gt; MIDI &gt; MIDI IN: <b>CH1-4</b> (channels 1 to 4 play tracks 1 to 4), CH5-8, CH9-12 or CH13-16 (another block, such as for two FM-1s on one cable) or <b>SEL</b> (every channel plays the selected track). The keys and the sequencer send on the track's channel (USB): a pattern playing on the FM-1 plays another instrument too, a drum kit's hits as GM drum notes. A muted track sends nothing. Pitch bend, sustain and panic are understood; the clock comes from inside, USB or TRS (HOME &gt; CLOCK).</p></div>
+    <div class="prose"><p>MENU &gt; MIDI &gt; MIDI IN: <b>CH1-4</b> (channels 1 to 4 play tracks 1 to 4), CH5-8, CH9-12 or CH13-16 (another block, such as for two FM-1s on one cable) or <b>SEL</b> (every channel plays the selected track). The keys, the arpeggiator and J-6 (in place of the keys while they are on) and the sequencer send on the track's channel (USB): a pattern playing on the FM-1 plays another instrument too, a drum kit's hits as GM drum notes. A muted track sends no notes. MENU &gt; MIDI &gt; T1 OUT .. T4 OUT choose per track: <b>BOTH</b> (the FM-1 and MIDI), <b>MIDI</b> (only the other instrument: the FM-1's own sound of that track is off, “local off”) or <b>FM-1</b> (nothing is sent); saved with the project. <b>CLOCK OUT</b> (ON at first) sends the MIDI clock, start and stop when the FM-1 is the clock (HOME &gt; CLOCK INT), so another instrument follows its tempo and starts with it. <b>CC OUT</b> (OFF at first) sends a knob's turn and the automation as it plays as the parameter's CC: the one MIDI LEARN gave it, else the standard ones (7 LEVEL, 10 PAN, 74 cutoff, 71 resonance, 91 reverb …). A CC that comes in is not sent back. Pitch bend, sustain and panic are understood; the clock comes from inside, USB or TRS (HOME &gt; CLOCK).</p></div>
     <div class="tbl"><table>
       <thead><tr><th>CC</th><th>Parameter</th><th>CC</th><th>Parameter</th></tr></thead>
       <tbody>
@@ -1580,6 +1580,9 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <thead><tr><th>Row</th><th>Values</th></tr></thead>
       <tbody>
         <tr><td class="m">MIDI IN</td><td>CH1-4, SEL, CH5-8, CH9-12 or CH13-16, saved with the project</td></tr>
+        <tr><td class="m">CLOCK OUT</td><td>ON or OFF: the MIDI clock, start and stop while the FM-1 is the clock</td></tr>
+        <tr><td class="m">CC OUT</td><td>OFF or ON: knobs and automation send their CCs</td></tr>
+        <tr><td class="m">T1 OUT .. T4 OUT</td><td>BOTH, MIDI (local off) or FM-1 (nothing sent), saved with the project</td></tr>
         <tr><td class="m">LEARN CLEAR</td><td>Shows how many CCs are learned; OCT+ clears them all</td></tr>
       </tbody>
     </table></div>
@@ -2796,7 +2799,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="de-midi-in">
     <h3>MIDI-Eingang</h3>
-    <div class="prose"><p>MENU &gt; MIDI &gt; MIDI IN: <b>CH1-4</b> (Kanal 1 bis 4 spielen Spur 1 bis 4), CH5-8, CH9-12 oder CH13-16 (ein anderer Block, etwa für zwei FM-1 an einem Kabel) oder <b>SEL</b> (jeder Kanal spielt die gewählte Spur). Die Tastatur und der Sequencer senden auf dem Kanal der Spur (USB): ein Pattern, das auf dem FM-1 läuft, spielt auch ein anderes Instrument, die Schläge eines Drumkits als GM-Drum-Noten. Eine stummgeschaltete Spur sendet nichts. Pitch Bend, Sustain und Panic werden verstanden, die Clock kommt intern, über USB oder über TRS (HOME &gt; CLOCK).</p></div>
+    <div class="prose"><p>MENU &gt; MIDI &gt; MIDI IN: <b>CH1-4</b> (Kanal 1 bis 4 spielen Spur 1 bis 4), CH5-8, CH9-12 oder CH13-16 (ein anderer Block, etwa für zwei FM-1 an einem Kabel) oder <b>SEL</b> (jeder Kanal spielt die gewählte Spur). Die Tastatur, der Arpeggiator und der J-6 (statt der Tasten, solange sie an sind) und der Sequencer senden auf dem Kanal der Spur (USB): ein Pattern, das auf dem FM-1 läuft, spielt auch ein anderes Instrument, die Schläge eines Drumkits als GM-Drum-Noten. Eine stummgeschaltete Spur sendet keine Noten. MENU &gt; MIDI &gt; T1 OUT .. T4 OUT wählen pro Spur: <b>BOTH</b> (FM-1 und MIDI), <b>MIDI</b> (nur das andere Instrument: der eigene Klang der Spur ist aus, „Local Off“) oder <b>FM-1</b> (es wird nichts gesendet); gespeichert mit dem Projekt. <b>CLOCK OUT</b> (zu Beginn ON) sendet die MIDI-Clock, Start und Stop, wenn das FM-1 die Clock ist (HOME &gt; CLOCK INT), damit ein anderes Instrument seinem Tempo folgt und mit ihm startet. <b>CC OUT</b> (zu Beginn OFF) sendet eine Knopfdrehung und die abgespielte Automation als CC des Parameters: den, den MIDI LEARN ihm gab, sonst die Standard-CCs (7 LEVEL, 10 PAN, 74 Cutoff, 71 Resonanz, 91 Reverb …). Ein ankommender CC wird nicht zurückgeschickt. Pitch Bend, Sustain und Panic werden verstanden, die Clock kommt intern, über USB oder über TRS (HOME &gt; CLOCK).</p></div>
     <div class="tbl"><table>
       <thead><tr><th>CC</th><th>Parameter</th><th>CC</th><th>Parameter</th></tr></thead>
       <tbody>
@@ -2915,6 +2918,9 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
       <thead><tr><th>Zeile</th><th>Werte</th></tr></thead>
       <tbody>
         <tr><td class="m">MIDI IN</td><td>CH1-4, SEL, CH5-8, CH9-12 oder CH13-16, gespeichert mit dem Projekt</td></tr>
+        <tr><td class="m">CLOCK OUT</td><td>ON oder OFF: MIDI-Clock, Start und Stop, solange das FM-1 die Clock ist</td></tr>
+        <tr><td class="m">CC OUT</td><td>OFF oder ON: Knöpfe und Automation senden ihre CCs</td></tr>
+        <tr><td class="m">T1 OUT .. T4 OUT</td><td>BOTH, MIDI (Local Off) oder FM-1 (nichts gesendet), gespeichert mit dem Projekt</td></tr>
         <tr><td class="m">LEARN CLEAR</td><td>Zeigt, wie viele CCs gelernt sind; OCT+ löscht alle</td></tr>
       </tbody>
     </table></div>

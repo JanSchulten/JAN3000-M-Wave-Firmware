@@ -180,6 +180,14 @@ static void ui_power_on(void)
     proj_name[0] = 0;
     proj_cur = PROJ_NO_SLOT;
     memset(&favorites, 0, sizeof favorites);
+    memset((void *)trk_out, 0, sizeof trk_out);   /* (M-Vave-OP1: MIDI OUT, midi_out.c: T OUT BOTH, the clock and CC OUT
+                                                   * as at power-on; the settings above, so CLOCK OUT ON, CC OUT OFF) */
+    memset(tout_seen, 0, sizeof tout_seen);
+    clk_out_off = cc_out_on = cc_was = 0;
+    clk_out_run = clk_out_due = 0;
+    clk_out_acc = 0;
+    ccq_r = ccq_w = 0;
+    memset(cc_sent, 0, sizeof cc_sent);
     ml_off();                                     /* (MIDI LEARN off, nothing learned) */
     memset(&undo, 0, sizeof undo);
     memset(&undo_group, 0, sizeof undo_group);
@@ -1800,11 +1808,11 @@ static int test_menu_tabs(void)
             }
     }
     ui_prefs = 0;
-    bad += check("MENU tabs: DISPLAY CONTROL AUDIO MIDI SYSTEM (8 7 4 2 7 rows), 1..8 each in a run, fit the page; tab gaps "
+    bad += check("MENU tabs: DISPLAY CONTROL AUDIO MIDI SYSTEM (8 7 4 8 7 rows), 1..8 each in a run, fit the page; tab gaps "
                  "constant (S, LARGE)",
                  ok && MTAB_COUNT == 5u && str_eq(MTAB_NAME[0], "DISPLAY") && str_eq(MTAB_NAME[MTAB_MIDI], "MIDI") &&
                  mtab_rows(MTAB_DISPLAY) == 8u && MI_TAB[MI_HOME] == MTAB_DISPLAY && mtab_rows(MTAB_CONTROL) == 7u && MI_TAB[MI_SCENE] == MTAB_CONTROL && mtab_rows(MTAB_AUDIO) == 4u &&
-                 mtab_rows(MTAB_MIDI) == 2u && MI_TAB[MI_LCLEAR] == MTAB_MIDI && mtab_rows(MTAB_SYSTEM) == 7u && MI_TAB[MI_TUNE] == MTAB_AUDIO &&   /* (1.5: LEARN CLEAR, HELP) */
+                 mtab_rows(MTAB_MIDI) == 8u && MI_TAB[MI_LCLEAR] == MTAB_MIDI && mtab_rows(MTAB_SYSTEM) == 7u && MI_TAB[MI_TUNE] == MTAB_AUDIO &&   /* (1.5: LEARN CLEAR, HELP) */
                  MI_TAB[MI_MIDIIN] == MTAB_MIDI && MI_TAB[MI_INFO] == MTAB_SYSTEM && MI_INFO >= MI_VALUES &&
                  MI_TAB[MI_DISK] == MTAB_SYSTEM && MI_DISK >= MI_VALUES);
 
@@ -1821,7 +1829,9 @@ static int test_menu_tabs(void)
     turn(EN_PRESET, 1); turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LATCH;
     turn(EN_ALGO, 1); ok &= ui.menu_sel == MI_LOWCUT && menu_tab() == MTAB_AUDIO;
     turn(EN_ALGO, 1); ok &= ui.menu_sel == MI_MIDIIN && menu_tab() == MTAB_MIDI;   /* (1.2) */
-    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LCLEAR;  /* (1.5: LEARN CLEAR, then round) */
+    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_CLKOUT;  /* (M-Vave-OP1: CLOCK OUT, CC OUT, T1..T4 OUT) */
+    for (i = 0; i < 6u; i++) turn(EN_PRESET, 1);
+    ok &= ui.menu_sel == MI_LCLEAR;                      /* (1.5: LEARN CLEAR, then round) */
     turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_MIDIIN;
     turn(EN_ALGO, 1); ok &= ui.menu_sel == MI_SERIAL && menu_tab() == MTAB_SYSTEM;
     turn(EN_ALGO, -1); turn(EN_ALGO, -1); ok &= ui.menu_sel == MI_LOWCUT;
@@ -3260,6 +3270,7 @@ static int test_layer(void)
     }
     /* combo: a key with FX: at once, silent, no MIDI, no recording, no step */
     ui_power_on();
+    ui_prefs2 |= PREF_CLKOUT_OFF >> 16; rp_apply();   /* (M-Vave-OP1: no clock pulses in the ring: notes only counted) */
     usb.config = 1; mo = mo_w;
     go_page(GR_ROLL); my_steps(TSEL); song.rec = 1; song.playing = 1;
     {

@@ -183,7 +183,7 @@ static int preferences(void)
         host_wire[n - 37] == 0 &&                        /* (no bank since 1.0.3) */
         host_wire[n - 36] == 0x53 && host_wire[n - 35] == 1 && host_wire[n - 34] == 3 &&
         host_wire[n - 33] == 0x50 && host_wire[n - 32] == 1 && host_wire[n - 31] == 3 &&   /* FM6 v2: no bank, preset patches */
-        host_wire[n - 30] == 0x4E && host_wire[n - 29] == 1 && host_wire[n - 28] == 27 &&   /* MENU settings: 27 items (M-Vave-OP1: SYNC OUT, SCENE CHANGE) */
+        host_wire[n - 30] == 0x4E && host_wire[n - 29] == 1 && host_wire[n - 28] == 33 &&   /* MENU settings: 33 items (M-Vave-OP1: SYNC OUT, SCENE CHANGE, CLOCK OUT, CC OUT, T1..T4 OUT) */
         host_wire[n - 27] == 0x52 && host_wire[n - 26] == 1 && host_wire[n - 25] == 4 &&   /* RATCH */
         host_wire[n - 24] == 0x4C && host_wire[n - 23] == 1 && host_wire[n - 22] == 1 &&   /* 1.1 parameter locks */
         host_wire[n - 21] == 0x41 && host_wire[n - 20] == 1 && host_wire[n - 19] == 0 && host_wire[n - 18] == 1 &&   /* 1.2: 128 */
@@ -938,12 +938,12 @@ static int menu_protocol(void)
         bad += check("MENU_DESC: the tab comes after every byte of the 1.0.4 reply (older editors ignore it)", ok);
     }
     ok = 1;
-    for (i = 0; i < 27u; i++) {
+    for (i = 0; i < 33u; i++) {
         menu_desc(i, &it);
         ok &= strcmp(it.name, "CALIBRATION") && strcmp(it.name, "ABOUT") && strcmp(it.name, "INFO");
     }
-    n = menu_desc(27, &it);
-    ok &= n == 2u && it.index == 27 && it.id == 127;
+    n = menu_desc(33, &it);
+    ok &= n == 2u && it.index == 33 && it.id == 127;
     n = menu_desc(127, &it);
     bad += check("MENU_DESC: no CALIBRATION / INFO / ABOUT; an index past the list answers index, 127 (no item)",
                  ok && n == 2u && it.index == 127 && it.id == 127);
@@ -1005,12 +1005,28 @@ static int menu_protocol(void)
     ok &= menu_set(22, 51) == 0 && ed_rv(host_wire + 7) == 50 && song.g[G_TUNE] == 50;
     bad += check("MENU_SET: out-of-range values clamped, the reply says the value the device took (TUNE -50..50)", ok);
 
+    {   /* M-Vave-OP1: CLOCK OUT (27) and CC OUT (28), settings; T1..T4 OUT (29..32), the project's: rc 0 as MIDI IN */
+        menu_desc(27, &it);
+        ok = it.id == 27 && !strcmp(it.name, "CLOCK OUT") && it.nnames == 2 && !strcmp(it.names[0], "ON") && it.value == 0 &&
+             !strcmp(it.tabname, "MIDI");
+        menu_desc(28, &it);
+        ok &= it.id == 28 && !strcmp(it.name, "CC OUT") && it.nnames == 2 && !strcmp(it.names[1], "ON") && it.value == 0;
+        menu_desc(30, &it);
+        ok &= it.id == 30 && !strcmp(it.name, "T2 OUT") && it.nnames == 3 && !strcmp(it.names[0], "BOTH") &&
+              !strcmp(it.names[1], "MIDI") && !strcmp(it.names[2], "FM-1") && !strcmp(it.tabname, "MIDI");
+        ok &= menu_set(30, 1) == 0 && trk_out[1] == 1u && menu_set(32, 9) == 0 && trk_out[3] == 2u && ed_rv(host_wire + 7) == 2;
+        ok &= menu_set(28, 1) != 1 && (ui_rec_prefs & (PREF_CC_OUT >> 8)) && menu_set(27, 1) != 1 &&
+              (ui_prefs2 & (PREF_CLKOUT_OFF >> 16));
+        menu_set(27, 0); menu_set(28, 0); menu_set(30, 0); menu_set(32, 0);
+        bad += check("MENU_DESC / MENU_SET (M-Vave-OP1): CLOCK OUT 27, CC OUT 28; T1..T4 OUT 29..32 (BOTH MIDI FM-1, rc 0)",
+                     ok && !trk_out[1] && !trk_out[3]);
+    }
     /* an id nobody has */
     {
         static uint8_t fav0[sizeof favorites], set0[sizeof settings];
         uint8_t hold0 = settings_hold, leds0 = settings_leds;
         memcpy(fav0, &favorites, sizeof favorites); memcpy(set0, &settings, sizeof settings);
-        ok = menu_set(27, 1) == 1 && host_wire[6] == 27 && ed_rv(host_wire + 7) == 1;
+        ok = menu_set(33, 1) == 1 && host_wire[6] == 33 && ed_rv(host_wire + 7) == 1;
         ok &= menu_set(126, -3) == 1 && host_wire[6] == 126 && ed_rv(host_wire + 7) == -3;
         ok &= menu_set(127, 0) == 1 && host_wire[6] == 127;
         ok &= !memcmp(fav0, &favorites, sizeof favorites) && !memcmp(set0, &settings, sizeof settings) &&

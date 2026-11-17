@@ -105,7 +105,7 @@ Multi-engine synthesizer firmware for the M-VAVE FM-1. Please report what you fi
   on macOS 13–15, set MENU > USB SERIAL to OFF so the audio input appears)
 - **MIDI:** USB and TRS MIDI in; MENU > MIDI > MIDI IN: CH1-4 (channels 1–4 play tracks 1–4), CH5-8, CH9-12 or
   CH13-16 (another block of four, e.g. for two FM-1s on one cable), or SEL (every channel plays the selected track);
-  the keys send on the track's channel (M-Vave-OP1: the sequencer's notes and kit hits too); pitch bend, sustain, panic; clock from internal, USB or TRS. MIDI CCs set
+  the keys send on the track's channel (M-Vave-OP1: the sequencer's notes and kit hits, the ARP's and J-6's notes too; MENU > MIDI: CLOCK OUT, CC OUT, T1..T4 OUT BOTH / MIDI (local off) / FM-1); pitch bend, sustain, panic; clock from internal, USB or TRS. MIDI CCs set
   track parameters: 5 GLIDE, 7 LEVEL, 10 PAN, 71 resonance, 72 / 73 / 75 release / attack / decay, 74 brightness,
   91 / 93 / 94 the reverb, chorus and delay sends. **MIDI LEARN** (GLO + D4) sets up to 16 more CCs of your
   controller to any knob's parameter of any track, on the device; **Program Change** loads a track's sound by its

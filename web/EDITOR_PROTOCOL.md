@@ -188,7 +188,7 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 
 | cmd | Request args | Reply args |
 | --- | --- | --- |
-| 1 INFO | — | version string, NENGINES, P_COUNT, G_COUNT, NSTEP, P_E0, then NENGINES engine-name strings, then (v3) NTRK (4), then (v6) CHAIN_ROWS (16), then the tagged blocks `55 01 uiCaps`, `4D 01 64 01`, `42 01 3`, `46 01 nfactory nbank`, `53 01 3`, (1.0.3) `50 01 3` and (1.0.4) `4E 01 count` (MENU settings; 12, 1.1: 15, 1.2: 17, 1.1.5: 18, 1.2: 23, 1.3: 24, 1.5: 25, M-Vave-OP1: 26 SYNC OUT, 27 SCENE CHANGE) and (1.0.5) `52 01 4` (ratchet) and (1.1) `4C 01 1` (parameter locks) and (1.2) `41 01 00 01` (128 motion records: two 7-bit bytes, LSB first; `4D 01 64 01` keeps saying 64) and `54 01 16` (a step's nudge, 1/16 of a step) and `57 01 4` (song sections: a slot per track, SONG ops 4..7) and (1.4.1) `56 01 32` (FM6's voice bank: cmds 74..77, SLOT 9..40) and (1.5) `43 01 16` (MIDI LEARN's map: cmds 78, 79) and (M-Vave-OP1) `58 01 lo hi` (the steps a track: 128, two 7-bit bytes, LSB first; the NSTEP byte says 64, so an editor of before works on the first 64) (below); older firmware ends earlier |
+| 1 INFO | — | version string, NENGINES, P_COUNT, G_COUNT, NSTEP, P_E0, then NENGINES engine-name strings, then (v3) NTRK (4), then (v6) CHAIN_ROWS (16), then the tagged blocks `55 01 uiCaps`, `4D 01 64 01`, `42 01 3`, `46 01 nfactory nbank`, `53 01 3`, (1.0.3) `50 01 3` and (1.0.4) `4E 01 count` (MENU settings; 12, 1.1: 15, 1.2: 17, 1.1.5: 18, 1.2: 23, 1.3: 24, 1.5: 25, M-Vave-OP1: 26 SYNC OUT, 27 SCENE CHANGE, 33 CLOCK OUT CC OUT T1..T4 OUT) and (1.0.5) `52 01 4` (ratchet) and (1.1) `4C 01 1` (parameter locks) and (1.2) `41 01 00 01` (128 motion records: two 7-bit bytes, LSB first; `4D 01 64 01` keeps saying 64) and `54 01 16` (a step's nudge, 1/16 of a step) and `57 01 4` (song sections: a slot per track, SONG ops 4..7) and (1.4.1) `56 01 32` (FM6's voice bank: cmds 74..77, SLOT 9..40) and (1.5) `43 01 16` (MIDI LEARN's map: cmds 78, 79) and (M-Vave-OP1) `58 01 lo hi` (the steps a track: 128, two 7-bit bytes, LSB first; the NSTEP byte says 64, so an editor of before works on the first 64) (below); older firmware ends earlier |
 | 2 GET | scope, id | scope, id, v14 |
 | 3 SET | scope, id, v14 | scope, id, v14 (the value after clamping). Setting global `G_ENGSEL` (id from DESC label "ENG") changes the engine: its defaults, then its first preset (as on the device) |
 | 4 DUMP | — | engine, preset, then P_COUNT × v14 (the selected track), then G_COUNT × v14 (globals) |
@@ -1017,6 +1017,9 @@ is told: no list of settings is fixed in the editor. INFO advertises `4E 01 coun
   but the current project's `G_ROUTE` and `G_TUNE` (global ids 14 and 3), set as a `SET` of that global sets them
   (a `GET` / `DUMP` reads the same value, the device pushes `CHANGED` for it while WATCHing); they are kept with the
   project (PROJECT SAVE, the autosave), not in the settings record, and a project load brings its own values.
+  M-Vave-OP1: CLOCK OUT (27, ON / OFF) and CC OUT (28, OFF / ON) are settings (MIDI tab); T1 OUT .. T4 OUT (29..32,
+  BOTH / MIDI / FM-1: where a track's notes go, MIDI being "local off") answer rc 0 as MIDI IN does: the current
+  project's, kept in its extras, with no global id (a project load brings its own; BOTH for one of before).
 - A MENU_SET is applied exactly as the menu's KNOB 1 / OCT+ applies it (`src/menu_items.c` `menu_put`, shared by
   both), and saved through the same settings record (`settings_save`; unchanged values write nothing; MIDI IN and
   TUNE: the project's, above). If the

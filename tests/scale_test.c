@@ -112,6 +112,8 @@ static void key_events_test(void)
     fm1_in.notes = 0;
     keyboard_block();
     assert(t->arp_phys == 0 && t->nheld == 0);
+    assert(mo_w == 1);                     /* (M-Vave-OP1: with the ARP on the arp's notes go out, not the keys': */
+    arp_tick(t, 48000);                    /* the key's release sends nothing, the arp's note ends with the arp) */
     assert(mo_w == 2 && ((midi_out_q[1] >> 16) & 127u) == 63);
     assert(((midi_out_q[1] >> 8) & 255u) == 0x80u);
     song.sel = 0;
@@ -123,7 +125,7 @@ static void key_events_test(void)
     t->p[P_QUANT] = 2;
     fm1_in.notes = 0;
     keyboard_block();
-    assert(t->arp_phys == 0 && t->nheld == 0 && mo_w == before + 1);
+    assert(t->arp_phys == 0 && t->nheld == 0 && mo_w == before);   /* (the ARP on: the key went out neither way) */
     puts("scales: silent keys, arp, live recording, MIDI out and held-note changes ok");
 }
 

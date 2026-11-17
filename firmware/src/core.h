@@ -446,7 +446,9 @@ typedef struct track {
     int32_t dist_hp, dist_lp1, dist_lp2;   /* DIST insert state (fx.c) */
     uint8_t tail;                /* blocks to mix after the last voice (the DIST / INSERT tail) */
     uint8_t ins_run;             /* the INSERT still sounds (fx.c track_insert: its wet share above 0) */
-    uint8_t rsv_sz[9];           /* (sizeof(track_t) a multiple of 16: below) */
+    uint8_t out;                 /* M-Vave-OP1: trk_out[] of this track (T OUT), copied by the ISR every block
+                                  * (midi_out.c midi_out_block): voice.c trk_note_on reads it without an index */
+    uint8_t rsv_sz[8];           /* (sizeof(track_t) a multiple of 16: below) */
     int16_t armp, aholdp;        /* P_AMODE / P_AHOLD as last seen by the ISR */
     /* engine switch (voice.c engine_block): the old engine's voices fade out, then it switches */
     uint8_t xf_on, xf;           /* fading; blocks of the fade still to render */
@@ -480,6 +482,12 @@ typedef struct {
 } song_t;
 
 static track_t trk[NTRK];        /* the instrument: four parts */
+/* M-Vave-OP1: MENU > MIDI > T1..T4 OUT, where each track's notes go: BOTH the FM-1's sound and MIDI OUT (USB), MIDI
+ * OUT only (LOCAL OFF: the FM-1 plays an outside instrument with this track, its own voices silent: voice.c
+ * trk_note_on), or the FM-1 only (nothing of the track's sent: notes, CCs; midi_out.c). Kept with the project (opstore.c
+ * extras, XTRA_V12); 0 (BOTH) is every project's of before. Stored values: append-only */
+enum { TOUT_BOTH, TOUT_MIDI, TOUT_FM1, TOUT_N };
+static volatile uint8_t trk_out[NTRK];
 static song_t song;
 #define TSEL (&trk[song.sel])    /* the selected track */
 

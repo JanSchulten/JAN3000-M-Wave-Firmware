@@ -544,7 +544,8 @@ static int learn_test(void)
 
     /* MENU > MIDI > LEARN CLEAR (1.5): OCT+ clears every learned CC */
     hold(B_HOME);
-    turn(EN_ALGO, 1); turn(EN_ALGO, 1); turn(EN_ALGO, 1); turn(EN_PRESET, 1);
+    turn(EN_ALGO, 1); turn(EN_ALGO, 1); turn(EN_ALGO, 1);
+    for (uint32_t r = 0; r < 7u; r++) turn(EN_PRESET, 1);   /* (MIDI IN, CLOCK OUT, CC OUT, T1..T4 OUT, LEARN CLEAR) */
     ok = ui.menu == 1 && ui.menu_sel == MI_LCLEAR && menu_tab() == MTAB_MIDI && str_eq(MI_NAME[MI_LCLEAR], "LEARN CLEAR") &&
          ml_count() == ML_N && oct_leds() == OCT_BREATH && !menu_valued(MI_LCLEAR) && menu_valued(MI_MIDIIN);
     turn(EN_K1, 3); press(B_OCTDN);
@@ -767,6 +768,12 @@ static uint32_t so_take(uint32_t *last_on)                 /* drain the OUT ring
     while (mo_r != mo_w) {
         uint32_t pkt = midi_out_q[mo_r++ % MQO], st = (pkt >> 8) & 0xF0u, ch = (pkt >> 8) & 15u;
         uint32_t note = (pkt >> 16) & 127u, vel = pkt >> 24;
+        if ((pkt & 15u) == 0xFu && ((pkt >> 8) & 0xFFu) >= 0xF8u)
+            continue;                                      /* (the clock, MIDI > CLOCK OUT: midi_clock_out_test) */
+        if (st == 0xB0u && note == 123u && (pkt & 15u) == 0xBu) {   /* (All Notes Off: T OUT FM-1, ROUT's block left) */
+            memset(so_on[ch], 0, sizeof so_on[ch]);
+            continue;
+        }
         if ((pkt & 15u) != (st >> 4))
             so_bad++;                                      /* (the code index number matches the status) */
         if (st == 0x90u && vel) {
@@ -800,6 +807,8 @@ static void so_reset(void)
         trk[i].p[P_SDIV] = 4;
     }
     usb.config = 1;
+    memset((void *)trk_out, 0, sizeof trk_out);
+    events_block(CTL);
     mo_r = mo_w;
     memset(so_on, 0, sizeof so_on);
     so_ons = so_offs = so_bad = 0;
@@ -951,9 +960,357 @@ static int seq_out_test(void)
     usb.config = 0; mo_r = mo_w;
     return bad;
 }
+/* M-Vave-OP1: MIDI OUT's other parts (midi_out.c). The clock out: 24 pulses a quarter at the tempo, while stopped too;
+ * Start with step 1 and its pulse in the same block, the steps on the pulses (a 1/16 every 6), Stop; OFF and an outside
+ * clock send none. The ARP's and the J-6's notes go out in place of the keys'. T1..T4 OUT: BOTH, MIDI (LOCAL OFF), FM-1;
+ * kept with the project. CC OUT: a knob and the automation send the parameter's CC (MIDI LEARN's, else the map's), the
+ * exact inverse of a CC coming in, a value once; a CC that comes in is not sent back */
+static uint32_t mo_pulses, mo_starts, mo_stops, mo_ccs, mo_cc_last;
+static uint32_t mo_take(uint32_t *pulse_at, uint32_t max, uint32_t block, uint32_t *note_at, uint32_t nmax, uint32_t *nn)
+{
+    uint32_t n = 0;
+    while (mo_r != mo_w) {
+        uint32_t pkt = midi_out_q[mo_r++ % MQO], b = (pkt >> 8) & 0xFFu;
+        if ((pkt & 15u) == 0xFu && b == 0xF8u) {
+            if (pulse_at && mo_pulses < max) pulse_at[mo_pulses] = block;
+            mo_pulses++;
+        } else if ((pkt & 15u) == 0xFu && b == 0xFAu) {
+            mo_starts++;
+            if (mo_pulses && !mo_starts) mo_starts = 99;
+        } else if ((pkt & 15u) == 0xFu && b == 0xFCu) {
+            mo_stops++;
+        } else if ((b & 0xF0u) == 0x90u && (pkt >> 24)) {
+            if (note_at && *nn < nmax) note_at[(*nn)++] = block;
+            so_on[b & 15u][(pkt >> 16) & 127u] = 1;
+            so_ons++;
+            n++;
+        } else if ((b & 0xF0u) == 0x80u) {
+            so_on[b & 15u][(pkt >> 16) & 127u] = 0;
+            so_offs++;
+        } else if ((b & 0xF0u) == 0xB0u) {
+            if (((pkt >> 16) & 127u) == 123u)
+                memset(so_on[b & 15u], 0, sizeof so_on[b & 15u]);
+            mo_ccs++;
+            mo_cc_last = pkt;
+        } else
+            so_bad++;
+    }
+    return n;
+}
+static void mo_reset(void)
+{
+    so_reset();
+    mo_pulses = mo_starts = mo_stops = mo_ccs = mo_cc_last = 0;
+}
+static int midi_clock_out_test(void)
+{
+    int bad = 0, ok;
+    uint32_t b, blocks, want, i, nn = 0, pulse_at[200], note_at[40], order[4], no = 0;
+    /* stopped, CLOCK OUT ON (the default): the pulses run at the tempo */
+    mo_reset();
+    ok = !(ui_prefs2 & (PREF_CLKOUT_OFF >> 16)) && menu_get(MI_CLKOUT) == 0u && str_eq(menu_vname(MI_CLKOUT, 0), "ON") && !clk_out_off;
+    song.g[G_BPM] = 120;
+    blocks = 20u * beat_samples() / CTL;                    /* (twenty beats) */
+    for (b = 0; b < blocks; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    want = blocks * CTL * 24u / beat_samples();
+    ok &= (mo_pulses == want || mo_pulses == want + 1u) && !mo_starts && !mo_stops && !so_ons;
+    bad += check("CLOCK OUT (ON by default): stopped, 24 pulses a quarter at 120 BPM over 20 beats, no Start", ok);
+    /* PLAY: Start, then step 1's pulse in the same block; the 1/16 steps of track 1 on every sixth pulse */
+    mo_reset(); song.g[G_BPM] = 133;
+    for (i = 0; i < 16u; i++) so_note(&trk[0], i, 60u + i, 100);
+    trk[0].p[P_SDIV] = 2; trk[0].p[P_SGATE] = 32;
+    events_block(CTL);
+    mo_take(0, 0, 0, 0, 0, &nn);
+    mo_pulses = 0;
+    transport_req = 1;
+    events_block(CTL);
+    for (i = 0; mo_r + i != mo_w && no < 4u; i++) {          /* the block's first packets, in order */
+        uint32_t pkt = midi_out_q[(mo_r + i) % MQO];
+        order[no++] = (pkt & 15u) == 0xFu ? (pkt >> 8) & 0xFFu : (pkt >> 8) & 0xF0u;
+    }
+    mo_take(pulse_at, 200, 0, note_at, 40, &nn);
+    ok = no >= 3u && order[0] == 0xFAu && order[1] == 0xF8u && order[2] == 0x90u && mo_starts == 1u && nn == 1u;
+    bad += check("  PLAY: Start, the first pulse, then step 1's note, all in one block", ok);
+    for (b = 1; nn < 32u && b < 20000u; b++) { events_block(CTL); mo_take(pulse_at, 200, b, note_at, 40, &nn); }
+    ok = nn == 32u;
+    for (i = 0; i < 32u; i++)                               /* (the sequencer's 1/16 is beat / 4 in whole samples: */
+        ok &= note_at[i] + 1u >= pulse_at[6u * i] && note_at[i] <= pulse_at[6u * i] + 1u;   /* within a block) */
+    bad += check("  32 steps (two bars) of 1/16: step i on pulse 6 i (within a block, 133 BPM)", ok);
+    transport_req = 2; events_block(CTL); mo_take(0, 0, b, 0, 0, &nn);
+    bad += check("  STOP: one Stop; every note ended", mo_stops == 1u && !so_hanging() && !so_bad);
+    /* GLO + PLAY (from the top while playing): Stop, Start, a pulse */
+    transport_req = 1; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    mo_starts = mo_stops = 0;
+    transport_req = 3; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok = mo_stops == 1u && mo_starts == 1u;
+    /* CLOCK OUT turned OFF while playing: a Stop, then no pulses */
+    menu_put(MI_CLKOUT, 1); rp_apply();
+    mo_pulses = 0;
+    for (b = 0; b < 2000u; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    ok &= mo_stops == 2u && !mo_pulses && menu_get(MI_CLKOUT) == 1u && (ui_prefs2 & (PREF_CLKOUT_OFF >> 16));
+    transport_req = 2; events_block(CTL);
+    transport_req = 1; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok &= mo_starts == 1u && !mo_pulses;
+    transport_req = 2; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    bad += check("  GLO + PLAY: Stop, Start; CLOCK OUT OFF (while playing: a Stop): no pulses, no Start", ok && mo_stops == 2u);
+    menu_put(MI_CLKOUT, 0); rp_apply();
+    /* an outside clock (CLOCK USB): nothing of the FM-1's own goes out, its Start and pulses neither */
+    clock_setup(1); usb.config = 1; mo_r = mo_w; mo_pulses = mo_starts = mo_stops = 0;
+    clock_packet(1, 0xFA, 2); clock_to(1, 2, 48);
+    mo_take(0, 0, 0, 0, 0, &nn);
+    ok = song.playing && !mo_pulses && !mo_starts;
+    clock_packet(1, 0xFC, 1200); mo_take(0, 0, 0, 0, 0, &nn);
+    bad += check("  CLOCK USB (an outside clock): no pulses, no Start or Stop sent (no loop)", ok && !mo_stops);
+    song.g[G_CLOCK] = 0; events_block(CTL);
+    usb.config = 0; mo_r = mo_w; song.g[G_BPM] = 120;
+    return bad;
+}
+static int arp_out_test(void)
+{
+    int bad = 0, ok;
+    uint32_t b, nn = 0;
+    track_t *t = &trk[0];
+    /* ARP UP over two octaves, one key (C4 60) held: 60 and 72 go out, the key's own note does not go out with it */
+    mo_reset(); menu_put(MI_CLKOUT, 1); rp_apply();
+    t->p[P_AMODE] = AM_UP; t->p[P_AOCT] = 2; t->p[P_ARATE] = 2; t->p[P_AGATE] = 64;
+    fm1_in.notes = 1u << 7; events_block(CTL);
+    for (b = 0; b < 3u * beat_samples() / CTL; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    ok = so_ons >= 6u && so_offs + 1u >= so_ons && !so_bad;
+    {   /* the notes that went out: 60 and 72 by turns (none twice in a row: the key was not sent besides) */
+        uint32_t i, last = 0, twice = 0, n60 = 0, n72 = 0;
+        mo_reset(); menu_put(MI_CLKOUT, 1); rp_apply();
+        t->p[P_AMODE] = AM_UP; t->p[P_AOCT] = 2; t->p[P_ARATE] = 2; t->p[P_AGATE] = 64;
+        fm1_in.notes = 1u << 7;
+        for (b = 0; b < 3u * beat_samples() / CTL; b++) {
+            events_block(CTL);
+            while (mo_r != mo_w) {
+                uint32_t pkt = midi_out_q[mo_r++ % MQO], x = (pkt >> 16) & 127u;
+                if (((pkt >> 8) & 0xF0u) == 0x90u) { twice += x == last; last = x; n60 += x == 60u; n72 += x == 72u; }
+                if (((pkt >> 8) & 0xF0u) == 0x80u) so_on[0][x] = 0; else if (((pkt >> 8) & 0xF0u) == 0x90u) so_on[0][x] = 1;
+            }
+        }
+        (void)i;
+        ok &= n60 >= 3u && n72 >= 3u && !twice;
+    }
+    fm1_in.notes = 0;
+    for (b = 0; b < beat_samples() / CTL; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    bad += check("ARP -> MIDI OUT: UP over 2 octaves from one key: 60 and 72 by turns (the key not besides); let go: all end",
+                 ok && !so_hanging());
+    /* ARP > J-6 (STYLE 1): its phrase's notes go out, every one ended; switching it off mid-phrase ends them too */
+    mo_reset(); t->p[P_AMODE] = 0; t->p[P_ASTYLE] = 4; t->p[P_AVAR] = 1;
+    fm1_in.notes = 1u << 7 | 1u << 11 | 1u << 14; events_block(CTL);
+    for (b = 0; b < 6u * beat_samples() / CTL; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    ok = so_ons >= 4u && !so_bad;
+    t->p[P_ASTYLE] = 0;
+    for (b = 0; b < 4u; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    fm1_in.notes = 0;
+    for (b = 0; b < beat_samples() / CTL; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    bad += check("  J-6 (STYLE 4 over a chord): the phrase's notes go out; STYLE OFF mid-phrase, keys up: every one ended",
+                 ok && !so_hanging());
+    /* a panic (a sound load) over a sounding arp note: its off goes out */
+    mo_reset(); t->p[P_AMODE] = AM_UP; t->p[P_AOCT] = 1; t->p[P_AHOLD] = 1;
+    fm1_in.notes = 1u << 7;
+    for (b = 0; b < beat_samples() / 8u / CTL + 2u; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    fm1_in.notes = 0; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok = so_ons >= 1u;
+    panic_req = 1; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    t->p[P_AHOLD] = 0; t->p[P_AMODE] = 0;
+    for (b = 0; b < 4u; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    bad += check("  ARP HOLD over a sound load (panic): the arp's note ended at MIDI OUT too", ok && !so_hanging());
+    menu_put(MI_CLKOUT, 0); rp_apply(); usb.config = 0; mo_r = mo_w;
+    return bad;
+}
+static int tout_test(void)
+{
+    int bad = 0, ok;
+    uint32_t nn = 0, b, i;
+    track_t *t = &trk[0];
+    proj_xtra_t x;
+    xtra_hi_t h;
+    ok = TOUT_BOTH == 0 && TOUT_MIDI == 1 && TOUT_FM1 == 2 && MI_PROJECT(MI_TOUT1) && MI_PROJECT(MI_TOUT4) &&
+         str_eq(MI_NAME[MI_TOUT2], "T2 OUT") && menu_n(MI_TOUT2) == 3u && str_eq(menu_vname(MI_TOUT2, 0), "BOTH") &&
+         str_eq(menu_vname(MI_TOUT2, 1), "MIDI") && str_eq(menu_vname(MI_TOUT2, 2), "FM-1");
+    for (i = 0; i < NTRK; i++) ok &= menu_get(MI_TOUT1 + i) == 0u;
+    bad += check("T1..T4 OUT: MENU > MIDI rows of the project, BOTH MIDI FM-1, BOTH at power-on", ok);
+    /* MIDI: sent, the FM-1's voices silent (LOCAL OFF); its keys too */
+    mo_reset(); menu_put(MI_CLKOUT, 1); rp_apply();
+    menu_put(MI_TOUT1, 1); so_note(t, 0, 60, 100);
+    transport_req = 1; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok = so_on[0][60] && !gate_note(t, 60) && trk_out[0] == TOUT_MIDI && t->out == TOUT_MIDI;
+    transport_req = 2; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    fm1_in.notes = 1u << 9; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok &= so_ons == 2u && !any_gate();
+    fm1_in.notes = 0; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    bad += check("  T1 OUT MIDI: the step and the key go out, the FM-1 sounds neither (LOCAL OFF)", ok && !so_hanging());
+    /* FM-1: nothing sent, the voices play */
+    mo_reset(); menu_put(MI_CLKOUT, 1); rp_apply(); menu_put(MI_TOUT1, 2); so_note(t, 0, 60, 100);
+    events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok = mo_ccs == 1u && mo_cc_last == (0x0Bu | 0xB0u << 8 | 123u << 16);   /* (the switch: All Notes Off, once) */
+    mo_ccs = 0;
+    transport_req = 1; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok &= !so_ons && gate_note(t, 60);
+    fm1_in.notes = 1u << 9; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok &= !so_ons && !so_offs;
+    fm1_in.notes = 0; transport_req = 2; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    bad += check("  T1 OUT FM-1: the FM-1 plays, nothing of track 1 goes out (no note-off either)", ok && !so_offs && !mo_ccs);
+    /* a switch to FM-1 over a note sent: All Notes Off on its channel; ROUT's block left the same way */
+    mo_reset(); menu_put(MI_CLKOUT, 1); rp_apply(); menu_put(MI_TOUT1, 0);
+    so_note(t, 0, 62, 100); for (i = 1; i < 16u; i++) t->step[i].time = ST_TIE;
+    transport_req = 1; for (b = 0; b < 8u; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    ok = so_on[0][62];
+    menu_put(MI_TOUT1, 2); events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok &= !so_hanging() && mo_ccs == 1u && mo_cc_last == (0x0Bu | 0xB0u << 8 | 123u << 16);
+    menu_put(MI_TOUT1, 0); transport_req = 2; events_block(CTL);
+    transport_req = 1; for (b = 0; b < 8u; b++) { events_block(CTL); mo_take(0, 0, b, 0, 0, &nn); }
+    ok &= so_on[0][62];
+    song.g[G_ROUTE] = 2; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    ok &= !so_hanging() && mo_cc_last == (0x0Bu | 0xB3u << 8 | 123u << 16);   /* (the old block's: track 4 last) */
+    transport_req = 2; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    song.g[G_ROUTE] = 0; events_block(CTL); mo_take(0, 0, 0, 0, 0, &nn);
+    bad += check("  a switch to FM-1, and ROUT's block left, send All Notes Off there: nothing hangs", ok && !so_bad);
+    /* kept with the project (extras XTRA_V12, 0x80 | the value); extras of before and unknown values: BOTH */
+    trk_out[0] = 1; trk_out[1] = 2; trk_out[2] = 0; trk_out[3] = 1;
+    {
+        uint32_t s0 = autosave_sig();
+        trk_out[3] = 2;
+        ok = autosave_sig() != s0;
+        trk_out[3] = 1;
+    }
+    xtra_capture(&x, &h, 77u);
+    ok &= x.size == XTRA_V12 && XTRA_V12 == XTRA_V11 + 4u && h.tout[0] == 0x81u && h.tout[1] == 0x82u && h.tout[2] == 0x80u;
+    memset((void *)trk_out, 0, sizeof trk_out);
+    xtra_apply(&x, 77u, &h);
+    ok &= trk_out[0] == 1u && trk_out[1] == 2u && trk_out[2] == 0u && trk_out[3] == 1u;
+    x.size = XTRA_V11; xtra_apply(&x, 77u, &h);
+    ok &= !trk_out[0] && !trk_out[1] && !trk_out[3];
+    x.size = XTRA_V12; h.tout[0] = 0x83u; h.tout[1] = 0x02u; xtra_apply(&x, 77u, &h);
+    ok &= !trk_out[0] && !trk_out[1] && trk_out[3] == 1u;
+    memset((void *)trk_out, 0, sizeof trk_out);
+    bad += check("  kept with the project (XTRA_V12, autosave signature); extras of before, unknown values: BOTH", ok);
+    menu_put(MI_CLKOUT, 0); rp_apply(); usb.config = 0; mo_r = mo_w;
+    return bad;
+}
+static uint32_t cc_take(uint32_t *n)                     /* the CCs out (other packets dropped); the last one */
+{
+    uint32_t last = 0;
+    *n = 0;
+    while (mo_r != mo_w) {
+        uint32_t pkt = midi_out_q[mo_r++ % MQO];
+        if (((pkt >> 8) & 0xF0u) == 0xB0u) { last = pkt; (*n)++; }
+    }
+    return last;
+}
+static int cc_out_test(void)
+{
+    int bad = 0, ok = 1;
+    uint32_t n, pkt, id, v, e, k;
+    track_t *t = &trk[0];
+    static const struct { uint8_t cc, id; } MAP[] = {
+        {5, P_GLIDE}, {7, P_LEVEL}, {10, P_PAN}, {72, P_REL}, {73, P_ATK}, {75, P_DEC}, {91, P_REV}, {93, P_CHOR}, {94, P_DLY},
+    };
+    midi_test_reset(); usb.config = 1; mo_r = mo_w; menu_put(MI_CLKOUT, 1); rp_apply();
+    go_page(GR_TRK); song.sel = 0;
+    ok = menu_get(MI_CCOUT) == 0u && !cc_out_on;
+    turn(EN_K1, -3); events_block(CTL); cc_take(&n);
+    ok &= !n;
+    bad += check("CC OUT (OFF by default): a knob sends nothing", ok);
+    menu_put(MI_CCOUT, 1); rp_apply(); events_block(CTL); cc_take(&n);
+    turn(EN_K1, 2); events_block(CTL); pkt = cc_take(&n);
+    v = ((uint32_t)(t->p[P_LEVEL] - TP[P_LEVEL].min) * 127u + (uint32_t)(TP[P_LEVEL].max - TP[P_LEVEL].min) / 2u) /
+        (uint32_t)(TP[P_LEVEL].max - TP[P_LEVEL].min);
+    ok = n == 1u && pkt == (0x0Bu | 0xB0u << 8 | 7u << 16 | v << 24) && (ui_rec_prefs & (PREF_CC_OUT >> 8));
+    bad += check("  ON: MIXER's LEVEL knob on track 1 sends CC7 on channel 1, its value", ok);
+    /* every CC of the map, every value: a CC that comes in and the CC that goes out for the value it set are the same */
+    for (k = 0, ok = 1; k < NELEM(MAP); k++)
+        for (v = 0; v < 128u; v++) {
+            midi_cc_set(t, MAP[k].id, v);
+            memset(cc_sent, 0, sizeof cc_sent);
+            cc_out_param(t, MAP[k].id);
+            pkt = cc_take(&n);
+            ok &= n == 1u && ((pkt >> 16) & 127u) == MAP[k].cc && (pkt >> 24) == v;
+        }
+    e = MIDI_CC_ENG[eng_idx(t->eng_req)];                /* (ANALOG: CC74 CUT, CC71 RES) */
+    for (v = 0; v < 128u; v += 7u) {
+        id = P_E0 + (e >> 4) - 1u;
+        midi_cc_set(t, id, v); memset(cc_sent, 0, sizeof cc_sent); cc_out_param(t, id); pkt = cc_take(&n);
+        ok &= n == 1u && ((pkt >> 16) & 127u) == 74u && (pkt >> 24) == v;
+        id = P_E0 + (e & 15u) - 1u;
+        midi_cc_set(t, id, v); memset(cc_sent, 0, sizeof cc_sent); cc_out_param(t, id); pkt = cc_take(&n);
+        ok &= n == 1u && ((pkt >> 16) & 127u) == 71u && (pkt >> 24) == v;
+    }
+    bad += check("  the standard map's CCs (and CC74 / CC71: the engine's CUT / RES), all 128 values: out == in", ok);
+    cc_out_param(t, P_LEVEL); cc_take(&n); ok = n == 1u;
+    cc_out_param(t, P_LEVEL); cc_take(&n); ok &= !n;     /* (the same value again: not sent) */
+    cc_out_param(t, P_AMODE); cc_take(&n); ok &= !n;     /* (a parameter with no CC) */
+    queued(0xB0, 7, 33, 1); cc_take(&n); ok &= !n && t->p[P_LEVEL] != 0;   /* (a CC in: set, not echoed) */
+    bad += check("  a value once; a parameter without a CC nothing; a CC coming in is not sent back", ok);
+    /* MIDI LEARN: the learned CC for its parameter; a standard CC learned for another one is the user's: not the map's */
+    ok = ml_learn(20, 0, P_LEVEL) == 1u && ml_learn(10, 0, P_GLIDE) == 1u;
+    memset(cc_sent, 0, sizeof cc_sent);
+    turn(EN_K1, 1); events_block(CTL); pkt = cc_take(&n);
+    ok &= n == 1u && ((pkt >> 16) & 127u) == 20u;
+    turn(EN_K2, 1); events_block(CTL); cc_take(&n);    /* (PAN: its CC10 is learned for GLIDE now) */
+    ok &= !n;
+    ml_clear_all();
+    bad += check("  MIDI LEARN: LEVEL learned on CC20 sends CC20; PAN sends nothing (CC10 learned for GLIDE)", ok);
+    {   /* a learned CC on a parameter of another range (TRANS, SWING, LEN): every value p sends the CC that sets p again */
+        static const uint8_t ID[] = {P_TRANS, P_SSWING, P_SLEN, P_ARATE};
+        uint32_t j;
+        int32_t p;
+        ok = 1;
+        for (j = 0; j < NELEM(ID); j++) {
+            const param_desc_t *d = track_desc(t, ID[j]);
+            ok &= ml_learn(21, 0, ID[j]) == 1u && d->max - d->min != 127;
+            for (p = d->min; p <= d->max; p++) {
+                t->p[ID[j]] = (int16_t)p;
+                memset(cc_sent, 0, sizeof cc_sent);
+                cc_out_param(t, ID[j]);
+                pkt = cc_take(&n);
+                t->p[ID[j]] = (int16_t)(p == d->min ? d->max : d->min);
+                queued(0xB0, 21, pkt >> 24, 1);
+                cc_take(&n);
+                ok &= ((pkt >> 16) & 127u) == 21u && t->p[ID[j]] == p;
+            }
+            ml_clear_all();
+        }
+        bad += check("  a learned CC on TRANS / SWING / LEN / ARP RATE: each value sends the CC that sets it again", ok);
+    }
+    /* the automation: a lock on step 2 sends its value as the step plays, the sound's own when the next one starts */
+    midi_test_reset(); usb.config = 1; mo_r = mo_w; menu_put(MI_CLKOUT, 1); menu_put(MI_CCOUT, 1); rp_apply();
+    for (k = 0; k < 16u; k++) so_note(t, k, 60, 100);
+    t->p[P_SLEN] = 16; t->p[P_SDIV] = 4; t->p[P_LEVEL] = 100;
+    ok = motion_set_lock(t, 2, P_REV, 20) == 0;
+    motion.on |= 1u;
+    events_block(CTL); cc_take(&n);
+    transport_req = 1;
+    {
+        uint32_t b, got = 0, back = 0;
+        for (b = 0; b < 4u * div_samples(4) / CTL; b++) {
+            events_block(CTL);
+            while (mo_r != mo_w) {
+                pkt = midi_out_q[mo_r++ % MQO];
+                if (((pkt >> 8) & 0xFFu) == 0xB0u && ((pkt >> 16) & 127u) == 91u) {
+                    if (!got) got = (pkt >> 24) == ((uint32_t)(20 - TP[P_REV].min) * 127u + (uint32_t)(TP[P_REV].max - TP[P_REV].min) / 2u) / (uint32_t)(TP[P_REV].max - TP[P_REV].min) ? 1u : 2u;
+                    else back++;
+                }
+            }
+        }
+        ok &= got == 1u && back == 1u;
+    }
+    transport_req = 2; events_block(CTL); cc_take(&n);
+    bad += check("  a lock (REV on step 3) sends CC91 as the step plays, the sound's own value back after it", ok);
+    /* T1 OUT FM-1: no CC */
+    menu_put(MI_TOUT1, 2); events_block(CTL); cc_take(&n);   /* (the switch's All Notes Off) */
+    go_page(GR_TRK); turn(EN_K1, 2); events_block(CTL); cc_take(&n);
+    bad += check("  T1 OUT FM-1: its knobs send no CC", !n);
+    menu_put(MI_TOUT1, 0); menu_put(MI_CCOUT, 0); menu_put(MI_CLKOUT, 0); rp_apply(); events_block(CTL);
+    usb.config = 0; mo_r = mo_w;
+    return bad;
+}
 int main(void)
 {
     int bad = controls_test() + sustain_test() + ownership_test() + clock_test(1) + clock_test(2) + clock_arp_and_boundaries() +
-              arp_ext_stop_test() + usb_burst_test() + route_test() + route_block_test() + cc_map_test() + learn_test() + pc_test() + seq_out_test();
+              arp_ext_stop_test() + usb_burst_test() + route_test() + route_block_test() + cc_map_test() + learn_test() + pc_test() + seq_out_test() + midi_clock_out_test() + arp_out_test() + tout_test() +
+              cc_out_test();
     printf("%s\n", bad ? "MIDI CONTROL/CLOCK TEST FAILED" : "MIDI control/clock integration tests passed"); return bad != 0;
 }

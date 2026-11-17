@@ -102,9 +102,11 @@ static void ml_toggle(void)
     ml_heard = 0;
     ui_message("MIDI LEARN ON");
 }
-/* a knob turned parameter id of track t (ui_input.c): picked while learning */
+/* a knob turned parameter id of track t (ui_input.c): picked while learning; M-Vave-OP1: its CC sent (MENU > MIDI > CC
+ * OUT ON, midi_out.c cc_knob: every knob edit of a track's parameter comes here) */
 static void ml_knob(const track_t *t, uint32_t id)
 {
+    cc_knob(t, id);
     if (!ui.ml.on || id >= P_COUNT)
         return;
     ui.ml.trk = (uint8_t)trk_index(t);
