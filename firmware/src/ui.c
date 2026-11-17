@@ -1787,25 +1787,32 @@ static void list_set(uint32_t m)
 static const char *list_name(uint32_t m) { return m == 0u ? "ALL" : m == 1u ? "FAV" : CAT_NAME[(m - 1u) % CAT_N]; }
 /* the category of list entry e, k (preset_all_at: NENGINES = user preset k) */
 static uint32_t sound_cat(uint32_t e, uint32_t k) { return e == NENGINES ? up_cat(k) : preset_cat(e, k); }
-static int list_keep(uint32_t e, uint32_t k)
-{
-    uint32_t m = list_mode();
-    return m == 1u ? favorite_has(e, k) : m ? sound_cat(e, k) == m - 1u : 1;
-}
-/* the category of the sound track t plays: its user preset's, else its factory preset's (the NAME screen's default) */
+/* the category of the sound track t plays: its user preset's, else its factory preset's (the NAME screen's default);
+ * never CAT_NONE (up_cat_of, preset_cat: a sound without one is its engine's, cat_of_engine) */
 static uint32_t track_cat(const track_t *t)
 {
     uint32_t u = user_of(t);
     return u < UP_SLOTS ? up_cat(u) : preset_cat(t->eng_req % NENGINES, t->preset);
 }
+/* M-Vave-OP1 (user report: LIST on BASS, then the PRESETS knob on HOME turned a drum kit into a bass, and back only
+ * into another bass): the list the PRESETS knob browses. On SAVE > PRESETS (the browser, its LIST shown on KNOB 4):
+ * LIST as set. Everywhere else (HOME, the other pages, preset_step) the selected sound's own category, so a kit steps
+ * through the kits, a bass through the basses, whatever LIST was left on; FAV, a list the player made, as set. The
+ * stored LIST is not changed: the browser opens on it again */
+static int browse_open(void) { return !ui.home && cur_page()->graph == GR_BROWSE; }
+static uint32_t list_view(void) { return favorites.filter || browse_open() ? list_mode() : 1u + track_cat(TSEL); }
+static int list_keep(uint32_t m, uint32_t e, uint32_t k)   /* list entry e, k is in list m (list_mode's numbers) */
+{
+    return m == 1u ? favorite_has(e, k) : m ? sound_cat(e, k) == m - 1u : 1;
+}
 
 static uint32_t preset_pos(uint32_t *total)
 {
-    uint32_t all, current = preset_all_pos(&all), n = 0, pos = 0xFFFFFFFFu;
-    if (!list_mode()) { *total = all; return current; }
+    uint32_t all, current = preset_all_pos(&all), n = 0, pos = 0xFFFFFFFFu, m = list_view();
+    if (!m) { *total = all; return current; }
     for (uint32_t i = 0; i < all; i++) {
         uint32_t k, e = preset_all_at(i, &k);
-        if (!list_keep(e, k)) continue;
+        if (!list_keep(m, e, k)) continue;
         if (i == current) pos = n;
         n++;
     }
@@ -1814,12 +1821,12 @@ static uint32_t preset_pos(uint32_t *total)
 }
 static uint32_t preset_at(uint32_t n, uint32_t *k)
 {
-    uint32_t all;
-    if (!list_mode()) return preset_all_at(n, k);
+    uint32_t all, m = list_view();
+    if (!m) return preset_all_at(n, k);
     preset_all_pos(&all);
     for (uint32_t i = 0; i < all; i++) {
         uint32_t e = preset_all_at(i, k);
-        if (list_keep(e, *k) && !n--) return e;
+        if (list_keep(m, e, *k) && !n--) return e;
     }
     *k = UP_SLOTS;
     return NENGINES;
@@ -1938,7 +1945,7 @@ static void eng_list_step(int32_t direction)         /* the next / previous soun
 static void preset_step(int32_t direction)
 {
     uint32_t total, cur = preset_pos(&total);
-    if (!total) { ui_message(list_mode() == 1u ? "NO FAVORITES" : "NO SOUNDS IN LIST"); return; }
+    if (!total) { ui_message(list_view() == 1u ? "NO FAVORITES" : "NO SOUNDS IN LIST"); return; }
     preset_go(cur >= total ? (direction > 0 ? 0 : total - 1) :
               (cur + (direction > 0 ? 1u : total - 1u)) % total);
 }
@@ -1949,7 +1956,7 @@ static uint32_t preset_visible(uint32_t cur, uint32_t total, uint32_t row)
 {
     uint32_t first, last;
     if (!total || row >= 7u) return total;
-    if (!list_mode())
+    if (!list_view())
         return (cur + total * 4u + row - 3u) % total;
     first = cur < total && cur > 3u ? cur - 3u : 0u;
     last = total > 7u ? total - 7u : 0u;

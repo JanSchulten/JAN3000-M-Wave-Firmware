@@ -644,8 +644,8 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <h3>Choosing sounds</h3>
     <figure class="fig"><div class="shots" data-shots="presets"></div></figure>
     <div class="prose">
-      <p><kbd>PRESETS</kbd> steps through all sounds, engine by engine, then your own USER sounds; past an engine's last sound the track moves on to the next engine. On HOME and on the sound and FX pages it loads the sound; on STEP, AUTOMATION, SONG, PROJECT, USER and PHRASES it works like KNOB 1, on DETAIL it walks the steps. Every factory sound has a category: BASS, LEAD, PAD, PLUCK, KEYS, DRUM, FX or OTHER.</p>
-      <p>SAVE &gt; PRESETS is the browser: every engine and sound, with favourites. The list you choose there (all, favourites or one category) is also the one the PRESETS knob steps through.</p>
+      <p><kbd>PRESETS</kbd> steps through the sounds of the track's category (a drum kit through the kits, a bass through the basses), engine by engine, then your own USER sounds of that category; past an engine's last one the track moves on to the next engine. On HOME and on the sound and FX pages it loads the sound; on STEP, AUTOMATION, SONG, PROJECT, USER and PHRASES it works like KNOB 1, on DETAIL it walks the steps. Every factory sound has a category: BASS, LEAD, PAD, PLUCK, KEYS, DRUM, FX or OTHER.</p>
+      <p>SAVE &gt; PRESETS is the browser: every engine and sound, with favourites. <kbd>KNOB 4</kbd> (LIST) picks the list it shows: all, favourites or one category; it stays as you leave it. With LIST on FAV the PRESETS knob steps through your favourites everywhere; any other list is the browser's only.</p>
     </div>
     <p class="note"><span class="tag">Sound, not effects</span>A factory sound brings the sound only. The track's sends (CHORUS, SHIMMER, DELAY, REVERB) and its DRIVE stay as they are. A sound of your own from USER brings its effects along. A sound never changes the pattern.</p>
   </section>
@@ -1461,7 +1461,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="midi-in">
     <h3>MIDI in</h3>
-    <div class="prose"><p>MENU &gt; MIDI &gt; MIDI IN: <b>CH1-4</b> (channels 1 to 4 play tracks 1 to 4), CH5-8, CH9-12 or CH13-16 (another block, such as for two FM-1s on one cable) or <b>SEL</b> (every channel plays the selected track). The keys send on the track's channel. Pitch bend, sustain and panic are understood; the clock comes from inside, USB or TRS (HOME &gt; CLOCK).</p></div>
+    <div class="prose"><p>MENU &gt; MIDI &gt; MIDI IN: <b>CH1-4</b> (channels 1 to 4 play tracks 1 to 4), CH5-8, CH9-12 or CH13-16 (another block, such as for two FM-1s on one cable) or <b>SEL</b> (every channel plays the selected track). The keys and the sequencer send on the track's channel (USB): a pattern playing on the FM-1 plays another instrument too, a drum kit's hits as GM drum notes. A muted track sends nothing. Pitch bend, sustain and panic are understood; the clock comes from inside, USB or TRS (HOME &gt; CLOCK).</p></div>
     <div class="tbl"><table>
       <thead><tr><th>CC</th><th>Parameter</th><th>CC</th><th>Parameter</th></tr></thead>
       <tbody>
@@ -1977,8 +1977,8 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
     <h3>Sounds wählen</h3>
     <figure class="fig"><div class="shots" data-shots="presets"></div></figure>
     <div class="prose">
-      <p><kbd>PRESETS</kbd> geht durch alle Sounds, Engine für Engine, danach durch deine eigenen USER-Sounds; nach dem letzten Sound einer Engine wechselt die Spur zur nächsten Engine. Auf HOME und den Sound- und FX-Seiten lädt es den Sound; auf STEP, AUTOMATION, SONG, PROJECT, USER und PHRASES wirkt es wie KNOB 1, auf DETAIL geht es durch die Schritte. Jeder Werks-Sound hat eine Kategorie: BASS, LEAD, PAD, PLUCK, KEYS, DRUM, FX oder OTHER.</p>
-      <p>SAVE &gt; PRESETS ist der Browser: alle Engines und Sounds, mit Favoriten. Die Liste, die du dort wählst (alle, Favoriten oder eine Kategorie), ist auch die, durch die der PRESETS-Regler geht.</p>
+      <p><kbd>PRESETS</kbd> geht durch die Sounds der Kategorie der Spur (ein Drumkit durch die Kits, ein Bass durch die Bässe), Engine für Engine, danach durch deine eigenen USER-Sounds dieser Kategorie; nach dem letzten einer Engine wechselt die Spur zur nächsten Engine. Auf HOME und den Sound- und FX-Seiten lädt es den Sound; auf STEP, AUTOMATION, SONG, PROJECT, USER und PHRASES wirkt es wie KNOB 1, auf DETAIL geht es durch die Schritte. Jeder Werks-Sound hat eine Kategorie: BASS, LEAD, PAD, PLUCK, KEYS, DRUM, FX oder OTHER.</p>
+      <p>SAVE &gt; PRESETS ist der Browser: alle Engines und Sounds, mit Favoriten. <kbd>KNOB 4</kbd> (LIST) wählt die Liste, die er zeigt: alle, Favoriten oder eine Kategorie; sie bleibt, wie du sie verlässt. Mit LIST auf FAV geht der PRESETS-Regler überall durch deine Favoriten; jede andere Liste gilt nur im Browser.</p>
     </div>
     <p class="note"><span class="tag">Klang, nicht Effekte</span>Ein Werks-Sound bringt nur den Klang. Die Sends der Spur (CHORUS, SHIMMER, DELAY, REVERB) und ihr DRIVE bleiben, wie sie sind. Ein eigener Sound aus USER bringt seine Effekte mit. Das Pattern ändert ein Sound nie.</p>
   </section>
@@ -2796,7 +2796,7 @@ figcaption { font-size: 14px; line-height: 1.5; color: var(--mute); max-width: 7
 
   <section class="sub" id="de-midi-in">
     <h3>MIDI-Eingang</h3>
-    <div class="prose"><p>MENU &gt; MIDI &gt; MIDI IN: <b>CH1-4</b> (Kanal 1 bis 4 spielen Spur 1 bis 4), CH5-8, CH9-12 oder CH13-16 (ein anderer Block, etwa für zwei FM-1 an einem Kabel) oder <b>SEL</b> (jeder Kanal spielt die gewählte Spur). Die Tastatur sendet auf dem Kanal der Spur. Pitch Bend, Sustain und Panic werden verstanden, die Clock kommt intern, über USB oder über TRS (HOME &gt; CLOCK).</p></div>
+    <div class="prose"><p>MENU &gt; MIDI &gt; MIDI IN: <b>CH1-4</b> (Kanal 1 bis 4 spielen Spur 1 bis 4), CH5-8, CH9-12 oder CH13-16 (ein anderer Block, etwa für zwei FM-1 an einem Kabel) oder <b>SEL</b> (jeder Kanal spielt die gewählte Spur). Die Tastatur und der Sequencer senden auf dem Kanal der Spur (USB): ein Pattern, das auf dem FM-1 läuft, spielt auch ein anderes Instrument, die Schläge eines Drumkits als GM-Drum-Noten. Eine stummgeschaltete Spur sendet nichts. Pitch Bend, Sustain und Panic werden verstanden, die Clock kommt intern, über USB oder über TRS (HOME &gt; CLOCK).</p></div>
     <div class="tbl"><table>
       <thead><tr><th>CC</th><th>Parameter</th><th>CC</th><th>Parameter</th></tr></thead>
       <tbody>

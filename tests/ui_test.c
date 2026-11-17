@@ -476,7 +476,7 @@ static int gm_hits_play(track_t *t)
 static int test_sound_loads(void)
 {
     int bad = 0;
-    uint32_t i, empty = 1;
+    uint32_t i, k, empty = 1;
     track_t *t = &trk[0], before;
     ui_power_on();
     for (i = 0; i < NTRK; i++)
@@ -494,8 +494,9 @@ static int test_sound_loads(void)
     t->p[P_SDIV] = 1;
     t->p[P_LEVEL] = 90;
     before = *t;
-    turn(EN_PRESET, 1);                           /* HOME: the next preset */
-    bad += check("PRESETS on HOME loads the sound: steps, LEN, DIV untouched", t->preset == (uint8_t)((before.preset + 1u) % ENGINES[0]->npresets) &&
+    turn(EN_PRESET, 1);                           /* HOME: the next preset (M-Vave-OP1: of the sound's category) */
+    bad += check("PRESETS on HOME loads the sound: steps, LEN, DIV untouched",
+                 (t->preset != before.preset || t->eng_req != before.eng_req) && track_cat(t) == track_cat(&before) &&
                  !memcmp(t->step, before.step, sizeof t->step) && t->p[P_SLEN] == 32 && t->p[P_SDIV] == 1);
     bad += check("..ARP, SCL, the SLICER and the mix stay the track's", t->p[P_AMODE] == 2 && t->p[P_AOCT] == 3 && t->p[P_SCALE] == 2 &&
                  t->p[P_TRANS] == 5 && t->p[P_SLCR] == SL_GATE && t->p[P_SLPAT] == 4 && t->p[P_LEVEL] == 90);
@@ -504,7 +505,9 @@ static int test_sound_loads(void)
         if (str_eq(ENGINES[0]->presets[i].name, "RAVE"))
             break;
     t->p[P_AMODE] = 0;
-    t->preset = (uint8_t)(i - 1u);
+    for (k = i - 1u; k && preset_cat(0, k) != preset_cat(0, i); k--)
+        ;
+    t->preset = (uint8_t)k;                       /* (the lead before RAVE: HOME steps through the leads) */
     turn(EN_PRESET, 1);
     bad += check("RAVE (an ARP preset) leaves the arp off; it suggests pattern 13 ARP", t->preset == i && t->p[P_AMODE] == 0 &&
                  preset_pat_hint() == 12 && ui.ppick == 12 && str_eq(PATTERNS[12].name, "ARP"));
@@ -1577,6 +1580,7 @@ static int test_categories(void)
     press(B_OCTUP);
     bad += check("  KNOB 3 steps the category (no wrap below BASS); OCT+ writes it with the name",
                  ok && !name_on() && up_used(4) && up_cat(4) == CAT_LEAD && up_rec(4)->packed[UP_CAT_AT] == CAT_LEAD);
+    go_page(GR_BROWSE);                                    /* (LIST is the browser's: elsewhere the sound's category) */
     list_set(1u + CAT_LEAD);
     up_load(4);
     pos = preset_pos(&total);
@@ -1631,6 +1635,82 @@ static int test_categories(void)
                  ok && !k && !str_eq(s1, nm.s) && nm.len <= 12u && strchr(nm.s, ' '));
     name_close();
     memset(up_bank, 0, sizeof up_bank);
+    memset(&favorites, 0, sizeof favorites);
+    return bad;
+}
+
+/* M-Vave-OP1 (user report: LIST left on BASS in the browser, then the PRESETS knob on HOME turned the drum kit into a
+ * bass, and turning back gave another bass): LIST is the browser's. On HOME and the other pages the PRESETS knob
+ * browses the selected sound's own category (a kit: the kits, round both ways), FAV as set; the stored LIST stays and
+ * the browser opens on it */
+static uint32_t count_cat(uint32_t c)
+{
+    uint32_t e, k, n = 0;
+    for (e = 0; e < NENGINES; e++)
+        for (k = 0; eng_ok(e) && k < ENGINES[e]->npresets; k++)
+            n += preset_orig(ENGINES[e], k) == k && preset_cat(e, k) == c;
+    return n;
+}
+static int test_category_home(void)
+{
+    int bad = 0, ok = 1;
+    uint32_t i, n, total, e0, p0, nb;
+    ui_power_on();
+    memset(&favorites, 0, sizeof favorites);
+    memset(up_bank, 0, sizeof up_bank);
+    list_set(1u + CAT_BASS);
+    go_home();
+    track_select(3);
+    n = count_cat(CAT_DRUM);
+    nb = count_cat(CAT_BASS);
+    e0 = TSEL->eng_req;
+    p0 = TSEL->preset;
+    ok = track_cat(TSEL) == CAT_DRUM && n >= 3u;
+    preset_pos(&total);
+    ok &= total == n;
+    for (i = 0; i < n; i++) {
+        turn(EN_PRESET, 1);
+        ok &= track_cat(TSEL) == CAT_DRUM;
+    }
+    ok &= TSEL->eng_req == e0 && TSEL->preset == p0;     /* round: the first kit again */
+    bad += check("HOME, LIST on BASS: track 4's kit steps through every kit (DRUM, VDRUM's), never a bass, and round", ok);
+    ok = 1;
+    for (i = 0; i < n + 2u; i++) {
+        turn(EN_PRESET, -1);
+        ok &= track_cat(TSEL) == CAT_DRUM;
+    }
+    bad += check("  .. and back the same way: kits only", ok && list_mode() == 1u + CAT_BASS && ui_lcat == CAT_BASS);
+    go_page(GR_FX);
+    turn(EN_PRESET, 1);
+    bad += check("  on another page (FX) too: the PRESETS knob keeps to the kits", track_cat(TSEL) == CAT_DRUM && !ui.home);
+    go_page(GR_BROWSE);
+    preset_pos(&total);
+    ok = total == nb && list_mode() == 1u + CAT_BASS;
+    turn(EN_PRESET, 1);
+    bad += check("  the browser (SAVE > PRESETS) opens on LIST BASS as left: its list, its knob loads a bass",
+                 ok && track_cat(TSEL) == CAT_BASS);
+    go_home();
+    for (i = 0, ok = 1; i < nb + 1u; i++) {
+        turn(EN_PRESET, 1);
+        ok &= track_cat(TSEL) == CAT_BASS;
+    }
+    bad += check("  a bass on HOME: the basses", ok);
+    list_set(0);
+    select_engine(0);
+    apply_preset(0);                                      /* ANALOG SAW LEAD */
+    preset_pos(&total);
+    ok = total == count_cat(CAT_LEAD);
+    turn(EN_PRESET, 1);
+    bad += check("  LIST ALL: HOME steps a lead through the leads", ok && track_cat(TSEL) == CAT_LEAD);
+    favorite_set(ENGI_DRUM, 0, 1);
+    favorite_set(0, 2, 1);                                /* (SQR BASS) */
+    list_set(1u);
+    preset_pos(&total);
+    ok = total == 2u;
+    turn(EN_PRESET, 1);
+    ok &= TSEL->eng_req == ENGI_DRUM || (TSEL->eng_req == 0u && TSEL->preset == 2u);
+    bad += check("  LIST FAV: HOME steps through the favourites, whatever their category", ok);
+    list_set(0);
     memset(&favorites, 0, sizeof favorites);
     return bad;
 }
@@ -9378,6 +9458,7 @@ int main(void)
     bad += test_screen();
     bad += test_favorites();
     bad += test_categories();
+    bad += test_category_home();
     bad += test_display_preferences();
     bad += test_menu_tabs();
     bad += test_menu_project_rows();

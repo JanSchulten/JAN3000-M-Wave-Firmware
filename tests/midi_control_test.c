@@ -282,7 +282,7 @@ static int route_test(void)
 /* 1.2 (Discussion #143): ROUT CH5-8, CH9-12, CH13-16: tracks 1..4 on those four channels (notes, bend, CCs, the CC map,
  * panic), every other channel ignored, as CH1-4 does with 1..4; a switch between blocks lets go of the old block's
  * notes; the clock (realtime) is not a channel's: it runs whatever ROUT says; the keys send on the block's channel */
-static uint32_t out_last(void) { return mo_w != mo_r ? midi_out_q[(mo_w - 1u) % MQ] : 0u; }
+static uint32_t out_last(void) { return mo_w != mo_r ? midi_out_q[(mo_w - 1u) % MQO] : 0u; }
 static int route_block_test(void)
 {
     static const char *const NAME[5] = {"CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16"};
@@ -755,9 +755,205 @@ static int pc_test(void)
     bad += check("  MIDI LEARN waiting: a PC is not taken for a CC, it loads", ok);
     return bad;
 }
+/* M-Vave-OP1 (user report: an FM-1 playing an Ableton Move over USB heard the keys, not the sequence): the sequencer's
+ * notes go to MIDI OUT too (seq.c seq_out), each track on its channel of ROUT's block, a kit's hits as their GM notes;
+ * every note-on gets its note-off (gate, slide, stop, panic), a muted track sends no note-on, and a block where all
+ * four tracks step at once fits the OUT ring (usb.c MQO) */
+static uint8_t so_on[16][128];                            /* the notes the host would hold now, per channel */
+static uint32_t so_ons, so_offs, so_bad;
+static uint32_t so_take(uint32_t *last_on)                 /* drain the OUT ring as the USB poll would; note-ons taken */
+{
+    uint32_t n = 0;
+    while (mo_r != mo_w) {
+        uint32_t pkt = midi_out_q[mo_r++ % MQO], st = (pkt >> 8) & 0xF0u, ch = (pkt >> 8) & 15u;
+        uint32_t note = (pkt >> 16) & 127u, vel = pkt >> 24;
+        if ((pkt & 15u) != (st >> 4))
+            so_bad++;                                      /* (the code index number matches the status) */
+        if (st == 0x90u && vel) {
+            so_on[ch][note] = 1;
+            so_ons++;
+            n++;
+            if (last_on)
+                *last_on = pkt;
+        } else if (st == 0x80u) {
+            so_on[ch][note] = 0;
+            so_offs++;
+        } else
+            so_bad++;
+    }
+    return n;
+}
+static uint32_t so_hanging(void)
+{
+    uint32_t n = 0;
+    for (uint32_t c = 0; c < 16u; c++)
+        for (uint32_t k = 0; k < 128u; k++)
+            n += so_on[c][k];
+    return n;
+}
+static void so_reset(void)
+{
+    midi_test_reset();
+    for (uint32_t i = 0; i < NTRK; i++) {
+        memset(trk[i].step, 0, sizeof trk[i].step);
+        trk[i].p[P_SLEN] = 16;
+        trk[i].p[P_SDIV] = 4;
+    }
+    usb.config = 1;
+    mo_r = mo_w;
+    memset(so_on, 0, sizeof so_on);
+    so_ons = so_offs = so_bad = 0;
+}
+static void so_note(track_t *t, uint32_t i, uint32_t note, uint32_t vel)
+{
+    t->step[i].time = ST_NOTE;
+    t->step[i].n = 1;
+    t->step[i].note[0] = (uint8_t)note;
+    t->step[i].vel = (uint8_t)vel;
+}
+static void so_run(uint32_t blocks)
+{
+    for (uint32_t b = 0; b < blocks; b++) {
+        events_block(CTL);
+        so_take(0);
+    }
+}
+static int seq_out_test(void)
+{
+    int bad = 0, ok;
+    uint32_t pkt = 0, n, i, b, r;
+    const uint8_t *ln;
+    track_t *t0 = &trk[0], *t3 = &trk[3];
+    /* track 1 (ANALOG) note 60 on step 1, track 4 (DRUM) lanes 0 and 2 on step 1, lane 2 accented */
+    so_reset();
+    so_note(t0, 0, 60, 90);
+    t3->step[0].time = ST_NOTE;
+    t3->step[0].hit = 1u | 4u;
+    t3->step[0].acc = 4u;
+    t3->step[0].vel = 80;
+    ln = kit_notes(t3->eng_req);
+    transport_req = 1;
+    events_block(CTL);
+    n = so_take(0);
+    ok = n == 3u && so_on[0][60] && so_on[3][ln[0]] && so_on[3][ln[2]] && so_ons == 3u && !so_offs;
+    bad += check("SEQ -> MIDI OUT: step 1's note on channel 1, the kit's two hits (GM notes) on channel 4", ok);
+    /* the velocities: the note's own, the hit's, the accented hit 127 */
+    so_reset(); so_note(t0, 0, 64, 77);
+    transport_req = 1; events_block(CTL); so_take(&pkt);
+    bad += check("  the step's velocity goes out (77)", pkt == (0x09u | 0x90u << 8 | 64u << 16 | 77u << 24));
+    /* the gate: the note-off once the step's GATE has passed, long before the next step */
+    so_run(div_samples(4) / CTL);
+    bad += check("  its note-off at the end of its gate: nothing hangs", !so_hanging() && so_offs == 1u && !so_bad);
+    /* STOP lets go of a TIE-held note */
+    so_reset(); so_note(t0, 0, 62, 100);
+    for (i = 1; i < 16u; i++) t0->step[i].time = ST_TIE;
+    transport_req = 1; so_run(40);
+    ok = so_on[0][62] == 1u;
+    transport_req = 2; so_run(1);
+    bad += check("  a note tied over the steps sounds out there; STOP sends its note-off", ok && !so_hanging() && !so_bad);
+    /* a muted track (P_MUTE) sends nothing */
+    so_reset(); so_note(t0, 0, 60, 100); t0->p[P_MUTE] = 1;
+    transport_req = 1; so_run(div_samples(4) * 3u / CTL);
+    bad += check("  a muted track (MUTE) sends no note-on", !so_ons && !so_hanging());
+    t0->p[P_MUTE] = 0;
+    /* ROUT's block: CH9-12 sends track 2's notes on channel 10 */
+    so_reset(); song.g[G_ROUTE] = 3; events_block(CTL); so_take(0);
+    so_note(&trk[1], 0, 70, 100);
+    transport_req = 1; events_block(CTL); so_take(&pkt);
+    bad += check("  ROUT CH9-12: track 2's step on channel 10", ((pkt >> 8) & 0xFFu) == 0x99u && so_on[9][70]);
+    transport_req = 2; so_run(1);
+    song.g[G_ROUTE] = 0; events_block(CTL); so_take(0);
+    /* a SLIDE into the same note: held over, not sent again; into another: the new note first, then the old one's off */
+    so_reset(); t0->p[P_VOICE] = 0;
+    so_note(t0, 0, 60, 100); t0->step[0].flags = SF_SLIDE;
+    so_note(t0, 1, 60, 100); t0->step[1].flags = SF_SLIDE;
+    so_note(t0, 2, 67, 100);
+    transport_req = 1; so_run(div_samples(4) * 3u / 2u / CTL);   /* (into step 2: the slide holds 60 over) */
+    ok = so_ons == 1u && !so_offs && so_on[0][60];
+    so_run(div_samples(4) / CTL);                                 /* (into step 3: 67) */
+    ok &= so_ons == 2u && so_on[0][67] && !so_on[0][60];
+    transport_req = 2; so_run(1);
+    bad += check("  SLIDE: a note held over is not sent again; the next note's on, the held one's off", ok && !so_hanging());
+    /* the step preview (stopped: MENU > CONTROL > STEP PREVIEW) is heard there too, and let go */
+    so_reset(); so_note(t0, 5, 72, 100);
+    aud_req = (uint16_t)(5u << 8 | 1u); so_run(1);
+    ok = so_on[0][72];
+    so_run(div_samples(4) / CTL);
+    bad += check("  STEP PREVIEW (stopped): the step's note goes out and ends", ok && !so_hanging());
+    /* all four tracks step together with four notes and eight hits, each held into the next NOTE step by a TIE (its
+     * notes end at that step's start, not before): 4 x 12 note-offs and 4 x 12 note-ons in one block, none lost (the
+     * ring drained only after the block, as the USB poll would at the earliest) */
+    so_reset();
+    for (i = 0; i < NTRK; i++) {
+        trk[i].p[P_SGATE] = 127;
+        for (uint32_t s = 0; s < 3u; s += 2u) {
+            step_t *st = &trk[i].step[s];
+            st->time = ST_NOTE;
+            st->n = 4;
+            for (uint32_t k = 0; k < 4u; k++) st->note[k] = (uint8_t)(40u + 12u * s + 3u * k);
+            st->hit = 0xFFu;
+        }
+        trk[i].step[1].time = ST_TIE;
+        trk[i].p[P_SLEN] = 3;
+    }
+    transport_req = 1; events_block(CTL); so_take(0);
+    ok = so_ons == 4u * 12u && !so_offs;
+    for (b = 0; b < div_samples(4) * 2u / CTL - 2u; b++) { events_block(CTL); so_take(0); }
+    ok &= so_ons == 4u * 12u && !so_offs;                  /* (held through the TIE) */
+    for (; b < div_samples(4) * 2u / CTL + 2u && !so_offs; b++) {
+        events_block(CTL);
+        n = mo_w - mo_r;
+        so_take(0);
+    }
+    ok &= so_offs == 4u * 12u && so_ons == 2u * 4u * 12u && n == 4u * 24u;
+    transport_req = 2; so_run(1);
+    bad += check("  4 tracks x (4 notes + 8 hits) after a TIE: 96 offs and ons in one block, all in the ring, nothing hangs",
+                 ok && !so_hanging() && !so_bad);
+    /* fuzz: random patterns (ties, slides, ratchets, chances, rests, legato, lanes) on all four tracks, a stop now
+     * and then, a mute flipped, MIDI IN's All Sound Off: every note sent is ended */
+    ok = 1;
+    for (r = 0; r < 24u; r++) {
+        so_reset();
+        for (i = 0; i < NTRK; i++) {
+            trk[i].p[P_SLEN] = (int16_t)(1u + rng() % 16u);
+            trk[i].p[P_SDIV] = (int16_t)(3u + rng() % 3u);
+            trk[i].p[P_SGATE] = (int16_t)(8u + rng() % 120u);
+            trk[i].p[P_VOICE] = (int16_t)(rng() % 4u);
+            for (uint32_t s = 0; s < 16u; s++) {
+                step_t *st = &trk[i].step[s];
+                uint32_t k = rng() % 8u;
+                st->time = (uint8_t)(k < 4u ? ST_NOTE : k < 6u ? ST_TIE : ST_REST);
+                st->n = (uint8_t)(rng() % 5u);
+                for (uint32_t j = 0; j < 4u; j++) st->note[j] = (uint8_t)(48u + rng() % 24u);
+                st->hit = (uint8_t)(rng() % 3u ? 0u : rng());
+                st->acc = (uint8_t)rng();
+                st->vel = (uint8_t)(rng() % 128u);
+                st->flags = (uint8_t)(rng() % 3u ? 0u : SF_SLIDE);
+                step_set_ratchet(st, 1u + rng() % 4u);
+                if (!(rng() % 4u)) step_set_chance(st, rng() % 100u);
+                if (!(rng() % 6u)) st->probability |= STEP_LEG;
+            }
+        }
+        transport_req = 1;
+        for (b = 0; b < 3000u; b++) {
+            if (b == 1000u) trk[r % NTRK].p[P_MUTE] = 1;
+            if (b == 1700u) trk[r % NTRK].p[P_MUTE] = 0;
+            if (b == 2000u) { transport_req = 2; }
+            if (b == 2100u) { transport_req = 1; }
+            if (b == 2500u) { midi_enqueue(0xBu | 0xB0u << 8 | (uint32_t)(120u << 16), 1); }
+            events_block(CTL);
+            so_take(0);
+        }
+        transport_req = 2; so_run(1);
+        ok &= !so_hanging() && !so_bad && so_ons > 0u;
+    }
+    bad += check("  fuzz (24 x 3000 blocks of random steps, stops, mutes, All Sound Off): every note sent ends", ok);
+    usb.config = 0; mo_r = mo_w;
+    return bad;
+}
 int main(void)
 {
     int bad = controls_test() + sustain_test() + ownership_test() + clock_test(1) + clock_test(2) + clock_arp_and_boundaries() +
-              arp_ext_stop_test() + usb_burst_test() + route_test() + route_block_test() + cc_map_test() + learn_test() + pc_test();
+              arp_ext_stop_test() + usb_burst_test() + route_test() + route_block_test() + cc_map_test() + learn_test() + pc_test() + seq_out_test();
     printf("%s\n", bad ? "MIDI CONTROL/CLOCK TEST FAILED" : "MIDI control/clock integration tests passed"); return bad != 0;
 }

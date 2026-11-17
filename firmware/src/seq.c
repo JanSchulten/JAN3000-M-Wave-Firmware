@@ -913,11 +913,34 @@ static void seq_start(void)
     fxt_stop();                                    /* fxtrack.c: the FX tracks' step 1 with the first block */
 }
 
-static void seq_release(track_t *t)
+/* M-Vave-OP1: the sequencer's notes go to MIDI OUT (USB) as the keys' do (key_on): each track on its channel
+ * (trk_midi_ch), a step's notes and its kit hits with the velocity they sound with (an external drum machine gets
+ * the kit's GM notes, kitlane.c). seq_notes is what was sent: every place that lets go of them (seq_release, a
+ * slide's notes not held over, seq_out_drop where they are forgotten) sends their note-offs, so nothing hangs on the
+ * device they play. A muted track (P_MUTE) sends no note-on, as it sounds none (trk_note_on). One packet into the
+ * ring (usb.c midi_out_event): O(1) per note, in seq_step (noinline) and the releases only */
+static void seq_out(const track_t *t, uint32_t note, uint32_t vel)
+{
+    uint32_t mc = trk_midi_ch(trk_index(t));
+    if (!vel)
+        midi_out_event(0x08u | (0x80u | mc) << 8 | note << 16);
+    else if (!t->p[P_MUTE])
+        midi_out_event(0x09u | (0x90u | mc) << 8 | note << 16 | vel << 24);
+}
+static __attribute__((noinline)) void seq_out_drop(const track_t *t)   /* seq_notes about to be forgotten */
 {
     uint32_t i;
     for (i = 0; i < t->seq_n; i++)
+        seq_out(t, t->seq_notes[i], 0);
+}
+
+static void seq_release(track_t *t)
+{
+    uint32_t i;
+    for (i = 0; i < t->seq_n; i++) {
         trk_note_off(t, t->seq_notes[i]);
+        seq_out(t, t->seq_notes[i], 0);
+    }
     t->seq_n = 0;
     t->seq_hold = 0;
     t->slide_glide = 0;                             /* live MONO / LEG keys must not glide after it */
@@ -1025,14 +1048,21 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
     if (!slide_in)
         seq_release(t);
     for (i = 0; i < m; i++)
-        if (!((sk >> i) & 1u))
+        if (!((sk >> i) & 1u)) {
             trk_note_on(t, nn[i], vv[i]);
+            for (j = 0; slide_in && j < t->seq_n && t->seq_notes[j] != nn[i]; j++)
+                ;
+            if (!slide_in || j == t->seq_n)         /* (MIDI OUT: a note held over by a slide is not sent again) */
+                seq_out(t, nn[i], vv[i]);
+        }
     if (slide_in)                                   /* release what is not held over */
         for (i = 0; i < t->seq_n; i++) {
             for (j = 0; j < m && nn[j] != t->seq_notes[i]; j++)
                 ;
-            if (j == m)
+            if (j == m) {
                 trk_note_off(t, t->seq_notes[i]);
+                seq_out(t, t->seq_notes[i], 0);
+            }
         }
     t->seq_n = 0;
     for (i = 0; i < m; i++)
@@ -1370,6 +1400,7 @@ static void events_block(uint32_t n)
         midi_hint = 0;
         for (i = 0; i < NTRK; i++) {
             trk[i].rh_n = trk[i].rskip_n = 0;
+            seq_out_drop(&trk[i]);
             trk[i].seq_n = trk[i].seq_hold = trk[i].slide_glide = trk[i].rat_left = 0;
         }
         pr |= (1u << NTRK) - 1u;
