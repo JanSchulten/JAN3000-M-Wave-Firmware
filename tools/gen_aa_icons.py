@@ -114,7 +114,10 @@ NOT_DRAWN = []
 
 # the 24 px set: the header battery (Fukiai's battery is a wide, short glyph: at 16 px its body was 12 x 6)
 # (up to 1.1.5 also the FX map's effect cells; 1.2's map names the 16 keys' effects instead, ui_layer.c layer_fx)
-HUGE_DEFAULT = ["x_bat0", "x_bat1", "x_bat3", "x_bat4", "x_bat_chg", "x_usb"]   # (+ the USB-C plug: as flat)
+HUGE_DEFAULT = ["x_bat0", "x_bat1", "x_bat3", "x_bat4", "x_bat_chg", "x_usb",   # (+ the USB-C plug: as flat)
+                # M-Vave-OP1 (the Alt 2 design): a WAVE card draws the wave picked, large (ui_cards.c)
+                "w_sin", "w_tri", "w_saw", "w_sqr", "w_pls", "w_pwm", "w_sh", "noise", "w_dsin", "w_spls", "w_rsaw",
+                "w_rtri", "w_rtrp"]
 
 # the 16 px set: header, footer, dialogs and menu rows (everything else only exists at 12 px)
 # (1.0.5: the MENU rows lost their icons, the tabs carry them)

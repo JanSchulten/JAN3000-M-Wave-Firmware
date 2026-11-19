@@ -39,6 +39,10 @@ LOCAL_INTER = os.path.expanduser("~/Library/Fonts/Inter.ttc")   # 4.001: 0 Regul
 EXTRAS = [0xA9, 0xB0, 0xB7, 0xC4, 0xD6, 0xDC, 0xE4, 0xF6, 0xFC, 0x2026]  # (c) deg . A: O: U: a: o: u: (Latin-1), ...
 CODE = {0x2026: 0x85}                  # characters outside Latin-1 -> their one-byte code in the firmware
 PHASES, PHASES_L = 4, 2                # horizontal phases per glyph (aa_raster.raster_font): S M, L
+# M-Vave-OP1 (the Alt 2 design): X, 8 px Medium, the cards' labels and units, the rows' labels, the panels' captions;
+# two phases (its strokes are 1 px: a quarter pixel more does not show), stored 2 px per byte as S (drawn as often)
+PHASES_X = 2
+KERN_MIN_X = 8                         # X's kerning pairs from 1/2 px (1/16 px units): smaller ones do not show at 8 px
 # faces stored Huffman-coded (--huff): M and L. S, the most drawn and the least compressible (-15 %), stays
 # 2 px per byte, so the labels draw at full speed
 HUFF = [("M", "L")]
@@ -56,7 +60,8 @@ def preset(name):
         v = str(FONTS.parent / "assets" / "fonts" / "InterTight[wght].ttf")   # SIL OFL 1.1, Google Fonts
         return [("S", v + "@400", 12, (32, 126), EXTRAS, 0.0, PHASES),
                 ("M", v + "@500", 15, (32, 126), EXTRAS, 0.0, PHASES),
-                ("L", v + "@600", 28, (32, 32), [ord(c) for c in L_CHARS[1:]], 0.0, PHASES_L)]
+                ("L", v + "@600", 28, (32, 32), [ord(c) for c in L_CHARS[1:]], 0.0, PHASES_L),
+                ("X", v + "@500", 8, (32, 126), [0xB7, 0x2026], 0.0, PHASES_X)]
     if name == "standin":
         if os.path.exists(LOCAL_INTER):
             reg, med, semi = LOCAL_INTER + "#0", LOCAL_INTER + "#10", LOCAL_INTER + "#12"
@@ -64,7 +69,8 @@ def preset(name):
             reg = med = semi = str(FONTS / "Inter-Regular.ttf")
         t = -0.025                             # Inter Tight is Inter with tighter spacing
         return [("S", reg, 12, (32, 126), EXTRAS, t, PHASES), ("M", med, 15, (32, 126), EXTRAS, t, PHASES),
-                ("L", semi, 28, (32, 32), [ord(c) for c in L_CHARS[1:]], t, PHASES_L)]
+                ("L", semi, 28, (32, 32), [ord(c) for c in L_CHARS[1:]], t, PHASES_L),
+                ("X", med, 8, (32, 126), [0xB7, 0x2026], t, PHASES_X)]
     raise SystemExit(f"unknown preset {name}")
 
 
@@ -165,6 +171,8 @@ def huff_unpack(hc, data, n):
 def emit(face, tracking, gamma, kern_min):
     name, font, px, (first, last), extras, ftrack, phases = face
     chars = [chr(c) for c in range(first, last + 1)] + [chr(c) for c in extras]
+    if name == "X":                                    # 8 px: a pair under half a pixel does not show
+        kern_min = max(kern_min, KERN_MIN_X)
     r = ar.raster_font(font, px, chars, tracking if ftrack is None else ftrack, gamma, True, kern_min, phases)
     data, table, lines = bytearray(), [], []
     for ch in chars:

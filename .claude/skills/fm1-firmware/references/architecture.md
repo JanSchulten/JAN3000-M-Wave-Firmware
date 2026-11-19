@@ -213,3 +213,23 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
 - Live recording gets the lane's note: the lane's hit, not the pitch. `drum_keys` (the GM map) stays the engine's
   `keys` hook for the arp's latched keys and chord.c. The UI says the lane and pitch from `kit_ev` (ui_input.c `kit_msg`).
 - `tests/drumkeys_test.c`.
+
+## The Alt 2 design (Figma "Alt 2 - Sound")
+
+- Layout: the panel is 76..218 (`H_GRAPH_S` 142) over a footer of one line, 222..240 (`Y_FOOT_S`, `H_FOOT_S`): the engine,
+  the sound, the page. A page whose footer needs a row of key hints (an action page's OCT+ / OCT-, the drum grid), the
+  layers and NAME keep Felucca's two rows under a panel to 198 (`H_GRAPH`, `Y_FOOT`, `H_FOOT`): `foot_tall()` (ui_draw.c)
+  decides, `graph_h()` and `foot_y()` follow it, and a change of it redraws the screen. Use `graph_h()`, never a
+  constant, for a panel's height. The canvas (`CV_MAX`, gfx.c) holds 240 x 142 (+8.6 KB pool).
+- Fonts: `AF_X`, Inter Tight 8 px Medium (two phases, ASCII + the dot and the ellipsis): the cards' labels and units,
+  the rows' labels, the panels' captions (`panel_caption`, ui_graph.c).
+- Cards (`draw_column`): the label at the top left in X, DIM; the value in M (S when too wide) with its unit in X; no
+  gauge. The knob just turned: a 1 px MID edge and the label in TEXT (not the accent). A card whose label has a shape
+  (ui_cards.c `card_sym`: levels, envelope times, cutoff, resonance, rates in Hz, glide, detune, noise, chance, swing,
+  echo, pan, bipolar amounts, the oscillator waves) draws the value's shape at its right instead of the number, over a
+  LINE ghost. MENU > LARGE keeps the numbers.
+- Panels: EDIT's rows (`graph_param_rows`) and MOD's slots (`graph_mod`) are 34 px cards on the BG, 36 apart, the
+  selected one THEME with INK; FM6's chart (`graph_fm6`) fills the panel (boxes 36 x 26, or 26 x 18 for charts of more
+  than two rows or four columns); ENV, LFO, ENV DEST, WHEEL, SAMPLE and FM6 carry an 8 px caption.
+- Tests: ui_test.c "Alt 2: ..." (the shapes by label, the layout and the hot edge); ui_render.c lints the FM6 chart
+  inside the canvas's height.

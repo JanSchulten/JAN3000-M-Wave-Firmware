@@ -69,8 +69,8 @@ static void draw_battery(int32_t bx)
 #define ROLL_FRAMES 9u
 #define ROLL_SNAP 3u                                    /* frames (~45 ms) */
 #define ROLL_BPM 4u                                     /* ui.roll[]: the four cards, then the header BPM */
-#define ROLL_Y 18                                       /* a card's value strip: rows 18..34, its figures (21..31) in the middle, */
-#define ROLL_H 17                                       /* the label (MONO's chip: to row 17) above it, the gauge (38) below */
+#define ROLL_Y 21                                       /* a card's value strip: rows 21..37, its figures (24..34) in the middle, */
+#define ROLL_H 17                                       /* the label (8 px, capitals 6..11) above it (Alt 2: no gauge below) */
 static const uint8_t ROLL_EASE[17] = {0, 45, 84, 118, 147, 172, 193, 210, 223, 234, 242, 247, 251, 253, 254, 255, 255};
 
 static int roll_digit(char c) { return c >= '0' && c <= '9'; }
@@ -437,7 +437,7 @@ static void draw_frame(void)
     uint32_t ch = card_h(), gy = graph_y(), gh = graph_h();   /* (MENU > LARGE: tall cards, a strip) */
     gap_rows(H_HEAD, Y_LABEL);
     gap_rows(Y_LABEL + ch, gy);
-    gap_rows(gy + gh, Y_FOOT);
+    gap_rows(gy + gh, foot_y());
     draw_gaps(Y_LABEL, ch);
 }
 
@@ -544,14 +544,15 @@ static void draw_column_tall(uint32_t c, const char *label, const char *val, con
     cv_blit((uint32_t)CARD_X(c), Y_LABEL);
 }
 
-/* one card = one knob: [icon] LABEL / value unit / gauge on a SURF card, redrawn only when it changed.
- * The value is M, or S when M is too wide (engine names, long ENUMs); the unit S after it. The gauge is
- * a 3 px rounded bar: BG track, THEME fill. The knob just turned (hot): icon, label, value and gauge in
- * the accent. ratio: 0..1000 for the gauge, -1 = no gauge. icon: ICON_* (icons.c), ICON_AUTO = by label;
- * a label too long to share the card with its icon goes without it. A parameter MOTION drives (card_mot_next):
- * the motion icon in place of its own, in the theme colour; a long label moves it left, up to the card's edge;
- * a label with no room for it at all (or FELUCCA_ICONS=0): the label in the theme colour.
- * vc: the value's colour (T_THEME, T_DIM inactive, T_ACCENT the knob just turned) */
+/* one card = one knob, redrawn only when it changed. M-Vave-OP1 (the Alt 2 design): the LABEL (8 px, DIM) at the
+ * top left, under it the value (M, or S when M is too wide: engine names, long ENUMs) and its unit (8 px, DIM) on its
+ * baseline; or, for a parameter with a shape (ui_cards.c card_sym: levels, envelope times, cutoff, waves ..), the
+ * shape of the value at the right instead of the number. No gauge. The knob just turned (hot): a 1 px MID edge round
+ * the card and the label in TEXT. ratio: 0..1000, the value's place on its range (the shape), -1 = none. icon: ICON_*
+ * (icons.c), ICON_AUTO = by label: only a WAVE's (its shape) is drawn. A parameter MOTION drives (card_mot_next): the
+ * label in the theme colour. vc: the value's colour (T_THEME, T_DIM inactive; T_ACCENT, the knob just turned, as
+ * T_THEME: the edge says it) */
+#include "ui_cards.c"                                   /* M-Vave-OP1: the cards' shapes (the Alt 2 design) */
 static void draw_column(uint32_t c, const char *label, const char *val, const char *unit, uint16_t vc,
                         int32_t ratio, uint32_t icon)
 {
@@ -559,10 +560,10 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     int hot = c == ui.hot_col && ui.hot_t, named = fmt_named, mot = card_mot_next && label[0], strip, snap;
     uint32_t kind = large_kind();                       /* MENU > LARGE: tall (draw_column_tall), or the label in M */
     uint8_t sig;
-    uint16_t lc = hot ? T_ACCENT : T_MID;
+    uint16_t lc = hot ? T_TEXT : T_DIM;
     int32_t x, lx = 5, uw, room = COL_W - 8;
     const aafont_t *vf = &AF_M;
-    uint32_t n, kn;
+    uint32_t n, kn, sym;
     int32_t kid = kc_tag(val, &kn);
     fmt_named = 0;                                      /* (params.c: a name, for this card only) */
     card_mot_next = 0;                                  /* (the same: MOTION, this card only) */
@@ -571,6 +572,9 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         unit = "";                                      /* "BPM 124 BPM", "USB OFF USB": the label says it */
     if (icon == ICON_AUTO)
         icon = icon_for_label(label);
+    sym = kid < 0 && kind == LK_OFF ? card_sym(label, val, unit, ratio, icon) : SYM_NONE;   /* (MENU > LARGE: the numbers) */
+    if (vc == T_ACCENT && kid < 0 && kind != LK_TALL)
+        vc = T_THEME;                                   /* (hot: the card's edge says it) */
     str_cpy(key, label, 12);                            /* cache key: texts + colour + gauge */
     str_cpy(key + str_len(key), "|", 2);
     str_cpy(key + str_len(key), val, 14);
@@ -582,12 +586,12 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     key[n + 1] = (char)('A' + ((vc >> 4) & 15u));
     key[n + 2] = (char)('A' + ((vc >> 8) & 15u));
     key[n + 3] = (char)('A' + (vc >> 12));
-    key[n + 4] = (char)(' ' + (ratio < 0 ? 0 : 1 + ratio * (COL_W - 10) / 1000));   /* the gauge's own pixel (as
-                                                        * drawn: gw; ratio / 20 missed a pixel inside a step, #63 soak) */
+    key[n + 4] = (char)(' ' + (ratio < 0 ? 0 : 1 + ratio * 90 / 1000));   /* the shape's step (a tall card's gauge:
+                                                        * 47 px, under 90 steps; #63 soak) */
     key[n + 5] = (char)(icon == ICON_NONE ? '~' : '!' + icon % 90u);
     key[n + 6] = (char)('0' + hot + 2 * mot + 4 * (int)kind);
     key[n + 7] = 0;
-    uw = unit[0] ? text_w(&AF_S, unit) + 3 : 0;
+    uw = unit[0] ? text_w(&AF_X, unit) + 2 : 0;
     if (text_w(vf, val) + uw > room) {
         vf = &AF_S;
         CARD_HOOK(val, unit);                           /* (host: the values set in S) */
@@ -597,11 +601,15 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     if (kind == LK_TALL)
         ui.roll[c].from[0] = 0;                         /* (a tall card: no rolling digits) */
     strip = !snap && str_eq(key, ui.col[c]);
-    if (strip && !ui.roll[c].from[0])
+    if (strip && (!ui.roll[c].from[0] || sym != SYM_NONE))
         return;
-    if (strip) {                                        /* rolling: the value strip only */
+    if (strip) {                                        /* rolling: the value strip only (the hot edge's columns too) */
         cv_begin(COL_W, ROLL_H, T_SURF);
         cv_oy = -ROLL_Y;
+        if (hot) {
+            cv_rect(0, ROLL_Y, 1, ROLL_H, T_MID);
+            cv_rect(COL_W - 1, ROLL_Y, 1, ROLL_H, T_MID);
+        }
     } else {
         char ov[16];                                    /* the value drawn before (in the cache key) */
         const char *k = ui.col[c];
@@ -613,7 +621,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         ov[i] = 0;
         ui.roll[c].sig = sig;
         if (!str_eq(ov, val))
-            roll_note(c, ov, val, snap || named || vf != &AF_M || kid >= 0 || kind == LK_TALL);
+            roll_note(c, ov, val, snap || named || vf != &AF_M || kid >= 0 || kind == LK_TALL || sym != SYM_NONE);
         else if (snap)
             ui.roll[c].from[0] = 0;
         str_cpy(ui.col[c], key, sizeof ui.col[c]);
@@ -622,53 +630,38 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             return;
         }
         cv_begin(COL_W, COL_H, T_BG);
-        cv_rrect(0, 0, COL_W, COL_H, 4, T_SURF, T_BG);
+        if (hot) {                                      /* the knob just turned: a 1 px MID edge */
+            cv_rrect(0, 0, COL_W, COL_H, 4, T_MID, T_BG);
+            cv_rrect(1, 1, COL_W - 2, COL_H - 2, 3, T_SURF, T_MID);
+        } else
+            cv_rrect(0, 0, COL_W, COL_H, 4, T_SURF, T_BG);
     }
     if (label[0] || val[0]) {
         if (!strip && label[0]) {
             /* MENU > LARGE on a list / graph page or a layer (LK_LABEL): the label in M where it fits the card (its
-             * capitals rows 5..15, the icon on them when it fits too), else in S as without LARGE */
-            const aafont_t *lf = kind == LK_LABEL && 5 + text_w(&AF_M, label) <= COL_W - 2 ? &AF_M : &AF_S;
-            int32_t lw = text_w(lf, label), ix = 5, ly = lf == &AF_M ? 1 : 3;
-            int32_t cy = ly + (lf == &AF_M ? AF_M_CAP_Y : AF_S_CAP_Y), chh = lf == &AF_M ? AF_M_CAP_H : AF_S_CAP_H;
-            uint32_t ic = mot ? ICON_X_MOTION : icon;
-            if (mot && ix + ICON_CELL + ICON_GAP + lw > COL_W - 2)
-                ix = COL_W - 2 - lw - ICON_GAP - ICON_CELL;   /* a long label: MOTION's icon moves left */
-            if (FELUCCA_ICONS && ic != ICON_NONE && ix >= 1 && ix + ICON_CELL + ICON_GAP + lw <= COL_W - 2) {
-                GFX_HOOK_ALIGN(ix, cy, ix, cy + chh, AL_V, "card icon on its label's line");
-                lx = ix + cv_icon_in(ix, cy, 0, chh, ICON_CELL, ic,   /* its ink on the label's line */
-                                     mot ? (hot ? T_ACCENT : T_THEME) : lc, T_SURF) + ICON_GAP;
-            }
-            else if (mot)                               /* the label from x 19 (5 + 12 + 2) */
-                lc = hot ? T_ACCENT : T_THEME;          /* no room for MOTION's icon: the label says it */
-            if (hot && T_ACCENT == T_MID) {             /* MONO: no colour tells the hot knob: its label inverted, */
-                int32_t b[4], w;                        /* the chip 2 px round its ink (M: 3 above, 2 below) */
-                text_ink(lf, label, b);
-                w = b[2] - b[0] + 4;
-                if (w > COL_W + 1 - lx - b[0]) w = COL_W + 1 - lx - b[0];
-                cv_rrect(lx + b[0] - 2, cy - 3, w, lf == &AF_M ? chh + 5 : 15, 3, T_ACCENT, T_SURF);
-                GFX_HOOK_ALIGN(lx + b[0] - 2, cy - 3, lx + b[0] - 2 + w, lf == &AF_M ? cy + chh + 2 : 18, AL_HV,
-                               "card label chip (MONO hot)");
-                cv_text_fit(lx, ly, lf, label, T_INK, T_ACCENT, COL_W - 2 - lx);
-            } else
-                cv_text_fit(lx, ly, lf, label, lc, T_SURF, COL_W - 2 - lx);
+             * capitals rows 5..15), else in 8 px as without LARGE (capitals rows 6..11) */
+            const aafont_t *lf = kind == LK_LABEL && 5 + text_w(&AF_M, label) <= COL_W - 2 ? &AF_M : &AF_X;
+            if (mot)                                    /* MOTION drives it: the label says it */
+                lc = hot ? T_TEXT : T_THEME;
+            cv_text_fit(lx, lf == &AF_M ? 1 : 4, lf, label, lc, T_SURF, COL_W - 2 - lx);
+        }
+        if (sym != SYM_NONE) {                          /* the shape in place of the number */
+            card_symbol(sym, ratio, icon, vc == T_DIM ? T_DIM : T_THEME);
+            cv_blit((uint32_t)CARD_X(c), Y_LABEL);
+            return;
         }
         if (kid >= 0)                                   /* "[OCT+]": the keycap (accent: it would act; DIM: it would not) */
-            x = cv_keycap(5, 20, (uint32_t)kid, vc == T_ACCENT || vc == T_DIM ? vc : T_KEY, T_INK, T_SURF);
+            x = cv_keycap(5, 23, (uint32_t)kid, vc == T_ACCENT || vc == T_DIM ? vc : T_KEY, T_INK, T_SURF);
         else if (vf == &AF_M) {
             if (!ui.roll[c].from[0] && val[0])
                 GFX_HOOK_ALIGN(0, ROLL_Y, COL_W, ROLL_Y + ROLL_H, AL_V, "card value in its roll window");
-            x = roll_text(c, 5, 17, val, vc);
+            x = roll_text(c, 5, 20, val, vc);
         } else
-            x = cv_text_fit(5, 20, vf, val, vc, T_SURF, room - uw);
-        if (unit[0]) {
-            GFX_HOOK_ALIGN(0, 0, 0, vf == &AF_M ? 17 + AF_M.asc : 20 + AF_S.asc, AL_B, "card unit on its value's baseline");
-            cv_text_on(x + 3, 20, &AF_S, unit, T_MID, T_SURF);     /* on the value's baseline (S) */
-        }
-        if (!strip && ratio >= 0) {
-            int32_t gw = COL_W - 10, fx = ratio * gw / 1000;
-            cv_rrect(5, 38, gw, 3, 1, ux.style ? T_LINE : T_BG, T_SURF);   /* (LINE: no card to cut it from) */
-            cv_rrect(5, 38, fx < 3 ? 3 : fx, 3, 1, hot ? T_ACCENT : vc == T_DIM ? T_DIM : T_THEME, T_BG);
+            x = cv_text_fit(5, 23, vf, val, vc, T_SURF, room - uw);
+        if (unit[0]) {                                  /* on the value's baseline (8 px, DIM), 2 px after it */
+            int32_t by = vf == &AF_M ? 20 + AF_M.asc : 23 + AF_S.asc;
+            GFX_HOOK_ALIGN(0, 0, 0, by, AL_B, "card unit on its value's baseline");
+            cv_text_on(x + 2, by - AF_X.asc, &AF_X, unit, T_DIM, T_SURF);
         }
     }
     cv_oy = 0;
@@ -711,6 +704,14 @@ static void sound_name(const track_t *t, char *b)
         preset_name_of(t, b, 16);                       /* (M-Vave-OP1: a DRUM track's, its KIT's) */
 }
 
+/* M-Vave-OP1 (the Alt 2 design): the footer is one line, 222..240, under a panel to 218; a page whose footer needs a
+ * row of key hints above that line (an action page: OCT+ / OCT-; the drum grid: PAGE, STEPS), a layer and NAME keep
+ * Felucca's two rows, 202..240, under a panel to 198 (ui.c graph_h, foot_y). A hint of HELP ON and MIDI LEARN's line
+ * take the one line's place for their while. */
+static int foot_tall(void)
+{
+    return ui.layer || name_on() || (!ui.home && !ui.menu && (act_cols() != 0u || grid_on()));
+}
 static void draw_foot(void)
 {
     char s[48], pn[16], ti[20], ln[24];
@@ -719,7 +720,7 @@ static void draw_foot(void)
     const page_t *pg = cur_page();
     const engine_t *e = ENGINES[TSEL->eng_req % NENGINES];
     const char *ename = e->name, *help;
-    int32_t x;
+    int32_t x, tall = foot_tall(), ly = tall ? 19 : 1;     /* the line's top: under the hints' row, or alone */
     sound_name(t, pn);
     if (ui.home)
         str_cpy(ti, "HOME", sizeof ti);
@@ -730,11 +731,12 @@ static void draw_foot(void)
     s[str_len(s)] = (char)('1' + song.sel);
     str_cpy(s + str_len(s), pn, 16);
     str_cpy(s + str_len(s), ti, sizeof ti);
-    {   /* step markers: the playhead only when it is in the shown bank, the cursor only in SEQ */
+    {   /* step markers (two rows only): the playhead only when it is in the shown bank, the cursor only in SEQ */
         uint32_t ph = song.playing && t->seq_idx / 16u == ui.bank ? t->seq_idx : 0xFFu;
-        sig = str_hash(0x9E3779B9u, s) + ph * 97u + (song.seq_mode ? ui.cursor : 0xFFu) * 3001u + steps_hash(t) +
-              (ui.home ? 0u : page_icon(pg)) * 7121u +
-              ui.bank * 7u + (uint32_t)t->p[P_SLEN] * 13u;
+        sig = str_hash(0x9E3779B9u, s) + (ui.home ? 0u : page_icon(pg)) * 7121u + (uint32_t)tall * 0x3C6Fu;
+        if (tall)
+            sig += ph * 97u + (song.seq_mode ? ui.cursor : 0xFFu) * 3001u + steps_hash(t) + ui.bank * 7u +
+                   (uint32_t)t->p[P_SLEN] * 13u;
     }
     if (act_cols()) {                                  /* the hint, and whether OCT+ would act */
         char ha[16], hb[16];
@@ -754,8 +756,22 @@ static void draw_foot(void)
     if (!ui.force && sig == ui.foot_sig)
         return;
     ui.foot_sig = sig;
-    cv_begin(240, H_FOOT, T_BG);
-    if (help) {                                       /* row 1: the hint in place of the steps or the OCT+ / OCT- hint */
+    cv_begin(240, tall ? H_FOOT : H_FOOT_S, T_BG);
+    if (!tall && (help || ui.ml.on)) {               /* one line: the hint, or MIDI LEARN's line, in the line's place */
+        if (help)
+            help_row(help, 2);
+        else {
+            khint_t kh = {KC_OCTUP, "DONE"};
+            int32_t kw = kh_w(KC_OCTUP, "DONE");
+            cv_free_text(8, 2, &AF_S, ln, T_ACCENT, T_BG, 232 - kw - 8 - 8);
+            cv_key_row(232 - kw, 232, 2, &kh, 1, 1u, T_BG);
+        }
+        cv_blit(0, Y_FOOT_S);
+        return;
+    }
+    if (!tall) {
+        /* (one line: no row of hints or steps above it) */
+    } else if (help) {                                       /* row 1: the hint in place of the steps or the OCT+ / OCT- hint */
         help_row(help, 2);
     } else if (act_cols()) {                          /* row 1: the OCT+ / OCT- hint in place of the steps */
         char ha[16], hb[16];
@@ -808,33 +824,33 @@ static void draw_foot(void)
                 cv_rect(sx, 14, 9, 2, T_TEXT);          /* the step sounding */
         }
     }
-    {   /* row 2: engine icon + name, sound, page title at the right with its icon before it (MIXER, PHRASES, SONG,
-         * AUTOMATION); icons: their ink on the names' capitals */
+    {   /* the line: engine icon + name (MID), the sound (TEXT), the page title (MID) at the right with its icon before it
+         * (MIXER, PHRASES, SONG, AUTOMATION); icons: their ink on the names' capitals (Alt 2: from x 5 to 235, 6 apart) */
         uint32_t pi = ui.home ? ICON_NONE : page_icon(pg), ei = FELUCCA_ICONS ? engine_icon(ename) : ICON_NONE;
-        int32_t r = 232, tx, ex, need = text_w(&AF_S, pn), ew = text_w(&AF_S, ename);
-        ex = 8 + (FELUCCA_ICONS ? 12 + 5 : 0) + (ew < 80 ? ew : 80);   /* (where the engine's name ends) */
+        int32_t r = 235, tx, ex, need = text_w(&AF_S, pn), ew = text_w(&AF_S, ename);
+        ex = 5 + (FELUCCA_ICONS ? 12 + 6 : 0) + (ew < 80 ? ew : 80);   /* (where the engine's name ends) */
         tx = r - text_w(&AF_S, ti) - (pi != ICON_NONE ? 16 : 0);
         if (!ui.home && page_ops(pg)->title_short && tx - 12 - (ex + 10) < need) {
             page_ops(pg)->title_short(ti, sizeof ti);   /* (M-Vave-OP1: the page's; AUTOMATION, #93) where the sound's */
             tx = r - text_w(&AF_S, ti) - (pi != ICON_NONE ? 16 : 0);   /* name would be cut (MENU > LARGE) */
         }
-        x = 8;
+        x = 5;
         if (FELUCCA_ICONS) {
             if (ei != ICON_NONE)
-                GFX_HOOK_ALIGN(0, 19 + AF_S_CAP_Y, 0, 19 + AF_S_CAP_Y + AF_S_CAP_H, AL_V,
+                GFX_HOOK_ALIGN(0, ly + AF_S_CAP_Y, 0, ly + AF_S_CAP_Y + AF_S_CAP_H, AL_V,
                                "footer icons on the names' line");
-            x += cv_icon_in(x, 19 + AF_S_CAP_Y, 0, AF_S_CAP_H, 12, ei, T_MID, T_BG) + 5;
+            x += cv_icon_in(x, ly + AF_S_CAP_Y, 0, AF_S_CAP_H, 12, ei, T_MID, T_BG) + 6;
         }
-        x = cv_text_fit(x, 19, &AF_S, ename, T_THEME, T_BG, 80);
-        cv_free_text(x + 10, 19, &AF_S, pn, T_TEXT, T_BG, tx - 12 - (x + 10));
+        x = cv_text_fit(x, ly, &AF_S, ename, T_MID, T_BG, 80);
+        cv_free_text(x + 6, ly, &AF_S, pn, T_TEXT, T_BG, tx - 12 - (x + 6));
         if (pi != ICON_NONE) {
-            GFX_HOOK_ALIGN(0, 19 + AF_S_CAP_Y, 0, 19 + AF_S_CAP_Y + AF_S_CAP_H, AL_V,
+            GFX_HOOK_ALIGN(0, ly + AF_S_CAP_Y, 0, ly + AF_S_CAP_Y + AF_S_CAP_H, AL_V,
                            "footer icons on the names' line");
-            cv_icon_in(tx, 19 + AF_S_CAP_Y, 0, AF_S_CAP_H, 12, pi, T_MID, T_BG);
+            cv_icon_in(tx, ly + AF_S_CAP_Y, 0, AF_S_CAP_H, 12, pi, T_MID, T_BG);
         }
-        cv_text_r(r, 19, &AF_S, ti, T_MID, T_BG);
+        cv_text_r(r, ly, &AF_S, ti, T_MID, T_BG);
     }
-    cv_blit(0, Y_FOOT);
+    cv_blit(0, foot_y());
 }
 /* the EDIT layer's cards (ui_layer.c): ENG (the engine), No. (its sounds: KNOB 2's list), FAV, an empty card */
 static void engine_columns(void)
@@ -1567,6 +1583,13 @@ static void ui_draw_page(uint32_t counting)
         page_entered();
     }
     cursor_fix();
+    {   /* the footer's rows changed (an action page, the grid: ui_draw.c foot_tall): the panel and the footer move */
+        static int8_t tall = -1;
+        if (tall != (int8_t)foot_tall()) {
+            tall = (int8_t)foot_tall();
+            ui.force = 1;
+        }
+    }
     if (ui.force)
         draw_frame();
     felucca_dbg.stage = 3;

@@ -136,8 +136,11 @@ static uint8_t sync_reload;                  /* engine / preset / project / user
 #define ACC T_THEME                /* values, curves */
 #define VAL(c) ((c) == ui.hot_col && ui.hot_t ? T_ACCENT : T_THEME)   /* the knob just turned: accent */
 #define RATIO(d, v) ((d)->max > (d)->min ? ((int32_t)(v) - (d)->min) * 1000 / ((d)->max - (d)->min) : -1)
-/* layout: header 0..24, four cards 28..72 (57 px at x 3 + 59 c),
- * the panel 76..198 (a SURF area; the graphs live in it), footer 202..240; BG between them */
+/* layout: header 0..24, four cards 28..72 (57 px at x 3 + 59 c), the panel 76..218 (a SURF area; the graphs live
+ * in it), footer 222..240 (one line: the engine, the sound, the page); BG between them. M-Vave-OP1 (the Alt 2
+ * design): a page whose footer needs a row of key hints above that line (an action page's OCT+ / OCT-, the drum
+ * grid's PAGE and STEPS: foot_tall, ui_draw.c), the layers and NAME keep Felucca's: the panel 76..198, the footer
+ * 202..240 in two rows (H_GRAPH, Y_FOOT, H_FOOT); graph_h() and foot_y() say which */
 #define Y_HEAD 0
 #define H_HEAD 24
 #define Y_LABEL 28                    /* the cards */
@@ -146,14 +149,18 @@ static uint8_t sync_reload;                  /* engine / preset / project / user
 #define CARD_H 44
 #define CARD_X(c) (3 + 59 * (int32_t)(c))
 #define Y_GRAPH 76                    /* the panel */
-#define H_GRAPH 122
+#define H_GRAPH 122                   /* .. above a footer of two rows */
 #define Y_FOOT 202
 #define H_FOOT 38
+#define H_GRAPH_S 142                 /* .. above a footer of one line */
+#define Y_FOOT_S 222
+#define H_FOOT_S 18
 /* MENU > LARGE (large_kind below): on the value pages the cards are tall (28..132) and the panel a strip
- * (136..198); elsewhere (lists, rolls, layers) the layout above, its card labels in M */
+ * (136..218, or 136..198 above two rows); elsewhere (lists, rolls, layers) the layout above, its card labels in M */
 #define LG_CARD_H 104
 #define LG_Y_GRAPH 136
 #define LG_H_GRAPH 62
+#define LG_H_GRAPH_S 82
 
 static struct {
     uint8_t home;
@@ -406,7 +413,13 @@ static uint32_t large_kind(void)
 /* the geometry of the page shown: the cards' height, the panel's top and height */
 static uint32_t card_h(void) { return large_kind() == LK_TALL ? LG_CARD_H : CARD_H; }
 static uint32_t graph_y(void) { return large_kind() == LK_TALL ? LG_Y_GRAPH : Y_GRAPH; }
-static uint32_t graph_h(void) { return large_kind() == LK_TALL ? LG_H_GRAPH : H_GRAPH; }
+static int foot_tall(void);                             /* (ui_draw.c) */
+static uint32_t graph_h(void)
+{
+    uint32_t t = (uint32_t)foot_tall();
+    return large_kind() == LK_TALL ? (t ? LG_H_GRAPH : LG_H_GRAPH_S) : t ? H_GRAPH : H_GRAPH_S;
+}
+static uint32_t foot_y(void) { return foot_tall() ? Y_FOOT : Y_FOOT_S; }
 static int large_face_has(const char *s)                /* every glyph of s in the sparse L face */
 {
     for (; *s; s++)

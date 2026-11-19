@@ -362,7 +362,7 @@ static void fmp_check(uint32_t alg)
             if (!mk) continue;
             for (i = 0; i < fmp_n; i++) {
                 if (!(mk >> i & 1u) || fmp_kind[i] == FMH_BOX) continue;
-                if (x < 6 || x > 233 || y < 2 || y > 119)
+                if (x < 6 || x > 233 || y < 2 || y > (int32_t)h - 4)   /* (the panel: 122 or 142 rows) */
                     fmp_find(alg, "FM6 part off the panel", i, x, y, FMP_MAX);
                 for (j = 0; j < fmp_n; j++) {
                     if (fmp_kind[j] != FMH_BOX) continue;

@@ -199,7 +199,7 @@ static void graph_vdrum(const track_t *t, uint16_t c)
     b[0] = (char)('1' + k);
     b[1] = ' ';
     str_cpy(b + 2, N_VD_PART[k], sizeof b - 2u);
-    cv_text(10, 4 - GOY, &AF_S, b, T_MID);
+    cv_text(10, 4 - cv_oy, &AF_S, b, T_MID);
     l = vdu_lyr == 1u ? 1u : 0u;
     str_cpy(b, N_VU_LYR[vdu_lyr % 3u], sizeof b);
     str_cpy(b + str_len(b), " ", 2);
@@ -208,5 +208,5 @@ static void graph_vdrum(const track_t *t, uint16_t c)
     str_cpy(b + str_len(b), N_VD_MOD[vdu_get(K, k, l, VU_MOD)], 5);
     str_cpy(b + str_len(b), " ", 2);
     str_cpy(b + str_len(b), N_VD_EG[vdu_get(K, k, l, VU_EG)], 5);
-    cv_text_r(228, 4 - GOY, &AF_S, b, T_TEXT, T_SURF);
+    cv_text_r(228, 4 - cv_oy, &AF_S, b, T_TEXT, T_SURF);
 }

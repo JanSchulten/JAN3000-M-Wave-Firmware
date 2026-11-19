@@ -3020,12 +3020,35 @@ static int test_product_ux(void)
         int changed = 0;
         for (uint32_t y = 0; y < Y_SEP_END - Y_LABEL; y++) for (uint32_t x = 0; x < 240; x++) {
             uint16_t old = columns[y * 240 + x], now = host_screen[(Y_LABEL + y) * 240 + x];
-            if (x >= 64 && x < 119) changed |= old != now;
+            if (x >= (uint32_t)CARD_X(1) && x < (uint32_t)(CARD_X(1) + CARD_W)) changed |= old != now;   /* (Alt 2: its edge) */
             else ok &= old == now;
         }
         ok &= changed;
     }
     bad += check("all palettes: active column is subtle, stable-size, no zoom over graph", ok);
+    {   /* M-Vave-OP1, the Alt 2 design: the cards' shapes by label (ui_cards.c), the panel to 218 under a one-line footer
+         * (two rows only where hints need them), the knob just turned as a MID edge round its card */
+        uint32_t y, surf = 1;
+        ok = card_sym("CUT", "355", "Hz", 400, ICON_NONE) == SYM_CUT && card_sym("SUS", "16", "%", 120, ICON_NONE) == SYM_SUS &&
+             card_sym("RATE", "1.18", "Hz", 300, ICON_NONE) == SYM_RATE && card_sym("RATE", "1/16", "", 300, ICON_NONE) == SYM_NONE &&
+             card_sym("AMT", "-100", "%", 0, ICON_NONE) == SYM_BIPOLAR && card_sym("TYPE", "LP", "", 0, ICON_NONE) == SYM_NONE &&
+             card_sym("MIX", "0", "%", -1, ICON_NONE) == SYM_NONE && card_sym("WAVE", "SYNC", "", 500, ICON_NONE) == SYM_SYNC &&
+             card_sym("WAVE", "SAW", "", 0, ICON_W_SAW) == SYM_WAVE && card_sym("GLD", "1.0", "ms", 10, ICON_NONE) == SYM_GLIDE;
+        bad += check("Alt 2: the cards' shapes by label (CUT SUS RATE in Hz AMT signed WAVE GLD; TYPE, a synced RATE: text)", ok);
+        ui_power_on();
+        go_title("ENV"); frame();
+        ok = !foot_tall() && graph_h() == H_GRAPH_S && foot_y() == Y_FOOT_S;
+        for (y = Y_GRAPH + H_GRAPH + 4u; y < Y_GRAPH + H_GRAPH_S - 6u; y++)   /* the panel's new rows: SURF at its side */
+            surf &= host_screen[y * 240 + 6] == swap16(T_SURF);   /* (the screen holds the panel's byte order) */
+        ok &= surf && host_screen[(Y_GRAPH + H_GRAPH_S + 2u) * 240 + 6] == swap16(T_BG);
+        ui.hot_col = 2; ui.hot_t = 40; ui.force = 1; ui_draw();
+        ok &= host_screen[(Y_LABEL + 20) * 240 + CARD_X(2)] == swap16(T_MID) &&
+              host_screen[(Y_LABEL + 20) * 240 + CARD_X(1)] == swap16(T_SURF);
+        go_page(GR_SONG); frame();                      /* SONG: OCT+ PLAY, OCT- BACK in a row of hints */
+        ok &= foot_tall() && graph_h() == H_GRAPH && foot_y() == Y_FOOT;
+        bad += check("Alt 2: the panel to 218 over a one-line footer (ENV), two rows under an action page's hints (SONG); "
+                     "the hot card's MID edge", ok);
+    }
     ui_power_on(); set_engine_of(TSEL, 4); fam_next(FAM_EDIT);
     memset(&sample_wave, 0, sizeof sample_wave); last_note = 60;
     voice_t voices[NVOICE]; memcpy(voices, TSEL->v, sizeof voices);
@@ -7904,7 +7927,7 @@ static int test_large(void)
 
     /* per page type: lists and rolls keep the layout, the layers too; MIXER's tracks in the strip */
     go_page(GR_BROWSE); frame();
-    ok = large_kind() == LK_LABEL && card_h() == CARD_H && graph_y() == Y_GRAPH && graph_h() == H_GRAPH;
+    ok = large_kind() == LK_LABEL && card_h() == CARD_H && graph_y() == Y_GRAPH && graph_h() == H_GRAPH_S;
     go_page(GR_ROLL); frame();
     ok &= large_kind() == LK_LABEL;
     go_page(GR_TRK); frame();

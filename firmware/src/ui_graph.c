@@ -10,8 +10,11 @@
 #define PANEL_X0 10                                  /* the graphs' inner area: x 10..230 */
 #define PANEL_W 220
 #define GOY 11                                       /* graphs drawn on a 100 px scale sit at y 11..111 */
+#define GOY_S 20                                     /* .. in the panel of 142 (M-Vave-OP1): at y 20..120 */
+#define GHT_S 127                                    /* .. ADSR and LFO there: 127 px (the curve 28..132) */
 /* the height ADSR and LFO are drawn on: 100 px, or (MENU > LARGE's strip: draw_graph) the strip's ~ 56 */
 static int32_t graph_ht = 100;
+static void panel_caption(const page_t *pg, uint32_t mask, int shortl);   /* (below draw_graph's helpers) */
 #include "ui_fm6op.c"                                /* EDIT > OPERATOR, OP ENV, OPERATOR 2: FM6's operators (their charts below) */
 #include "ui_vdrum.c"                                /* (M-Vave-OP1) EDIT > LAYER .. PART 2: VDRUM's parts */
 
@@ -473,11 +476,44 @@ static uint32_t edit_rows(uint32_t page, uint8_t *r)
     }
     return mine ? n : 0;
 }
+/* a row's cell: page pg's KNOB c + 1 as its label (lb) and its value with the unit (val, 24 bytes); 0 = an empty cell */
+static int row_cell(const page_t *pg, uint32_t c, const char **lb, char *val)
+{
+    uint32_t k;
+    int16_t *vp;
+    const char *unit = "";
+    const param_desc_t *d = page_desc(pg, c, &vp);
+    if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* (fx1.c's own: no parameters of the page's) */
+        static const char *const L[2][4] = {{"TYPE", "RAND", "FDBK", "MIX"}, {"SIZE", "DENS", "PITCH", "SPRD"}};
+        const volatile uint8_t *v[2][4] = {{&fx1s.type, &fx1s.rnd, &fx1s.fdbk, &fx1s.mix},
+                                            {&fx1s.size, &fx1s.dens, &fx1s.size, &fx1s.spread}};
+        uint32_t g = pg->graph == GR_CLOUD;
+        *lb = L[g][c];
+        if (!g && !c)
+            str_cpy(val, fx1s.type == FX1_CLOUD ? "CLOUD" : "DELAY", 24);
+        else if (!g && fx1s.type != FX1_CLOUD)
+            return 0;
+        else if (g && c == 2u)
+            fmt_int(val, fx1s.pitch), unit = "st";
+        else
+            fmt_int(val, *v[g][c]), unit = "%";
+    } else if (!d || !vp) {
+        return 0;
+    } else {
+        *lb = d->label;
+        param_format(d, *vp, val, &unit);
+    }
+    if (unit && unit[0] && (k = str_len(val)) + str_len(unit) + 2u < 24u) {
+        val[k] = ' ';
+        str_cpy(val + k + 1u, unit, (unsigned)(24u - k - 1u));
+    }
+    return 1;
+}
 /* .. the rows: each page's four values under their labels in the columns of the cards above; the row the knobs edit
- * (the page shown, its cards above) on a raised band, the others quieter */
+ * (the page shown, its cards above) on a raised band, the others quieter (ARP's two, on the panel) */
 static void graph_rows(const uint8_t *r, uint32_t n)
 {
-    uint32_t j, c, k;
+    uint32_t j, c;
     for (j = 0; j < n; j++) {
         const page_t *pg = &PAGES[r[j]];
         int32_t y = 4 + (int32_t)j * 29;
@@ -486,36 +522,39 @@ static void graph_rows(const uint8_t *r, uint32_t n)
         if (on)
             cv_rrect(6, y, 228, 28, 4, T_RAISE, T_SURF);
         for (c = 0; c < 4u; c++) {
-            int16_t *vp;
-            const char *unit = "", *lb;
+            const char *lb;
             char val[24];
-            const param_desc_t *d = page_desc(pg, c, &vp);
-            if (pg->graph == GR_FX1 || pg->graph == GR_CLOUD) {   /* (fx1.c's own: no parameters of the page's) */
-                static const char *const L[2][4] = {{"TYPE", "RAND", "FDBK", "MIX"}, {"SIZE", "DENS", "PITCH", "SPRD"}};
-                const volatile uint8_t *v[2][4] = {{&fx1s.type, &fx1s.rnd, &fx1s.fdbk, &fx1s.mix},
-                                                    {&fx1s.size, &fx1s.dens, &fx1s.size, &fx1s.spread}};
-                uint32_t g = pg->graph == GR_CLOUD;
-                lb = L[g][c];
-                if (!g && !c)
-                    str_cpy(val, fx1s.type == FX1_CLOUD ? "CLOUD" : "DELAY", sizeof val);
-                else if (!g && fx1s.type != FX1_CLOUD)
-                    continue;
-                else if (g && c == 2u)
-                    fmt_int(val, fx1s.pitch), unit = "st";
-                else
-                    fmt_int(val, *v[g][c]), unit = "%";
-            } else if (!d || !vp) {
+            if (!row_cell(pg, c, &lb, val))
                 continue;
-            } else {
-                lb = d->label;
-                param_format(d, *vp, val, &unit);
-            }
-            if (unit && unit[0] && (k = str_len(val)) + str_len(unit) + 2u < sizeof val) {
-                val[k] = ' ';
-                str_cpy(val + k + 1u, unit, (unsigned)(sizeof val - k - 1u));
-            }
             cv_text_fit(CARD_X(c) + 6, y + 1, &AF_S, lb, on ? T_MID : T_DIM, bg, CARD_W - 10);
             cv_text_fit(CARD_X(c) + 6, y + 13, &AF_S, val, on ? T_TEXT : T_MID, bg, CARD_W - 10);
+        }
+    }
+}
+/* M-Vave-OP1 (the Alt 2 design, Figma "Sound/ParamRow"): EDIT's rows as cards of their own on the BG, 34 px tall and
+ * 36 apart (y 76 / 112 / 148 / 184), as wide as the four cards above: each page's four values under their labels (8 px,
+ * DIM) in the cards' columns, the values in S (MID); the row the knobs edit (the page shown) the selection: THEME, its
+ * values in INK */
+#define PR_ROW_H 34
+#define PR_ROW_P 36
+static void graph_param_rows(const uint8_t *r, uint32_t n)
+{
+    uint32_t j, c;
+    int32_t p = (int32_t)cv_h + 2 < 4 * PR_ROW_P ? ((int32_t)cv_h + 2) / 4 : PR_ROW_P, h = p - 2;
+    cv_rect(0, 0, 240, (int32_t)cv_h, T_BG);
+    for (j = 0; j < n; j++) {
+        const page_t *pg = &PAGES[r[j]];
+        int32_t y = (int32_t)j * p;
+        uint32_t on = r[j] == ui.page;
+        uint16_t bg = on ? T_THEME : T_SURF;
+        cv_rrect(CARD_X(0), y, CARD_X(3) + CARD_W - CARD_X(0), h, 4, bg, T_BG);
+        for (c = 0; c < 4u; c++) {
+            const char *lb;
+            char val[24];
+            if (!row_cell(pg, c, &lb, val))
+                continue;
+            cv_text_fit(CARD_X(c) + 5, y + 5, &AF_X, lb, T_DIM, bg, CARD_W - 8);
+            cv_text_fit(CARD_X(c) + 5, y + h - 18, &AF_S, val, on ? T_INK : T_MID, bg, CARD_W - 8);
         }
     }
 }
@@ -764,7 +803,7 @@ static void pedal_knob_val(const page_t *pg, uint32_t c, const char **lb, char *
     param_format(d, *vp, val, &unit);
     *pos = d->max > d->min ? (int32_t)(enum_rank(d, *vp) - d->min) * 1000 / (d->max - d->min) : 0;
 }
-#define PED_H (Y_GRAPH + H_GRAPH - Y_LABEL)             /* the pedal: y 28 .. 198, top part 48 px (draw_columns) */
+#define PED_H (Y_GRAPH + (int32_t)graph_h() - Y_LABEL)   /* the pedal: y 28 .. 218, top part 48 px (draw_columns) */
 #define PED_TOP (Y_GRAPH - Y_LABEL)
 /* FX's SEND card as a mixer's four faders where KNOB 1..4 are (CHO SHIM DLY REV, the selected track's; M-Vave-OP1: MIX 2
  * the same four faders for the chain's levels, every track's): a dark
@@ -891,14 +930,14 @@ static void graph_pedal(const track_t *t, uint32_t part)
     }
     if (!part)
         return;
-    cv_rrect(24, 66, 192, 34, 6, win, body);         /* the window: the effect moving */
-    fx_anim(t, ped(0x7CF0A0), win, 28, 67, 184, 32);
+    cv_rrect(22, 66, 196, 36, 6, win, body);         /* the window: the effect moving (Alt 2: 196 wide) */
+    fx_anim(t, ped(0x7CF0A0), win, 26, 67, 188, 34);
     GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H, "pedal name centred");
     cv_text_in(0, 104, 240, &AF_L, p.name, ink, body);
-    cv_rrect(24, gh - 26, 12, 12, 6, p.on ? ped(0xF02828) : edge, body);   /* the LED */
-    cv_text_on(42, gh - 26, &AF_S, p.sub, ink, body);
-    cv_rrect(120 - 14, gh - 34, 28, 28, 14, edge, body);   /* the footswitch */
-    cv_rrect(120 - 10, gh - 30, 20, 20, 10, ped(0xB8BCC4), edge);
+    cv_rrect(24, gh - 38, 8, 8, 4, p.on ? ped(0xF02828) : edge, body);   /* the LED */
+    cv_text_on(37, gh - 42 + (8 - AF_S_CAP_H) / 2 - AF_S_CAP_Y + 4, &AF_S, p.sub, ink, body);
+    cv_rrect(120 - 17, gh - 51, 34, 34, 17, edge, body);   /* the footswitch (Alt 2: 34 px, its ring) */
+    cv_rrect(120 - 13, gh - 47, 26, 26, 13, ped(0xB8BCC4), edge);
 }
 /* M-Vave-OP1, SCL > CHORD on a chord set (cset.c): the track's set, its number large and its genre; its twelve chords by name in the
  * keys' order C .. B (four rows of three, 73 px a cell: the longest name, Bb5add9/b13, is 72; the black keys' framed),
@@ -1005,35 +1044,42 @@ static void graph_slicer(const track_t *t, uint16_t c)
             cv_rect(x, 84, 9, 2, T_ACCENT);
     }
 }
-/* MOD page: the four slots as rows "1 LFO > CUT +50%" (M, a list's rows: the source to x 78, the arrow 84..98, the
- * destination of up to 5 characters 106..160, the amount from 172), the one KNOB 2..4 edit selected, slots that do
- * nothing (SRC, DST or AMT at 0) dim */
+/* MOD page: the four slots as rows "1 LFO -> CUT +50 %". M-Vave-OP1 (the Alt 2 design, Figma "Sound/ModRow"): rows
+ * as cards of their own on the BG as EDIT's (graph_param_rows: 34 px, 36 apart), in S: the slot's number DIM at 12,
+ * the source TEXT at 27, the arrow MID 87..97, the destination TEXT at 105, the amount TEXT ending at 209 and its unit
+ * (8 px, DIM) after it. The one KNOB 2..4 edit is the selection (THEME, INK); a slot that does nothing (SRC, DST or AMT
+ * at 0) all DIM, its arrow LINE */
 static void graph_mod(const track_t *t, uint16_t c)
 {
     uint32_t k;
+    int32_t p = (int32_t)cv_h + 2 < 4 * PR_ROW_P ? ((int32_t)cv_h + 2) / 4 : PR_ROW_P, h = p - 2;
+    (void)c;
+    cv_rect(0, 0, 240, (int32_t)cv_h, T_BG);
     for (k = 0; k < NMSLOT; k++) {
-        const int16_t *p = &t->p[P_M1SRC + 3u * k];
-        int32_t y = 14 + (int32_t)k * 24, on = p[0] && p[1] && p[2], sel = k == mod_ui_slot, x;
-        uint16_t bg = sel ? T_THEME : T_SURF, col = sel ? T_INK : on ? c : T_DIM;
+        const int16_t *pp = &t->p[P_M1SRC + 3u * k];
+        int32_t y = (int32_t)k * p, ty = y + CAP_IN(S, h), on = pp[0] && pp[1] && pp[2], sel = k == mod_ui_slot, x, ay;
+        uint16_t bg = sel ? T_THEME : T_SURF, col = sel ? T_INK : on ? T_TEXT : T_DIM;
+        uint16_t ac = sel ? T_INK : on ? T_MID : T_LINE;
         char b[8];
         const char *unit;
-        if (sel)
-            cv_rrect(6, y, 228, 17, 4, T_THEME, T_SURF);
+        cv_rrect(CARD_X(0), y, CARD_X(3) + CARD_W - CARD_X(0), h, 4, bg, T_BG);
         b[0] = (char)('1' + k);
         b[1] = 0;
-        GFX_HOOK_ALIGN(0, y, 0, y + 17, AL_V, "mod row text centred up/down");
-        cv_text_on(14, y + CAP_IN(M, 17), &AF_M, b, sel ? T_INK : T_MID, bg);
-        GFX_HOOK_ALIGN(0, y, 0, y + 17, AL_V, "mod row text centred up/down");
-        cv_text_on(30, y + CAP_IN(M, 17), &AF_M, N_MSRC[clamp(p[0], 0, MS_N - 1)], col, bg);
-        cv_line(84, y + 8, 98, y + 8, col);              /* an arrow */
-        cv_line(94, y + 4, 98, y + 8, col);
-        cv_line(94, y + 12, 98, y + 8, col);
-        cv_text_on(106, y + CAP_IN(M, 17), &AF_M, mod_dst_name(t, p[1]), col, bg);
-        param_format(&TP[P_M1AMT], p[2], b, &unit);
-        GFX_HOOK_ALIGN(0, y, 0, y + 17, AL_V, "mod row text centred up/down");
-        x = cv_text_on(172, y + CAP_IN(M, 17), &AF_M, b, col, bg) + 2;
-        GFX_HOOK_ALIGN(0, 0, 0, y + CAP_IN(M, 17) + AF_M.asc, AL_B, "mod row unit on its amount's baseline");
-        cv_text_on(x, y + CAP_IN(M, 17) + AF_M.asc - AF_S.asc, &AF_S, unit, sel ? T_INK : T_DIM, bg);   /* (a unit: S) */
+        GFX_HOOK_ALIGN(0, y, 0, y + h, AL_V, "mod row text centred up/down");
+        cv_text_on(12, ty, &AF_S, b, sel ? T_INK : T_DIM, bg);
+        GFX_HOOK_ALIGN(0, y, 0, y + h, AL_V, "mod row text centred up/down");
+        cv_text_on(27, ty, &AF_S, N_MSRC[clamp(pp[0], 0, MS_N - 1)], col, bg);
+        ay = ty + AF_S_CAP_Y + AF_S_CAP_H / 2;           /* an arrow on the capitals' middle */
+        cv_line(87, ay, 97, ay, ac);
+        cv_line(94, ay - 3, 97, ay, ac);
+        cv_line(94, ay + 3, 97, ay, ac);
+        cv_text_on(105, ty, &AF_S, mod_dst_name(t, pp[1]), col, bg);
+        param_format(&TP[P_M1AMT], pp[2], b, &unit);
+        GFX_HOOK_ALIGN(0, y, 0, y + h, AL_V, "mod row text centred up/down");
+        cv_text_r(209, ty, &AF_S, b, col, bg);
+        x = 211;
+        GFX_HOOK_ALIGN(0, 0, 0, ty + AF_S.asc, AL_B, "mod row unit on its amount's baseline");
+        cv_text_on(x, ty + AF_S.asc - AF_X.asc, &AF_X, unit, T_DIM, bg);   /* (a unit: 8 px) */
     }
 }
 
@@ -1121,6 +1167,12 @@ static void graph_sample(uint16_t c)
 {
     uint32_t i;
     const smp_zone_t *z = sample_wave.zone;
+    if (graph_h() >= H_GRAPH_S) {                    /* M-Vave-OP1 (Alt 2): the set's name top left */
+        const char *lb;
+        char val[24];
+        if (row_cell(cur_page(), 0u, &lb, val))
+            cv_text(10, 5 - cv_oy, &AF_X, val, T_MID);
+    }
     cv_rect(PANEL_X0, 48, PANEL_W, 1, T_RAISE);
     for (i = 0; i < SAMPLE_WAVE_COLS; i++) {
         int32_t x = 12 + (int32_t)i * 216 / (SAMPLE_WAVE_COLS - 1u);
@@ -1134,21 +1186,28 @@ static void graph_sample(uint16_t c)
 }
 
 /* WHEEL: the nine drawbars as rounded bars over RAISE slots (the bars of the knob just turned: the accent),
- * their footages under them */
+ * their footages under them. M-Vave-OP1 (Alt 2): in the panel of 142, "DRAWBARS" top left, SUB BODY TOP top right,
+ * the bars 10 px lower */
 static void graph_wheel(const track_t *t, uint16_t c)
 {
     uint32_t k;
+    int32_t oy = 0;
+    if (graph_h() >= H_GRAPH_S) {
+        cv_text(10, 5 - cv_oy, &AF_X, "DRAWBARS", T_MID);
+        panel_caption(cur_page(), 14u, 0);
+        oy = 10;
+    }
     static const char *const names[9] = {"16", "5.3", "8", "4", "2.7", "2", "1.6", "1.3", "1"};
     for (k = 0; k < 9u; k++) {
         int32_t x = 11 + (int32_t)k * 25, level = drw_level(t->p, k);
         if (t->p[P_E4] && k == 8u) level = 0; /* DSP's percussion cancels the 1-foot bar. */
         int hot = ui.hot_t && cur_page()->id[0] == P_E0 &&
                   (ui.hot_col == 0u || ui.hot_col == (k < 2u ? 1u : k < 4u ? 2u : 3u));
-        cv_rrect(x + 7, 2, 4, 73, 2, T_RAISE, T_SURF);
-        if (level) cv_rrect(x + 3, 75 - level * 8, 12, level * 8, 3, hot ? T_ACCENT : c, T_SURF);
-        else cv_rrect(x + 3, 73, 12, 2, 1, hot ? T_ACCENT : T_DIM, T_SURF);
+        cv_rrect(x + 7, oy + 2, 4, 73, 2, T_RAISE, T_SURF);
+        if (level) cv_rrect(x + 3, oy + 75 - level * 8, 12, level * 8, 3, hot ? T_ACCENT : c, T_SURF);
+        else cv_rrect(x + 3, oy + 73, 12, 2, 1, hot ? T_ACCENT : T_DIM, T_SURF);
         GFX_HOOK_ALIGN(x + 7, 0, x + 11, 0, AL_H, "wheel footage under its drawbar");
-        cv_text_in(x + 3, 82, 12, &AF_S, names[k], T_MID, T_SURF);   /* under the bar, by its ink */
+        cv_text_in(x + 3, oy + 82, 12, &AF_S, names[k], T_MID, T_SURF);   /* under the bar, by its ink */
     }
 }
 /* The FM charts' parts: an operator box 21 x 17 (rows 23 px apart, columns 24), junction dots, Manhattan routes */
@@ -1169,6 +1228,18 @@ static void fm_loop(int32_t x, int32_t y, uint16_t c)
     cv_rect(x, y - 4, 15, 1, c);
     cv_rect(x, y - 4, 1, 4, c);
     cv_line(x - 2, y - 3, x - 1, y - 2, c); cv_line(x + 2, y - 3, x + 1, y - 2, c);
+}
+/* M-Vave-OP1 (the Alt 2 chart, FM6): the feedback loop on a box hw px either side of x, bh tall at y: out of its right
+ * side, up over it, back in on its top right of the middle (clear of the routes coming down into it), an arrow */
+static void fm6_loop(int32_t x, int32_t y, int32_t hw, int32_t bh, uint16_t c)
+{
+    int32_t xr = x + hw + 4, xi = x + hw / 2, ym = y + bh / 2, yt = y - 6;
+    cv_rect(x + hw, ym, 5, 1, c);
+    cv_rect(xr, yt, 1, ym - yt + 1, c);
+    cv_rect(xi, yt, xr - xi, 1, c);
+    cv_rect(xi, yt, 1, 6, c);
+    cv_line(xi - 2, y - 3, xi, y - 1, c);
+    cv_line(xi + 2, y - 3, xi, y - 1, c);
 }
 /* the output bus under the carriers (the leftmost at cl, the rightmost at cr) at y bus, an arrow out on the right */
 static void fm_bus(int32_t cl, int32_t cr, int32_t bus)
@@ -1235,11 +1306,13 @@ static uint32_t fm6_alg_of(const track_t *t)
     return t->p[P_E0] >= 1 && t->p[P_E0] <= 32 ? (uint32_t)t->p[P_E0] - 1u : fm6_patch[(t - trk) % NTRK][FP_ALG] & 31u;
 }
 /* FM6's EDIT pages: the algorithm, drawn as graph_fm draws DIGITAL's, "ALG 05" top left; SLOT on a bank voice (B1..B32,
- * 1.4.1): its name top right. Carriers THEME with INK
- * numerals, modulators RAISE with THEME ones; an operator at output level 0: a DIM numeral (a carrier on RAISE).
- * Routes THEME, the feedback loop MID (DIM at feedback 0), the output bus MID. The knob just turned in ACCENT:
- * ALG and PTCH the label, FB the loop, MLVL the routes, MRAT MEG VMOD the modulators, DTUN the carriers.
- * sel < 6 (the OPERATOR pages, ui_fm6op.c): that operator's box ACCENT with an INK numeral, its frequency top right */
+ * 1.4.1): its name top right. M-Vave-OP1 (the Alt 2 design, Figma "Sound/FM6 Alg"): the chart fills the panel, its
+ * boxes 36 x 26 (numerals in M) where it has two rows and four columns at most, else 26 x 18 (S); the columns up to 62
+ * (44) apart, the rows 46 (26). Carriers MID with INK numerals, modulators LINE with a DIM edge and TEXT numerals; an
+ * operator at output level 0: the edge only, a DIM numeral. Routes, the carriers' drops and the output bus MID, the
+ * feedback loop MID (DIM at feedback 0). The knob just turned in ACCENT: ALG and PTCH the label, FB the loop, MLVL
+ * the routes, MRAT MEG VMOD the modulators, DTUN the carriers. sel < 6 (the OPERATOR pages, ui_fm6op.c): that
+ * operator's box ACCENT with an INK numeral, its frequency top right. Captions in 8 px, MID left, TEXT right. */
 static void graph_fm6(const track_t *t, uint16_t c, uint32_t sel)
 {
     uint32_t alg = fm6_alg_of(t), k, j, car = fm6_car_ops(alg), top = 0, hi = 0, fbop = fm6_fb_op(alg), hotset = 0;
@@ -1247,8 +1320,10 @@ static void graph_fm6(const track_t *t, uint16_t c, uint32_t sel)
     const uint8_t *pt = fm6_patch[(t - trk) % NTRK];
     int32_t x[6], y[6], bus, cl = 240, cr = 0, fb = clamp(pt[FP_FB] + t->p[P_E1], 0, 7);
     uint8_t m[6], fan[6] = {0, 0, 0, 0, 0, 0};
-    uint16_t rc = hot == P_E2 ? T_ACCENT : c;
+    uint16_t rc = hot == P_E2 ? T_ACCENT : T_MID;
+    int32_t py = -cv_oy, big, bw, bh, rp, cp;           /* (panel rows: py is the panel's top row on the canvas) */
     char b[7] = {'A', 'L', 'G', ' ', (char)('0' + (alg + 1u) / 10u), (char)('0' + (alg + 1u) % 10u), 0};
+    (void)c;
     if (hot == P_E3 || hot == P_E4 || hot == P_E5)
         hotset = 63u & ~car;
     else if (hot == P_E6)
@@ -1261,52 +1336,72 @@ static void graph_fm6(const track_t *t, uint16_t c, uint32_t sel)
         for (j = 0; j < 6u; j++)
             fan[j] += (uint8_t)(m[k] >> j & 1u);
     }
-    bus = 50 + (27 + 23 * (int32_t)top) / 2;         /* the chart centred on the 100 px scale */
+    big = top <= 1u && hi <= 3u;
+    bw = big ? 36 : 26, bh = big ? 26 : 18, rp = big ? 46 : 26;
+    cp = hi ? (206 - bw) / (int32_t)hi : 0;
+    if (cp > (big ? 62 : 44))
+        cp = big ? 62 : 44;
+    bus = py + (int32_t)cv_h - 14;                   /* the bus 14 rows above the panel's foot, the chart over it */
     for (k = 0; k < 6u; k++) {
-        x[k] = 120 + (int32_t)(FM6_CELL[alg][k] & 7u) * 24 - (int32_t)hi * 12;
-        y[k] = bus - 6 - FM_BH - 23 * (int32_t)(FM6_CELL[alg][k] >> 4);
+        x[k] = 116 + (int32_t)(FM6_CELL[alg][k] & 7u) * cp - (int32_t)hi * cp / 2;
+        y[k] = bus - 8 - bh - rp * (int32_t)(FM6_CELL[alg][k] >> 4);
         if (car >> k & 1u) { cl = x[k] < cl ? x[k] : cl; cr = x[k] > cr ? x[k] : cr; }
     }
     for (k = 0; k < 6u; k++) {                       /* into k: its sources down to its jog row, across, down */
         for (j = 0; j < 6u; j++)
             if (m[k] >> j & 1u) {
                 FM6_CHART_HOOK(FMH_ROUTE, j, k);
-                fm_route(x[j], y[j] + FM_BH, x[k], y[k] - 3, y[k], rc);
+                fm_route(x[j], y[j] + bh, x[k], y[k] - 3, y[k], rc);
                 if (fan[j] > 1u) fm_dot(x[j], y[k] - 3, rc);          /* one operator modulating several */
                 if (m[k] & (m[k] - 1u)) fm_dot(x[k], y[k] - 3, rc);   /* several modulating one */
             }
         if (car >> k & 1u) {
             FM6_CHART_HOOK(FMH_CAR, k, 0);
-            cv_rect(x[k], y[k] + FM_BH, 1, bus - y[k] - FM_BH, T_MID);
+            cv_rect(x[k], y[k] + bh, 1, bus - y[k] - bh, T_MID);
             if (x[k] != cl) fm_dot(x[k], bus, T_MID);
         }
     }
     FM6_CHART_HOOK(FMH_BUS, 0, 0);
     fm_bus(cl, cr, bus);
     FM6_CHART_HOOK(FMH_FB, fbop, 0);
-    fm_loop(x[fbop], y[fbop], hot == P_E1 ? T_ACCENT : fb ? T_MID : T_DIM);
+    fm6_loop(x[fbop], y[fbop], bw / 2, bh, hot == P_E1 ? T_ACCENT : fb ? T_MID : T_DIM);
     for (k = 0; k < 6u; k++) {
-        uint32_t on = pt[(5u - k) * FP_OP + FP_OL] != 0, fill_c = (car >> k & 1u) && on;
-        uint16_t f = hotset >> k & 1u ? T_ACCENT : c, fill = k == sel ? T_ACCENT : fill_c ? f : T_RAISE;
+        uint32_t on = pt[(5u - k) * FP_OP + FP_OL] != 0, cr_k = car >> k & 1u, lit = k == sel || (hotset >> k & 1u);
+        uint16_t fill = lit ? T_ACCENT : cr_k && on ? T_MID : on ? T_LINE : T_SURF;
+        uint16_t ink = lit || (cr_k && on) ? T_INK : on ? T_TEXT : T_DIM;
         char n[2] = {(char)('1' + k), 0};
+        int32_t bx = x[k] - bw / 2;
         FM6_CHART_HOOK(FMH_BOX, k, 0);
-        cv_rrect(x[k] - 10, y[k], 21, FM_BH, 3, fill, T_SURF);
-        GFX_HOOK_ALIGN(x[k] - 10, y[k], x[k] + 11, y[k] + FM_BH, AL_HV, "FM6 operator number in its box");
-        cv_text_in(x[k] - 10, y[k] + CAP_IN(S, FM_BH), 21, &AF_S, n, fill_c || k == sel ? T_INK : on ? f : T_DIM, fill);
+        if (lit || (cr_k && on))
+            cv_rrect(bx, y[k], bw, bh, 3, fill, T_SURF);
+        else {                                       /* a modulator, an operator off: the DIM edge */
+            cv_rrect(bx, y[k], bw, bh, 3, T_DIM, T_SURF);
+            cv_rrect(bx + 1, y[k] + 1, bw - 2, bh - 2, 2, fill, T_DIM);
+        }
+        GFX_HOOK_ALIGN(bx, y[k], bx + bw, y[k] + bh, AL_HV, "FM6 operator number in its box");
+        if (big)
+            cv_text_in(bx, y[k] + CAP_IN(M, bh), bw, &AF_M, n, ink, fill);
+        else
+            cv_text_in(bx, y[k] + CAP_IN(S, bh), bw, &AF_S, n, ink, fill);
     }
     FM6_CHART_HOOK(FMH_LABEL, 0, 0);
-    cv_text(10, 4 - GOY, &AF_S, b, hot == P_E0 || hot == P_E7 ? T_ACCENT : T_MID);
+    cv_text(10, py + 4, &AF_X, b, hot == P_E0 || hot == P_E7 ? T_ACCENT : T_MID);
     if (sel < 6u) {                                  /* the operator picked: "OP3 x1.50" */
         char fq[16] = {'O', 'P', (char)('1' + sel), ' ', 0};
         fop_freq(pt + (5u - sel) * FP_OP, fq + 4);
-        cv_text_r(228, 4 - GOY, &AF_S, fq, T_TEXT, T_SURF);
+        cv_text_r(228, py + 4, &AF_X, fq, T_TEXT, T_SURF);
     } else if (fm6_bank_slot(fm6_slot[(t - trk) % NTRK]) >= 0) {   /* SLOT B1..B32: the bank voice's name */
         char nm[11];
         for (k = 0; k < 10u; k++)
             nm[k] = (char)pt[FP_NAME + k];
         for (nm[10] = 0; k && nm[k - 1] == ' '; k--)
             nm[k - 1] = 0;
-        cv_text_r(228, 4 - GOY, &AF_S, nm, T_TEXT, T_SURF);
+        cv_text_r(228, py + 4, &AF_X, nm, T_TEXT, T_SURF);
+    } else {                                         /* (Alt 2) the page's MLVL top right */
+        const char *lb;
+        char val[24];
+        if (row_cell(cur_page(), 2u, &lb, val) && str_eq(lb, "MLVL"))
+            panel_caption(cur_page(), 4u, 0);
     }
     FM6_CHART_HOOK(FMH_END, alg, 0);
 }
@@ -1319,7 +1414,7 @@ static void graph_fm6env(const track_t *t, uint16_t c)
 {
     static const char *const STG[4] = {"ATK", "DEC", "SUS", "REL"};
     const uint8_t *op = fop_bytes((uint32_t)(t - trk));
-    int32_t top = 24, bot = 88, x[6], y[6], k;
+    int32_t py = -cv_oy, top = py + 24, bot = py + (int32_t)cv_h - 16, x[6], y[6], k;   /* (panel rows: py its top) */
     uint32_t sg = fop_stg & 3u;
     char b[24] = {'O', 'P', (char)('1' + fop_op % 6u), 0};
 #define FEGY(l) (bot - (int32_t)(l) * (bot - top) / 99)
@@ -1342,13 +1437,13 @@ static void graph_fm6env(const track_t *t, uint16_t c)
     fm_dot(x[k], y[k], T_ACCENT);
 #undef FEGY
 #undef FEGW
-    cv_text(10, 4 - GOY, &AF_S, b, T_MID);
+    cv_text(10, py + 4, &AF_X, b, T_MID);
     str_cpy(b, STG[sg], sizeof b);
     str_cpy(b + str_len(b), "  R ", 5);
     fmt_int(b + str_len(b), op[FP_R1 + sg]);
     str_cpy(b + str_len(b), "  L ", 5);
     fmt_int(b + str_len(b), op[FP_L1 + sg]);
-    cv_text_r(228, 4 - GOY, &AF_S, b, T_TEXT, T_SURF);
+    cv_text_r(228, py + 4, &AF_X, b, T_TEXT, T_SURF);
 }
 
 #if FELUCCA_FM4
@@ -1628,8 +1723,8 @@ static void graph_title(void)
     page_title(ti);
     if (!large_face_has(ti) || text_w(f, ti) > 220)
         f = &AF_M;
-    y = f == &AF_L ? CAP_IN(L, LG_H_GRAPH) : CAP_IN(M, LG_H_GRAPH);
-    GFX_HOOK_ALIGN(0, 0, 240, LG_H_GRAPH, AL_HV, "large strip title centred");
+    y = f == &AF_L ? CAP_IN(L, (int32_t)graph_h()) : CAP_IN(M, (int32_t)graph_h());
+    GFX_HOOK_ALIGN(0, 0, 240, (int32_t)graph_h(), AL_HV, "large strip title centred");
     cv_text_in(0, y, 240, f, ti, T_THEME, T_SURF);
 }
 
@@ -2161,8 +2256,8 @@ static void track_strip(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, ui
 {
     int32_t gw = CARD_W - 10, m = ts.meter[c] * gw / (TS_MH - 2), fx = (int32_t)lvl * gw / 127;
     uint16_t vc = mute ? T_DIM : T_THEME;
-    cv_begin(CARD_W, LG_H_GRAPH, T_BG);
-    cv_rrect(0, 0, CARD_W, LG_H_GRAPH, 5, T_SURF, T_BG);
+    cv_begin(CARD_W, graph_h(), T_BG);
+    cv_rrect(0, 0, CARD_W, (int32_t)graph_h(), 5, T_SURF, T_BG);
     cv_icon_on(4, 4, 16, trk_icon(c, sel), sel ? T_ACCENT : T_MID, T_SURF);
     if (st)
         GFX_HOOK_ALIGN(0, 4, 0, 20, AL_V, "mixer badge on the cushion's line");
@@ -2217,8 +2312,8 @@ static void draw_tracks(void)
             track_strip(c, sel, st, mute, arm, hot, lvl, b);
             continue;
         }
-        cv_begin(CARD_W, H_GRAPH, T_BG);
-        cv_rrect(0, 0, CARD_W, H_GRAPH, 5, T_SURF, T_BG);
+        cv_begin(CARD_W, graph_h(), T_BG);
+        cv_rrect(0, 0, CARD_W, (int32_t)graph_h(), 5, T_SURF, T_BG);
         cv_icon_on(4, 5, 16, trk_icon(c, sel), sel ? T_ACCENT : T_MID, T_SURF);
         if (st)
             GFX_HOOK_ALIGN(0, 5, 0, 21, AL_V, "mixer badge on the cushion's line");
@@ -2276,15 +2371,15 @@ static void draw_tracks(void)
  * its ink INK, as a list's selected row); a muted track's steps DIM. Each row is its own canvas with its own signature
  * (ts.col, the MIXER's: the two never show together); a meter that moved alone redraws its slot only. LINE: the rows on
  * BG, 1 px rules between them */
-#define TR_H 29                                      /* a row; rows TR_PITCH apart from Y_GRAPH, 3 .. 237 across */
-#define TR_PITCH 31
+#define TR_H 34                                      /* a row; rows TR_PITCH apart from Y_GRAPH, 3 .. 237 across (M-Vave-OP1, */
+#define TR_PITCH 36                                  /* Alt 2's TrackRow: 34 px, 36 apart, the panel's 142 rows) */
 #define TR_W 234
-#define TR_NY(lg) ((lg) ? 2 : 4)                     /* the name line's capitals from row 4 (LARGE, M: 2) */
-#define TR_SB 26                                     /* the steps: bars standing on row 25 */
+#define TR_NY(lg) ((lg) ? 4 : 6)                     /* the name line's capitals from row 6 (LARGE, M: 4) */
+#define TR_SB 29                                     /* the steps: bars standing on row 28 */
 #define TR_BW 9                                      /* a step's bar, 11 px apart, 4 more between groups of 4 */
 #define TR_PX 216                                    /* the page pips */
-#define TR_MX 226                                    /* the meter: 4 x 22 from row 4 */
-#define TR_MY 4
+#define TR_MX 226                                    /* the meter: 4 x 22 from row 6 */
+#define TR_MY 6
 #define TR_MH 22
 static int32_t tr_bx(uint32_t i) { return 24 + (int32_t)i * 11 + (int32_t)(i / 4u) * 4; }
 static void tr_meter(int32_t x, int32_t y, uint32_t c, uint16_t slot, uint16_t fill, uint16_t under)
@@ -2359,7 +2454,7 @@ static void home_track_row(uint32_t c)
         int32_t bx = tr_bx(i);
         uint16_t under = i == ph ? cp : bg;
         if (i == ph)                                 /* the step playing: a raised cell */
-            cv_rrect(bx - 1, 15, TR_BW + 2, 13, 2, cp, bg);
+            cv_rrect(bx - 1, TR_SB - 11, TR_BW + 2, 13, 2, cp, bg);
         if (st->time == ST_TIE && carry) {           /* carried on: joined to the bar before */
             int32_t x0 = i ? tr_bx(i - 1u) + TR_BW : bx - 2;
             cv_rect(x0, TR_SB - 7, bx + 2 - x0, 7, i == ph ? cpl : cn);
@@ -2389,8 +2484,8 @@ static void draw_home_tracks(void)
 {
     uint32_t c;
     if (ui.force) {                                  /* the BG round the rows only, they cover the rest (#181) */
-        lcd_fill(0, Y_GRAPH, 3, H_GRAPH, T_BG);
-        lcd_fill(3 + TR_W, Y_GRAPH, 240 - 3 - TR_W, H_GRAPH, T_BG);
+        lcd_fill(0, Y_GRAPH, 3, graph_h(), T_BG);
+        lcd_fill(3 + TR_W, Y_GRAPH, 240 - 3 - TR_W, graph_h(), T_BG);
         for (c = 0; c < NTRK; c++)
             ts.meter[c] = 0;
         for (c = 1; c < NTRK; c++) {                 /* the 2 rows between two rows; LINE: a rule on the first */
@@ -2411,7 +2506,7 @@ static void graph_scope(uint16_t c)
 {
     static int16_t snap[SCOPE_N] __attribute__((section(".pool")));
     uint32_t w = scope_w, i, trig = 0;
-    int32_t cy = (int32_t)cv_h / 2, py = cy, x, peak = 1500, a = cv_h == H_GRAPH ? 46 : cy - 6;   /* (LARGE: the strip) */
+    int32_t cy = (int32_t)cv_h / 2, py = cy, x, peak = 1500, a = cv_h >= H_GRAPH ? (int32_t)cv_h * 3 / 8 : cy - 6;   /* (LARGE: the strip) */
     for (i = 0; i < SCOPE_N; i++) {
         snap[i] = scope_buf[(w + i) & (SCOPE_N - 1u)];
         if (snap[i] > peak)
@@ -2907,6 +3002,26 @@ static void graph_fxt(void)
         }
     }
 }
+/* M-Vave-OP1 (the Alt 2 design): a panel's caption top right (8 px, TEXT): the values of the page's KNOB c + 1 for the
+ * bits of mask, "LABEL value unit", 3 apart with a dot between (short: the labels' first letters, ENV's A D S R) */
+static void panel_caption(const page_t *pg, uint32_t mask, int shortl)
+{
+    char b[72], val[24], l1[2] = {0, 0};
+    const char *lb;
+    uint32_t c;
+    b[0] = 0;
+    for (c = 0; c < 4u; c++) {
+        if (!(mask >> c & 1u) || !row_cell(pg, c, &lb, val))
+            continue;
+        if (b[0])
+            str_cpy(b + str_len(b), " \xB7 ", 4);
+        l1[0] = lb[0];
+        str_cpy(b + str_len(b), shortl ? l1 : lb, 12);
+        str_cpy(b + str_len(b), " ", 2);
+        str_cpy(b + str_len(b), val, 24);
+    }
+    cv_text_r(228, 5 - cv_oy, &AF_X, b, T_TEXT, T_SURF);
+}
 static void draw_graph(void)
 {
     const page_t *pg = cur_page();
@@ -2931,21 +3046,24 @@ static void draw_graph(void)
     cv_rrect(3, 0, 234, graph_h(), 5, T_SURF, T_BG);   /* the panel (MENU > LARGE: the strip) */
     cv_bg = T_SURF;                                  /* (text drawn with cv_text lands on it) */
     cv_oy = GOY;                                     /* graphs on a 100 px scale */
+    if (graph_h() >= H_GRAPH_S) {                    /* M-Vave-OP1, the panel to 218: 9 px lower (the captions' room), */
+        cv_oy = GOY_S;                               /* ADSR and LFO 127 px tall */
+        graph_ht = GHT_S;
+    }
     if (strip_kind() != SK_NONE) {                   /* MENU > LARGE: the strip */
         uint32_t k = strip_kind();
         cv_oy = k == SK_ADSR || k == SK_LFO ? 3 : 0;
-        graph_ht = LG_H_GRAPH - 6;
+        graph_ht = (int32_t)graph_h() - 6;
         if (k == SK_SCOPE) graph_scope(c);
         else if (k == SK_ADSR) graph_adsr(t, c);
         else if (k == SK_LFO) graph_lfo(t, c);
         else graph_title();
-        graph_ht = 100;
     } else if (ui.home) {
         cv_oy = 0;
         graph_scope(c);
     } else if ((nr = edit_rows(ui.page, rr)) != 0) {  /* M-Vave-OP1: EDIT's rows */
         cv_oy = 0;
-        graph_rows(rr, nr);
+        graph_param_rows(rr, nr);
     } else if (fx_pedal()) {                          /* .. FX's cards: effect pedals */
         graph_pedal(t, 1);
     } else if (page_ops(pg)->draw) {                  /* M-Vave-OP1: the page's panel (ui_pages.c) */
@@ -2954,9 +3072,13 @@ static void draw_graph(void)
         switch (pg->graph) {
         case GR_ADSR:
             graph_adsr(t, c);
+            if (graph_h() >= H_GRAPH_S)
+                panel_caption(pg, 15u, 1);           /* "A 1.0 ms . D 54 ms . S 16 % . R 8.8 ms" */
             break;
         case GR_LFO:
             graph_lfo(t, c);
+            if (graph_h() >= H_GRAPH_S && str_eq(pg->title, "LFO"))
+                panel_caption(pg, 9u, 0);            /* RATE and FADE */
             break;
         case GR_ROLL:
             cv_oy = 0;
@@ -3026,9 +3148,12 @@ static void draw_graph(void)
                 graph_fm(t, c);                      /* (OP LEVEL too: the levels on the chart) */
 #endif
             else { cv_oy = 0; graph_scope(c); }
+            if (graph_h() >= H_GRAPH_S && str_eq(pg->title, "ENV DEST"))
+                panel_caption(pg, 7u, 0);            /* FLT, PIT and SHP over the scope */
             break;
         }
     }
     cv_oy = 0;
+    graph_ht = 100;
     cv_blit(0, graph_y());
 }
