@@ -440,7 +440,7 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, uint16_t c)
         int32_t rad = 8 * 16 + 16 * r / 1000;
         for (i = 0; i < 32; i++) {
             uint32_t p = (uint32_t)i << 27;              /* 32 points round it */
-            int32_t w = (sine_i(p * 3u + 0x2000000u) * 6 + sine_i(p * 5u + 0x9000000u) * 4 + sine_i(p * 7u) * 3) / 13;
+            int32_t w = (sine_i(p * 3u + (1u << 25)) * 6 + sine_i(p * 5u + (9u << 24)) * 4 + sine_i(p * 7u) * 3) / 13;
             int32_t d = rad + (int32_t)((int64_t)rad * w * r / (2000LL * 32767));   /* the splash: +-r/2000 of it */
             px[i] = bx + sine_i(p) * d / 32767;
             py[i] = by - sine_i(p + 0x40000000u) * d / 32767;
