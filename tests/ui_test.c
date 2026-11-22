@@ -3076,6 +3076,26 @@ static int test_product_ux(void)
             ok &= host_screen[(Y_LABEL + SYM_Y) * 240 + CARD_X(0) + SYM_X + 2] == swap16(T_SURF);
             if (!ok) printf("  shapes: %u pixels outside their area, %u of %u drawn\n", outside, ink, (uint32_t)NELEM(L) * 5u);
             bad += check("Alt 2: every shape alone on SURF (no ghost) and inside its area, 0 .. 100 %", ok);
+            {   /* JAN3000: a shape's card without its label, the shape in the middle; a text card keeps its label;
+                 * MOTION on a shape's card: a THEME dot at the top left */
+                uint32_t lab = 0, txt = 0;
+                ok = SYM_X == (COL_W - SYM_W) / 2 && SYM_Y == (COL_H - SYM_H) / 2;
+                ui.force = 1;
+                draw_column(0, "RES", "50", "%", T_THEME, 500, ICON_NONE);
+                for (y = 4; y < (uint32_t)SYM_Y; y++)
+                    for (x = 3; x < COL_W - 3u; x++)
+                        lab += host_screen[(Y_LABEL + y) * 240 + CARD_X(0) + x] != swap16(T_SURF);
+                ui.force = 1;
+                draw_column(0, "TYPE", "BP", "", T_THEME, 500, ICON_NONE);
+                for (y = 4; y < 12u; y++)
+                    for (x = 3; x < 30u; x++)
+                        txt += host_screen[(Y_LABEL + y) * 240 + CARD_X(0) + x] != swap16(T_SURF);
+                ui.force = 1; card_mot_next = 1;
+                draw_column(0, "RES", "50", "%", T_THEME, 500, ICON_NONE);
+                ok &= !lab && txt > 10u && host_screen[(Y_LABEL + 6) * 240 + CARD_X(0) + 6] == swap16(T_THEME);
+                bad += check("Alt 2: a shape's card without its label, the shape in the middle (a text card keeps its "
+                             "label; MOTION: a dot)", ok);
+            }
         }
         ui_power_on();
         go_title("ENV"); frame();

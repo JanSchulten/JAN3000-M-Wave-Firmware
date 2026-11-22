@@ -547,7 +547,7 @@ static void draw_column_tall(uint32_t c, const char *label, const char *val, con
 /* one card = one knob, redrawn only when it changed. M-Vave-OP1 (the Alt 2 design): the LABEL (8 px, DIM) at the
  * top left, under it the value (M, or S when M is too wide: engine names, long ENUMs) and its unit (8 px, DIM) on its
  * baseline; or, for a parameter with a shape (ui_cards.c card_sym: levels, envelope times, cutoff, waves ..), the
- * shape of the value at the right instead of the number. No gauge. The knob just turned (hot): a 1 px MID edge round
+ * shape of the value alone in the card's middle, no label and no number (JAN3000). No gauge. The knob just turned (hot): a 1 px MID edge round
  * the card and the label in TEXT. ratio: 0..1000, the value's place on its range (the shape), -1 = none. icon: ICON_*
  * (icons.c), ICON_AUTO = by label: only a WAVE's (its shape) is drawn. A parameter MOTION drives (card_mot_next): the
  * label in the theme colour. vc: the value's colour (T_THEME, T_DIM inactive; T_ACCENT, the knob just turned, as
@@ -637,6 +637,15 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             cv_rrect(0, 0, COL_W, COL_H, 4, T_SURF, T_BG);
     }
     if (label[0] || val[0]) {
+        if (sym != SYM_NONE) {                          /* the shape alone, in the card's middle: no label (the rows
+                                                         * under EDIT's cards and the header's message name it); MOTION
+                                                         * driving it: a THEME dot at the label's place */
+            if (mot)
+                cv_rrect(5, 5, 4, 4, 2, hot ? T_TEXT : T_THEME, T_SURF);
+            card_symbol(sym, ratio, icon, vc == T_DIM ? T_DIM : T_THEME);
+            cv_blit((uint32_t)CARD_X(c), Y_LABEL);
+            return;
+        }
         if (!strip && label[0]) {
             /* MENU > LARGE on a list / graph page or a layer (LK_LABEL): the label in M where it fits the card (its
              * capitals rows 5..15), else in 8 px as without LARGE (capitals rows 6..11) */
@@ -644,11 +653,6 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             if (mot)                                    /* MOTION drives it: the label says it */
                 lc = hot ? T_TEXT : T_THEME;
             cv_text_fit(lx, lf == &AF_M ? 1 : 4, lf, label, lc, T_SURF, COL_W - 2 - lx);
-        }
-        if (sym != SYM_NONE) {                          /* the shape in place of the number */
-            card_symbol(sym, ratio, icon, vc == T_DIM ? T_DIM : T_THEME);
-            cv_blit((uint32_t)CARD_X(c), Y_LABEL);
-            return;
         }
         if (kid >= 0)                                   /* "[OCT+]": the keycap (accent: it would act; DIM: it would not) */
             x = cv_keycap(5, 23, (uint32_t)kid, vc == T_ACCENT || vc == T_DIM ? vc : T_KEY, T_INK, T_SURF);

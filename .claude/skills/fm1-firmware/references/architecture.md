@@ -228,12 +228,13 @@ in the project extras (`XTRA_V4`) and a page (`GR_KEY`: `key_knob` / `key_poll` 
   (ui_cards.c `card_sym`: levels, envelope times, cutoff, resonance, rates in Hz, glide, detune, noise, chance, swing,
   echo, pan, bipolar amounts, the oscillator waves; JAN3000's sketches: ACID's ENV, DIST / DRV / DRIVE as fuzz, CRSH
   as stairs, the Plaits engines' HARM TIMB MORPH AUX, KTR, SPRD, an engine's TUNE (a string slack .. tight; the
-  project's TUNE in cents stays a number), ACC, VDRUM's TYPE TUBE / STRNG) draws the value's shape at its right instead
-  of the number, alone on the card's SURF (no ghost of the range; PAN keeps its track). Each shape stays inside its
+  project's TUNE in cents stays a number), ACC, VDRUM's TYPE TUBE / STRNG) draws the value's shape alone in the card's
+  middle: no label, no number, nothing behind it (no ghost of the range; PAN keeps its track). MOTION on such a card:
+  a THEME dot at the label's place. Each shape stays inside its
   30 x 24 area (`SYM_*`): the 2 px pen (`sym_seg`) reaches one column and row past its points. MENU > LARGE keeps the
   numbers.
 - Panels: EDIT's rows (`graph_param_rows`) and MOD's slots (`graph_mod`) are 34 px cards on the BG, 36 apart, the
   selected one THEME with INK; FM6's chart (`graph_fm6`) fills the panel (boxes 36 x 26, or 26 x 18 for charts of more
   than two rows or four columns); ENV, LFO, ENV DEST, WHEEL, SAMPLE and FM6 carry an 8 px caption.
-- Tests: ui_test.c "Alt 2: ..." (the shapes by label, each alone on SURF inside its area, the layout and the hot edge); ui_render.c lints the FM6 chart
+- Tests: ui_test.c "Alt 2: ..." (the shapes by label, each alone on SURF inside its area, no label on a shape's card, the layout and the hot edge); ui_render.c lints the FM6 chart
   inside the canvas's height.

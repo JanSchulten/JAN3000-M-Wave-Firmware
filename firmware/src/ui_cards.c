@@ -3,18 +3,19 @@
 /* M-Vave-OP1, the Alt 2 design (Figma "Alt 2 - Library", section Cards): a card whose parameter has a shape shows
  * the shape instead of the number. The value's number is on the panel's rows, in the footer's hint and in the
  * header's message while the knob turns; the card says at a glance where the knob stands. A symbol lives in a
- * 30 x 24 area at the card's right (x 21 .. 50, y 15 .. 38: Figma's 19, 15 on its 55 px card, 6 px from the right
- * edge): the value's shape in the value's colour on the card's SURF, nothing behind it (no ghost of the whole range:
- * the shape alone is the value). Figma draws three variants (Low / Mid / High); the firmware draws the value itself,
- * the variants are its points at about 1/6, 1/2 and 5/6. Which shape a card takes is told by its label (card_sym),
+ * 30 x 24 area in the card's middle (x 13 .. 42, y 10 .. 33; Figma put it at the right under the label, JAN3000 took
+ * the label away: the rows under EDIT's cards name it, the header's message while it turns): the value's shape in
+ * the value's colour on the card's SURF, nothing behind it (no ghost of the whole range: the shape alone is the
+ * value); MOTION driving it, a THEME dot at the top left (draw_column). Figma draws three variants (Low / Mid /
+ * High); the firmware draws the value itself, the variants are its points at about 1/6, 1/2 and 5/6. Which shape a card takes is told by its label (card_sym),
  * as icons.c tells the icons; WAVE by the wave picked (its icon, the 24 px Fukiai glyph), VDRUM's TYPE by its
  * resonator (a tube, strings). Everything else is a text card: its value and unit as before. Included by ui_draw.c
  * (draw_column). */
-#define SYM_X 21                                        /* the symbol's area in the card */
-#define SYM_Y 15
+#define SYM_X ((COL_W - SYM_W) / 2)                     /* the symbol's area: the card's middle (x 13, y 10), no label */
+#define SYM_Y ((COL_H - SYM_H) / 2)
 #define SYM_W 30
 #define SYM_H 24
-#define SYM_CX (SYM_X + SYM_W / 2)                      /* its centre: x 36, y 27 */
+#define SYM_CX (SYM_X + SYM_W / 2)                      /* its centre: x 28, y 22 */
 #define SYM_CY (SYM_Y + SYM_H / 2)
 
 enum {
