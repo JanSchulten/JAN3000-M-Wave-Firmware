@@ -3035,6 +3035,48 @@ static int test_product_ux(void)
              card_sym("MIX", "0", "%", -1, ICON_NONE) == SYM_NONE && card_sym("WAVE", "SYNC", "", 500, ICON_NONE) == SYM_SYNC &&
              card_sym("WAVE", "SAW", "", 0, ICON_W_SAW) == SYM_WAVE && card_sym("GLD", "1.0", "ms", 10, ICON_NONE) == SYM_GLIDE;
         bad += check("Alt 2: the cards' shapes by label (CUT SUS RATE in Hz AMT signed WAVE GLD; TYPE, a synced RATE: text)", ok);
+        ok = card_sym("ENV", "63", "%", 600, ICON_NONE) == SYM_ENV && card_sym("DIST", "0", "%", 0, ICON_NONE) == SYM_DIST &&
+             card_sym("DRV", "50", "%", 500, ICON_NONE) == SYM_DIST && card_sym("CRSH", "20", "%", 200, ICON_NONE) == SYM_CRUSH &&
+             card_sym("HARM", "50", "%", 500, ICON_NONE) == SYM_HARM && card_sym("TIMB", "50", "%", 500, ICON_NONE) == SYM_TIMB &&
+             card_sym("MORPH", "50", "%", 500, ICON_NONE) == SYM_MORPH && card_sym("KTR", "50", "%", 500, ICON_NONE) == SYM_KTR &&
+             card_sym("SPRD", "30", "%", 300, ICON_NONE) == SYM_SPREAD && card_sym("AUX", "0", "%", 0, ICON_NONE) == SYM_AUX &&
+             card_sym("TUNE", "+7", "", 790, ICON_NONE) == SYM_TUNE && card_sym("ACC", "80", "%", 800, ICON_NONE) == SYM_ACC &&
+             card_sym("TYPE", "TUBE", "", 0, ICON_NONE) == SYM_TUBE && card_sym("TYPE", "STRNG", "", 1000, ICON_NONE) == SYM_STRING &&
+             card_sym("TYPE", "HALL", "", 1000, ICON_NONE) == SYM_NONE && card_sym("ACC", "ON", "", -1, ICON_NONE) == SYM_NONE;
+        bad += check("Alt 2: JAN3000's shapes by label (ENV, DIST / DRV, CRSH, HARM TIMB MORPH, KTR, SPRD, AUX, TUNE, ACC, "
+                     "VDRUM's TYPE TUBE / STRNG; another TYPE, the STEP page's ACC: text)", ok);
+        {   /* each shape alone on the card's SURF (no ghost of its range) and inside its 30 x 24 area, 0 .. 100 % */
+            static const char *const L[] = {"CUT", "RES", "ATK", "DEC", "REL", "ENV", "LEVEL", "SUS", "FLT", "DEPTH",
+                                            "FDBK", "SWG", "CHANCE", "NOIS", "GLD", "RATE", "DTN", "DIST", "CRSH",
+                                            "HARM", "TIMB", "MORPH", "KTR", "SPRD", "AUX", "TUNE", "ACC"};
+            uint32_t l, v, x, outside = 0, ink = 0;
+            ui_power_on();
+            go_title("ENV"); frame();
+            for (l = 0; l < NELEM(L); l++)
+                for (v = 0; v <= 4u; v++) {
+                    const char *unit = str_eq(L[l], "GLD") ? "ms" : str_eq(L[l], "RATE") ? "Hz" : "%";
+                    const char *val = str_eq(L[l], "FLT") ? "+10" : "50";
+                    uint32_t n = 0;
+                    ui.force = 1; ui.hot_t = 0;
+                    draw_column(0, L[l], val, unit, T_THEME, (int32_t)v * 250, ICON_NONE);
+                    for (y = 0; y < COL_H; y++)
+                        for (x = 0; x < COL_W; x++)
+                            if (host_screen[(Y_LABEL + y) * 240 + CARD_X(0) + x] == swap16(T_THEME)) {
+                                n++;
+                                outside += x < SYM_X || x >= SYM_X + SYM_W || y < SYM_Y || y >= SYM_Y + SYM_H;
+                            }
+                    ink += n > 0;
+                }
+            ui.force = 1;
+            draw_column(0, "CUT", "20", "Hz", T_THEME, 0, ICON_NONE);   /* CUT at the bottom, LEVEL at 0: SURF above */
+            ok = !outside && ink == NELEM(L) * 5u &&
+                 host_screen[(Y_LABEL + SYM_Y) * 240 + CARD_X(0) + SYM_X + SYM_W - 1] == swap16(T_SURF);
+            ui.force = 1;
+            draw_column(0, "LEVEL", "0", "%", T_THEME, 0, ICON_NONE);
+            ok &= host_screen[(Y_LABEL + SYM_Y) * 240 + CARD_X(0) + SYM_X + 2] == swap16(T_SURF);
+            if (!ok) printf("  shapes: %u pixels outside their area, %u of %u drawn\n", outside, ink, (uint32_t)NELEM(L) * 5u);
+            bad += check("Alt 2: every shape alone on SURF (no ghost) and inside its area, 0 .. 100 %", ok);
+        }
         ui_power_on();
         go_title("ENV"); frame();
         ok = !foot_tall() && graph_h() == H_GRAPH_S && foot_y() == Y_FOOT_S;
