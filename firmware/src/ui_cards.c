@@ -23,7 +23,7 @@ enum {
     SYM_NONE, SYM_LEVEL, SYM_PAN, SYM_BIPOLAR, SYM_DEC, SYM_SUS, SYM_GATE, SYM_GLIDE, SYM_RATE, SYM_DEPTH, SYM_DETUNE,
     SYM_ECHO, SYM_SWING, SYM_CHANCE, SYM_NOISE, SYM_CUT, SYM_RES, SYM_ATK, SYM_REL, SYM_WAVE, SYM_SYNC, SYM_SUB,
     SYM_ENV, SYM_DIST, SYM_CRUSH, SYM_HARM, SYM_TIMB, SYM_MORPH, SYM_KTR, SYM_SPREAD, SYM_AUX, SYM_TUNE, SYM_ACC,
-    SYM_TUBE, SYM_STRING, SYM_FILL
+    SYM_TUBE, SYM_STRING, SYM_FILL, SYM_SWEEP, SYM_VIB, SYM_GSIZE, SYM_GPOS, SYM_GDENS, SYM_MODEL, SYM_STRC, SYM_DAMP, SYM_BOW, SYM_EXC, SYM_SNAP, SYM_DRFT, SYM_BELL
 };
 
 typedef struct {
@@ -40,7 +40,7 @@ static const card_sym_t CARD_SYM[] = {
     {"SEND", SYM_LEVEL},
     {"PAN", SYM_PAN},
     {"FINE", SYM_LEVEL}, {"FLT", SYM_BIPOLAR},   /* (FINE: FM6's 0..99; a signed one is bipolar: card_sym) */ {"PIT", SYM_BIPOLAR}, {"SHP", SYM_BIPOLAR},
-    {"DEC", SYM_DEC}, {"DECAY", SYM_DEC},
+    {"DEC", SYM_DEC}, {"DECAY", SYM_DEC}, {"DECY", SYM_DEC}, {"DCY", SYM_DEC}, {"DCAY", SYM_DEC},   /* (DRUM ..) */
     {"SUS", SYM_SUS}, {"SUSTAIN", SYM_SUS},
     {"GATE", SYM_GATE},
     {"GLD", SYM_GLIDE}, {"GLIDE", SYM_GLIDE}, {"PORTA", SYM_GLIDE}, {"SLIDE", SYM_GLIDE},
@@ -64,6 +64,12 @@ static const card_sym_t CARD_SYM[] = {
     {"AUX", SYM_AUX},
     {"TUNE", SYM_TUNE},
     {"ACC", SYM_ACC},
+    {"SWP", SYM_SWEEP},
+    {"VIB", SYM_VIB},
+    {"SIZE", SYM_GSIZE}, {"POS", SYM_GPOS}, {"DENS", SYM_GDENS},
+    {"STRC", SYM_STRC}, {"DAMP", SYM_DAMP}, {"BOW", SYM_BOW}, {"EXC", SYM_EXC}, {"SNAP", SYM_SNAP},
+    {"DRFT", SYM_DRFT},
+    {"MRAT", SYM_BELL},                                 /* FM6's modulator ratio: bright .. dark */                                 /* NOISE's drift */             /* PHYS (DAMP: the reverb's too) */            /* GRAIN's grain size and read position */                                   /* LOFI's vibrato */                                 /* LOFI's pitch sweep */
     {"COLR", SYM_FILL},                                 /* NOISE's colour, the delay's */
 };
 
@@ -82,6 +88,8 @@ static uint32_t card_sym(const char *label, const char *val, const char *unit, i
             return SYM_SUB;
         return FELUCCA_ICONS && icon != ICON_NONE && icon != ICON_LFO_WAVE && icon != ICON_WAVE ? SYM_WAVE : SYM_NONE;
     }
+    if (str_eq(label, "MODEL"))                         /* PHYS's models, as pictures (SYM_BM_*) */
+        return str_eq(val, "MODAL") || str_eq(val, "STRNG") || str_eq(val, "MEMB") || str_eq(val, "SYMP") ? SYM_MODEL : SYM_NONE;
     if (str_eq(label, "TYPE"))                          /* (the filter's, the reverb's, the EQ's ..: text) */
         return str_eq(val, "TUBE") ? SYM_TUBE : str_eq(val, "STRNG") ? SYM_STRING : SYM_NONE;
     if (ratio < 0)
@@ -93,6 +101,8 @@ static uint32_t card_sym(const char *label, const char *val, const char *unit, i
             s = CARD_SYM[i].sym;
             break;
         }
+    if (s == SYM_GSIZE && !(ENGINES[TSEL->eng_req % NENGINES] == &ENG_GRAIN && (ui.home || cur_page()->scope == SC_ENGINE)))
+        return SYM_NONE;                                /* (SIZE: GRAIN's grains only, not the reverb's or CLOUD's) */
     if (s == SYM_TUNE && !ui.home && cur_page()->scope == SC_GLOBAL)
         return SYM_NONE;                                /* (the project's tuning in cents: its number) */
     if (s == SYM_RATE && !str_eq(unit, "Hz"))          /* (a synced or a step rate: its note value as text) */
@@ -243,7 +253,7 @@ static void sym_ring_to(int32_t cx, int32_t cy, int32_t rad, int32_t w, int32_t 
  * band stays even all round, as a fill and an outline drawn apart do not */
 static void sym_band(const int32_t *px, const int32_t *py, int32_t n, int32_t w, uint16_t c)
 {
-    int32_t x, y, i, j, len[8];
+    int32_t x, y, i, j, len[32];
     for (i = 0, j = n - 1; i < n; j = i++)
         len[i] = (int32_t)sym_isqrt((uint32_t)((px[i] - px[j]) * (px[i] - px[j]) + (py[i] - py[j]) * (py[i] - py[j])));
     for (y = SYM_Y; y < SYM_Y + SYM_H; y++)
@@ -259,6 +269,80 @@ static void sym_band(const int32_t *px, const int32_t *py, int32_t n, int32_t w,
         }
 }
 
+/* JAN3000's pictures, 30 x 24, a row a word (bit 29 - x: the left column the top bit), from
+ * tools/symbol_lab/bitmaps.py: PHYS's MODELs (MODAL a person, STRNG strings, MEMB a sheep (a skin), SYMP strings
+ * ringing) and STRC's cloud and bolt, MRAT's bell (its outline and its inside); decimal words, as build.py reads a hex word as
+ * an address */
+static const uint32_t SYM_BM_HUMAN[SYM_H] = {
+    73728u, 208896u, 399360u, 264192u, 264192u, 399360u,
+    208896u, 122880u, 0u, 522240u, 1838592u, 3146496u,
+    6291840u, 4194432u, 12583104u, 8388672u, 8388672u, 8388672u,
+    8388672u, 8388672u, 8388672u, 12583104u, 4194432u, 4194432u,
+};
+static const uint32_t SYM_BM_STRINGS[SYM_H] = {
+    0u, 0u, 0u, 4u, 14u, 28u,
+    188u, 1016u, 2032u, 8176u, 16352u, 65216u,
+    122304u, 506752u, 2025216u, 3786240u, 15961600u, 29826048u,
+    126752768u, 238827520u, 1014001664u, 283140096u, 4251648u, 16384u,
+};
+static const uint32_t SYM_BM_SHEEP[SYM_H] = {
+    0u, 0u, 491520u, 850944u, 1574400u, 3146496u,
+    6291896u, 29360380u, 16777470u, 50331902u, 33554686u, 100663550u,
+    67108988u, 67108984u, 100663488u, 50332032u, 32506112u, 1963776u,
+    2039296u, 1574400u, 1574400u, 1574400u, 1574400u, 0u,
+};
+static const uint32_t SYM_BM_SYMP[SYM_H] = {
+    0u, 0u, 0u, 6u, 4u, 24u,
+    1016u, 3544u, 7728u, 6592u, 15104u, 10752u,
+    1862144u, 6525440u, 4198912u, 13099520u, 9175552u, 26740224u,
+    51394560u, 471883776u, 274743296u, 4210688u, 16384u, 0u,
+};
+static const uint32_t SYM_BM_CLOUD[SYM_H] = {
+    126976u, 260096u, 523264u, 4194176u, 16777184u, 16777184u,
+    33554416u, 33554416u, 33554416u, 16777184u, 16777184u, 16777184u,
+    465920u, 0u, 0u, 0u, 0u, 0u,
+    0u, 0u, 0u, 0u, 0u, 0u,
+};
+static const uint32_t SYM_BM_BOLT[SYM_H] = {
+    0u, 0u, 0u, 0u, 0u, 0u,
+    0u, 0u, 0u, 0u, 0u, 130816u,
+    261632u, 261120u, 523264u, 522240u, 1048448u, 1048064u,
+    2096128u, 126976u, 122880u, 229376u, 458752u, 262144u,
+};
+static const uint32_t SYM_BM_BELL[SYM_H] = {
+    0u, 122880u, 473088u, 789504u, 525312u, 1574400u,
+    1049088u, 1049088u, 1049088u, 1049088u, 3146496u, 2097408u,
+    2097408u, 2097408u, 6291840u, 4194432u, 12583104u, 25165920u,
+    50331696u, 134094840u, 135168u, 208896u, 122880u, 49152u,
+};
+static const uint32_t SYM_BM_BELLIN[SYM_H] = {
+    0u, 0u, 49152u, 258048u, 522240u, 522240u,
+    1047552u, 1047552u, 1047552u, 1047552u, 1047552u, 2096640u,
+    2096640u, 2096640u, 2096640u, 4194048u, 4194048u, 8388480u,
+    16777152u, 122880u, 122880u, 49152u, 0u, 0u,
+};
+/* a picture's rows 0 .. n - 1, each run of set bits one rect */
+static void sym_bits(const uint32_t *rows, int32_t n, uint16_t c)
+{
+    int32_t y, x;
+    for (y = 0; y < n && y < SYM_H; y++)
+        for (x = 0; x < SYM_W; x++)
+            if ((rows[y] >> (29 - x)) & 1u) {
+                int32_t x0 = x;
+                while (x + 1 < SYM_W && ((rows[y] >> (28 - x)) & 1u))
+                    x++;
+                cv_rect(SYM_X + x0, SYM_Y + y, x - x0 + 1, 1, c);
+            }
+}
+/* a picture's rows y0 .. SYM_H - 1 */
+static void sym_bits_from(const uint32_t *rows, int32_t y0, uint16_t c)
+{
+    int32_t y, x;
+    for (y = y0 < 0 ? 0 : y0; y < SYM_H; y++)
+        for (x = 0; x < SYM_W; x++)
+            if ((rows[y] >> (29 - x)) & 1u)
+                cv_rect(SYM_X + x, SYM_Y + y, 1, 1, c);
+}
 /* the card's shape s at r (0..1000) in c; val: the value as the card would print it (SWG's ring holds it) */
 static void card_symbol(uint32_t s, int32_t r, uint32_t icon, const char *val, uint16_t c)
 {
@@ -525,6 +609,138 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, const char *val, u
                 if ((d <= 170 && d >= 138) || (d < 138 && y >= SYM_Y + SYM_H - sym_at(r, 0, SYM_H)))
                     cv_rect(x, y, 1, 1, c);             /* (the ring r 10.5, 2 px; inside it the fill) */
             }
+        break;
+    case SYM_SWEEP: {                                   /* SWP (JAN3000): a 2 px line from the bottom left to the top
+                                                         * right, a solid triangle (pointing up) pushed along it from
+                                                         * the bottom to the top of the range */
+        int32_t x0 = SYM_X + 6, y0 = SYM_Y + SYM_H - 7, x1 = SYM_X + SYM_W - 8, y1 = SYM_Y + 7;   /* (inside) */
+        int32_t tx = x0 * 16 + (x1 - x0) * 16 * r / 1000 + 8, ty = y0 * 16 + (y1 - y0) * 16 * r / 1000 + 8;
+        sym_seg(SYM_X, SYM_Y + SYM_H - 2, SYM_X + SYM_W - 2, SYM_Y, c);
+        px[0] = tx; py[0] = ty - 72;                    /* the tip 4.5 px above the line, the base 4.5 below, 10 wide */
+        px[1] = tx + 80; py[1] = ty + 72;
+        px[2] = tx - 80; py[2] = ty + 72;
+        sym_poly(px, py, 3, c);
+        break;
+    }
+    case SYM_VIB:                                       /* VIB (JAN3000): a straight line becoming a fast sine, many
+                                                         * waves (7 across), as tall as the vibrato (0 .. 7 px) */
+        sym_sine(112, sym_at(r, 0, 7), 0, c, 2);
+        break;
+    case SYM_GSIZE:                                     /* SIZE (JAN3000): a triangle (the grain's window) not of lines
+                                                         * but of 2 x 2 cells on a 3 px grid, built up column by column
+                                                         * from the left as the grain grows (1 .. 10 columns) */
+        k = sym_at(r, 1, 10);
+        for (i = 0; i < k * 8; i++) {
+            int32_t cx = (i / 8) * 3, cy = (i % 8) * 3, m = cx + 1 - SYM_W / 2;
+            if ((m < 0 ? -m : m) * SYM_H <= (cy + 2) * (SYM_W / 2) + SYM_W / 4)   /* (inside: apex top middle) */
+                cv_rect(SYM_X + cx, SYM_Y + cy, 2, 2, c);
+        }
+        break;
+    case SYM_DRFT: {                                    /* DRFT (JAN3000): a ball carried along a 2 px sine (1.5 waves),
+                                                         * left to right with the drift, sitting on the wave */
+        int32_t wx = sym_at(r, 4, SYM_W - 5), wy;
+        uint32_t p = (uint32_t)(wx * 24) * (0xFFFFFFFFu / (16u * (SYM_W - 1)));
+        sym_sine(24, 5, 0, c, 2);
+        wy = SYM_Y + SYM_H / 2 - 1 - (sine_i(p) * 5 + 16384) / 32767;
+        sym_ring_to((SYM_X + wx) * 16 + 8, (wy - 4) * 16 + 8, 0, 112, 360, c);   /* (a disc of r 3.5 on the wave) */
+        break;
+    }
+    case SYM_GPOS: {                                    /* POS (JAN3000): a 2 px sine (1.5 waves), a solid triangle
+                                                         * above it pointing down at it, moving left to right with the
+                                                         * read position, its tip 2 px over the wave */
+        int32_t wx = sym_at(r, 3, SYM_W - 4), wy;
+        uint32_t p = (uint32_t)(wx * 24) * (0xFFFFFFFFu / (16u * (SYM_W - 1)));
+        sym_sine(24, 5, 0, c, 2);
+        wy = SYM_Y + SYM_H / 2 - 1 - (sine_i(p) * 5 + 16384) / 32767;   /* (the wave's top row there: sym_sine's) */
+        px[0] = (SYM_X + wx) * 16 + 8; py[0] = (wy - 2) * 16;
+        px[1] = px[0] - 64; py[1] = py[0] - 80;
+        px[2] = px[0] + 64; py[2] = py[0] - 80;
+        sym_poly(px, py, 3, c);
+        break;
+    }
+    case SYM_GDENS:                                     /* DENS (JAN3000): one grain in the middle, more and more round
+                                                         * it until they fill the area: 80 cells (2 x 2, 3 px grid) lit
+                                                         * nearest the middle first (1 .. 80) */
+        k = sym_at(r, 1, 80);
+        for (i = 0; i < 80; i++) {
+            int32_t n = 0, j, di, dx = (i % 10) * 6 + 2 - SYM_W, dy = (i / 10) * 6 + 2 - SYM_H + 3;   /* (1/2 px) */
+            di = dx * dx + dy * dy * 2;                 /* (the area is wider than tall: rows count a little more) */
+            for (j = 0; j < 80; j++) {                  /* (its rank by that distance: 80 x 80 compares, once a draw) */
+                int32_t ex = (j % 10) * 6 + 2 - SYM_W, ey = (j / 10) * 6 + 2 - SYM_H + 3, dj = ex * ex + ey * ey * 2;
+                n += dj < di || (dj == di && j < i);
+            }
+            if (n < k)
+                cv_rect(SYM_X + (i % 10) * 3, SYM_Y + (i / 10) * 3, 2, 2, c);
+        }
+        break;
+    case SYM_MODEL:                                     /* PHYS's MODEL (JAN3000): its picture */
+        sym_bits(str_eq(val, "MODAL") ? SYM_BM_HUMAN : str_eq(val, "STRNG") ? SYM_BM_STRINGS
+                 : str_eq(val, "MEMB") ? SYM_BM_SHEEP : SYM_BM_SYMP, SYM_H, c);
+        break;
+    case SYM_STRC:                                      /* STRC (JAN3000): a cloud, a bolt growing out of it, down to
+                                                         * the bottom at the top of the range */
+        sym_bits(SYM_BM_CLOUD, SYM_H, c);
+        sym_bits(SYM_BM_BOLT, 11 + sym_at(r, 0, SYM_H - 11), c);   /* (the bolt starts under the cloud, row 11) */
+        break;
+    case SYM_DAMP: {                                    /* DAMP (JAN3000): a bell-shaped 2 px line moving down with the
+                                                         * damping, its peak 11 px over its feet */
+        int32_t base = SYM_Y + 13 + sym_at(r, 0, SYM_H - 15), py0 = 0;
+        for (x = 0; x < SYM_W - 1; x++) {
+            int32_t d = x * 2 - (SYM_W - 2), q = 144 + d * d;           /* (1/2 px from the middle; s 6 px) */
+            y = base - 11 * 144 * 144 / (q * q);                        /* (a bell: 1 / (1 + d^2 / s^2)^2) */
+            if (x)
+                sym_seg(SYM_X + x - 1, py0, SYM_X + x, y, c);
+            py0 = y;
+        }
+        break;
+    }
+    case SYM_BOW:                                       /* BOW (JAN3000): arrows pointing down, more with the bowing
+                                                         * (1 .. 5), each a 2 px shaft and a solid head */
+        k = sym_at(r, 1, 5);
+        for (i = 0; i < k; i++) {
+            static const int8_t AX[5] = {14, 7, 21, 1, 27};   /* (the middle first, then outwards) */
+            int32_t ax = SYM_X + AX[i];
+            cv_rect(ax, SYM_Y + 1, 2, SYM_H - 8, c);
+            px[0] = (ax + 1) * 16; py[0] = (SYM_Y + SYM_H) * 16;
+            px[1] = px[0] - 56; py[1] = py[0] - 112;
+            px[2] = px[0] + 56; py[2] = py[0] - 112;
+            sym_poly(px, py, 3, c);
+        }
+        break;
+    case SYM_EXC:                                       /* EXC (JAN3000): an ellipse becoming an octagon: 32 points on
+                                                         * the ellipse moving to the octagon's sides, a 2 px edge */
+        for (i = 0; i < 32; i++) {
+            uint32_t p = SYM_DEG(22) + 0x1000000u + ((uint32_t)i << 27);   /* (22.5 + 11.25 i degrees, clockwise) */
+            int32_t sn = sine_i(p), cs = sine_i(p + 0x40000000u), ex = 13 * 16 * sn / 32767, ey = -10 * 16 * cs / 32767;
+            int32_t v = i / 4, f = i % 4;               /* the octagon: vertex v (at 22.5 + 45 v degrees), f/4 to v + 1 */
+            uint32_t pa = SYM_DEG(22 + 45 * v) + 0x1000000u, pb = SYM_DEG(22 + 45 * ((v + 1) % 8)) + 0x1000000u;
+            int32_t ax = 13 * 16 * sine_i(pa) / 32767, ay = -10 * 16 * sine_i(pa + 0x40000000u) / 32767;
+            int32_t bx = 13 * 16 * sine_i(pb) / 32767, by = -10 * 16 * sine_i(pb + 0x40000000u) / 32767;
+            int32_t ox, oy;
+            ox = ax + (bx - ax) * f / 4;
+            oy = ay + (by - ay) * f / 4;
+            px[i] = SYM_CX * 16 + ex + (ox - ex) * r / 1000;
+            py[i] = SYM_CY * 16 + ey + (oy - ey) * r / 1000;
+        }
+        sym_band(px, py, 32, 32, c);
+        break;
+    case SYM_SNAP: {                                    /* SNAP (JAN3000): a frequency response, flat, its highs lifted
+                                                         * (a shelf from x 10 to 22, 0 .. 9 px) with the snap */
+        int32_t lift = sym_at(r, 0, 9), py0 = 0;
+        for (x = 0; x < SYM_W - 1; x++) {
+            int32_t t = clamp((x - 10) * 1000 / 12, 0, 1000), st = t * t / 1000 * (3000 - 2 * t) / 1000;   /* smoothstep */
+            y = SYM_CY + 4 - lift * st / 1000;
+            if (x)
+                sym_seg(SYM_X + x - 1, py0, SYM_X + x, y, c);
+            py0 = y;
+        }
+        break;
+    }
+    case SYM_BELL:                                      /* MRAT (JAN3000): a bell, its outline always, filled from the
+                                                         * bottom as it gets brighter (dark: empty, bright: full) */
+        sym_bits(SYM_BM_BELL, SYM_H, c);
+        k = SYM_H - sym_at(r, 0, SYM_H);                /* (the fill's top row) */
+        sym_bits_from(SYM_BM_BELLIN, k, c);
         break;
     case SYM_STRING:                                    /* .. STRNG: three strings slanting up to the right */
         sym_seg(SYM_X, SYM_Y + 20, SYM_X + 23, SYM_Y + 6, c);

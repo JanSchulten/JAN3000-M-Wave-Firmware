@@ -14,5 +14,19 @@
   "Textkarten erklären jetzt in einem Satz, was der Parameter macht.",
   "Firmware-Build repariert: Lavalampe und Röhre rechneten mit 64-Bit-Divisionen, die das FM-1 nicht hat."
  ],
- "t_COLR": "Neu: COLR (NOISE, auch die Delay-Farbe) als leerer Kreis, der sich mit dem Wert von unten füllt, bis er bei 100 % voll ist."
+ "t_COLR": "Neu: COLR (NOISE, auch die Delay-Farbe) als leerer Kreis, der sich mit dem Wert von unten füllt, bis er bei 100 % voll ist.",
+ "t_SWP": "Neu: SWP (LOFI, Pitch-Sweep) als Linie von links unten nach rechts oben, auf der ein Dreieck mit dem Wert nach oben geschoben wird.",
+ "t_VIB": "Neu: VIB (LOFI, Vibrato) als gerade Linie, die mit dem Wert zu einem schnellen Sinus mit sehr vielen Wellen wird.",
+ "t_SIZE": "Neu: SIZE (GRAIN) als Dreieck aus Pixeln statt Linien, das sich mit dem Wert Spalte für Spalte von links nach rechts aufbaut.",
+ "t_POS": "Neu: POS (GRAIN) als Sinuswelle, auf die ein Dreieck zeigt; das Dreieck wandert mit der Leseposition von links nach rechts.",
+ "t_DENS": "Neu: DENS (GRAIN) beginnt mit einem einzelnen Grain in der Mitte; mit dem Wert kommen ringsum immer mehr dazu, bis das ganze Feld gefüllt ist.",
+ "t_MODEL": "Neu: MODEL (PHYS) als Bilder: MODAL ein Mensch-Umriss, STRNG Saiten, MEMB ein Schaf (das Fell), SYMP schwingende Saiten.",
+ "t_STRC": "Neu: STRC (PHYS): eine Wolke, aus der mit dem Wert ein Blitz nach unten wächst.",
+ "t_DAMP": "Neu: DAMP (PHYS, auch Hall-DAMP): eine glockenförmige Linie, die mit dem Wert nach unten fährt.",
+ "t_BOW": "Neu: BOW (PHYS) als Pfeile von oben nach unten, mehr Pfeile mit mehr Wert (1 bis 5).",
+ "t_EXC": "Neu: EXC (PHYS): eine Ellipse, die mit dem Wert zu einem Achteck wird.",
+ "t_DECY": "DECY (DRUM) zeigt jetzt das Decay-Symbol der Synths. LOFIs DCY ebenso.",
+ "t_SNAP": "Neu: SNAP (DRUM) als Frequenzgang-Linie, deren Höhen mit dem Wert angehoben werden.",
+ "t_DRFT": "Neu: DRFT (NOISE): eine Kugel, die mit dem Wert auf einer Sinuswelle von links nach rechts getragen wird.",
+ "t_MRAT": "Neu: MRAT (FM6) als Glocke: dunkel nur der Umriss, je heller, desto mehr füllt sie sich von unten, ganz hell ist sie voll."
 }

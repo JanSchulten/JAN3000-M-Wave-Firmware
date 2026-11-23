@@ -14,12 +14,12 @@ data = json.load(open(os.path.join(out, 'cur', 'data.json'), encoding='utf-8'))
 def png(src, dst):
     Image.open(src).convert('P', palette=Image.ADAPTIVE, colors=64).save(dst, optimize=True)
 for s in data:
-    if s.get('group') == 'text' and s['label'] in descs:
+    if s.get('group') in ('text', 'home') and s['label'] in descs:
         s['desc'] = descs[s['label']]
     cur = os.path.join(out, 'cur', s['id'] + '.ppm')
     png(cur, os.path.join(site, 'sprites', s['id'] + '.png'))
     prev = os.path.join(out, 'prev', s['id'] + '.ppm')
-    if os.path.exists(prev) and open(prev, 'rb').read() != open(cur, 'rb').read():
+    if s.get('group') != 'home' and os.path.exists(prev) and open(prev, 'rb').read() != open(cur, 'rb').read():
         os.makedirs(os.path.join(site, 'prev'), exist_ok=True)
         png(prev, os.path.join(site, 'prev', s['id'] + '.png'))
         s['prev'] = True

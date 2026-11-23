@@ -33,6 +33,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -93,6 +94,7 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
 .group-head { grid-column: 1 / -1; display: grid; gap: 4px; padding-top: 12px; }
 .group-head h2 { margin: 0; font-size: 20px; font-weight: 700; }
 .group-head p { margin: 0; color: var(--muted); max-width: 70ch; }
+.sub-head { grid-column: 1 / -1; margin: 6px 0 -4px; font-size: 15px; font-weight: 600; font-family: var(--font-mono); letter-spacing: .04em; }
 .sym.text .device { opacity: .95; }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
@@ -118,6 +120,7 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
     <button class="chip" id="f-symbol" aria-pressed="false">Mit Symbol</button>
     <button class="chip" id="f-text" aria-pressed="false">Noch ohne Symbol</button>
     <button class="chip" id="f-changed" aria-pressed="false">Geändert</button>
+    <button class="chip" id="f-home" aria-pressed="false">Nur HOME</button>
     <span class="spacer"></span>
     <button class="chip" id="play-all" aria-pressed="false">Alle abspielen</button>
   </div>
@@ -152,10 +155,11 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
     a.dataset.id = s.id;
     const head = el('div', 'sym-head');
     if (s.group === 'text') head.append(el('h2', null, s.label));
+    else if (s.group === 'home') head.append(el('h2', null, s.title));
     else head.append(el('h2', null, s.title), el('span', 'tag', s.label));
     if (s.change) head.append(el('span', 'badge', 'geändert'));
     a.append(head);
-    a.append(el('p', 'applies', s.group === 'text' ? 'Textkarte · Werte aus ' + s.source : 'Gilt für ' + s.labels + ' · Werte aus ' + s.source));
+    a.append(el('p', 'applies', s.group === 'home' ? 'HOME von ' + s.source : s.group === 'text' ? 'Textkarte · Werte aus ' + s.source : 'Gilt für ' + s.labels + ' · Werte aus ' + s.source));
     if (s.desc) a.append(el('p', 'desc', s.desc));
 
     const stage = el('div', 'stage');
@@ -222,7 +226,8 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
   function context(c) {
     const f = +c.range.value;
     const raw = c.s.raws ? c.s.raws[f] : c.s.min + f;
-    return '[Symbol-Labor v' + window.LAB_VERSION + ' · ' + (c.s.group === 'text' ? 'ohne Symbol: ' + c.s.label + ' (' + c.s.source + ')' : c.s.title + ' (' + c.s.label + ')') + ' · Wert ' + raw + ' = ' + c.s.values[f] + ']';
+    const what = c.s.group === 'home' ? 'HOME ' + c.s.source + ', ' + c.s.title : c.s.group === 'text' ? 'ohne Symbol: ' + c.s.label + ' (' + c.s.source + ')' : c.s.title + ' (' + c.s.label + ')';
+    return '[Symbol-Labor v' + window.LAB_VERSION + ' · ' + what + ' · Wert ' + raw + ' = ' + c.s.values[f] + ']';
   }
 
   async function sendComment(c) {
@@ -294,14 +299,18 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
     cards.forEach((c) => setPlaying(c, on));
   });
   const heads = {};
+  const subs = [];
+  const FILTERS = ['all', 'symbol', 'text', 'changed', 'home'];
   function filter(which) {
-    ['all', 'symbol', 'text', 'changed'].forEach((k) => document.getElementById('f-' + k).setAttribute('aria-pressed', String(k === which)));
+    FILTERS.forEach((k) => document.getElementById('f-' + k).setAttribute('aria-pressed', String(k === which)));
     cards.forEach((c) => {
-      c.a.hidden = which === 'changed' ? !c.s.change : which === 'all' ? false : (c.s.group || 'symbol') !== which;
+      const g = c.s.group || 'symbol';
+      c.a.hidden = which === 'changed' ? !c.s.change || g === 'home' : which === 'all' ? g === 'home' : g !== which;
     });
-    Object.keys(heads).forEach((g) => { heads[g].hidden = which === 'changed' || (which !== 'all' && which !== g); });
+    Object.keys(heads).forEach((g) => { heads[g].hidden = which === 'changed' || (which === 'all' ? g === 'home' : which !== g); });
+    subs.forEach((h) => { h.hidden = which !== 'home'; });
   }
-  ['all', 'symbol', 'text', 'changed'].forEach((k) => document.getElementById('f-' + k).addEventListener('click', () => filter(k)));
+  FILTERS.forEach((k) => document.getElementById('f-' + k).addEventListener('click', () => filter(k)));
 
   async function setupComments() {
     if (!window.claude || !window.claude.use) return;
@@ -332,7 +341,9 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
     const HEADS = {
       symbol: ['Mit Symbol', 'Diese Parameter zeigen auf ihrer Karte eine Form statt einer Zahl.'],
       text: ['Noch ohne Symbol', 'Diese Karten zeigen Name und Wert als Text. Schreib eine Symbol-Idee dazu, dann zeichne ich sie und sie erscheint oben.'],
+      home: ['Nur HOME', 'Die vier Parameter, die jede Engine auf HOME auf KNOB 1 bis 4 legt, so wie sie dort erscheinen.'],
     };
+    let lastSource = null;
     let lastGroup = null;
     data.symbols.forEach((s, i) => {
       const g = s.group || 'symbol';
@@ -340,8 +351,12 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
         const h = el('div', 'group-head'); h.append(el('h2', null, HEADS[g][0]), el('p', null, HEADS[g][1]));
         heads[g] = h; grid.append(h); lastGroup = g;
       }
+      if (g === 'home' && s.source !== lastSource) {
+        const sh = el('h3', 'sub-head', s.source); sh.hidden = true; subs.push(sh); grid.append(sh); lastSource = s.source;
+      }
       const c = buildCard(s, imgs[i][0], imgs[i][1]); cards.push(c); grid.append(c.a);
     });
+    filter('all');
     if (!(window.claude && window.claude.use)) cards.forEach((c) => { c.btn.textContent = 'Text kopieren'; });
     setupComments();
   }

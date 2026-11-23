@@ -136,6 +136,20 @@ int main(int argc, char **argv)
         {"type", "Resonator-Typ", "TYPE", "TYPE (VDRUM: TUBE / STRNG)", 15, 0},
         {"wave", "Wellenform", "WAVE", "WAVE, WAVE2", 0, 0},
         {"t_COLR", "Farbe (COLR)", "COLR", "COLR (NOISE, Delay-Farbe)", 11, 0},
+        {"t_SWP", "Pitch-Sweep (SWP)", "SWP", "SWP (LOFI)", 3, 0},
+        {"t_VIB", "Vibrato (VIB)", "VIB", "VIB (LOFI)", 3, 0},
+        {"t_SIZE", "Grain-Größe (SIZE)", "SIZE", "SIZE (GRAIN)", 8, 0},
+        {"t_POS", "Leseposition (POS)", "POS", "POS (GRAIN)", 8, 0},
+        {"t_DENS", "Grain-Dichte (DENS)", "DENS", "DENS (GRAIN)", 8, 0},
+        {"t_MODEL", "Modell (MODEL)", "MODEL", "MODEL (PHYS)", 9, 0},
+        {"t_STRC", "Struktur (STRC)", "STRC", "STRC (PHYS)", 9, 0},
+        {"t_DAMP", "Dämpfung (DAMP)", "DAMP", "DAMP (PHYS, Hall)", 9, 0},
+        {"t_BOW", "Bogen (BOW)", "BOW", "BOW (PHYS)", 9, 0},
+        {"t_EXC", "Anregung (EXC)", "EXC", "EXC (PHYS)", 9, 0},
+        {"t_DECY", "Drum-Decay (DECY)", "DECY", "DECY (DRUM), DCY (LOFI)", 10, 0},
+        {"t_SNAP", "Snap (SNAP)", "SNAP", "SNAP (DRUM)", 10, 0},
+        {"t_DRFT", "Drift (DRFT)", "DRFT", "DRFT (NOISE)", 11, 0},
+        {"t_MRAT", "Modulator-Verhältnis (MRAT)", "MRAT", "MRAT (FM6)", 12, 0},
     };
     uint32_t i, e, k;
     char path[512];
@@ -148,6 +162,10 @@ int main(int argc, char **argv)
         const param_desc_t *d = L[i].d ? L[i].d : eng_desc(L[i].eng, L[i].label);
         if (!d) { fprintf(stderr, "no desc %s\n", L[i].id); return 1; }
         lab_seen(d->label);
+        if (L[i].eng >= 0) {                            /* (the card on its engine's HOME: SIZE is GRAIN's there) */
+            set_engine_of(TSEL, (uint32_t)L[i].eng);
+            ui.home = 1;
+        }
         lab_card(argv[1], L[i].id, L[i].title, L[i].labels, L[i].eng >= 0 ? ENGINES[L[i].eng]->name : "Spur / global",
                  "symbol", d);
     }
@@ -161,6 +179,24 @@ int main(int argc, char **argv)
         lab_text(argv[1], &TP[k], "Spur");
     for (k = 0; k < G_COUNT; k++)                       /* .. and the global ones */
         lab_text(argv[1], &GP[k], "Global");
+    for (e = 0; e < NENGINES; e++)                      /* HOME: each engine's KNOB 1..4, as HOME shows them */
+        if (ENGINES[e]->name[0] != '-') {
+            set_engine_of(TSEL, e);
+            ui.home = 1;
+            for (k = 0; k < 4u; k++) {
+                const param_desc_t *d = track_desc(TSEL, ENGINES[e]->knob[k]);
+                char id[40], title[32];
+                uint32_t n;
+                if (!d || !d->label)
+                    continue;
+                snprintf(id, sizeof id, "h_%s_%u", ENGINES[e]->name, k);
+                for (n = 0; id[n]; n++)
+                    if (!((id[n] >= 'A' && id[n] <= 'Z') || (id[n] >= 'a' && id[n] <= 'z') || (id[n] >= '0' && id[n] <= '9') || id[n] == '_'))
+                        id[n] = '_';
+                snprintf(title, sizeof title, "KNOB %u · %s", k + 1, d->label);
+                lab_card(argv[1], id, title, d->label, ENGINES[e]->name, "home", d);
+            }
+        }
     fprintf(J, "\n]\n");
     fclose(J);
     return 0;
