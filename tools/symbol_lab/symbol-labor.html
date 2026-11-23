@@ -1,0 +1,322 @@
+<title>FM-1 Symbol-Labor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a bench of symbol cards; each card a device window (the FM-1's card, 4x, pixel for pixel) over its
+   slider, value and a comment line to Claude. Summary (version, what changed) first, then the cards. */
+:root {
+  --bg: #eef0ed;
+  --surface: #ffffff;
+  --ink: #1a1d1b;
+  --muted: #5c645f;
+  --line: #d6dbd6;
+  --accent: #2b6b5e;
+  --accent-soft: #dcebe6;
+  --device: #0d0f0e;
+  --device-edge: #2a2e2c;
+  --danger: #a3401f;
+  --font-ui: "Inter Tight", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111312; --surface: #1a1d1c; --ink: #e8ebe8; --muted: #98a19c; --line: #2b302e;
+    --accent: #72c4ae; --accent-soft: #1f3530; --device: #050606; --device-edge: #343937; --danger: #e48a68;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111312; --surface: #1a1d1c; --ink: #e8ebe8; --muted: #98a19c; --line: #2b302e;
+  --accent: #72c4ae; --accent-soft: #1f3530; --device: #050606; --device-edge: #343937; --danger: #e48a68;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 28px; }
+header.top { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.1; font-weight: 700; letter-spacing: -.01em; text-wrap: balance; }
+.lede { margin: 0; max-width: 64ch; color: var(--muted); }
+.summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+.summary h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.summary ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.summary li { color: var(--ink); }
+.summary .ver { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+.how { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bar .spacer { flex: 1; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 16px; }
+.sym { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.sym.changed { border-color: var(--accent); }
+.sym-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sym-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.tag { font-family: var(--font-mono); font-size: 12px; padding: 1px 6px; border-radius: 4px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.applies { margin: 0; font-size: 12.5px; color: var(--muted); }
+.stage { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.device { background: var(--device); border: 1px solid var(--device-edge); border-radius: 8px; padding: 10px; line-height: 0; }
+.device canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; width: 228px; height: 176px; max-width: 100%; }
+.prev { display: grid; gap: 4px; justify-items: start; }
+.prev .device { padding: 6px; }
+.prev canvas { width: 114px; height: 88px; }
+.prev span { font-size: 12px; color: var(--muted); }
+.ctl { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.play { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; font-size: 13px; }
+.play[aria-pressed="true"] { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; text-align: right; min-width: 9ch; }
+.val small { display: block; font-size: 11px; color: var(--muted); }
+.change { margin: 0; font-size: 13px; padding: 8px 10px; border-radius: 6px; background: var(--accent-soft); color: var(--ink); }
+textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-size: 14px; padding: 8px 10px;
+  border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.send { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.send button { font: inherit; font-size: 14px; font-weight: 600; padding: 7px 14px; border-radius: 6px; border: 0;
+  background: var(--accent); color: var(--surface); cursor: pointer; }
+.send button:disabled { opacity: .45; cursor: default; }
+.status { font-size: 12.5px; color: var(--muted); min-width: 0; }
+.status.err { color: var(--danger); }
+.copybox { display: none; font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; padding: 8px; border-radius: 6px; border: 1px dashed var(--line); }
+.copybox.show { display: block; }
+.empty { color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">M-Vave-OP1 · Alt-2-Karten</div>
+    <h1>FM-1 Symbol-Labor</h1>
+    <p class="lede">Jede Karte zeigt ein Symbol so, wie das FM-1 es zeichnet: mit dem Firmware-Code für jeden Wert vorgerendert, vierfach vergrößert, Pixel für Pixel. Regler bewegen, Kommentar schreiben, an Claude senden.</p>
+  </header>
+
+  <section class="summary" aria-labelledby="neu">
+    <div>
+      <h2 id="neu">Neu in dieser Version</h2>
+      <ul id="changes"><li class="empty">Lädt …</li></ul>
+      <p class="how" id="how">Kommentare gehen mit dem Symbol und dem eingestellten Wert an Claude. Die Antwort erscheint im Kommentar-Thread, die Änderung als neue Version dieser Seite.</p>
+    </div>
+    <div class="ver" id="ver"></div>
+  </section>
+
+  <div class="bar" role="toolbar" aria-label="Filter">
+    <button class="chip" id="f-all" aria-pressed="true">Alle</button>
+    <button class="chip" id="f-changed" aria-pressed="false">Geändert</button>
+    <span class="spacer"></span>
+    <button class="chip" id="play-all" aria-pressed="false">Alle abspielen</button>
+  </div>
+
+  <div class="grid" id="grid"><p class="empty">Symbole werden geladen …</p></div>
+</div>
+
+<script>
+(() => {
+  const CW = 57, CH = 44, PER_ROW = 16;
+  const grid = document.getElementById('grid');
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  };
+  let comments = null, mode = 'copy';
+  const cards = [];
+
+  function loadImg(src) {
+    return new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+  }
+  function drawFrame(ctx, img, f) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, CW, CH);
+    if (img) ctx.drawImage(img, (f % PER_ROW) * CW, Math.floor(f / PER_ROW) * CH, CW, CH, 0, 0, CW, CH);
+  }
+
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function buildCard(s, img, prevImg) {
+    const a = el('article', 'sym' + (s.change ? ' changed' : ''));
+    a.dataset.id = s.id;
+    const head = el('div', 'sym-head');
+    head.append(el('h2', null, s.title), el('span', 'tag', s.label));
+    if (s.change) head.append(el('span', 'badge', 'geändert'));
+    a.append(head);
+    a.append(el('p', 'applies', 'Gilt für ' + s.labels + ' · Werte aus ' + s.source));
+
+    const stage = el('div', 'stage');
+    const dev = el('div', 'device');
+    const cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
+    cv.setAttribute('role', 'img');
+    dev.append(cv); stage.append(dev);
+    let pcv = null;
+    if (prevImg) {
+      const p = el('div', 'prev');
+      const pd = el('div', 'device');
+      pcv = document.createElement('canvas'); pcv.width = CW; pcv.height = CH;
+      pd.append(pcv); p.append(el('span', null, 'vorher'), pd); stage.append(p);
+    }
+    a.append(stage);
+
+    const ctl = el('div', 'ctl');
+    const play = el('button', 'play', '▶'); play.setAttribute('aria-pressed', 'false'); play.setAttribute('aria-label', s.title + ' abspielen');
+    const range = document.createElement('input'); range.type = 'range';
+    range.min = 0; range.max = s.frames - 1; range.step = 1; range.id = 'r-' + s.id;
+    range.setAttribute('aria-label', s.title + ' Wert');
+    const def = Math.min(Math.max(s.def - s.min, 0), s.frames - 1);
+    const saved = parseInt(store.get('lab-v-' + s.id), 10);
+    range.value = Number.isFinite(saved) ? Math.min(saved, s.frames - 1) : def;
+    const val = el('div', 'val');
+    ctl.append(play, range, val);
+    a.append(ctl);
+
+    if (s.change) a.append(el('p', 'change', s.change));
+
+    const ta = document.createElement('textarea'); ta.id = 'c-' + s.id;
+    ta.placeholder = 'Kommentar zu ' + s.title + ' … (der eingestellte Wert geht mit)';
+    ta.value = store.get('lab-c-' + s.id) || '';
+    const send = el('div', 'send');
+    const btn = el('button', null, 'An Claude senden');
+    const status = el('span', 'status');
+    send.append(btn, status);
+    const copy = el('div', 'copybox');
+    a.append(ta, send, copy);
+
+    const c = { s, a, cv, pcv, img, prevImg, range, val, play, ta, btn, status, copy, playing: false, dir: 1, t: 0 };
+    const render = () => {
+      const f = +range.value;
+      drawFrame(cv.getContext('2d'), img, f);
+      if (pcv) drawFrame(pcv.getContext('2d'), prevImg, f);
+      const raw = s.min + f;
+      val.textContent = '';
+      val.append(document.createTextNode(s.values[f]));
+      val.append(el('small', null, 'Wert ' + raw + ' · ' + Math.round(f * 100 / Math.max(1, s.frames - 1)) + ' %'));
+      cv.setAttribute('aria-label', s.title + ' bei ' + s.values[f]);
+    };
+    c.render = render;
+    range.addEventListener('input', () => { store.set('lab-v-' + s.id, range.value); render(); });
+    play.addEventListener('click', () => setPlaying(c, !c.playing));
+    ta.addEventListener('input', () => store.set('lab-c-' + s.id, ta.value));
+    btn.addEventListener('click', () => sendComment(c));
+    render();
+    return c;
+  }
+
+  function context(c) {
+    const f = +c.range.value;
+    return '[Symbol-Labor v' + window.LAB_VERSION + ' · ' + c.s.title + ' (' + c.s.label + ') · Wert ' + (c.s.min + f) + ' = ' + c.s.values[f] + ']';
+  }
+
+  async function sendComment(c) {
+    const words = c.ta.value.trim();
+    if (!words) { c.status.className = 'status err'; c.status.textContent = 'Erst einen Kommentar schreiben.'; return; }
+    const text = context(c) + '\n' + words;
+    c.status.className = 'status'; c.copy.classList.remove('show');
+    if (mode === 'copy' || !comments) {
+      c.copy.textContent = text; c.copy.classList.add('show');
+      try { await navigator.clipboard.writeText(text); c.status.textContent = 'Kopiert. Bitte im Chat bei Claude einfügen.'; }
+      catch (e) { c.status.textContent = 'Senden geht hier nicht. Text unten markieren und im Chat einfügen.'; }
+      return;
+    }
+    c.btn.disabled = true; c.status.textContent = 'Wird gesendet …';
+    try {
+      const anchor = await comments.anchorFor(c.a);
+      if (mode === 'claude') {
+        try {
+          await comments.sendToClaude({ anchor, text });
+          c.status.textContent = 'An Claude gesendet. Die Antwort kommt im Kommentar-Thread.';
+        } catch (e) {
+          if (e && e.code === 'claude_unavailable') {
+            await comments.create({ anchor, text });
+            c.status.textContent = 'Claude war nicht erreichbar: als Kommentar gespeichert, Claude liest ihn später.';
+          } else throw e;
+        }
+      } else {
+        await comments.create({ anchor, text });
+        c.status.textContent = 'Als Kommentar gespeichert. Sag Claude im Chat Bescheid.';
+      }
+      c.ta.value = ''; store.set('lab-c-' + c.s.id, '');
+    } catch (e) {
+      c.status.className = 'status err';
+      const code = e && e.code;
+      c.status.textContent = code === 'consent_required' ? 'Nicht gesendet: Bitte erlaube der Seite, als du zu kommentieren, und sende noch einmal.'
+        : code === 'forbidden' ? 'Du kannst über diese Seite nicht kommentieren. Text kopieren und im Chat einfügen.'
+        : code === 'rate_limited' ? 'Zu viele Kommentare auf einmal. Kurz warten, dann noch einmal senden.'
+        : 'Nicht gesendet (' + (code || 'Fehler') + '). Dein Text bleibt stehen.';
+      if (code === 'forbidden') { mode = 'copy'; }
+    } finally { c.btn.disabled = false; }
+  }
+
+  // play: sweep the slider up and down (about 3 s each way)
+  let raf = 0, last = 0;
+  function tick(ts) {
+    const dt = last ? Math.min(ts - last, 100) : 16; last = ts;
+    let any = false;
+    for (const c of cards) {
+      if (!c.playing || c.a.hidden) continue;
+      any = true;
+      const n = c.s.frames - 1;
+      c.t += c.dir * dt / 3000 * n;
+      if (c.t >= n) { c.t = n; c.dir = -1; } else if (c.t <= 0) { c.t = 0; c.dir = 1; }
+      const f = Math.round(c.t);
+      if (+c.range.value !== f) { c.range.value = f; c.render(); }
+    }
+    raf = any ? requestAnimationFrame(tick) : 0;
+    if (!any) last = 0;
+  }
+  function setPlaying(c, on) {
+    c.playing = on; c.t = +c.range.value;
+    c.play.setAttribute('aria-pressed', String(on)); c.play.textContent = on ? '❚❚' : '▶';
+    if (on && !raf) raf = requestAnimationFrame(tick);
+  }
+  document.getElementById('play-all').addEventListener('click', (e) => {
+    const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+    e.currentTarget.textContent = on ? 'Alle anhalten' : 'Alle abspielen';
+    cards.forEach((c) => setPlaying(c, on));
+  });
+  function filter(changedOnly) {
+    document.getElementById('f-all').setAttribute('aria-pressed', String(!changedOnly));
+    document.getElementById('f-changed').setAttribute('aria-pressed', String(changedOnly));
+    cards.forEach((c) => { c.a.hidden = changedOnly && !c.s.change; });
+  }
+  document.getElementById('f-all').addEventListener('click', () => filter(false));
+  document.getElementById('f-changed').addEventListener('click', () => filter(true));
+
+  async function setupComments() {
+    if (!window.claude || !window.claude.use) return;
+    try { comments = await window.claude.use('comments'); } catch (e) { comments = null; }
+    if (!comments) return;
+    let can = 'off';
+    try { can = await comments.canSendToClaude(); } catch (e) {}
+    mode = can === 'available' ? 'claude' : 'comment';
+    const label = mode === 'claude' ? 'An Claude senden' : 'Als Kommentar speichern';
+    cards.forEach((c) => { c.btn.textContent = label; });
+    if (mode === 'comment') document.getElementById('how').textContent =
+      'Kommentare werden mit Symbol und Wert an dieser Stelle gespeichert. Claude liest sie, wenn du im Chat Bescheid sagst.';
+  }
+
+  async function main() {
+    let data;
+    try { data = await (await fetch('data.json')).json(); }
+    catch (e) { grid.innerHTML = ''; grid.append(el('p', 'empty', 'Die Symboldaten ließen sich nicht laden. Seite neu öffnen.')); return; }
+    window.LAB_VERSION = data.version;
+    document.getElementById('ver').textContent = 'Version ' + data.version + ' · ' + data.date;
+    const ch = document.getElementById('changes'); ch.innerHTML = '';
+    const changed = data.symbols.filter((s) => s.change);
+    if (!changed.length) ch.append(el('li', null, 'Keine Änderungen seit der letzten Version.'));
+    changed.forEach((s) => { const li = el('li'); const b = el('strong', null, s.title + ': '); li.append(b, document.createTextNode(s.change)); ch.append(li); });
+    const imgs = await Promise.all(data.symbols.map((s) => Promise.all([loadImg('sprites/' + s.id + '.png'), s.prev ? loadImg('prev/' + s.id + '.png') : null])));
+    grid.innerHTML = '';
+    data.symbols.forEach((s, i) => { const c = buildCard(s, imgs[i][0], imgs[i][1]); cards.push(c); grid.append(c.a); });
+    if (!(window.claude && window.claude.use)) cards.forEach((c) => { c.btn.textContent = 'Text kopieren'; });
+    setupComments();
+  }
+  main();
+})();
+</script>

@@ -3029,7 +3029,8 @@ static int test_product_ux(void)
     {   /* M-Vave-OP1, the Alt 2 design: the cards' shapes by label (ui_cards.c), the panel to 218 under a one-line footer
          * (two rows only where hints need them), the knob just turned as a MID edge round its card */
         uint32_t y, surf = 1;
-        ok = card_sym("CUT", "355", "Hz", 400, ICON_NONE) == SYM_CUT && card_sym("SUS", "16", "%", 120, ICON_NONE) == SYM_SUS &&
+        ok = card_sym("CUT", "355", "Hz", 400, ICON_NONE) == SYM_CUT && card_sym("CUT2", "1.5", "kHz", 630, ICON_NONE) == SYM_CUT &&
+             card_sym("RES2", "16", "%", 160, ICON_NONE) == SYM_RES && card_sym("RATE2", "1.45", "Hz", 500, ICON_NONE) == SYM_RATE && card_sym("SUS", "16", "%", 120, ICON_NONE) == SYM_SUS &&
              card_sym("RATE", "1.18", "Hz", 300, ICON_NONE) == SYM_RATE && card_sym("RATE", "1/16", "", 300, ICON_NONE) == SYM_NONE &&
              card_sym("AMT", "-100", "%", 0, ICON_NONE) == SYM_BIPOLAR && card_sym("TYPE", "LP", "", 0, ICON_NONE) == SYM_NONE &&
              card_sym("MIX", "0", "%", -1, ICON_NONE) == SYM_NONE && card_sym("WAVE", "SYNC", "", 500, ICON_NONE) == SYM_SYNC &&

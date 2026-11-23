@@ -43,15 +43,15 @@ static const card_sym_t CARD_SYM[] = {
     {"SUS", SYM_SUS}, {"SUSTAIN", SYM_SUS},
     {"GATE", SYM_GATE},
     {"GLD", SYM_GLIDE}, {"GLIDE", SYM_GLIDE}, {"PORTA", SYM_GLIDE}, {"SLIDE", SYM_GLIDE},
-    {"RATE", SYM_RATE},
+    {"RATE", SYM_RATE}, {"RATE2", SYM_RATE},
     {"DEPTH", SYM_DEPTH}, {"DPTH", SYM_DEPTH},
     {"DTN", SYM_DETUNE}, {"DETUNE", SYM_DETUNE}, {"DTUNE", SYM_DETUNE},
     {"FDBK", SYM_ECHO}, {"FEEDBACK", SYM_ECHO},
     {"SWG", SYM_SWING}, {"SWING", SYM_SWING},
     {"CHANCE", SYM_CHANCE}, {"RAND", SYM_CHANCE}, {"PROB", SYM_CHANCE},
     {"NOIS", SYM_NOISE}, {"NOISE", SYM_NOISE},
-    {"CUT", SYM_CUT}, {"CUTOFF", SYM_CUT}, {"TONE", SYM_CUT}, {"BRIT", SYM_CUT},
-    {"RES", SYM_RES}, {"RESO", SYM_RES},
+    {"CUT", SYM_CUT}, {"CUT2", SYM_CUT}, {"CUTOFF", SYM_CUT}, {"TONE", SYM_CUT}, {"BRIT", SYM_CUT},   /* (2: ANLG2) */
+    {"RES", SYM_RES}, {"RES2", SYM_RES}, {"RESO", SYM_RES},
     {"ATK", SYM_ATK}, {"ATTACK", SYM_ATK}, {"FADE", SYM_ATK},
     {"REL", SYM_REL}, {"RELEASE", SYM_REL},
     {"ENV", SYM_ENV},                                   /* ACID: how far the envelope opens the filter */
@@ -250,13 +250,15 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, uint16_t c)
     case SYM_DEC:                                       /* a plateau, then the fall to a sustain */
     case SYM_REL:                                       /* the level held, then the fall to nothing */
     case SYM_ENV:                                       /* the envelope's sweep: a quick rise, the decay to nothing */
-        k = s == SYM_CUT ? sym_at(r, 3, 24) : s == SYM_ATK ? sym_at(r, 2, 26) : s == SYM_DEC ? sym_at(r, 3, 22)
+        k = s == SYM_CUT ? sym_at(r, -9, SYM_W - 1) : s == SYM_ATK ? sym_at(r, 2, 26) : s == SYM_DEC ? sym_at(r, 3, 22)
           : s == SYM_REL ? sym_at(r, 3, 26) : s == SYM_ENV ? sym_at(r, 3, SYM_H) : sym_at(r, 4, SYM_H - 2);
         for (x = 0; x < SYM_W; x++) {
             int32_t d;
-            if (s == SYM_CUT) {                         /* a quarter ellipse from the cutoff to the right edge */
+            if (s == SYM_CUT) {                         /* the pass band full up to the cutoff k (-9 .. 29: at the
+                                                         * bottom only the fall's tail at the left edge), then the
+                                                         * fall over 10 px to nothing: the shape closes as it goes */
                 d = x - k;
-                h = d <= 0 ? SYM_H : SYM_H - SYM_H * d * d / ((SYM_W - k) * (SYM_W - k));
+                h = d <= 0 ? SYM_H : d >= 10 ? 0 : SYM_H - SYM_H * d * d / 100;
             } else if (s == SYM_RES) {                  /* a floor of 4, the peak's flanks falling as 1 / (1 + d^2) */
                 d = x * 2 - (SYM_W - 1);
                 h = 4 + k * 16 / (16 + d * d);
