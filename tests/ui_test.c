@@ -3043,7 +3043,7 @@ static int test_product_ux(void)
              card_sym("SPRD", "30", "%", 300, ICON_NONE) == SYM_SPREAD && card_sym("AUX", "0", "%", 0, ICON_NONE) == SYM_AUX &&
              card_sym("TUNE", "+7", "", 790, ICON_NONE) == SYM_TUNE && card_sym("ACC", "80", "%", 800, ICON_NONE) == SYM_ACC && card_sym("COLR", "50", "%", 500, ICON_NONE) == SYM_FILL && card_sym("SWP", "50", "%", 500, ICON_NONE) == SYM_SWEEP && card_sym("VIB", "50", "%", 500, ICON_NONE) == SYM_VIB && card_sym("DENS", "50", "%", 500, ICON_NONE) == SYM_GDENS &&
              card_sym("MODEL", "MEMB", "", 667, ICON_NONE) == SYM_MODEL && card_sym("STRC", "50", "%", 500, ICON_NONE) == SYM_STRC &&
-             card_sym("DAMP", "50", "%", 500, ICON_NONE) == SYM_DAMP && card_sym("DECY", "42", "%", 420, ICON_NONE) == SYM_DEC &&
+             card_sym("DAMP", "50", "%", 500, ICON_NONE) == SYM_DAMP && card_sym("DECY", "42", "%", 420, ICON_NONE) == SYM_DEC && card_sym("REG", "FLUTE", "", 0, ICON_NONE) == SYM_NAME &&
              card_sym("POS", "50", "%", 500, ICON_NONE) == SYM_GPOS &&
              card_sym("TYPE", "TUBE", "", 0, ICON_NONE) == SYM_TUBE && card_sym("TYPE", "STRNG", "", 1000, ICON_NONE) == SYM_STRING &&
              card_sym("TYPE", "HALL", "", 1000, ICON_NONE) == SYM_NONE && card_sym("ACC", "ON", "", -1, ICON_NONE) == SYM_NONE;
@@ -3056,7 +3056,7 @@ static int test_product_ux(void)
                      "VDRUM's TYPE TUBE / STRNG, GRAIN's SIZE; another TYPE, the STEP page's ACC, another SIZE: text)", ok);
         {   /* each shape alone on the card's SURF (no ghost of its range) and inside its 30 x 24 area, 0 .. 100 % */
             static const char *const L[] = {"CUT", "RES", "ATK", "DEC", "REL", "ENV", "LEVEL", "SUS", "FLT", "DEPTH",
-                                            "FDBK", "SWG", "CHANCE", "NOIS", "GLD", "RATE", "DTN", "DIST", "CRSH", "CUT2", "COLR", "SWP", "VIB", "POS", "DENS", "STRC", "DAMP", "BOW", "EXC", "SNAP", "DRFT", "MRAT",
+                                            "FDBK", "SWG", "CHANCE", "NOIS", "GLD", "RATE", "DTN", "DIST", "CRSH", "CUT2", "COLR", "SWP", "VIB", "POS", "DENS", "STRC", "DAMP", "BOW", "EXC", "SNAP", "DRFT", "MRAT", "FREQ", "MEG", "DUTY",
                                             "HARM", "TIMB", "MORPH", "KTR", "SPRD", "AUX", "TUNE", "ACC"};
             uint32_t l, v, x, outside = 0, ink = 0;
             ui_power_on();

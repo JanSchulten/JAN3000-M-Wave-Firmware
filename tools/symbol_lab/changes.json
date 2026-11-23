@@ -28,5 +28,12 @@
  "t_DECY": "DECY (DRUM) zeigt jetzt das Decay-Symbol der Synths. LOFIs DCY ebenso.",
  "t_SNAP": "Neu: SNAP (DRUM) als Frequenzgang-Linie, deren Höhen mit dem Wert angehoben werden.",
  "t_DRFT": "Neu: DRFT (NOISE): eine Kugel, die mit dem Wert auf einer Sinuswelle von links nach rechts getragen wird.",
- "t_MRAT": "Neu: MRAT (FM6) als Glocke: dunkel nur der Umriss, je heller, desto mehr füllt sie sich von unten, ganz hell ist sie voll."
+ "t_MRAT": "Neu: MRAT (FM6) als Glocke: dunkel nur der Umriss, je heller, desto mehr füllt sie sich von unten, ganz hell ist sie voll.",
+ "t_REG": "REG (WHEEL) zeigt nur noch den Namen der Registrierung, groß in der Mitte, ohne „REG“ darüber.",
+ "t_PERC": "PERC (WHEEL) zeigt nur noch den Wert (OFF, 2ND …), groß in der Mitte, ohne „PERC“ darüber.",
+ "t_FREQ": "Neu: FREQ (NOISE) als Frequenzgang-Linie mit einer Spitze, die mit der Frequenz von links nach rechts wandert.",
+ "t_MEG": "Neu: MEG (FM6) mit dem Hüllkurven-Symbol: positiv steigt die Hüllkurve von unten, negativ hängt sie von oben, so hoch wie der Betrag.",
+ "t_SLOT": "SLOT (FM6) zeigt nur noch den Slot-Namen, groß in der Mitte, ohne „SLOT“ darüber.",
+ "t_ROTR": "ROTR (WHEEL) zeigt nur noch OFF / SLOW / FAST, groß in der Mitte, ohne „ROTR“ darüber.",
+ "t_DUTY": "Neu: DUTY (LOFI, auch PW) als Pulsbreite: zwei Rechteck-Perioden, deren Hoch-Anteil mit dem Wert breiter wird."
 }

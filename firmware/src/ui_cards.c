@@ -23,7 +23,7 @@ enum {
     SYM_NONE, SYM_LEVEL, SYM_PAN, SYM_BIPOLAR, SYM_DEC, SYM_SUS, SYM_GATE, SYM_GLIDE, SYM_RATE, SYM_DEPTH, SYM_DETUNE,
     SYM_ECHO, SYM_SWING, SYM_CHANCE, SYM_NOISE, SYM_CUT, SYM_RES, SYM_ATK, SYM_REL, SYM_WAVE, SYM_SYNC, SYM_SUB,
     SYM_ENV, SYM_DIST, SYM_CRUSH, SYM_HARM, SYM_TIMB, SYM_MORPH, SYM_KTR, SYM_SPREAD, SYM_AUX, SYM_TUNE, SYM_ACC,
-    SYM_TUBE, SYM_STRING, SYM_FILL, SYM_SWEEP, SYM_VIB, SYM_GSIZE, SYM_GPOS, SYM_GDENS, SYM_MODEL, SYM_STRC, SYM_DAMP, SYM_BOW, SYM_EXC, SYM_SNAP, SYM_DRFT, SYM_BELL
+    SYM_TUBE, SYM_STRING, SYM_FILL, SYM_SWEEP, SYM_VIB, SYM_GSIZE, SYM_GPOS, SYM_GDENS, SYM_MODEL, SYM_STRC, SYM_DAMP, SYM_BOW, SYM_EXC, SYM_SNAP, SYM_DRFT, SYM_BELL, SYM_NAME, SYM_FREQ, SYM_ENVBI, SYM_PULSE
 };
 
 typedef struct {
@@ -69,7 +69,11 @@ static const card_sym_t CARD_SYM[] = {
     {"SIZE", SYM_GSIZE}, {"POS", SYM_GPOS}, {"DENS", SYM_GDENS},
     {"STRC", SYM_STRC}, {"DAMP", SYM_DAMP}, {"BOW", SYM_BOW}, {"EXC", SYM_EXC}, {"SNAP", SYM_SNAP},
     {"DRFT", SYM_DRFT},
-    {"MRAT", SYM_BELL},                                 /* FM6's modulator ratio: bright .. dark */                                 /* NOISE's drift */             /* PHYS (DAMP: the reverb's too) */            /* GRAIN's grain size and read position */                                   /* LOFI's vibrato */                                 /* LOFI's pitch sweep */
+    {"MRAT", SYM_BELL},
+    {"REG", SYM_NAME}, {"PERC", SYM_NAME}, {"ROTR", SYM_NAME}, {"SLOT", SYM_NAME},   /* WHEEL, FM6: the name alone */
+    {"MEG", SYM_ENVBI},
+    {"DUTY", SYM_PULSE}, {"PW", SYM_PULSE},              /* a pulse's width */                                 /* FM6: the envelope on the modulators, +- */
+    {"FREQ", SYM_FREQ},                                 /* NOISE's filter */                                 /* FM6's modulator ratio: bright .. dark */                                 /* NOISE's drift */             /* PHYS (DAMP: the reverb's too) */            /* GRAIN's grain size and read position */                                   /* LOFI's vibrato */                                 /* LOFI's pitch sweep */
     {"COLR", SYM_FILL},                                 /* NOISE's colour, the delay's */
 };
 
@@ -742,6 +746,50 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, const char *val, u
         k = SYM_H - sym_at(r, 0, SYM_H);                /* (the fill's top row) */
         sym_bits_from(SYM_BM_BELLIN, k, c);
         break;
+    case SYM_ENVBI: {                                   /* MEG (JAN3000): ENV's sweep for an amount about 0: up from
+                                                         * the bottom for +, hanging from the top for -, as tall as it */
+        int32_t amt = r > 500 ? (r - 500) * 2 : (500 - r) * 2, d;
+        k = sym_at(amt, 1, SYM_H);
+        for (x = 0; x < SYM_W; x++) {
+            d = SYM_W - 1 - x;
+            h = x < 3 ? k * (x + 1) / 3 : k * d * d / ((SYM_W - 4) * (SYM_W - 4));
+            if (h < 1) h = 1;
+            if (r >= 500)
+                sym_col(x, h, c);
+            else
+                cv_rect(SYM_X + x, SYM_Y, 1, h, c);
+        }
+        break;
+    }
+    case SYM_PULSE:                                     /* DUTY, PW (JAN3000): two periods of a pulse (14 px each), high
+                                                         * for as much of each as the width (1 .. 13 px), 2 px lines */
+        k = sym_at(r, 1, 13);
+        for (i = 0; i < 2; i++) {
+            int32_t x0 = SYM_X + i * 14, hi = SYM_Y + 4, lo = SYM_Y + SYM_H - 6, xe = i ? SYM_X + SYM_W - 2 : x0 + 14;
+            sym_seg(x0, lo, x0, hi, c);                 /* up */
+            sym_seg(x0, hi, x0 + k, hi, c);             /* high for the width */
+            sym_seg(x0 + k, hi, x0 + k, lo, c);         /* down */
+            sym_seg(x0 + k, lo, xe, lo, c);             /* low for the rest (the pen's column: x 29) */
+        }
+        break;
+    case SYM_NAME: {                                    /* REG, PERC (JAN3000): the value's name alone, in the card's
+                                                         * middle (M, else S), no label: the name says what it is */
+        const aafont_t *f = text_w(&AF_M, val) <= COL_W - 8 ? &AF_M : &AF_S;
+        cv_text_in(0, f == &AF_M ? CAP_IN(M, COL_H) : CAP_IN(S, COL_H), COL_W, f, val, c, T_SURF);
+        break;
+    }
+    case SYM_FREQ: {                                    /* FREQ (JAN3000): a frequency response, a low flat line with
+                                                         * a peak moving left to right with the frequency */
+        int32_t pk = sym_at(r, 2, SYM_W - 3) * 2, py0 = 0;   /* (the peak, 1/2 px) */
+        for (x = 0; x < SYM_W - 1; x++) {
+            int32_t d = x * 2 - pk, q = 36 + d * d;
+            y = SYM_Y + SYM_H - 4 - 16 * 36 * 36 / (q * q);    /* (16 px tall, s 3 px) */
+            if (x)
+                sym_seg(SYM_X + x - 1, py0, SYM_X + x, y, c);
+            py0 = y;
+        }
+        break;
+    }
     case SYM_STRING:                                    /* .. STRNG: three strings slanting up to the right */
         sym_seg(SYM_X, SYM_Y + 20, SYM_X + 23, SYM_Y + 6, c);
         sym_seg(SYM_X + 6, SYM_Y + 21, SYM_X + 26, SYM_Y + 5, c);

@@ -150,6 +150,13 @@ int main(int argc, char **argv)
         {"t_SNAP", "Snap (SNAP)", "SNAP", "SNAP (DRUM)", 10, 0},
         {"t_DRFT", "Drift (DRFT)", "DRFT", "DRFT (NOISE)", 11, 0},
         {"t_MRAT", "Modulator-Verhältnis (MRAT)", "MRAT", "MRAT (FM6)", 12, 0},
+        {"t_REG", "Registrierung (REG)", "REG", "REG (WHEEL)", 7, 0},
+        {"t_PERC", "Perkussion (PERC)", "PERC", "PERC (WHEEL)", 7, 0},
+        {"t_FREQ", "Rauschfilter (FREQ)", "FREQ", "FREQ (NOISE)", 11, 0},
+        {"t_MEG", "Modulator-Hüllkurve (MEG)", "MEG", "MEG (FM6)", 12, 0},
+        {"t_SLOT", "FM-Patch (SLOT)", "SLOT", "SLOT (FM6)", 12, 0},
+        {"t_ROTR", "Rotor (ROTR)", "ROTR", "ROTR (WHEEL)", 7, 0},
+        {"t_DUTY", "Pulsbreite (DUTY)", "DUTY", "DUTY (LOFI), PW", 3, 0},
     };
     uint32_t i, e, k;
     char path[512];
