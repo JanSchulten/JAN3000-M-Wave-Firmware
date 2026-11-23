@@ -711,22 +711,21 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, const char *val, u
             sym_poly(px, py, 3, c);
         }
         break;
-    case SYM_EXC:                                       /* EXC (JAN3000): an ellipse becoming an octagon: 32 points on
-                                                         * the ellipse moving to the octagon's sides, a 2 px edge */
-        for (i = 0; i < 32; i++) {
-            uint32_t p = SYM_DEG(22) + 0x1000000u + ((uint32_t)i << 27);   /* (22.5 + 11.25 i degrees, clockwise) */
+    case SYM_EXC:                                       /* EXC (JAN3000): an ellipse becoming a hexagon (flat top, its
+                                                         * points left and right): 30 points on the ellipse moving to
+                                                         * the hexagon's sides, a 2 px edge */
+        for (i = 0; i < 30; i++) {
+            uint32_t p = SYM_DEG(30 + 12 * i);           /* (30 + 12 i degrees from the top, clockwise) */
             int32_t sn = sine_i(p), cs = sine_i(p + 0x40000000u), ex = 13 * 16 * sn / 32767, ey = -10 * 16 * cs / 32767;
-            int32_t v = i / 4, f = i % 4;               /* the octagon: vertex v (at 22.5 + 45 v degrees), f/4 to v + 1 */
-            uint32_t pa = SYM_DEG(22 + 45 * v) + 0x1000000u, pb = SYM_DEG(22 + 45 * ((v + 1) % 8)) + 0x1000000u;
+            int32_t v = i / 5, f = i % 5;               /* the hexagon: vertex v (at 30 + 60 v degrees), f/5 to v + 1 */
+            uint32_t pa = SYM_DEG(30 + 60 * v), pb = SYM_DEG(30 + 60 * ((v + 1) % 6));
             int32_t ax = 13 * 16 * sine_i(pa) / 32767, ay = -10 * 16 * sine_i(pa + 0x40000000u) / 32767;
             int32_t bx = 13 * 16 * sine_i(pb) / 32767, by = -10 * 16 * sine_i(pb + 0x40000000u) / 32767;
-            int32_t ox, oy;
-            ox = ax + (bx - ax) * f / 4;
-            oy = ay + (by - ay) * f / 4;
+            int32_t ox = ax + (bx - ax) * f / 5, oy = ay + (by - ay) * f / 5;
             px[i] = SYM_CX * 16 + ex + (ox - ex) * r / 1000;
             py[i] = SYM_CY * 16 + ey + (oy - ey) * r / 1000;
         }
-        sym_band(px, py, 32, 32, c);
+        sym_band(px, py, 30, 32, c);
         break;
     case SYM_SNAP: {                                    /* SNAP (JAN3000): a frequency response, flat, its highs lifted
                                                          * (a shelf from x 10 to 22, 0 .. 9 px) with the snap */

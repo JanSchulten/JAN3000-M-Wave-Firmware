@@ -3061,6 +3061,7 @@ static int test_product_ux(void)
             uint32_t l, v, x, outside = 0, ink = 0;
             ui_power_on();
             go_title("ENV"); frame();
+            ui.home = 1;                                /* (the shapes: HOME's cards only) */
             for (l = 0; l < NELEM(L); l++)
                 for (v = 0; v <= 4u; v++) {
                     const char *unit = str_eq(L[l], "GLD") ? "ms" : str_eq(L[l], "RATE") ? "Hz" : "%";
@@ -3104,6 +3105,18 @@ static int test_product_ux(void)
                 ok &= !lab && txt > 10u && host_screen[(Y_LABEL + 6) * 240 + CARD_X(0) + 6] == swap16(T_THEME);
                 bad += check("Alt 2: a shape's card without its label, the shape in the middle (a text card keeps its "
                              "label; MOTION: a dot)", ok);
+                ui.home = 0; ui.force = 1; card_mot_next = 0;   /* JAN3000: off HOME (EDIT ..) the number and its label */
+                draw_column(0, "RES", "50", "%", T_THEME, 500, ICON_NONE);
+                for (lab = 0, y = 4; y < 12u; y++)
+                    for (x = 3; x < 30u; x++)
+                        lab += host_screen[(Y_LABEL + y) * 240 + CARD_X(0) + x] != swap16(T_SURF);
+                ui.home = 1; ui.force = 1;
+                draw_column(0, "RES", "50", "%", T_THEME, 500, ICON_NONE);   /* .. and back on HOME, the shape again */
+                for (txt = 0, y = 4; y < 12u; y++)
+                    for (x = 3; x < 20u; x++)
+                        txt += host_screen[(Y_LABEL + y) * 240 + CARD_X(0) + x] != swap16(T_SURF);
+                bad += check("Alt 2: the shapes on HOME only: off HOME (EDIT, the other pages) a card keeps its label and "
+                             "number", lab > 10u && !txt);
             }
         }
         ui_power_on();

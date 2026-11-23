@@ -546,8 +546,9 @@ static void draw_column_tall(uint32_t c, const char *label, const char *val, con
 
 /* one card = one knob, redrawn only when it changed. M-Vave-OP1 (the Alt 2 design): the LABEL (8 px, DIM) at the
  * top left, under it the value (M, or S when M is too wide: engine names, long ENUMs) and its unit (8 px, DIM) on its
- * baseline; or, for a parameter with a shape (ui_cards.c card_sym: levels, envelope times, cutoff, waves ..), the
- * shape of the value alone in the card's middle, no label and no number (JAN3000). No gauge. The knob just turned (hot): a 1 px MID edge round
+ * baseline; or, on HOME, for a parameter with a shape (ui_cards.c card_sym: levels, envelope times, cutoff, waves ..),
+ * the shape of the value alone in the card's middle, no label and no number (JAN3000: HOME's quick view only; EDIT
+ * and every other page show the numbers). No gauge. The knob just turned (hot): a 1 px MID edge round
  * the card and the label in TEXT. ratio: 0..1000, the value's place on its range (the shape), -1 = none. icon: ICON_*
  * (icons.c), ICON_AUTO = by label: only a WAVE's (its shape) is drawn. A parameter MOTION drives (card_mot_next): the
  * label in the theme colour. vc: the value's colour (T_THEME, T_DIM inactive; T_ACCENT, the knob just turned, as
@@ -572,7 +573,8 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         unit = "";                                      /* "BPM 124 BPM", "USB OFF USB": the label says it */
     if (icon == ICON_AUTO)
         icon = icon_for_label(label);
-    sym = kid < 0 && kind == LK_OFF ? card_sym(label, val, unit, ratio, icon) : SYM_NONE;   /* (MENU > LARGE: the numbers) */
+    /* the shapes on HOME's cards only (JAN3000): EDIT and the other pages, a layer's map, MENU > LARGE keep the numbers */
+    sym = kid < 0 && kind == LK_OFF && ui.home && !ui.layer ? card_sym(label, val, unit, ratio, icon) : SYM_NONE;
     if (vc == T_ACCENT && kid < 0 && kind != LK_TALL)
         vc = T_THEME;                                   /* (hot: the card's edge says it) */
     str_cpy(key, label, 12);                            /* cache key: texts + colour + gauge */
@@ -589,7 +591,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     key[n + 4] = (char)(' ' + (ratio < 0 ? 0 : 1 + ratio * 90 / 1000));   /* the shape's step (a tall card's gauge:
                                                         * 47 px, under 90 steps; #63 soak) */
     key[n + 5] = (char)(icon == ICON_NONE ? '~' : '!' + icon % 90u);
-    key[n + 6] = (char)('0' + hot + 2 * mot + 4 * (int)kind);
+    key[n + 6] = (char)('0' + hot + 2 * mot + 4 * (int)kind + 16 * (sym != SYM_NONE));   /* (HOME's shape or the number) */
     key[n + 7] = 0;
     uw = unit[0] ? text_w(&AF_X, unit) + 2 : 0;
     if (text_w(vf, val) + uw > room) {

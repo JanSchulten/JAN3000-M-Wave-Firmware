@@ -24,7 +24,7 @@
  "t_STRC": "Neu: STRC (PHYS): eine Wolke, aus der mit dem Wert ein Blitz nach unten wächst.",
  "t_DAMP": "Neu: DAMP (PHYS, auch Hall-DAMP): eine glockenförmige Linie, die mit dem Wert nach unten fährt.",
  "t_BOW": "Neu: BOW (PHYS) als Pfeile von oben nach unten, mehr Pfeile mit mehr Wert (1 bis 5).",
- "t_EXC": "Neu: EXC (PHYS): eine Ellipse, die mit dem Wert zu einem Achteck wird.",
+ "t_EXC": "EXC (PHYS): eine Ellipse, die mit dem Wert zu einem Sechseck wird (vorher Achteck).",
  "t_DECY": "DECY (DRUM) zeigt jetzt das Decay-Symbol der Synths. LOFIs DCY ebenso.",
  "t_SNAP": "Neu: SNAP (DRUM) als Frequenzgang-Linie, deren Höhen mit dem Wert angehoben werden.",
  "t_DRFT": "Neu: DRFT (NOISE): eine Kugel, die mit dem Wert auf einer Sinuswelle von links nach rechts getragen wird.",
