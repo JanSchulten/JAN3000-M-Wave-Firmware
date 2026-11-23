@@ -89,6 +89,10 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
 .copybox { display: none; font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; padding: 8px; border-radius: 6px; border: 1px dashed var(--line); }
 .copybox.show { display: block; }
 .empty { color: var(--muted); }
+.group-head { grid-column: 1 / -1; display: grid; gap: 4px; padding-top: 12px; }
+.group-head h2 { margin: 0; font-size: 20px; font-weight: 700; }
+.group-head p { margin: 0; color: var(--muted); max-width: 70ch; }
+.sym.text .device { opacity: .95; }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
 
@@ -110,6 +114,8 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
 
   <div class="bar" role="toolbar" aria-label="Filter">
     <button class="chip" id="f-all" aria-pressed="true">Alle</button>
+    <button class="chip" id="f-symbol" aria-pressed="false">Mit Symbol</button>
+    <button class="chip" id="f-text" aria-pressed="false">Noch ohne Symbol</button>
     <button class="chip" id="f-changed" aria-pressed="false">Geändert</button>
     <span class="spacer"></span>
     <button class="chip" id="play-all" aria-pressed="false">Alle abspielen</button>
@@ -141,13 +147,14 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
   function buildCard(s, img, prevImg) {
-    const a = el('article', 'sym' + (s.change ? ' changed' : ''));
+    const a = el('article', 'sym' + (s.change ? ' changed' : '') + (s.group === 'text' ? ' text' : ''));
     a.dataset.id = s.id;
     const head = el('div', 'sym-head');
-    head.append(el('h2', null, s.title), el('span', 'tag', s.label));
+    if (s.group === 'text') head.append(el('h2', null, s.label));
+    else head.append(el('h2', null, s.title), el('span', 'tag', s.label));
     if (s.change) head.append(el('span', 'badge', 'geändert'));
     a.append(head);
-    a.append(el('p', 'applies', 'Gilt für ' + s.labels + ' · Werte aus ' + s.source));
+    a.append(el('p', 'applies', s.group === 'text' ? 'Textkarte · Werte aus ' + s.source : 'Gilt für ' + s.labels + ' · Werte aus ' + s.source));
 
     const stage = el('div', 'stage');
     const dev = el('div', 'device');
@@ -168,7 +175,9 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
     const range = document.createElement('input'); range.type = 'range';
     range.min = 0; range.max = s.frames - 1; range.step = 1; range.id = 'r-' + s.id;
     range.setAttribute('aria-label', s.title + ' Wert');
-    const def = Math.min(Math.max(s.def - s.min, 0), s.frames - 1);
+    const raws = s.raws || null;
+    let def = Math.min(Math.max(s.def - s.min, 0), s.frames - 1);
+    if (raws) { def = 0; raws.forEach((r, i) => { if (Math.abs(r - s.def) < Math.abs(raws[def] - s.def)) def = i; }); }
     const saved = parseInt(store.get('lab-v-' + s.id), 10);
     range.value = Number.isFinite(saved) ? Math.min(saved, s.frames - 1) : def;
     const val = el('div', 'val');
@@ -178,7 +187,8 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
     if (s.change) a.append(el('p', 'change', s.change));
 
     const ta = document.createElement('textarea'); ta.id = 'c-' + s.id;
-    ta.placeholder = 'Kommentar zu ' + s.title + ' … (der eingestellte Wert geht mit)';
+    ta.placeholder = s.group === 'text' ? 'Symbol-Idee für ' + s.label + ' … (der eingestellte Wert geht mit)'
+      : 'Kommentar zu ' + s.title + ' … (der eingestellte Wert geht mit)';
     ta.value = store.get('lab-c-' + s.id) || '';
     const send = el('div', 'send');
     const btn = el('button', null, 'An Claude senden');
@@ -192,7 +202,7 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
       const f = +range.value;
       drawFrame(cv.getContext('2d'), img, f);
       if (pcv) drawFrame(pcv.getContext('2d'), prevImg, f);
-      const raw = s.min + f;
+      const raw = s.raws ? s.raws[f] : s.min + f;
       val.textContent = '';
       val.append(document.createTextNode(s.values[f]));
       val.append(el('small', null, 'Wert ' + raw + ' · ' + Math.round(f * 100 / Math.max(1, s.frames - 1)) + ' %'));
@@ -209,7 +219,8 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
 
   function context(c) {
     const f = +c.range.value;
-    return '[Symbol-Labor v' + window.LAB_VERSION + ' · ' + c.s.title + ' (' + c.s.label + ') · Wert ' + (c.s.min + f) + ' = ' + c.s.values[f] + ']';
+    const raw = c.s.raws ? c.s.raws[f] : c.s.min + f;
+    return '[Symbol-Labor v' + window.LAB_VERSION + ' · ' + (c.s.group === 'text' ? 'ohne Symbol: ' + c.s.label + ' (' + c.s.source + ')' : c.s.title + ' (' + c.s.label + ')') + ' · Wert ' + raw + ' = ' + c.s.values[f] + ']';
   }
 
   async function sendComment(c) {
@@ -280,13 +291,15 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
     e.currentTarget.textContent = on ? 'Alle anhalten' : 'Alle abspielen';
     cards.forEach((c) => setPlaying(c, on));
   });
-  function filter(changedOnly) {
-    document.getElementById('f-all').setAttribute('aria-pressed', String(!changedOnly));
-    document.getElementById('f-changed').setAttribute('aria-pressed', String(changedOnly));
-    cards.forEach((c) => { c.a.hidden = changedOnly && !c.s.change; });
+  const heads = {};
+  function filter(which) {
+    ['all', 'symbol', 'text', 'changed'].forEach((k) => document.getElementById('f-' + k).setAttribute('aria-pressed', String(k === which)));
+    cards.forEach((c) => {
+      c.a.hidden = which === 'changed' ? !c.s.change : which === 'all' ? false : (c.s.group || 'symbol') !== which;
+    });
+    Object.keys(heads).forEach((g) => { heads[g].hidden = which === 'changed' || (which !== 'all' && which !== g); });
   }
-  document.getElementById('f-all').addEventListener('click', () => filter(false));
-  document.getElementById('f-changed').addEventListener('click', () => filter(true));
+  ['all', 'symbol', 'text', 'changed'].forEach((k) => document.getElementById('f-' + k).addEventListener('click', () => filter(k)));
 
   async function setupComments() {
     if (!window.claude || !window.claude.use) return;
@@ -309,11 +322,24 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
     document.getElementById('ver').textContent = 'Version ' + data.version + ' · ' + data.date;
     const ch = document.getElementById('changes'); ch.innerHTML = '';
     const changed = data.symbols.filter((s) => s.change);
-    if (!changed.length) ch.append(el('li', null, 'Keine Änderungen seit der letzten Version.'));
+    (data.notes || []).forEach((n) => ch.append(el('li', null, n)));
+    if (!changed.length && !(data.notes || []).length) ch.append(el('li', null, 'Keine Änderungen seit der letzten Version.'));
     changed.forEach((s) => { const li = el('li'); const b = el('strong', null, s.title + ': '); li.append(b, document.createTextNode(s.change)); ch.append(li); });
     const imgs = await Promise.all(data.symbols.map((s) => Promise.all([loadImg('sprites/' + s.id + '.png'), s.prev ? loadImg('prev/' + s.id + '.png') : null])));
     grid.innerHTML = '';
-    data.symbols.forEach((s, i) => { const c = buildCard(s, imgs[i][0], imgs[i][1]); cards.push(c); grid.append(c.a); });
+    const HEADS = {
+      symbol: ['Mit Symbol', 'Diese Parameter zeigen auf ihrer Karte eine Form statt einer Zahl.'],
+      text: ['Noch ohne Symbol', 'Diese Karten zeigen Name und Wert als Text. Schreib eine Symbol-Idee dazu, dann zeichne ich sie und sie erscheint oben.'],
+    };
+    let lastGroup = null;
+    data.symbols.forEach((s, i) => {
+      const g = s.group || 'symbol';
+      if (g !== lastGroup) {
+        const h = el('div', 'group-head'); h.append(el('h2', null, HEADS[g][0]), el('p', null, HEADS[g][1]));
+        heads[g] = h; grid.append(h); lastGroup = g;
+      }
+      const c = buildCard(s, imgs[i][0], imgs[i][1]); cards.push(c); grid.append(c.a);
+    });
     if (!(window.claude && window.claude.use)) cards.forEach((c) => { c.btn.textContent = 'Text kopieren'; });
     setupComments();
   }

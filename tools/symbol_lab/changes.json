@@ -1,4 +1,15 @@
 {
- "cut": "Stärker: Unten schließt sich die Form fast ganz (nur noch ein Rest links), oben ein voller Block. Die Flanke fällt jetzt über 10 px statt bis zum rechten Rand.",
- "cut2": "Neu: CUT2 (ANLG2) zeigt jetzt das Cutoff-Symbol statt der Zahl. RES2 und RATE2 ebenso."
+ "cut": "Oberhalb von 1,9 kHz wandert die Kante wie bisher. Unterhalb bleibt sie stehen und die Form schließt sich von oben nach unten, bis bei 30 Hz nur noch eine Linie am Boden übrig ist.",
+ "cut2": "CUT2 (ANLG2) zeigt das Cutoff-Symbol statt der Zahl, mit der neuen Cutoff-Animation. RES2 und RATE2 haben ebenfalls ihre Symbole.",
+ "level": "Als Fader: ein Strich auf einer senkrechten Schiene, unten leise, oben laut. Behoben: Negative dB-Werte (etwa -35 dB) wurden fälschlich als ±-Block gezeichnet. Gilt für alle Pegel-Karten (LEVEL, MIX, GAIN, VOL, VEL, SEND, REV, DLY, CHO, SHIM …).",
+ "swg": "Die Prozentzahl in der Mitte, ein Ring darum, der sich mit dem Swing im Uhrzeigersinn von oben schließt.",
+ "morph": "Am Ende ein Sechseck statt eines Dreiecks: Das volle Quadrat wächst zu einem offenen Sechseck.",
+ "harm": "Runde Kreise statt Ellipsen (nach Abstand gezeichnet), weiterhin am rechten Punkt ineinander geschachtelt.",
+ "ktr": "Ohne Pfeilspitze: nur der Punkt oben und der Ring, der sich im Uhrzeigersinn schließt.",
+ "sprd": "Echte, runde Kreise (nach Abstand gezeichnet statt aus Segmenten), etwas größer.",
+ "acc": "Wie eine Lavalampe: Ein Blob unten links zieht sich mit dem Wert nach oben rechts, wird unterwegs länglich, schnürt sich ab und kommt oben rechts langsam zur Ruhe; unten bleibt ein kleiner Rest.",
+ "type": "Die Röhre gerader: zwei gerade Seiten, ein flaches Ende links, rechts die Öffnung als glatte Ellipse.",
+ "_notes": [
+  "Neuer Abschnitt „Noch ohne Symbol“: alle übrigen Parameter als echte Textkarten, mit Regler und Kommentarfeld für Symbol-Ideen."
+ ]
 }

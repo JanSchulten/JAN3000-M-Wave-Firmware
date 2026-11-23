@@ -642,7 +642,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
                                                          * driving it: a THEME dot at the label's place */
             if (mot)
                 cv_rrect(5, 5, 4, 4, 2, hot ? T_TEXT : T_THEME, T_SURF);
-            card_symbol(sym, ratio, icon, vc == T_DIM ? T_DIM : T_THEME);
+            card_symbol(sym, ratio, icon, val, vc == T_DIM ? T_DIM : T_THEME);
             cv_blit((uint32_t)CARD_X(c), Y_LABEL);
             return;
         }

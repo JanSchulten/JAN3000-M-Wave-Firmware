@@ -3029,7 +3029,7 @@ static int test_product_ux(void)
     {   /* M-Vave-OP1, the Alt 2 design: the cards' shapes by label (ui_cards.c), the panel to 218 under a one-line footer
          * (two rows only where hints need them), the knob just turned as a MID edge round its card */
         uint32_t y, surf = 1;
-        ok = card_sym("CUT", "355", "Hz", 400, ICON_NONE) == SYM_CUT && card_sym("CUT2", "1.5", "kHz", 630, ICON_NONE) == SYM_CUT &&
+        ok = card_sym("CUT", "355", "Hz", 400, ICON_NONE) == SYM_CUT && card_sym("LEVEL", "-35.0", "dB", 330, ICON_NONE) == SYM_LEVEL && card_sym("CUT2", "1.5", "kHz", 630, ICON_NONE) == SYM_CUT &&
              card_sym("RES2", "16", "%", 160, ICON_NONE) == SYM_RES && card_sym("RATE2", "1.45", "Hz", 500, ICON_NONE) == SYM_RATE && card_sym("SUS", "16", "%", 120, ICON_NONE) == SYM_SUS &&
              card_sym("RATE", "1.18", "Hz", 300, ICON_NONE) == SYM_RATE && card_sym("RATE", "1/16", "", 300, ICON_NONE) == SYM_NONE &&
              card_sym("AMT", "-100", "%", 0, ICON_NONE) == SYM_BIPOLAR && card_sym("TYPE", "LP", "", 0, ICON_NONE) == SYM_NONE &&
@@ -3048,7 +3048,7 @@ static int test_product_ux(void)
                      "VDRUM's TYPE TUBE / STRNG; another TYPE, the STEP page's ACC: text)", ok);
         {   /* each shape alone on the card's SURF (no ghost of its range) and inside its 30 x 24 area, 0 .. 100 % */
             static const char *const L[] = {"CUT", "RES", "ATK", "DEC", "REL", "ENV", "LEVEL", "SUS", "FLT", "DEPTH",
-                                            "FDBK", "SWG", "CHANCE", "NOIS", "GLD", "RATE", "DTN", "DIST", "CRSH",
+                                            "FDBK", "SWG", "CHANCE", "NOIS", "GLD", "RATE", "DTN", "DIST", "CRSH", "CUT2",
                                             "HARM", "TIMB", "MORPH", "KTR", "SPRD", "AUX", "TUNE", "ACC"};
             uint32_t l, v, x, outside = 0, ink = 0;
             ui_power_on();
@@ -3060,9 +3060,9 @@ static int test_product_ux(void)
                     uint32_t n = 0;
                     ui.force = 1; ui.hot_t = 0;
                     draw_column(0, L[l], val, unit, T_THEME, (int32_t)v * 250, ICON_NONE);
-                    for (y = 0; y < COL_H; y++)
-                        for (x = 0; x < COL_W; x++)
-                            if (host_screen[(Y_LABEL + y) * 240 + CARD_X(0) + x] == swap16(T_THEME)) {
+                    for (y = 4; y < COL_H - 4u; y++)  /* (any ink off the card's SURF: a text's blended pixels too) */
+                        for (x = 4; x < COL_W - 4u; x++)
+                            if (host_screen[(Y_LABEL + y) * 240 + CARD_X(0) + x] != swap16(T_SURF)) {
                                 n++;
                                 outside += x < SYM_X || x >= SYM_X + SYM_W || y < SYM_Y || y >= SYM_Y + SYM_H;
                             }

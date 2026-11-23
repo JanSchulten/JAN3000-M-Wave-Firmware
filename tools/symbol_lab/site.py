@@ -21,5 +21,5 @@ for s in data:
         png(prev, os.path.join(site, 'prev', s['id'] + '.png'))
         s['prev'] = True
         s['change'] = changes.get(s['id'], 'Geändert.')
-json.dump({'version': ver, 'date': datetime.date.today().strftime('%d.%m.%Y'), 'symbols': data},
+json.dump({'version': ver, 'notes': changes.get('_notes', []), 'date': datetime.date.today().strftime('%d.%m.%Y'), 'symbols': data},
           open(os.path.join(site, 'data.json'), 'w', encoding='utf-8'), ensure_ascii=False)

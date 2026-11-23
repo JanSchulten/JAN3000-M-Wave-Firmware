@@ -17,6 +17,7 @@
 #define SYM_H 24
 #define SYM_CX (SYM_X + SYM_W / 2)                      /* its centre: x 28, y 22 */
 #define SYM_CY (SYM_Y + SYM_H / 2)
+#define SYM_CUT_KNEE 661                                /* CUT: 1.9 kHz (F_CUTOFF 84 of 127), 1/1000 of the range */
 
 enum {
     SYM_NONE, SYM_LEVEL, SYM_PAN, SYM_BIPOLAR, SYM_DEC, SYM_SUS, SYM_GATE, SYM_GLIDE, SYM_RATE, SYM_DEPTH, SYM_DETUNE,
@@ -99,8 +100,9 @@ static uint32_t card_sym(const char *label, const char *val, const char *unit, i
         return SYM_NONE;
     if ((s == SYM_LEVEL || s == SYM_DIST) && unit[0] && !str_eq(unit, "%") && !str_eq(unit, "dB"))
         return SYM_NONE;
-    if (s == SYM_LEVEL && (val[0] == '+' || val[0] == '-' || (str_eq(val, "0") && ratio > 0)))
-        return SYM_BIPOLAR;                             /* an offset about 0 (WHEEL's SUB BODY TOP, FM6's MLVL) */
+    if (s == SYM_LEVEL && !str_eq(unit, "dB") && (val[0] == '+' || val[0] == '-' || (str_eq(val, "0") && ratio > 0)))
+        return SYM_BIPOLAR;                             /* an offset about 0 (WHEEL's SUB BODY TOP, FM6's MLVL); a level
+                                                         * in dB stays a fader, -35 dB as much as +7.5 */
     return s;
 }
 
@@ -196,6 +198,18 @@ static uint32_t sym_isqrt(uint32_t v)
             r >>= 1;
     return r;
 }
+/* a full circle by distance, smooth where sym_arc's segments are not: each pixel of the area whose centre lies
+ * within w / 2 of the radius (centre, radius and w in 1/16 px) */
+static void sym_ring(int32_t cx, int32_t cy, int32_t rad, int32_t w, uint16_t c)
+{
+    int32_t x, y;
+    for (y = SYM_Y; y < SYM_Y + SYM_H; y++)
+        for (x = SYM_X; x < SYM_X + SYM_W; x++) {
+            int32_t dx = x * 16 + 8 - cx, dy = y * 16 + 8 - cy, d = (int32_t)sym_isqrt((uint32_t)(dx * dx + dy * dy));
+            if (d - rad <= w / 2 && rad - d <= w / 2)
+                cv_rect(x, y, 1, 1, c);
+        }
+}
 /* a convex polygon (points in 1/16 px, clockwise on the screen) as a band along its edge, w (1/16 px) wide: each
  * pixel of the area whose centre lies inside it, nearer than w to an edge. A w as wide as the polygon fills it; the
  * band stays even all round, as a fill and an outline drawn apart do not */
@@ -217,14 +231,16 @@ static void sym_band(const int32_t *px, const int32_t *py, int32_t n, int32_t w,
         }
 }
 
-static void card_symbol(uint32_t s, int32_t r, uint32_t icon, uint16_t c)
+/* the card's shape s at r (0..1000) in c; val: the value as the card would print it (SWG's ring holds it) */
+static void card_symbol(uint32_t s, int32_t r, uint32_t icon, const char *val, uint16_t c)
 {
-    int32_t x, y, h, i, k, px[32], py[32];
+    int32_t x, y, h, i, k, hh, px[32], py[32];
     r = clamp(r, 0, 1000);
     switch (s) {
-    case SYM_LEVEL:                                     /* a block filled from the bottom (Figma: 6 / 13 / 20 of 24) */
-        h = sym_at(r, 3, SYM_H);
-        cv_rrect(SYM_X, SYM_Y + SYM_H - h, SYM_W, h, h > 5 ? 3 : 1, c, T_SURF);
+    case SYM_LEVEL:                                     /* a fader (JAN3000): a 3 px line across a vertical MID track,
+                                                         * at the bottom for nothing, at the top for the most */
+        cv_rect(SYM_CX - 1, SYM_Y, 2, SYM_H, T_MID);
+        cv_rect(SYM_X + 4, SYM_Y + SYM_H - 3 - sym_at(r, 0, SYM_H - 3), SYM_W - 8, 3, c);
         break;
     case SYM_SUS:                                       /* a full-height block from the left, as wide as the level */
     case SYM_GATE:
@@ -250,15 +266,18 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, uint16_t c)
     case SYM_DEC:                                       /* a plateau, then the fall to a sustain */
     case SYM_REL:                                       /* the level held, then the fall to nothing */
     case SYM_ENV:                                       /* the envelope's sweep: a quick rise, the decay to nothing */
-        k = s == SYM_CUT ? sym_at(r, -9, SYM_W - 1) : s == SYM_ATK ? sym_at(r, 2, 26) : s == SYM_DEC ? sym_at(r, 3, 22)
+        /* CUT (JAN3000): from the top down to SYM_CUT_KNEE (F_CUTOFF's 1.9 kHz, 84 of 127) the cutoff moves, 29 .. 16;
+         * below it the cutoff stays and the shape closes from the top, its height 24 .. 1 */
+        hh = s == SYM_CUT && r < SYM_CUT_KNEE ? sym_at(r * 1000 / SYM_CUT_KNEE, 1, SYM_H) : SYM_H;
+        k = s == SYM_CUT ? (r < SYM_CUT_KNEE ? 16 : 16 + ((SYM_W - 1 - 16) * (r - SYM_CUT_KNEE) + (1000 - SYM_CUT_KNEE) / 2) / (1000 - SYM_CUT_KNEE))
+          : s == SYM_ATK ? sym_at(r, 2, 26) : s == SYM_DEC ? sym_at(r, 3, 22)
           : s == SYM_REL ? sym_at(r, 3, 26) : s == SYM_ENV ? sym_at(r, 3, SYM_H) : sym_at(r, 4, SYM_H - 2);
         for (x = 0; x < SYM_W; x++) {
             int32_t d;
-            if (s == SYM_CUT) {                         /* the pass band full up to the cutoff k (-9 .. 29: at the
-                                                         * bottom only the fall's tail at the left edge), then the
-                                                         * fall over 10 px to nothing: the shape closes as it goes */
+            if (s == SYM_CUT) {                         /* the pass band hh tall up to the cutoff k, then the fall
+                                                         * over 10 px to nothing */
                 d = x - k;
-                h = d <= 0 ? SYM_H : d >= 10 ? 0 : SYM_H - SYM_H * d * d / 100;
+                h = d <= 0 ? hh : d >= 10 ? 0 : hh - hh * d * d / 100;
             } else if (s == SYM_RES) {                  /* a floor of 4, the peak's flanks falling as 1 / (1 + d^2) */
                 d = x * 2 - (SYM_W - 1);
                 h = 4 + k * 16 / (16 + d * d);
@@ -302,10 +321,22 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, uint16_t c)
             if (SYM_H * h / 1000 > 0)
                 cv_rect(SYM_X + i * (SYM_W - 2) / 6, SYM_Y + SYM_H - SYM_H * h / 1000, 2, SYM_H * h / 1000, c);
         break;
-    case SYM_SWING:                                     /* two bars, the second shifted by the swing */
-        cv_rect(SYM_X + 6, SYM_Y, 2, SYM_H, c);
-        cv_rect(SYM_X + 18 + sym_at(r, 0, 8), SYM_Y, 2, SYM_H, c);
+    case SYM_SWING: {                                   /* the swing in per cent (JAN3000), a ring round it closing
+                                                         * clockwise from the top as it grows (S, else the 8 px face) */
+        char b[12];
+        const aafont_t *f = &AF_S;
+        int32_t a = 360 * r / 1000;
+        str_cpy(b, val, 8);
+        str_cpy(b + str_len(b), "%", 2);
+        if (text_w(f, b) > SYM_H - 8)
+            str_cpy(b, val, 8);                         /* (100: the figures alone) */
+        if (text_w(f, b) > SYM_H - 8)
+            f = &AF_X;
+        if (a >= 10)
+            sym_arc(SYM_CX * 16 - 8, SYM_CY * 16 - 8, 168, 168, 0, a, c, 2);   /* (r 10.5: the pen's row inside) */
+        cv_text_in(SYM_X, SYM_Y + (f == &AF_S ? CAP_IN(S, SYM_H) : CAP_IN(X, SYM_H)), SYM_W, f, b, c, T_SURF);
         break;
+    }
     case SYM_CHANCE:                                    /* 3 x 3 dots, the share drawn (Figma: 2 / 5 / 8 of 9) */
         k = sym_at(r, 1, 9);
         for (i = 0; i < k; i++) {
@@ -356,11 +387,12 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, uint16_t c)
     }
     case SYM_HARM: {                                    /* the harmonics: a small circle in the middle growing into up
                                                          * to four ellipses nested at one point on the right */
-        static const uint8_t RX[4] = {16, 12, 9, 6}, RY[4] = {16, 11, 7, 4};   /* each against the outer, 1/16 */
-        int32_t rx = 48 + 176 * r / 1000, ry = 48 + 128 * r / 1000;   /* the outer's radii, 1/16 px: 3 .. 14, 3 .. 11 */
+        static const uint8_t RX[4] = {16, 12, 9, 6}, RY[4] = {16, 12, 9, 6};   /* each against the outer, 1/16: circles
+                                                                                * (JAN3000), round, not ellipses */
+        int32_t rx = 48 + 128 * r / 1000, ry = rx;     /* the outer's radius, 1/16 px: 3 .. 11 */
         int32_t xr = SYM_CX * 16 + 48 + ((SYM_X + SYM_W - 1) * 16 - SYM_CX * 16 - 48) * r / 1000, cy = SYM_CY * 16 - 8;
         for (i = 0; i < 4 && (i == 0 || r >= 150 + i * 200); i++)   /* (the inner ones from 35, 55, 75 %) */
-            sym_arc(xr - rx * RX[i] / 16, cy, rx * RX[i] / 16, ry * RY[i] / 16, 0, 360, c, 1);
+            sym_ring(xr - rx * RX[i] / 16, cy + 8, rx * RX[i] / 16, 20, c);   /* (round: by distance) */
         break;
     }
     case SYM_TIMB: {                                    /* the timbre: four blocks in a row, set up and down with it */
@@ -369,42 +401,32 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, uint16_t c)
             cv_rrect(SYM_X + i * 8, SYM_CY - 6 + OFF[i] * r / 1000, 6, 12, 1, c, T_SURF);
         break;
     }
-    case SYM_MORPH: {                                   /* a small solid square becoming a large open triangle (play):
-                                                         * its right corners meet at the tip, its fill hollowed out to
-                                                         * a 2 px edge (sym_band) */
-        static const int8_t SX[4] = {-4, 4, 4, -4}, SY[4] = {-4, -4, 4, 4};   /* the square, about the centre, px */
-        static const int8_t TX[4] = {3, SYM_W - 3, SYM_W - 3, 3}, TY[4] = {1, SYM_H / 2, SYM_H / 2, SYM_H - 1};
-        for (i = 0; i < 4; i++) {
-            px[i] = (SYM_CX + SX[i]) * 16 + (SYM_X + TX[i] - SYM_CX - SX[i]) * 16 * r / 1000;
-            py[i] = (SYM_CY + SY[i]) * 16 + (SYM_Y + TY[i] - SYM_CY - SY[i]) * 16 * r / 1000;
+    case SYM_MORPH: {                                   /* a small solid square becoming a large open hexagon
+                                                         * (JAN3000): the square's six points (its corners, the middles
+                                                         * of its sides) move out to the hexagon's, its fill hollowed
+                                                         * out to a 2 px edge (sym_band) */
+        static const int8_t SX[6] = {-4, -4, 4, 4, 4, -4}, SY[6] = {0, -4, -4, 0, 4, 4};   /* about the centre, px */
+        static const int8_t TX[6] = {-13, -6, 6, 13, 6, -6}, TY[6] = {0, -11, -11, 0, 11, 11};
+        for (i = 0; i < 6; i++) {
+            px[i] = (SYM_CX + SX[i]) * 16 + (TX[i] - SX[i]) * 16 * r / 1000;
+            py[i] = (SYM_CY + SY[i]) * 16 + (TY[i] - SY[i]) * 16 * r / 1000;
         }
-        sym_band(px, py, 4, 32 + (1000 - r) * 160 / 1000, c);   /* the edge 2 px wide, 12 at the bottom: solid */
+        sym_band(px, py, 6, 32 + (1000 - r) * 160 / 1000, c);   /* the edge 2 px wide, 12 at the bottom: solid */
         break;
     }
     case SYM_KTR: {                                     /* key tracking: a dot at the top, the ring drawn from it
-                                                         * clockwise (0 .. 330 degrees), an arrowhead at its end */
+                                                         * clockwise (0 .. 330 degrees); no arrowhead (JAN3000) */
         int32_t a = 330 * r / 1000, rr = 9 * 16, cx = SYM_CX * 16, cy = SYM_CY * 16;
-        uint32_t p = SYM_DEG(a);
         cv_rrect(SYM_CX - 2, SYM_CY - 11, 4, 4, 2, c, T_SURF);
         if (a >= 10)
             sym_arc(cx - 8, cy - 8, rr, rr, 0, a, c, 2);
-        if (a >= 30) {
-            int32_t sn = sine_i(p), cs = sine_i(p + 0x40000000u);   /* along the ring (cs, sn), outwards (sn, -cs) */
-            int32_t ex = cx + sn * rr / 32767, ey = cy - cs * rr / 32767;
-            px[0] = ex + cs * 64 / 32767;                /* the tip 4 px ahead, the wings 4 back, 4 to each side */
-            py[0] = ey + sn * 64 / 32767;
-            px[1] = ex - cs * 64 / 32767 + sn * 64 / 32767;
-            py[1] = ey - sn * 64 / 32767 - cs * 64 / 32767;
-            px[2] = ex - cs * 64 / 32767 - sn * 64 / 32767;
-            py[2] = ey - sn * 64 / 32767 + cs * 64 / 32767;
-            sym_poly(px, py, 3, c);
-        }
         break;
     }
-    case SYM_SPREAD:                                    /* two circles, overlapping in the middle, moved apart */
-        k = sym_at(r, 2, SYM_W / 2 - 6) * 16;
-        sym_arc(SYM_CX * 16 - 8 - k, SYM_CY * 16 - 8, 64, 64, 0, 360, c, 2);
-        sym_arc(SYM_CX * 16 - 8 + k, SYM_CY * 16 - 8, 64, 64, 0, 360, c, 2);
+    case SYM_SPREAD:                                    /* two round rings (r 5.5, 1.5 px: sym_ring), overlapping in
+                                                         * the middle, moved apart to the edges */
+        k = 48 + (SYM_W / 2 * 16 - 104 - 48) * r / 1000;
+        sym_ring(SYM_CX * 16 - k, SYM_CY * 16, 88, 24, c);
+        sym_ring(SYM_CX * 16 + k, SYM_CY * 16, 88, 24, c);
         break;
     case SYM_AUX: {                                     /* a striker coming at a plate, the plate's dome growing as
                                                          * it meets it (at the top, the dome alone) */
@@ -435,27 +457,41 @@ static void card_symbol(uint32_t s, int32_t r, uint32_t icon, uint16_t c)
         }
         break;
     }
-    case SYM_ACC: {                                     /* the accent: a ball in the bottom left corner thrown to the
-                                                         * top right, splashing more the further it goes */
-        int32_t bx = SYM_X * 16 + ((SYM_X + SYM_W - 7) * 16 - SYM_X * 16) * r / 1000;
-        int32_t by = (SYM_Y + SYM_H) * 16 + ((SYM_Y + 4) * 16 - (SYM_Y + SYM_H) * 16) * r / 1000;
-        int32_t rad = 8 * 16 + 16 * r / 1000;
-        for (i = 0; i < 32; i++) {
-            uint32_t p = (uint32_t)i << 27;              /* 32 points round it */
-            int32_t w = (sine_i(p * 3u + (1u << 25)) * 6 + sine_i(p * 5u + (9u << 24)) * 4 + sine_i(p * 7u) * 3) / 13;
-            int32_t d = rad + (int32_t)((int64_t)rad * w * r / (2000LL * 32767));   /* the splash: +-r/2000 of it */
-            px[i] = bx + sine_i(p) * d / 32767;
-            py[i] = by - sine_i(p + 0x40000000u) * d / 32767;
-        }
-        sym_poly(px, py, 32, c);
+    case SYM_ACC: {                                     /* the accent as a lava lamp (JAN3000): two soft blobs (a
+                                                         * metaball field), one in the bottom left corner; with the
+                                                         * value one rises to the top right, stretched on the way, its
+                                                         * neck pinching off, slowing as it settles; a small pool stays */
+        int32_t t = 1000 - (1000 - r) * (1000 - r) / 1000;   /* eased: slow at the top */
+        int32_t sw = sine_i((uint32_t)(r * 2147u)) ;     /* sin(pi r): the stretch on the way, Q15 */
+        int32_t ax = (SYM_X + 7) * 16, ay = (SYM_Y + SYM_H - 6) * 16, ar = 80 - 32 * r / 1000;   /* the pool */
+        int32_t bx = ax + ((SYM_X + SYM_W - 8) * 16 - ax) * t / 1000, by = ay + ((SYM_Y + 7) * 16 - ay) * t / 1000;
+        int32_t rx = 88 - 14 * sw / 32767, ry = 88 + 34 * sw / 32767;   /* the rising blob, 1/16 px */
+        for (y = SYM_Y; y < SYM_Y + SYM_H; y++)
+            for (x = SYM_X; x < SYM_X + SYM_W; x++) {
+                int64_t dx = x * 16 + 8 - ax, dy = y * 16 + 8 - ay, ex = x * 16 + 8 - bx, ey = y * 16 + 8 - by;
+                int64_t f = (int64_t)ar * ar * 1024 / (dx * dx + dy * dy + 1) +
+                            (int64_t)rx * rx * ry * ry * 1024 / (ex * ex * ry * ry + ey * ey * rx * rx + 1);
+                if (f >= 1024)
+                    cv_rect(x, y, 1, 1, c);
+            }
         break;
     }
-    case SYM_TUBE:                                      /* VDRUM's TYPE TUBE: a tube lying, open at the right */
-        cv_rect(SYM_X + 5, SYM_CY - 6, 19, 2, c);
-        cv_rect(SYM_X + 5, SYM_CY + 4, 19, 2, c);
-        sym_arc((SYM_X + 5) * 16, SYM_CY * 16 - 8, 64, 88, 180, 360, c, 2);
-        sym_arc((SYM_X + 24) * 16, SYM_CY * 16 - 8, 64, 88, 0, 360, c, 2);
+    case SYM_TUBE: {                                    /* VDRUM's TYPE TUBE: a straight tube lying (JAN3000): two
+                                                         * straight 2 px sides, a flat closed end on the left, the open
+                                                         * end on the right an ellipse drawn by distance (smooth) */
+        int32_t ex = (SYM_X + 24) * 16 + 8, ey = SYM_CY * 16, erx = 56, ery = 96;   /* the open end, 1/16 px */
+        cv_rect(SYM_X + 3, SYM_CY - 6, 21, 2, c);
+        cv_rect(SYM_X + 3, SYM_CY + 4, 21, 2, c);
+        cv_rect(SYM_X + 3, SYM_CY - 6, 2, 12, c);
+        for (y = SYM_Y; y < SYM_Y + SYM_H; y++)
+            for (x = SYM_X; x < SYM_X + SYM_W; x++) {
+                int64_t dx = x * 16 + 8 - ex, dy = y * 16 + 8 - ey;
+                int64_t v = (dx * dx * ery * ery + dy * dy * erx * erx) * 64 / ((int64_t)erx * erx * ery * ery);
+                if (v >= 36 && v <= 100)                /* (0.75 .. 1.25 of the radius, squared, x 64) */
+                    cv_rect(x, y, 1, 1, c);
+            }
         break;
+    }
     case SYM_STRING:                                    /* .. STRNG: three strings slanting up to the right */
         sym_seg(SYM_X, SYM_Y + 20, SYM_X + 23, SYM_Y + 6, c);
         sym_seg(SYM_X + 6, SYM_Y + 21, SYM_X + 26, SYM_Y + 5, c);
