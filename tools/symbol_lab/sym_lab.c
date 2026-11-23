@@ -135,6 +135,7 @@ int main(int argc, char **argv)
         {"acc", "Accent", "ACC", "ACC", 22, 0},
         {"type", "Resonator-Typ", "TYPE", "TYPE (VDRUM: TUBE / STRNG)", 15, 0},
         {"wave", "Wellenform", "WAVE", "WAVE, WAVE2", 0, 0},
+        {"t_COLR", "Farbe (COLR)", "COLR", "COLR (NOISE, Delay-Farbe)", 11, 0},
     };
     uint32_t i, e, k;
     char path[512];

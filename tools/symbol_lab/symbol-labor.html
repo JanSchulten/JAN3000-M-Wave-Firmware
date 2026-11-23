@@ -64,6 +64,7 @@ h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.1; font-weight
 .tag { font-family: var(--font-mono); font-size: 12px; padding: 1px 6px; border-radius: 4px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
 .badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 .applies { margin: 0; font-size: 12.5px; color: var(--muted); }
+.desc { margin: 0; font-size: 14px; color: var(--ink); }
 .stage { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .device { background: var(--device); border: 1px solid var(--device-edge); border-radius: 8px; padding: 10px; line-height: 0; }
 .device canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; width: 228px; height: 176px; max-width: 100%; }
@@ -155,6 +156,7 @@ textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-
     if (s.change) head.append(el('span', 'badge', 'geändert'));
     a.append(head);
     a.append(el('p', 'applies', s.group === 'text' ? 'Textkarte · Werte aus ' + s.source : 'Gilt für ' + s.labels + ' · Werte aus ' + s.source));
+    if (s.desc) a.append(el('p', 'desc', s.desc));
 
     const stage = el('div', 'stage');
     const dev = el('div', 'device');

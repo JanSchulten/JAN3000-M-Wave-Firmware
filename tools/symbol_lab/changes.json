@@ -1,15 +1,18 @@
 {
- "cut": "Oberhalb von 1,9 kHz wandert die Kante wie bisher. Unterhalb bleibt sie stehen und die Form schließt sich von oben nach unten, bis bei 30 Hz nur noch eine Linie am Boden übrig ist.",
+ "cut": "Über 1,9 kHz wandert die Kante, die Flanke ist 10 px lang. Darunter wandert die Kante weiter nach links und die Flanke wird länger (bis 26 px), wie das Abrollen eines echten Tiefpasses. Bei 30 Hz ist fast alles Flanke.",
  "cut2": "CUT2 (ANLG2) zeigt das Cutoff-Symbol statt der Zahl, mit der neuen Cutoff-Animation. RES2 und RATE2 haben ebenfalls ihre Symbole.",
  "level": "Als Fader: ein Strich auf einer senkrechten Schiene, unten leise, oben laut. Behoben: Negative dB-Werte (etwa -35 dB) wurden fälschlich als ±-Block gezeichnet. Gilt für alle Pegel-Karten (LEVEL, MIX, GAIN, VOL, VEL, SEND, REV, DLY, CHO, SHIM …).",
- "swg": "Die Prozentzahl in der Mitte, ein Ring darum, der sich mit dem Swing im Uhrzeigersinn von oben schließt.",
+ "swg": "Nur die Zahl in der Mitte (ohne %), ein Ring darum, der sich im Uhrzeigersinn von oben schließt.",
  "morph": "Am Ende ein Sechseck statt eines Dreiecks: Das volle Quadrat wächst zu einem offenen Sechseck.",
  "harm": "Runde Kreise statt Ellipsen (nach Abstand gezeichnet), weiterhin am rechten Punkt ineinander geschachtelt.",
- "ktr": "Ohne Pfeilspitze: nur der Punkt oben und der Ring, der sich im Uhrzeigersinn schließt.",
- "sprd": "Echte, runde Kreise (nach Abstand gezeichnet statt aus Segmenten), etwas größer.",
+ "ktr": "Runder und größer: Der Ring (Radius 10 px) wird nach Abstand gezeichnet, ohne Pfeilspitze, mit einem runden Punkt oben am Start.",
+ "sprd": "Echte runde Kreise, die bei 100 % ganz an die Ränder wandern (fast doppelt so weit auseinander wie vorher).",
  "acc": "Wie eine Lavalampe: Ein Blob unten links zieht sich mit dem Wert nach oben rechts, wird unterwegs länglich, schnürt sich ab und kommt oben rechts langsam zur Ruhe; unten bleibt ein kleiner Rest.",
- "type": "Die Röhre gerader: zwei gerade Seiten, ein flaches Ende links, rechts die Öffnung als glatte Ellipse.",
+ "type": "Eine echte Röhre: gerade Seiten, hinten links abgerundet (halbe Ellipse), vorne rechts die offene Ellipse.",
  "_notes": [
-  "Neuer Abschnitt „Noch ohne Symbol“: alle übrigen Parameter als echte Textkarten, mit Regler und Kommentarfeld für Symbol-Ideen."
- ]
+  "Neuer Abschnitt „Noch ohne Symbol“: alle übrigen Parameter als echte Textkarten, mit Regler und Kommentarfeld für Symbol-Ideen.",
+  "Textkarten erklären jetzt in einem Satz, was der Parameter macht.",
+  "Firmware-Build repariert: Lavalampe und Röhre rechneten mit 64-Bit-Divisionen, die das FM-1 nicht hat."
+ ],
+ "t_COLR": "Neu: COLR (NOISE, auch die Delay-Farbe) als leerer Kreis, der sich mit dem Wert von unten füllt, bis er bei 100 % voll ist."
 }

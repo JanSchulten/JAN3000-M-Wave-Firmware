@@ -3041,14 +3041,14 @@ static int test_product_ux(void)
              card_sym("HARM", "50", "%", 500, ICON_NONE) == SYM_HARM && card_sym("TIMB", "50", "%", 500, ICON_NONE) == SYM_TIMB &&
              card_sym("MORPH", "50", "%", 500, ICON_NONE) == SYM_MORPH && card_sym("KTR", "50", "%", 500, ICON_NONE) == SYM_KTR &&
              card_sym("SPRD", "30", "%", 300, ICON_NONE) == SYM_SPREAD && card_sym("AUX", "0", "%", 0, ICON_NONE) == SYM_AUX &&
-             card_sym("TUNE", "+7", "", 790, ICON_NONE) == SYM_TUNE && card_sym("ACC", "80", "%", 800, ICON_NONE) == SYM_ACC &&
+             card_sym("TUNE", "+7", "", 790, ICON_NONE) == SYM_TUNE && card_sym("ACC", "80", "%", 800, ICON_NONE) == SYM_ACC && card_sym("COLR", "50", "%", 500, ICON_NONE) == SYM_FILL &&
              card_sym("TYPE", "TUBE", "", 0, ICON_NONE) == SYM_TUBE && card_sym("TYPE", "STRNG", "", 1000, ICON_NONE) == SYM_STRING &&
              card_sym("TYPE", "HALL", "", 1000, ICON_NONE) == SYM_NONE && card_sym("ACC", "ON", "", -1, ICON_NONE) == SYM_NONE;
         bad += check("Alt 2: JAN3000's shapes by label (ENV, DIST / DRV, CRSH, HARM TIMB MORPH, KTR, SPRD, AUX, TUNE, ACC, "
                      "VDRUM's TYPE TUBE / STRNG; another TYPE, the STEP page's ACC: text)", ok);
         {   /* each shape alone on the card's SURF (no ghost of its range) and inside its 30 x 24 area, 0 .. 100 % */
             static const char *const L[] = {"CUT", "RES", "ATK", "DEC", "REL", "ENV", "LEVEL", "SUS", "FLT", "DEPTH",
-                                            "FDBK", "SWG", "CHANCE", "NOIS", "GLD", "RATE", "DTN", "DIST", "CRSH", "CUT2",
+                                            "FDBK", "SWG", "CHANCE", "NOIS", "GLD", "RATE", "DTN", "DIST", "CRSH", "CUT2", "COLR",
                                             "HARM", "TIMB", "MORPH", "KTR", "SPRD", "AUX", "TUNE", "ACC"};
             uint32_t l, v, x, outside = 0, ink = 0;
             ui_power_on();
