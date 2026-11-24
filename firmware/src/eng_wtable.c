@@ -33,6 +33,7 @@ FM1_FPU __attribute__((noinline)) static void wtb_model(const track_t *t, voice_
 {
     plv_par_t q;
     pwt_par_t w;
+    plv_buf_t *pb = PLV(t);
     plv_params(t, m, &q);
     w.timbre = q.timb;
     w.morph = q.morph;
@@ -44,8 +45,8 @@ FM1_FPU __attribute__((noinline)) static void wtb_model(const track_t *t, voice_
         pwt_start(s, c, plv_phase(v), &w);
         v->s[4] = 0;
     }
-    pwt_render(s, c, &w, plv_out, plv_aux, n, q.need);
-    plv_blend(&q, v, n, 0.6f, 0.6f);                   /* (Plaits' levels: voice.cc) */
+    pwt_render(s, c, &w, pb->out, pb->aux, n, q.need);
+    plv_blend(&q, v, n, 0.6f, 0.6f, pb);                   /* (Plaits' levels: voice.cc) */
 }
 
 static void wtb_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)

@@ -10,6 +10,10 @@ AL-255/FM-1-RE (reverse engineering of the stock firmware), measurements from bu
 - **Toolchain:** JieLi Linux toolchain, clang 4.0.1 for pi32v2 (`~/.jieli/toolchain`, from
   `pkgman.jieliapp.com`). Newer toolchain drops produce slightly different code: the stock Felucca 1.5.1 ISR
   already measures 38 871 against its 37 502 budget line with toolchain 20260730.
+- **Second core (CPU1):** built in (`FELUCCA_CPU2`, `firmware/hal/fm1_cpu1.h` from felucca-bsp, MPL-2.0), started at
+  power-on only with MENU > SYSTEM > 2ND CORE ON (BETA, OFF by default; `firmware/src/cpu2.c`); it renders some of
+  the four parts each block (`fx.c mix_block`). Held first thing at every start and before every reset. Not yet run
+  on a unit: `docs/DUALCORE_PLAN.md` section 9 has what was built and the device test.
 - **FPU:** the chip has one: JieLi's SDK builds for WL82 with `-mcpu=r3 -mfprev1`. Felucca builds without (soft float,
   and its code is integer only). `__attribute__((target("fprev1")))` turns it on for one function (every float helper it
   calls needs the attribute too, or that helper is not inlined and runs as soft float). Measured on a unit (MENU >
@@ -35,6 +39,15 @@ AL-255/FM-1-RE (reverse engineering of the stock firmware), measurements from bu
 The RAM / POOL split is only a budget line in the linker script; both are the same SRAM. It moved twice: Felucca 1.5
 96 / 336 KB -> 72 / 360 KB; M-Vave-OP1's 128 steps 72 / 360 -> 56 / 376 KB (the song chain's four sources, 25 KB,
 went to the pool); back to 64 steps with the SHIMMER bus and the grouped undo: 50 / 382 KB.
+
+### Budgets (the second core's structure, docs/DUALCORE_PLAN.md step 2; 2026-11-02)
+
+| | Used | Limit | Note |
+| --- | --- | --- | --- |
+| RAM `.data`+`.bss` | 42 624 B | 51 200 B | before 44 528: the mix sums, SPREAD and Plaits buffers moved to the pool |
+| Pool | 377 500 B | 391 168 B | before 373 652 (`mx[2]` 1 800, `plv_w` 1 536, `spread_buf` 512) |
+| App image (XIP) | 540 820 B | 581 564 B | before 541 380 |
+| Audio ISR static cost `fm1_alnk0_irq` | 37 478 | 44 810 | `tests/target_budget.txt` 40 736 + 10 % |
 
 ### Budgets (64 steps, SHIMMER bus, grouped undo, PUMPER; 2026-10-27)
 
@@ -66,6 +79,10 @@ scene bank (15 scenes packed, scene.c `scb`) 7.9 KB of pool.
 Run `scripts/budget_report.sh` to get the current numbers.
 
 ### Flash (1 MB SPI NOR, XIP at 0x02000000)
+
+Two parts are in the field, the same size and the same commands: JEDEC `0x856014`, and in newer units the UC25HQ80,
+`0xB36014` (Felucca 1.8.2). `flash_part_known()` (project.c) accepts both at boot; with any other id the firmware
+stays RAM-only and starts no update (`flash_ok`). The emulator and the host tests simulate the first part only.
 
 | Range | What |
 | --- | --- |

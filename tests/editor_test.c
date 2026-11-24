@@ -183,7 +183,7 @@ static int preferences(void)
         host_wire[n - 37] == 0 &&                        /* (no bank since 1.0.3) */
         host_wire[n - 36] == 0x53 && host_wire[n - 35] == 1 && host_wire[n - 34] == 3 &&
         host_wire[n - 33] == 0x50 && host_wire[n - 32] == 1 && host_wire[n - 31] == 3 &&   /* FM6 v2: no bank, preset patches */
-        host_wire[n - 30] == 0x4E && host_wire[n - 29] == 1 && host_wire[n - 28] == 27 &&   /* MENU settings: 27 items (M-Vave-OP1: SYNC OUT, SCENE CHANGE) */
+        host_wire[n - 30] == 0x4E && host_wire[n - 29] == 1 && host_wire[n - 28] == ED_MENU_N &&   /* MENU settings: 28 items (M-Vave-OP1: SYNC OUT, SCENE CHANGE, 2ND CORE; 27 in a FELUCCA_CPU2=0 build) */
         host_wire[n - 27] == 0x52 && host_wire[n - 26] == 1 && host_wire[n - 25] == 4 &&   /* RATCH */
         host_wire[n - 24] == 0x4C && host_wire[n - 23] == 1 && host_wire[n - 22] == 1 &&   /* 1.1 parameter locks */
         host_wire[n - 21] == 0x41 && host_wire[n - 20] == 1 && host_wire[n - 19] == 0 && host_wire[n - 18] == 1 &&   /* 1.2: 128 */
@@ -938,12 +938,17 @@ static int menu_protocol(void)
         bad += check("MENU_DESC: the tab comes after every byte of the 1.0.4 reply (older editors ignore it)", ok);
     }
     ok = 1;
-    for (i = 0; i < 27u; i++) {
+    for (i = 0; i < ED_MENU_N; i++) {
         menu_desc(i, &it);
         ok &= strcmp(it.name, "CALIBRATION") && strcmp(it.name, "ABOUT") && strcmp(it.name, "INFO");
     }
-    n = menu_desc(27, &it);
-    ok &= n == 2u && it.index == 27 && it.id == 127;
+#if FELUCCA_CPU2
+    menu_desc(27, &it);                                  /* M-Vave-OP1: the second core's row, OFF */
+    ok &= ED_MENU_N == 28u && it.id == 27 && !strcmp(it.name, "2ND CORE") && it.value == 0 && it.nnames == 2u &&
+          !strcmp(it.names[1], "ON (BETA)");
+#endif
+    n = menu_desc(ED_MENU_N, &it);
+    ok &= n == 2u && it.index == ED_MENU_N && it.id == 127;
     n = menu_desc(127, &it);
     bad += check("MENU_DESC: no CALIBRATION / INFO / ABOUT; an index past the list answers index, 127 (no item)",
                  ok && n == 2u && it.index == 127 && it.id == 127);
@@ -1010,7 +1015,7 @@ static int menu_protocol(void)
         static uint8_t fav0[sizeof favorites], set0[sizeof settings];
         uint8_t hold0 = settings_hold, leds0 = settings_leds;
         memcpy(fav0, &favorites, sizeof favorites); memcpy(set0, &settings, sizeof settings);
-        ok = menu_set(27, 1) == 1 && host_wire[6] == 27 && ed_rv(host_wire + 7) == 1;
+        ok = menu_set(ED_MENU_N, 1) == 1 && host_wire[6] == ED_MENU_N && ed_rv(host_wire + 7) == 1;   /* (the first free id) */
         ok &= menu_set(126, -3) == 1 && host_wire[6] == 126 && ed_rv(host_wire + 7) == -3;
         ok &= menu_set(127, 0) == 1 && host_wire[6] == 127;
         ok &= !memcmp(fav0, &favorites, sizeof favorites) && !memcmp(set0, &settings, sizeof settings) &&

@@ -1125,7 +1125,10 @@ static void demo_block(int32_t *out, uint32_t n, int comb8_on)
         send_c[i] = send_d[i] = send_r[i] = mix_l[i] = mix_r[i] = 0;
     events_block(n);
     for (i = 0; i < NPART; i++)
-        mix_part(&trk[i], n);
+        mix_part(&trk[i], n SM_ARG(&mx[0]));
+#if FELUCCA_CPU2
+    mix_parts_end();                                    /* (the LFOs' blocks after the parts, as mix_block) */
+#endif
     if (comb8_on) {
         for (i = 0; i < n; i++)
             wet[i] = 0;                                 /* (no chorus or delay in the demos) */

@@ -90,6 +90,7 @@ cho_side_mix 9
 chain_scale 12
 track_insert 3
 ins_drive 277
+mix_parts_end 63
 cloud_render 305
 cl_spawn 9
 fx1_block 42

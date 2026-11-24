@@ -144,6 +144,8 @@ static void boot_leds(void)
         fm1_led_anim_start(settings_leds == LEDS_DIM || settings_leds == LEDS_DIM_LO);
 }
 
+#include "cpu2.c"                              /* M-Vave-OP1: the second core's start and its end */
+
 static void fm1_main(void)
 {
     uint32_t ms;
@@ -175,6 +177,10 @@ static void fm1_main(void)
     felucca_init();
     master_boot();
     kb_boot_hold = 1;                         /* #137: no notes from the keys before the UI (seq.c keyboard_block) */
+#if FELUCCA_CPU2 && defined(C1_HW)
+    c1_boot();                                /* MENU > 2ND CORE ON: the second core, before the audio and the timers
+                                               * (cpu2.c; OFF, the default: one core, nothing started) */
+#endif
     audio_init();
     usb_start();
 #if FELUCCA_UART
@@ -212,6 +218,9 @@ static void fm1_main(void)
             bootguard.pending = 0;
             bootguard.failed = 0;
         }
+#if FELUCCA_CPU2 && defined(C1_HW)
+        c1_poll();                                      /* the second core gave up or was not started: said, OFF */
+#endif
         {
             int32_t b = fm1_adc_read(FM1_ADC_BATT);     /* battery: slow IIR */
             if (b > 0)
@@ -297,6 +306,11 @@ static void fm1_main(void)
 void fm1_cstart(void)
 {
     uint32_t *s, *d, p3, src, wdt;
+#ifdef FM1_CPU1
+    fm1_cpu1_stop();                           /* (after Jangada, X0X, Felucca 1.6.1): a second core still running from
+                                                * before this reset (a watchdog, a fault, another firmware) would read
+                                                * the RAM cleared below. Registers only; harmless when it never ran */
+#endif
     fm1_time_init();
     fm1_reset_reason();
     p3 = fm1_boot.p3_rst;
@@ -324,7 +338,8 @@ void fm1_cstart(void)
     for (s = _data_load, d = _data_start; d < _data_end; s++, d++)
         *d = *s;
     for (s = _rt_load, d = _rt_start; d < _rt_end; s++, d++)
-        *d = *s;                                /* flash driver code that must run from RAM */
+        *d = *s;                                /* flash driver code that must run from RAM, then the second core's
+                                                 * waiting loop (.c1_text, app.ld) */
     fm1_mailbox_clear();
     fm1_guard_enable(FM1_GUARD_STACK | FM1_GUARD_WRITE | FM1_GUARD_BUS | FM1_GUARD_PC);
     fm1_boot.p3_rst = (uint8_t)p3;

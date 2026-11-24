@@ -1252,13 +1252,19 @@ static uint8_t persist_pending;                 /* 1 requested, 2 waiting after 
 static uint32_t persist_retry_ms;
 #endif
 
+/* The two 1 MiB parts M-VAVE builds in, the same map and the same commands: 0x856014, and in newer units the
+ * UC25HQ80, 0xB36014 (Felucca 1.8.2, #320). Any other part stays RAM-only (one of another size or with other
+ * commands would be erased and written at the wrong places), and without the flash no update starts either
+ * (main.c: ota_session only with flash_ok) */
+static int flash_part_known(uint32_t id) { return id == 0x856014u || id == 0xB36014u; }
+
 static void persist_boot(void)                    /* before settings_init / panel_init */
 {
 #if FELUCCA_FLASH
     persist_t p;
-    uint32_t f = irq_save();
-    flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;       /* the expected 1 MiB part, else stay RAM-only */
+    uint32_t f = irq_save(), id = FL_FAR(fl_jedec_ram)();
     irq_restore(f);
+    flash_ok = (uint8_t)flash_part_known(id);      /* else stay RAM-only */
     if (!flash_ok)
         return;
     fl_plain_window_init();                        /* flash above 0x93000 reads as plaintext through XIP

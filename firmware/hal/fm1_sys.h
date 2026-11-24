@@ -94,6 +94,16 @@ static void fm1_wdt_feed(void) { fm1_p33_or(FM1_P3_WDT_CON, 0x40); }
 static void fm1_wdt_stop(void) { fm1_p33_write(FM1_P3_WDT_CON, 0); }
 
 /* ---------------------------------------------------- reset and reboot --- */
+/* The second core is held before every reset and on the way to an update (fm1_cpu1_stop.h; after felucca-bsp's
+ * chip/fm1_sys.h): it must not run old code while the RAM is cleared or the loader writes. In the app only (felucca.c
+ * defines FM1_CPU1, 0 or 1): the update loader is built without it and stays byte for byte what it was, and the app
+ * has held the core before the reset that starts the loader */
+#ifdef FM1_CPU1
+#include "fm1_cpu1_stop.h"
+#define FM1__CPU1_HOLD() fm1_cpu1_stop()
+#else
+#define FM1__CPU1_HOLD() ((void)0)
+#endif
 static struct {
     uint8_t p3_rst;      /* bit0 power-on, 1 VDDIO low, 2 WDT, 3 VCM, 4 long press, 5 1.2 V, 6 soft (P33) */
     uint32_t rst_src;    /* bit5 soft (PWR_CON) */
@@ -110,6 +120,7 @@ static void fm1_reset_reason(void)
 static void fm1_reboot(void)
 {
     __asm__ volatile("cli");
+    FM1__CPU1_HOLD();
     fm1_p33_or(FM1_P3_PR_PWR, 0x10);
     for (;;)
         ;
@@ -120,6 +131,7 @@ static void fm1_enter_uboot(void)
     static const char k[16] = "usb_update_mode";
     uint32_t i;
     __asm__ volatile("cli");
+    FM1__CPU1_HOLD();
     /* CPU0 write limits (fm1_guard.h) may cover the mailbox: drop them all */
     if (!(*(volatile uint32_t *)0x1EEE240u & 1u))
         *(volatile uint32_t *)0x1EEE240u = 0xE7u;
@@ -133,6 +145,7 @@ static void fm1_enter_uboot(void)
 
 FM1_INLINE void fm1_core_reset(void)
 {
+    FM1__CPU1_HOLD();                                   /* (it must not run old code while the loader writes) */
     FM1_PWR_CON |= 0x10u;
     for (;;)
         ;
@@ -142,6 +155,7 @@ FM1_INLINE void fm1_enter_update(const uint8_t *parm)
 {
     uint32_t i;
     __asm__ volatile("cli");
+    FM1__CPU1_HOLD();                                   /* before writing the bootloader's update record */
     if (!(*(volatile uint32_t *)0x1EEE240u & 1u))       /* drop CPU0 write limits, as fm1_enter_uboot */
         *(volatile uint32_t *)0x1EEE240u = 0xE7u;
     *(volatile uint32_t *)0x1EEE348u = 0;

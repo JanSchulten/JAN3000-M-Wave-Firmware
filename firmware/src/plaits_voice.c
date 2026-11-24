@@ -20,8 +20,13 @@ typedef struct {
     uint32_t need;                             /* the outputs to compute: bit 0 OUT, bit 1 AUX */
 } plv_par_t;
 
-static float plv_out[CTL], plv_aux[CTL];        /* the model's outputs of a block */
-static int32_t plv_o[CTL];                     /* .. blended, Q15 */
+typedef struct {
+    float out[CTL], aux[CTL];                  /* the model's outputs of a block */
+    int32_t o[CTL];                            /* .. blended, Q15 */
+} plv_buf_t;
+/* a part's (C1_PI: two cores render parts at once, docs/DUALCORE_PLAN.md; one for all without the second core) */
+static plv_buf_t plv_w[C1_NP] __attribute__((section(".pool")));
+#define PLV(t) (&plv_w[C1_PI(t)])
 
 static void plv_note_on(track_t *t, voice_t *v)
 {
@@ -49,11 +54,13 @@ FM1_FPU static inline void plv_params(const track_t *t, const vmod_t *m, plv_par
 /* the voice's phase 0..1 (v->ph[0]: UNISON's voices, voice.c spreads them) */
 FM1_FPU static inline float plv_phase(const voice_t *v) { return (float)(v->ph[0] >> 8) * (1.0f / 16777216.0f); }
 
-/* plv_out and plv_aux at their engine's levels (Plaits' voice.cc out_gain, aux_gain: a negative gain is a pre-gain into
- * stmlib's Limiter, its peak per voice in v->s[6]), blended by AUX into plv_o (at AUX 0 b reads OUT: x is OUT exactly; at
- * 127 AUX alone) */
-FM1_FPU static inline void plv_blend(const plv_par_t *q, voice_t *v, uint32_t n, float gout, float gaux)
+/* w's out and aux at their engine's levels (Plaits' voice.cc out_gain, aux_gain: a negative gain is a pre-gain into
+ * stmlib's Limiter, its peak per voice in v->s[6]), blended by AUX into w's o (at AUX 0 b reads OUT: x is OUT exactly;
+ * at 127 AUX alone) */
+FM1_FPU static inline void plv_blend(const plv_par_t *q, voice_t *v, uint32_t n, float gout, float gaux, plv_buf_t *w)
 {
+    float *plv_out = w->out, *plv_aux = w->aux;
+    int32_t *plv_o = w->o;
     const float *b = q->need == 1u ? plv_out : plv_aux;
     const float *a = q->need == 2u ? plv_aux : plv_out;
     uint32_t i;
@@ -81,10 +88,11 @@ FM1_FPU static inline void plv_blend(const plv_par_t *q, voice_t *v, uint32_t n,
     }
 }
 
-/* the voice after the model (plv_o): the drive, the filter and its knee (ANALOG's), the DC blocker, the amplitude;
- * integer, as every engine */
+/* the voice after the model (the part's PLV o): the drive, the filter and its knee (ANALOG's), the DC blocker, the
+ * amplitude; integer, as every engine */
 static void plv_post(const track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
 {
+    const int32_t *plv_o = PLV(t)->o;
     const int16_t *p = t->p;
     int32_t cut = (p[P_E4] << 8) + m->cutoff + (p[P_E7] * (v->pitch16 - 60 * 16) >> 4);
     int32_t drive = 32768 + p[P_E6] * 512, drv = p[P_E6];

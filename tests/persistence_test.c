@@ -423,6 +423,25 @@ static int autosave_test(void)
     return bad;
 }
 
+/* the flash is taken only on a part persist_boot knows: both of the FM-1's 1 MiB parts, nothing else */
+static int jedec_test(void)
+{
+    static const struct { uint32_t id; uint8_t ok; const char *what; } t[] = {
+        { 0x856014u, 1, "the first FM-1 part (0x856014) has its flash" },
+        { 0xB36014u, 1, "the newer units' UC25HQ80 (0xB36014) has its flash" },
+        { 0x000000u, 0, "no answer stays RAM-only" },
+        { 0xFFFFFFu, 0, "an open bus stays RAM-only" },
+        { 0xB36015u, 0, "the same maker's 2 MiB part stays RAM-only" },
+        { 0xB36013u, 0, "the same maker's 512 KiB part stays RAM-only" },
+        { 0xEF6014u, 0, "another maker's 1 MiB part stays RAM-only" },
+    };
+    uint32_t i;
+    int bad = 0;
+    for (i = 0; i < sizeof t / sizeof t[0]; i++)
+        bad += check(t[i].what, flash_part_known(t[i].id) == t[i].ok);
+    return bad;
+}
+
 int main(void)
 {
     int bad = 0, ok;
@@ -729,6 +748,7 @@ int main(void)
                   irq_races == 3u && song.playing && !transport_req && persist_pending && erases == before);
     bad += mig_test();
     bad += autosave_test();
+    bad += jedec_test();
     printf("%s\n", bad ? "PERSISTENCE TEST FAILED" : "persistence test passed");
     return bad != 0;
 }

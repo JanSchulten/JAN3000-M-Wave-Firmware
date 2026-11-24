@@ -34,6 +34,16 @@
 #ifndef FELUCCA_ID
 #define FELUCCA_ID "FM-1_953"    /* package identity (build.py PRODUCT: the .fwsc marker string; M-Vave-OP1 v0.1: FM-1_900) */
 #endif
+#ifndef FELUCCA_CPU2
+#define FELUCCA_CPU2 1           /* 1: the second core is built in and renders some of the parts when MENU > SYSTEM >
+                                  * 2ND CORE is ON (BETA; OFF by default: one core, as before; hal/fm1_cpu1.h, fx.c
+                                  * mix_block, cpu2.c). 0 (FELUCCA_CPU2=0 build.py): none of it (no core 1 stack, waiting
+                                  * loop, sums or menu row). (The same default: core.h) */
+#endif
+#define FM1_CPU1 FELUCCA_CPU2      /* hal/fm1_cpu1.h: the second core is built in (fm1_irq.h hands its faults to it);
+                                    * defined, 0 or 1, every reset holds it first (hal/fm1_sys.h) */
+#define FM1_CPU1_FALLBACK 1        /* a misread, a fault or a late job: core 1 retired, one core until power-off (and
+                                    * cpu2.c turns 2ND CORE off), not a restart */
 #ifndef FELUCCA_VERSION
 #define FELUCCA_VERSION "v1.5.1" /* shown in the menu, the console and the editor; build.py --release X.Y */
 #endif
@@ -50,6 +60,17 @@
 #include "fm1_sys.h"
 #include "fm1_irq.h"
 #include "fm1_guard.h"
+#if FELUCCA_CPU2
+#include "fm1_cpu1.h"                        /* MPL-2.0, from felucca-bsp (Melodee's second core): LICENSING.md */
+#define C1_HW 1                              /* the second core's hardware layer is in this build (cpu2.c, console.c) */
+#define C1_ON() fm1_cpu1_on                  /* fx.c mix_block: a second core is answering */
+#define C1_RUN(fn, arg) fm1_cpu1_run(fn, arg)
+static __attribute__((noinline)) int c1_wait(void) { return fm1_cpu1_wait(); }   /* out of line: its retirement
+                                                 * path (hal/fm1_cpu1.h fm1_cpu1_retire) stays out of the audio ISR */
+#define C1_WAIT() c1_wait()
+static uint8_t c1_fpu_ok;                    /* core 1's FPU gave the right results at its start (cpu2.c c1_boot) */
+#define C1_FPU() c1_fpu_ok                   /* fx.c mix_split: until then the parts that compute on it stay on core 0 */
+#endif
 #include "fm1_input.h"
 #include "fm1_timer.h"
 #include "fm1_audio.h"
