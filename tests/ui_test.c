@@ -180,6 +180,14 @@ static void ui_power_on(void)
     proj_name[0] = 0;
     proj_cur = PROJ_NO_SLOT;
     memset(&favorites, 0, sizeof favorites);
+    memset((void *)trk_out, 0, sizeof trk_out);   /* (M-Vave-OP1: MIDI OUT, midi_out.c: T OUT BOTH, the clock and CC OUT
+                                                   * as at power-on; the settings above, so CLOCK OUT ON, CC OUT OFF) */
+    memset(tout_seen, 0, sizeof tout_seen);
+    clk_out_off = cc_out_on = cc_was = 0;
+    clk_out_run = clk_out_due = 0;
+    clk_out_acc = 0;
+    ccq_r = ccq_w = 0;
+    memset(cc_sent, 0, sizeof cc_sent);
     ml_off();                                     /* (MIDI LEARN off, nothing learned) */
     memset(&undo, 0, sizeof undo);
     memset(&undo_group, 0, sizeof undo_group);
@@ -476,7 +484,7 @@ static int gm_hits_play(track_t *t)
 static int test_sound_loads(void)
 {
     int bad = 0;
-    uint32_t i, empty = 1;
+    uint32_t i, k, empty = 1;
     track_t *t = &trk[0], before;
     ui_power_on();
     for (i = 0; i < NTRK; i++)
@@ -494,8 +502,9 @@ static int test_sound_loads(void)
     t->p[P_SDIV] = 1;
     t->p[P_LEVEL] = 90;
     before = *t;
-    turn(EN_PRESET, 1);                           /* HOME: the next preset */
-    bad += check("PRESETS on HOME loads the sound: steps, LEN, DIV untouched", t->preset == (uint8_t)((before.preset + 1u) % ENGINES[0]->npresets) &&
+    turn(EN_PRESET, 1);                           /* HOME: the next preset (M-Vave-OP1: of the sound's category) */
+    bad += check("PRESETS on HOME loads the sound: steps, LEN, DIV untouched",
+                 (t->preset != before.preset || t->eng_req != before.eng_req) && track_cat(t) == track_cat(&before) &&
                  !memcmp(t->step, before.step, sizeof t->step) && t->p[P_SLEN] == 32 && t->p[P_SDIV] == 1);
     bad += check("..ARP, SCL, the SLICER and the mix stay the track's", t->p[P_AMODE] == 2 && t->p[P_AOCT] == 3 && t->p[P_SCALE] == 2 &&
                  t->p[P_TRANS] == 5 && t->p[P_SLCR] == SL_GATE && t->p[P_SLPAT] == 4 && t->p[P_LEVEL] == 90);
@@ -504,7 +513,9 @@ static int test_sound_loads(void)
         if (str_eq(ENGINES[0]->presets[i].name, "RAVE"))
             break;
     t->p[P_AMODE] = 0;
-    t->preset = (uint8_t)(i - 1u);
+    for (k = i - 1u; k && preset_cat(0, k) != preset_cat(0, i); k--)
+        ;
+    t->preset = (uint8_t)k;                       /* (the lead before RAVE: HOME steps through the leads) */
     turn(EN_PRESET, 1);
     bad += check("RAVE (an ARP preset) leaves the arp off; it suggests pattern 13 ARP", t->preset == i && t->p[P_AMODE] == 0 &&
                  preset_pat_hint() == 12 && ui.ppick == 12 && str_eq(PATTERNS[12].name, "ARP"));
@@ -1577,6 +1588,7 @@ static int test_categories(void)
     press(B_OCTUP);
     bad += check("  KNOB 3 steps the category (no wrap below BASS); OCT+ writes it with the name",
                  ok && !name_on() && up_used(4) && up_cat(4) == CAT_LEAD && up_rec(4)->packed[UP_CAT_AT] == CAT_LEAD);
+    go_page(GR_BROWSE);                                    /* (LIST is the browser's: elsewhere the sound's category) */
     list_set(1u + CAT_LEAD);
     up_load(4);
     pos = preset_pos(&total);
@@ -1631,6 +1643,82 @@ static int test_categories(void)
                  ok && !k && !str_eq(s1, nm.s) && nm.len <= 12u && strchr(nm.s, ' '));
     name_close();
     memset(up_bank, 0, sizeof up_bank);
+    memset(&favorites, 0, sizeof favorites);
+    return bad;
+}
+
+/* M-Vave-OP1 (user report: LIST left on BASS in the browser, then the PRESETS knob on HOME turned the drum kit into a
+ * bass, and turning back gave another bass): LIST is the browser's. On HOME and the other pages the PRESETS knob
+ * browses the selected sound's own category (a kit: the kits, round both ways), FAV as set; the stored LIST stays and
+ * the browser opens on it */
+static uint32_t count_cat(uint32_t c)
+{
+    uint32_t e, k, n = 0;
+    for (e = 0; e < NENGINES; e++)
+        for (k = 0; eng_ok(e) && k < ENGINES[e]->npresets; k++)
+            n += preset_orig(ENGINES[e], k) == k && preset_cat(e, k) == c;
+    return n;
+}
+static int test_category_home(void)
+{
+    int bad = 0, ok = 1;
+    uint32_t i, n, total, e0, p0, nb;
+    ui_power_on();
+    memset(&favorites, 0, sizeof favorites);
+    memset(up_bank, 0, sizeof up_bank);
+    list_set(1u + CAT_BASS);
+    go_home();
+    track_select(3);
+    n = count_cat(CAT_DRUM);
+    nb = count_cat(CAT_BASS);
+    e0 = TSEL->eng_req;
+    p0 = TSEL->preset;
+    ok = track_cat(TSEL) == CAT_DRUM && n >= 3u;
+    preset_pos(&total);
+    ok &= total == n;
+    for (i = 0; i < n; i++) {
+        turn(EN_PRESET, 1);
+        ok &= track_cat(TSEL) == CAT_DRUM;
+    }
+    ok &= TSEL->eng_req == e0 && TSEL->preset == p0;     /* round: the first kit again */
+    bad += check("HOME, LIST on BASS: track 4's kit steps through every kit (DRUM, VDRUM's), never a bass, and round", ok);
+    ok = 1;
+    for (i = 0; i < n + 2u; i++) {
+        turn(EN_PRESET, -1);
+        ok &= track_cat(TSEL) == CAT_DRUM;
+    }
+    bad += check("  .. and back the same way: kits only", ok && list_mode() == 1u + CAT_BASS && ui_lcat == CAT_BASS);
+    go_page(GR_FX);
+    turn(EN_PRESET, 1);
+    bad += check("  on another page (FX) too: the PRESETS knob keeps to the kits", track_cat(TSEL) == CAT_DRUM && !ui.home);
+    go_page(GR_BROWSE);
+    preset_pos(&total);
+    ok = total == nb && list_mode() == 1u + CAT_BASS;
+    turn(EN_PRESET, 1);
+    bad += check("  the browser (SAVE > PRESETS) opens on LIST BASS as left: its list, its knob loads a bass",
+                 ok && track_cat(TSEL) == CAT_BASS);
+    go_home();
+    for (i = 0, ok = 1; i < nb + 1u; i++) {
+        turn(EN_PRESET, 1);
+        ok &= track_cat(TSEL) == CAT_BASS;
+    }
+    bad += check("  a bass on HOME: the basses", ok);
+    list_set(0);
+    select_engine(0);
+    apply_preset(0);                                      /* ANALOG SAW LEAD */
+    preset_pos(&total);
+    ok = total == count_cat(CAT_LEAD);
+    turn(EN_PRESET, 1);
+    bad += check("  LIST ALL: HOME steps a lead through the leads", ok && track_cat(TSEL) == CAT_LEAD);
+    favorite_set(ENGI_DRUM, 0, 1);
+    favorite_set(0, 2, 1);                                /* (SQR BASS) */
+    list_set(1u);
+    preset_pos(&total);
+    ok = total == 2u;
+    turn(EN_PRESET, 1);
+    ok &= TSEL->eng_req == ENGI_DRUM || (TSEL->eng_req == 0u && TSEL->preset == 2u);
+    bad += check("  LIST FAV: HOME steps through the favourites, whatever their category", ok);
+    list_set(0);
     memset(&favorites, 0, sizeof favorites);
     return bad;
 }
@@ -1720,11 +1808,11 @@ static int test_menu_tabs(void)
             }
     }
     ui_prefs = 0;
-    bad += check("MENU tabs: DISPLAY CONTROL AUDIO MIDI SYSTEM (8 7 4 2 8 rows), 1..8 each in a run, fit the page; tab gaps "
+    bad += check("MENU tabs: DISPLAY CONTROL AUDIO MIDI SYSTEM (8 7 4 8 7 rows; SYSTEM 8 with the second core), 1..8 each in a run, fit the page; tab gaps "
                  "constant (S, LARGE)",
                  ok && MTAB_COUNT == 5u && str_eq(MTAB_NAME[0], "DISPLAY") && str_eq(MTAB_NAME[MTAB_MIDI], "MIDI") &&
                  mtab_rows(MTAB_DISPLAY) == 8u && MI_TAB[MI_HOME] == MTAB_DISPLAY && mtab_rows(MTAB_CONTROL) == 7u && MI_TAB[MI_SCENE] == MTAB_CONTROL && mtab_rows(MTAB_AUDIO) == 4u &&
-                 mtab_rows(MTAB_MIDI) == 2u && MI_TAB[MI_LCLEAR] == MTAB_MIDI && mtab_rows(MTAB_SYSTEM) == 7u + FELUCCA_CPU2 && MI_TAB[MI_TUNE] == MTAB_AUDIO &&   /* (1.5: LEARN CLEAR, HELP) */
+                 mtab_rows(MTAB_MIDI) == 8u && MI_TAB[MI_LCLEAR] == MTAB_MIDI && mtab_rows(MTAB_SYSTEM) == 7u + FELUCCA_CPU2 && MI_TAB[MI_TUNE] == MTAB_AUDIO &&   /* (1.5: LEARN CLEAR, HELP) */
                  MI_TAB[MI_MIDIIN] == MTAB_MIDI && MI_TAB[MI_INFO] == MTAB_SYSTEM && MI_INFO >= MI_VALUES &&
                  MI_TAB[MI_DISK] == MTAB_SYSTEM && MI_DISK >= MI_VALUES);
 
@@ -1741,7 +1829,9 @@ static int test_menu_tabs(void)
     turn(EN_PRESET, 1); turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LATCH;
     turn(EN_ALGO, 1); ok &= ui.menu_sel == MI_LOWCUT && menu_tab() == MTAB_AUDIO;
     turn(EN_ALGO, 1); ok &= ui.menu_sel == MI_MIDIIN && menu_tab() == MTAB_MIDI;   /* (1.2) */
-    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LCLEAR;  /* (1.5: LEARN CLEAR, then round) */
+    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_CLKOUT;  /* (M-Vave-OP1: CLOCK OUT, CC OUT, T1..T4 OUT) */
+    for (i = 0; i < 6u; i++) turn(EN_PRESET, 1);
+    ok &= ui.menu_sel == MI_LCLEAR;                      /* (1.5: LEARN CLEAR, then round) */
     turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_MIDIIN;
     turn(EN_ALGO, 1); ok &= ui.menu_sel == MI_SERIAL && menu_tab() == MTAB_SYSTEM;
     turn(EN_ALGO, -1); turn(EN_ALGO, -1); ok &= ui.menu_sel == MI_LOWCUT;
@@ -3287,6 +3377,7 @@ static int test_layer(void)
     }
     /* combo: a key with FX: at once, silent, no MIDI, no recording, no step */
     ui_power_on();
+    ui_prefs2 |= PREF_CLKOUT_OFF >> 16; rp_apply();   /* (M-Vave-OP1: no clock pulses in the ring: notes only counted) */
     usb.config = 1; mo = mo_w;
     go_page(GR_ROLL); my_steps(TSEL); song.rec = 1; song.playing = 1;
     {
@@ -8972,14 +9063,17 @@ static int test_cpu2(void)
          str_eq(menu_vname(MI_CPU2, 1), "ON (BETA)") && MI_TEXT(MI_CPU2) && !MI_TEXT(MI_HELP);
     ui.msg_t = 0;
     menu_put(MI_CPU2, 1);
-    ok &= c1_set() && menu_get(MI_CPU2) == 1u && favorites.factory[15][24] == (uint8_t)(before[24] | 0x80u) &&
+    ok &= c1_set() && menu_get(MI_CPU2) == 1u && favorites.factory[15][25] == (uint8_t)(before[25] | 0x01u) &&
           msg_is("2ND CORE ON: RESTART");
     for (i = 0; i < sizeof before; i++)
-        ok &= i == 24u || favorites.factory[15][i] == before[i];
+        ok &= i == 25u || favorites.factory[15][i] == before[i];
     ok &= menu_step(MI_CPU2, 1) == 1u && menu_step(MI_CPU2, -1) == 0u;
     menu_put(MI_CPU2, 0);
-    ok &= !c1_set() && favorites.factory[15][24] == before[24] && msg_is("2ND CORE OFF: RESTART");
-    bad += check("MENU > SYSTEM > 2ND CORE: OFF by default, ON (BETA) a bit of its own (ui_prefs2 bit 7), said: from the restart", ok);
+    ok &= !c1_set() && favorites.factory[15][25] == before[25] && msg_is("2ND CORE OFF: RESTART");
+    ui_prefs2 |= 0x80u;                                /* (the first builds' bit: CLOCK OUT OFF now, never the core) */
+    ok &= !c1_set() && menu_get(MI_CPU2) == 0u && menu_get(MI_CLKOUT) == 1u;
+    ui_prefs2 &= (uint8_t)~0x80u;
+    bad += check("MENU > SYSTEM > 2ND CORE: OFF by default, ON (BETA) a bit of its own (ui_prefs3 bit 0, [15][25]), said: from the restart", ok);
 
     ok = c1_boot_plan(0, 0) == C1B_NONE && c1_boot_plan(1, 0) == C1B_NONE && c1_boot_plan(0, 1) == C1B_START &&
          c1_boot_plan(1, 1) == C1B_OFF && c1_boot_plan(2, 1) == C1B_OFF;
@@ -8987,7 +9081,7 @@ static int test_cpu2(void)
 
     menu_put(MI_CPU2, 1); ui.msg_t = 0;
     c1_tell(C1N_GAVE_UP);
-    ok = !c1_set() && msg_is("2ND CORE MISREAD: OFF") && favorites.factory[15][24] == before[24];
+    ok = !c1_set() && msg_is("2ND CORE MISREAD: OFF") && favorites.factory[15][25] == before[25];
     menu_put(MI_CPU2, 1); ui.msg_t = 0;
     c1_tell(C1N_BAD_START);
     ok &= !c1_set() && msg_is("2ND CORE OFF: BAD START");
@@ -9526,6 +9620,7 @@ int main(void)
     bad += test_screen();
     bad += test_favorites();
     bad += test_categories();
+    bad += test_category_home();
     bad += test_display_preferences();
     bad += test_menu_tabs();
     bad += test_menu_project_rows();

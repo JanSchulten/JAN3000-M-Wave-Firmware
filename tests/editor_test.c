@@ -183,7 +183,7 @@ static int preferences(void)
         host_wire[n - 37] == 0 &&                        /* (no bank since 1.0.3) */
         host_wire[n - 36] == 0x53 && host_wire[n - 35] == 1 && host_wire[n - 34] == 3 &&
         host_wire[n - 33] == 0x50 && host_wire[n - 32] == 1 && host_wire[n - 31] == 3 &&   /* FM6 v2: no bank, preset patches */
-        host_wire[n - 30] == 0x4E && host_wire[n - 29] == 1 && host_wire[n - 28] == ED_MENU_N &&   /* MENU settings: 28 items (M-Vave-OP1: SYNC OUT, SCENE CHANGE, 2ND CORE; 27 in a FELUCCA_CPU2=0 build) */
+        host_wire[n - 30] == 0x4E && host_wire[n - 29] == 1 && host_wire[n - 28] == ED_MENU_N &&   /* MENU settings: 34 items (M-Vave-OP1: SYNC OUT, SCENE CHANGE, CLOCK OUT, CC OUT, T1..T4 OUT, 2ND CORE; 33 in a FELUCCA_CPU2=0 build) */
         host_wire[n - 27] == 0x52 && host_wire[n - 26] == 1 && host_wire[n - 25] == 4 &&   /* RATCH */
         host_wire[n - 24] == 0x4C && host_wire[n - 23] == 1 && host_wire[n - 22] == 1 &&   /* 1.1 parameter locks */
         host_wire[n - 21] == 0x41 && host_wire[n - 20] == 1 && host_wire[n - 19] == 0 && host_wire[n - 18] == 1 &&   /* 1.2: 128 */
@@ -943,9 +943,11 @@ static int menu_protocol(void)
         ok &= strcmp(it.name, "CALIBRATION") && strcmp(it.name, "ABOUT") && strcmp(it.name, "INFO");
     }
 #if FELUCCA_CPU2
-    menu_desc(27, &it);                                  /* M-Vave-OP1: the second core's row, OFF */
-    ok &= ED_MENU_N == 28u && it.id == 27 && !strcmp(it.name, "2ND CORE") && it.value == 0 && it.nnames == 2u &&
+    menu_desc(33, &it);                                  /* M-Vave-OP1: the second core's row, OFF */
+    ok &= ED_MENU_N == 34u && it.id == 33 && !strcmp(it.name, "2ND CORE") && it.value == 0 && it.nnames == 2u &&
           !strcmp(it.names[1], "ON (BETA)");
+#else
+    ok &= ED_MENU_N == 33u;
 #endif
     n = menu_desc(ED_MENU_N, &it);
     ok &= n == 2u && it.index == ED_MENU_N && it.id == 127;
@@ -1010,6 +1012,22 @@ static int menu_protocol(void)
     ok &= menu_set(22, 51) == 0 && ed_rv(host_wire + 7) == 50 && song.g[G_TUNE] == 50;
     bad += check("MENU_SET: out-of-range values clamped, the reply says the value the device took (TUNE -50..50)", ok);
 
+    {   /* M-Vave-OP1: CLOCK OUT (27) and CC OUT (28), settings; T1..T4 OUT (29..32), the project's: rc 0 as MIDI IN */
+        menu_desc(27, &it);
+        ok = it.id == 27 && !strcmp(it.name, "CLOCK OUT") && it.nnames == 2 && !strcmp(it.names[0], "ON") && it.value == 0 &&
+             !strcmp(it.tabname, "MIDI");
+        menu_desc(28, &it);
+        ok &= it.id == 28 && !strcmp(it.name, "CC OUT") && it.nnames == 2 && !strcmp(it.names[1], "ON") && it.value == 0;
+        menu_desc(30, &it);
+        ok &= it.id == 30 && !strcmp(it.name, "T2 OUT") && it.nnames == 3 && !strcmp(it.names[0], "BOTH") &&
+              !strcmp(it.names[1], "MIDI") && !strcmp(it.names[2], "FM-1") && !strcmp(it.tabname, "MIDI");
+        ok &= menu_set(30, 1) == 0 && trk_out[1] == 1u && menu_set(32, 9) == 0 && trk_out[3] == 2u && ed_rv(host_wire + 7) == 2;
+        ok &= menu_set(28, 1) != 1 && (ui_rec_prefs & (PREF_CC_OUT >> 8)) && menu_set(27, 1) != 1 &&
+              (ui_prefs2 & (PREF_CLKOUT_OFF >> 16));
+        menu_set(27, 0); menu_set(28, 0); menu_set(30, 0); menu_set(32, 0);
+        bad += check("MENU_DESC / MENU_SET (M-Vave-OP1): CLOCK OUT 27, CC OUT 28; T1..T4 OUT 29..32 (BOTH MIDI FM-1, rc 0)",
+                     ok && !trk_out[1] && !trk_out[3]);
+    }
     /* an id nobody has */
     {
         static uint8_t fav0[sizeof favorites], set0[sizeof settings];

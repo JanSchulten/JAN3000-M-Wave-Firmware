@@ -1230,6 +1230,7 @@ static void project_new(uint32_t slot)
     eq_defaults();                                      /* (M-Vave-OP1: HOME > EQ flat) */
     dyn_defaults();                                     /* (.. HOME > MASTER: no compressor, the limiter as before) */
     xtra_lvl(0);                                        /* (.. MIX 2: the chain's levels full) */
+    xtra_tout(0);                                       /* (.. MENU > MIDI > T1..T4 OUT: BOTH) */
     np_sounds();
     for (k = 0; k < NTRK; k++) {                        /* (as felucca_init: no steps of the user's yet) */
         pat_sig[k] = steps_sig(&trk[k]);
@@ -1487,6 +1488,7 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, eq_set, sizeof eq_set);           /* (M-Vave-OP1: HOME > EQ, the extras') */
     h = as_mix(h, dyn_set, sizeof dyn_set);         /* (.. HOME > MASTER's) */
     h = as_mix(h, fx_lvl, sizeof fx_lvl);           /* (.. MIX 2's levels: the DELAY's MIX is G_DMIX's) */
+    h = as_mix(h, (const void *)trk_out, sizeof trk_out);   /* (.. T1..T4 OUT) */
     h = as_mix(h, cset_set, sizeof cset_set);       /* SCL > CSET's ON, SETs and VOICEs too; */
     h = as_mix(h, cset_voice, sizeof cset_voice);
     h = as_mix(h, &cset_en, 1);

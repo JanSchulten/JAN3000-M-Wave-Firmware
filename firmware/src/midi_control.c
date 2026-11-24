@@ -187,6 +187,7 @@ static void midi_silence_track(uint32_t track)
     trk_all_off(t);
     t->nheld = t->arp_phys = t->rh_n = 0;
     arp_forget(t);
+    seq_out_drop(t);                          /* (MIDI OUT: the sequencer's notes sent end there too) */
     t->seq_n = t->seq_hold = t->slide_glide = 0;
     for (i = 0; i < NVOICE; i++)
         if (t->v[i].active)

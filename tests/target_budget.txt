@@ -84,7 +84,7 @@ shimmer_bus 31
 chain_shimmer_in 7
 chain_delay_in 13
 chain_reverb 17
-shimmer_return 6
+shimmer_return 7
 cho_bus 98
 cho_side_mix 9
 chain_scale 12

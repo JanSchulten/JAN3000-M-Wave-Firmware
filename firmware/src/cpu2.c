@@ -16,7 +16,7 @@
 enum { C1B_NONE, C1B_START, C1B_OFF };
 /* what a start does about the second core: failed = the boot guard's count of failed starts before this one */
 static uint32_t c1_boot_plan(uint32_t failed, uint32_t on) { return !on ? C1B_NONE : failed ? C1B_OFF : C1B_START; }
-static uint32_t c1_set(void) { return (ui_prefs2 & (PREF_CPU2_ON >> 16)) != 0u; }
+static uint32_t c1_set(void) { return (ui_prefs3 & (PREF_CPU2_ON >> 24)) != 0u; }   /* (MENU > 2ND CORE, ui.c) */
 enum { C1N_NONE, C1N_GAVE_UP, C1N_BAD_START };
 static uint8_t c1_note;                         /* what c1_poll still has to say (C1N_*) */
 static const char *c1_note_text(uint32_t n) { return n == C1N_BAD_START ? "2ND CORE OFF: BAD START" : "2ND CORE MISREAD: OFF"; }
@@ -25,7 +25,7 @@ static const char *c1_note_text(uint32_t n) { return n == C1N_BAD_START ? "2ND C
 static void c1_tell(uint32_t n)
 {
     if (c1_set()) {
-        ui_prefs2 &= (uint8_t)~(PREF_CPU2_ON >> 16);
+        ui_prefs3 &= (uint8_t)~(PREF_CPU2_ON >> 24);
         settings_later();
     }
     ui_message(c1_note_text(n));

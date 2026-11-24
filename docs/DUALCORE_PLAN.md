@@ -232,7 +232,8 @@ CPU1-Fehler mit einem Kern weiter; (3) Wiederherstellungshardware ist vorhanden.
   müsste sonst gespeichert werden, und der Boot-Guard fängt den schlimmsten Fall ab (siehe Start). Konsole: `cpu2_fpu`.
 - **Fehler im Betrieb:** Lesefehler, Fault, verspäteter Auftrag oder keine Antwort: CPU1 wird gehalten, CPU0 rendert
   allein weiter, bis zum Ausschalten gesperrt; `c1_poll` stellt die Option auf OFF und meldet „2ND CORE MISREAD: OFF“.
-- **Menü:** MENU > SYSTEM > 2ND CORE, OFF / ON (BETA), Bit 7 von `ui_prefs2`, Editor-Id 27; wirkt ab dem nächsten
+- **Menü:** MENU > SYSTEM > 2ND CORE, OFF / ON (BETA), Bit 0 von `ui_prefs3` (`[15][25]`; die ersten Builds nahmen Bit 7
+  von `ui_prefs2`, das ist seit MIDI OUT CLOCK OUT OFF), Editor-Id 33 (nach MIDI OUTs 27..32); wirkt ab dem nächsten
   Einschalten. INFO: die CPU-Zeile heißt „CPU 1+2“, solange CPU1 mitrendert. Konsole: `cpu2_set`, `cpu2`,
   `cpu2_gave_up`, `cpu2_bad`, `cpu2_fpu`, `cpu2_blocks`, `cpu2_stack`. (Last von CPU1 und Stack-Tiefe stehen nur in der
   Konsole, nicht in INFO.)

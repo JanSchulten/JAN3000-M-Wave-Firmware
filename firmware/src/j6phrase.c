@@ -66,6 +66,7 @@ static void j6_end(track_t *t, j6run_t *r, uint32_t k, int rec)   /* slot k's no
     if (rec)
         rec_release(t, r->note[k]);
     trk_note_off(t, r->note[k]);
+    note_out(t, r->note[k], 0);                     /* (M-Vave-OP1: MIDI OUT) */
     r->note[k] = 0;
     r->on--;
 }
@@ -82,9 +83,13 @@ static __attribute__((noinline)) void j6_all_off(track_t *t, int rec)
     r->ph = 0;
     r->wait = 0;
 }
-static void j6_forget(track_t *t)        /* (trk_all_off ended them) */
+static void j6_forget(track_t *t)        /* (trk_all_off ended them; M-Vave-OP1: MIDI OUT's end here) */
 {
     j6run_t *r = &j6run[trk_index(t)];
+    uint32_t k;
+    for (k = 0; k < J6_SLOTS && r->on; k++)
+        if (r->note[k])
+            note_out(t, r->note[k], 0);
     memset(r->note, 0, sizeof r->note);
     r->on = 0;
     r->ph = 0;
@@ -142,6 +147,7 @@ static void j6_start(track_t *t, j6run_t *r, uint32_t note, uint32_t vel, uint32
     if (rec_on(t))
         rec_note(t, note, vel, 0);          /* recording: what the phrase plays */
     trk_note_on(t, note, vel);
+    note_out(t, note, vel);                 /* (M-Vave-OP1: MIDI OUT) */
 }
 
 /* note e of the phrase (J6PH_EV) starts: its chord tone over the held notes */

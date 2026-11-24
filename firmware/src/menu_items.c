@@ -5,17 +5,20 @@
  * SCREEN OFF; 1.2: SCOPE; 1.3: HOME), the
  * controls (HOLD: the layer threshold, KNOB ACCEL, FX LATCH, BPM LOCK; 1.2: SCALE LEDS, the keys, STEP PREVIEW, CHORD
  * ENTRY; M-Vave-OP1: SCENE CHANGE), the sound (SPEAKER EQ: FLAT LOWCUT BASS+,
- * USB LEVEL; 1.1: CLICK, CLICK LEVEL, COUNT-IN; 1.2: TUNE), MIDI (1.2: MIDI IN; 1.5: LEARN CLEAR), USB SERIAL, RESTORE
+ * USB LEVEL; 1.1: CLICK, CLICK LEVEL, COUNT-IN; 1.2: TUNE), MIDI (1.2: MIDI IN; M-Vave-OP1: CLOCK OUT, CC OUT, T1..T4
+ * OUT; 1.5: LEARN CLEAR), USB SERIAL, RESTORE
  * LAST (1.2), then CALIBRATION (the setup screen: HARDWARE CALIBRATION), INFO (1.2) and ABOUT, the rows with no value
  * (MI_VALUES: the rows before them hold one, but LEARN CLEAR: menu_valued). 1.0.5: in four tabs (MI_TAB); 1.2: five.
  * 1.5: LEARN CLEAR (MIDI) is an action, not a setting: OCT+ clears MIDI LEARN's map (midi_learn.c ml_clear_all; the editor
  * has LEARN_SET op 2 for it, so MENU_DESC does not offer it); the row shows how many CCs are learned
  * 1.2: TUNE and MIDI IN are not settings: they edit the project's G_TUNE and G_ROUTE (up to 1.1.5 on GLO > GLOBAL and
  * GLO > SYSTEM), the values the project holds and saves as before (no format change; a project load brings its own);
- * nothing of theirs is in the settings record (MI_PROJECT: menu_get / menu_put read and write song.g) */
+ * nothing of theirs is in the settings record (MI_PROJECT: menu_get / menu_put read and write song.g). M-Vave-OP1: T1..T4
+ * OUT too, the project's (core.h trk_out, kept in its extras) */
 enum { MI_COLOR, MI_STYLE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_SCOPE, MI_HOME, MI_HOLD, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_SCLLED,
        MI_PREVIEW, MI_CHADD, MI_SCENE, MI_LOWCUT, MI_USB,
-       MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_TUNE, MI_SYNC, MI_MIDIIN, MI_LCLEAR, MI_SERIAL, MI_RESTORE, MI_HELP,
+       MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_TUNE, MI_SYNC, MI_MIDIIN, MI_CLKOUT, MI_CCOUT, MI_TOUT1, MI_TOUT2, MI_TOUT3,
+       MI_TOUT4, MI_LCLEAR, MI_SERIAL, MI_RESTORE, MI_HELP,
 #if FELUCCA_CPU2
        MI_CPU2,                                        /* (M-Vave-OP1; not in a FELUCCA_CPU2=0 build: core.h) */
 #endif
@@ -32,11 +35,13 @@ enum { MI_COLOR, MI_STYLE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_SCOPE, MI_H
 #define MI_TEXT(row) 0
 #endif
 static int menu_valued(uint32_t row) { return row < MI_VALUES && row != MI_LCLEAR; }   /* (a row with a value) */
-#define MI_PROJECT(row) ((row) == MI_TUNE || (row) == MI_MIDIIN)   /* the project's values (song.g), not settings */
+#define MI_PROJECT(row) ((row) == MI_TUNE || (row) == MI_MIDIIN || ((row) >= MI_TOUT1 && (row) <= MI_TOUT4))   /* the
+                                                       * project's values (song.g, trk_out), not settings */
 static const char *const MI_NAME[MI_COUNT] = {"COLOR", "STYLE", "LARGE", "ANIM", "LEDS", "SCREEN OFF", "SCOPE", "HOME", "HOLD", "KNOB ACCEL",
                                               "FX LATCH", "BPM LOCK", "SCALE LEDS", "STEP PREVIEW", "CHORD ENTRY", "SCENE CHANGE",
                                               "SPEAKER EQ", "USB LEVEL", "CLICK", "CLICK LEVEL", "COUNT-IN", "TUNE",
-                                              "SYNC OUT", "MIDI IN", "LEARN CLEAR", "USB SERIAL", "RESTORE LAST", "HELP",
+                                              "SYNC OUT", "MIDI IN", "CLOCK OUT", "CC OUT", "T1 OUT", "T2 OUT", "T3 OUT",
+                                              "T4 OUT", "LEARN CLEAR", "USB SERIAL", "RESTORE LAST", "HELP",
 #if FELUCCA_CPU2
                                               "2ND CORE",
 #endif
@@ -65,6 +70,8 @@ static const uint8_t MI_TAB[MI_COUNT] = {
     MTAB_AUDIO,                                                             /* TUNE (1.2) */
     MTAB_AUDIO,                                                             /* SYNC OUT (M-Vave-OP1) */
     MTAB_MIDI,                                                              /* MIDI IN (1.2) */
+    MTAB_MIDI, MTAB_MIDI,                                                   /* CLOCK OUT, CC OUT (M-Vave-OP1) */
+    MTAB_MIDI, MTAB_MIDI, MTAB_MIDI, MTAB_MIDI,                             /* T1..T4 OUT (M-Vave-OP1) */
     MTAB_MIDI,                                                              /* LEARN CLEAR (1.5) */
     MTAB_SYSTEM, MTAB_SYSTEM, MTAB_SYSTEM,                                  /* USB SERIAL, RESTORE LAST, HELP (1.5) */
 #if FELUCCA_CPU2
@@ -129,6 +136,8 @@ static const menu_flag_t MENU_FLAGS[] = {
     {MI_CHADD, PREF_CHORD_ADD, {"HOLD", "ADD"}},       /* 1.2, #155: ADD, keys add to the cursor step (ui_input.c) */
     {MI_HELP, PREF_HELP, {"OFF", "ON"}},               /* 1.5, Discussion #156: ON, a hint per page / layer (ui_help.c) */
     {MI_SCENE, PREF_SCENE_BAR, {"AT END", "NEXT BAR"}},   /* M-Vave-OP1: NEXT BAR, a scene switches at the bar (scene.c) */
+    {MI_CLKOUT, PREF_CLKOUT_OFF, {"ON", "OFF"}},       /* M-Vave-OP1: OFF, no MIDI clock out (midi_out.c) */
+    {MI_CCOUT, PREF_CC_OUT, {"OFF", "ON"}},            /* M-Vave-OP1: ON, knobs and automation send CCs (midi_out.c) */
 #if FELUCCA_CPU2
     {MI_CPU2, PREF_CPU2_ON, {"OFF", "ON (BETA)"}},     /* M-Vave-OP1: ON, the second core (cpu2.c, from the next power-on) */
 #endif
@@ -140,6 +149,8 @@ static const menu_flag_t MENU_FLAGS[] = {
 static const char *const SPK_EQ[3] = {"FLAT", "LOWCUT", "BASS+"};
 /* M-Vave-OP1: SYNC OUT (ui_prefs2 PREF_SYNC_OUT, PREF_SYNC_INV): the Pocket Operators' sync, either way up (click.c) */
 static const char *const SYNC_N[3] = {"OFF", "PO", "PO INV"};
+/* M-Vave-OP1: T1..T4 OUT (core.h trk_out, TOUT_*): where a track's notes go */
+static const char *const TOUT_NAME[TOUT_N] = {"BOTH", "MIDI", "FM-1"};
 static const char *const HOLD_N[4] = {"0.3 s", "0.4 s", "0.5 s", "0.6 s"};   /* (the editor's names; the menu draws its own) */
 /* 1.1 (Discussion #131): the metronome (click.c) and the count-in (seq.c); ui.c ui_rec_prefs holds them */
 static const char *const CLICK_N[3] = {"OFF", "REC", "ON"};          /* REC: while a track is armed and playing */
@@ -187,14 +198,15 @@ static uint32_t menu_n(uint32_t row)
 {
     return row == MI_COLOR ? NPALETTES : row == MI_LOWCUT || row == MI_SYNC || (row >= MI_CLICK && row <= MI_COUNTIN) ? 3u :
            row == MI_HOLD ? 4u : row == MI_LEDS ? LEDS_COUNT : row == MI_SCROFF ? NELEM(SCROFF_N) :
-           row == MI_TUNE ? TUNE_N : row == MI_MIDIIN ? NELEM(N_ROUTE) : row == MI_ANIM ? 3u : row == MI_HOME ? HVM_COUNT : 2u;
+           row == MI_TUNE ? TUNE_N : row == MI_MIDIIN ? NELEM(N_ROUTE) : row == MI_ANIM ? 3u : row == MI_HOME ? HVM_COUNT :
+           row >= MI_TOUT1 && row <= MI_TOUT4 ? TOUT_N : 2u;
 }
 static uint32_t menu_get(uint32_t row)
 {
     const menu_flag_t *f = menu_flag(row);
     uint32_t i = 0;
     if (f)
-        return ((ui_prefs | (uint32_t)ui_rec_prefs << 8 | (uint32_t)ui_prefs2 << 16) & f->bit) != 0;
+        return ((ui_prefs | (uint32_t)ui_rec_prefs << 8 | (uint32_t)ui_prefs2 << 16 | (uint32_t)ui_prefs3 << 24) & f->bit) != 0;
     switch (row) {
     case MI_COLOR: return settings.palette % NPALETTES;
     case MI_STYLE: return ui_style == ST_LINE;
@@ -207,6 +219,7 @@ static uint32_t menu_get(uint32_t row)
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: return rp_get(row - MI_CLICK);
     case MI_TUNE: return (uint32_t)(clamp(song.g[G_TUNE], TUNE_MIN, TUNE_MIN + (int32_t)TUNE_N - 1) - TUNE_MIN);
     case MI_MIDIIN: return (uint32_t)clamp(song.g[G_ROUTE], 0, (int32_t)NELEM(N_ROUTE) - 1);
+    case MI_TOUT1: case MI_TOUT2: case MI_TOUT3: case MI_TOUT4: return trk_out[row - MI_TOUT1] % TOUT_N;
     case MI_LEDS:
         while (i + 1u < LEDS_COUNT && LEDS_MENU[i] != settings_leds)
             i++;
@@ -233,6 +246,7 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     case MI_HOME: return HOME_N[v % HVM_COUNT];
     case MI_LEDS: return LEDS_NAME[LEDS_MENU[v % LEDS_COUNT]];
     case MI_MIDIIN: return N_ROUTE[v % NELEM(N_ROUTE)];
+    case MI_TOUT1: case MI_TOUT2: case MI_TOUT3: case MI_TOUT4: return TOUT_NAME[v % TOUT_N];
     case MI_TUNE: {                                    /* the cents, signed ("+12", "0", "-7"; the menu adds "ct") */
         static char b[8];
         int32_t c = (int32_t)(v % TUNE_N) + TUNE_MIN;
@@ -252,7 +266,9 @@ static void menu_put(uint32_t row, uint32_t v)
 {
     const menu_flag_t *f = menu_flag(row);
     if (f) {
-        if (f->bit & PREF_X)
+        if (f->bit & PREF_Y)                           /* (M-Vave-OP1: 2ND CORE, ui.c ui_prefs3) */
+            ui_prefs3 = (uint8_t)(v ? ui_prefs3 | f->bit >> 24 : ui_prefs3 & ~(f->bit >> 24));
+        else if (f->bit & PREF_X)
             ui_prefs2 = (uint8_t)(v ? ui_prefs2 | f->bit >> 16 : ui_prefs2 & ~(f->bit >> 16));
         else if (f->bit & PREF_REC)
             ui_rec_prefs = (uint8_t)(v ? ui_rec_prefs | f->bit >> 8 : ui_rec_prefs & ~(f->bit >> 8));
@@ -293,6 +309,9 @@ static void menu_put(uint32_t row, uint32_t v)
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: rp_put(row - MI_CLICK, v); break;   /* (at once: click.c, seq.c) */
     case MI_TUNE: song.g[G_TUNE] = (int16_t)((int32_t)v + TUNE_MIN); break;
     case MI_MIDIIN: song.g[G_ROUTE] = (int16_t)v; break;
+    case MI_TOUT1: case MI_TOUT2: case MI_TOUT3: case MI_TOUT4:   /* (the ISR: a switch to FM-1 ends what it sent) */
+        trk_out[row - MI_TOUT1] = (uint8_t)(v % TOUT_N);
+        break;
     }
 }
 /* the menu's step, any of KNOB 1..4 or OCT+ (s > 0) / OCT- (s < 0): the next / previous value, stopping at the ends;

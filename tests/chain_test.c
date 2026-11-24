@@ -213,7 +213,7 @@ static void test_stored(void)
     ck("STORED: and loads the levels (CHR 11, SHR 23, REV 33)", fx_lvl[0] == 11 && fx_lvl[1] == 23 && fx_lvl[3] == 33);
     xtra_capture(&x, &xh, 7);
     ck("STORED: the extras grow by the levels (XTRA_V11 = XTRA_V10 + 4), each byte 0x80 | the level",
-       x.size == XTRA_V11 && XTRA_V11 == XTRA_V10 + 4u && xh.lvl[0] == (0x80u | 11u) && xh.lvl[1] == (0x80u | 23u) &&
+       x.size == XTRA_V12 && XTRA_V11 == XTRA_V10 + 4u && xh.lvl[0] == (0x80u | 11u) && xh.lvl[1] == (0x80u | 23u) &&
        xh.lvl[3] == (0x80u | 33u));
     x.size = XTRA_V10;                                  /* extras of before: the levels full */
     xtra_apply(&x, 7, &xh);

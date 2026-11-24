@@ -234,7 +234,7 @@ static void con_status(void)
     con_kv("flash", flash_ok);
 #endif
 #if FELUCCA_CPU2 && defined(C1_HW)
-    con_kv("cpu2_set", (ui_prefs2 & (PREF_CPU2_ON >> 16)) != 0u);   /* MENU > 2ND CORE: 1 ON (from power-on), 0 OFF */
+    con_kv("cpu2_set", (ui_prefs3 & (PREF_CPU2_ON >> 24)) != 0u);   /* MENU > 2ND CORE: 1 ON (from power-on), 0 OFF */
     con_kv("cpu2", fm1_cpu1_on);                        /* the second core renders parts (hal/fm1_cpu1.h) */
     con_kv("cpu2_gave_up", fm1_cpu1_gave_up);           /* why it is off (hal/fm1_cpu1.h FM1_CPU1_*), 0 = it is not */
     con_kv("cpu2_bad", (int32_t)fm1_cpu1_mb.rejected);

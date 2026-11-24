@@ -1517,7 +1517,8 @@ static void seq_entry(uint32_t pressed)
  *     1.2: with PATTERN, CHANCE and the old AUTOMATION gone, KNOB 1 is the cursor or the row on every SEQ page, so
  *     the PRESETS knob is no longer a second cursor where KNOB 1 was something else; TOOLS and SLICES: nothing
  *   HOME, PRESETS and every other page (EDIT, ENV, LFO, FX, SCL, ARP, MIXER, CLOCK, ...): the selected track's
- *     sound, one list over every engine, then the used user presets (preset_step). A sound load keeps the steps
+ *     sound, one list over every engine, then the used user presets (preset_step; M-Vave-OP1: of the sound's own
+ *     category, or FAV, outside the PRESETS browser: ui.c list_view). A sound load keeps the steps
  *     (SAVE held undoes it). Up to 1.0.3 it did that on HOME and PRESETS only */
 static void presets_turn(int32_t s)
 {

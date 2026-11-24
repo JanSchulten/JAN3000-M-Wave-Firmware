@@ -151,7 +151,10 @@ static void motion_restore(track_t *t)
 {
     uint32_t k = trk_index(t), id, f = motion_guard();
     for (id = 0; id < P_COUNT; id++)
-        if ((motion_active[k][id / 32u] >> (id % 32u)) & 1u) t->p[id] = motion_base[k][id];
+        if ((motion_active[k][id / 32u] >> (id % 32u)) & 1u) {
+            t->p[id] = motion_base[k][id];
+            cc_out_param(t, id);                       /* (M-Vave-OP1: CC OUT, midi_out.c) */
+        }
     memset(motion_active[k], 0, sizeof motion_active[k]);
     memset(motion_locked[k], 0, sizeof motion_locked[k]);
     motion_unguard(f);
@@ -297,6 +300,7 @@ static __attribute__((noinline)) void motion_unlock(track_t *t, uint32_t step, c
             v = (int16_t)param_fit(param_desc_of(eng_idx(t->eng_req), id), e->value);
         }
         t->p[id] = v;
+        cc_out_param(t, id);                            /* (M-Vave-OP1: CC OUT) */
     }
     memset(motion_locked[k], 0, sizeof motion_locked[k]);
 }
@@ -319,6 +323,7 @@ static __attribute__((noinline)) void motion_step(track_t *t, uint32_t step, con
         if (e->place != MO_PLACE(k, step) || ((e->param & MOTION_LOCK) && !play)) continue;
         const param_desc_t *d = param_desc_of(eng_idx(t->eng_req), id);
         t->p[id] = (int16_t)param_fit(d, e->value);
+        cc_out_param(t, id);                            /* (M-Vave-OP1: CC OUT, midi_out.c) */
         motion_active[k][id / 32u] |= 1u << (id % 32u);
         if (e->param & MOTION_LOCK)
             motion_locked[k][id / 32u] |= 1u << (id % 32u);

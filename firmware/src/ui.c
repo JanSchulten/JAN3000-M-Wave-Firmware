@@ -72,15 +72,18 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
  * engine uses, saved with the settings: bits 0-1 CLICK (OFF REC ON), 2-3 CLICK LEVEL (stored 0 MID, 1 LOW, 2 HIGH),
  * 4-5 COUNT-IN (OFF, 1 BAR, 2 BARS); 0 in older settings = OFF / MID / OFF, so nothing clicks or counts in that did
  * not; 3 (unknown) reads as 0 (settings_persist.c puts it back). Bit 6 (1.2): MENU > SCALE LEDS ON (Discussion #127,
- * ui_input.c scale_leds; 0 in older settings = OFF). Bit 7 free (append-only) */
+ * ui_input.c scale_leds; 0 in older settings = OFF). Bit 7 (M-Vave-OP1): MENU > MIDI > CC OUT ON (midi_out.c; 0 in
+ * older settings = OFF) */
 #define ui_rec_prefs (favorites.factory[15][28])
 #define PREF_REC 0xFF00u                       /* (menu_items.c MENU_FLAGS: a bit of ui_rec_prefs, << 8) */
 #define PREF_SCALE_LEDS (0x40u << 8)
+#define PREF_CC_OUT (0x80u << 8)
 /* 1.2: three more two-valued MENU settings, bits of another byte no engine uses, saved with the settings; 0 in older
  * settings = today's behaviour (append-only, as ui_prefs): bit 0 DISPLAY > SCOPE MIX (Discussion #165, fx.c scope_mix),
  * bit 1 CONTROL > STEP PREVIEW ON (Discussion #169, ui_input.c step_preview), bit 2 CONTROL > CHORD ENTRY ADD (#155,
  * ui_input.c seq_entry). 1.5: bit 3 SYSTEM > HELP ON (Discussion #156, ui_help.c). M-Vave-OP1: bits 4, 5 SYNC OUT (below),
- * bit 6 CONTROL > SCENE CHANGE NEXT BAR (scene.c scene_due). Bit 7 free */
+ * bit 6 CONTROL > SCENE CHANGE NEXT BAR (scene.c scene_due), bit 7 MIDI > CLOCK OUT OFF (midi_out.c; 0 in older
+ * settings = ON) */
 #define ui_prefs2 (favorites.factory[15][24])
 #define PREF_X 0xFF0000u                       /* (menu_items.c MENU_FLAGS: a bit of ui_prefs2, << 16) */
 #define PREF_SCOPE_MIX (0x01u << 16)
@@ -91,10 +94,15 @@ _Static_assert(NELEM(ANALOG2_PRESETS) <= 128u && NELEM(VDRUM_PRESETS) <= 128u &&
 #define PREF_SYNC_INV (0x20u << 16)            /* .. bit 5, with it: PO INV (the pulses upside down) */
 #define PREF_SCENE_BAR (0x40u << 16)           /* M-Vave-OP1: bit 6, a scene picked while playing switches at the next
                                                 * bar (0: AT END, at the end of the scene playing) */
-#define PREF_CPU2_ON (0x80u << 16)             /* M-Vave-OP1: bit 7, MENU > SYSTEM > 2ND CORE ON (BETA): the second core
-                                                * from the next power-on (cpu2.c); clear = OFF, one core (every older
-                                                * setting: nothing set bit 7 before). It turns itself OFF when core 1
-                                                * misreads or a start with it fails (cpu2.c c1_tell) */
+#define PREF_CLKOUT_OFF (0x80u << 16)          /* M-Vave-OP1: bit 7, no MIDI clock out (0: ON, the default) */
+/* M-Vave-OP1: a fourth byte of MENU flags (ui_prefs2 is full), no engine uses it, saved with the settings; 0 in older
+ * settings = the default: bit 0 SYSTEM > 2ND CORE ON (BETA): the second core from the next power-on (cpu2.c); clear =
+ * OFF, one core. A byte no build wrote before, so no older setting turns it on (the second core's first builds kept it
+ * in ui_prefs2's bit 7, which is CLOCK OUT OFF now: such a unit comes up with one core and MIDI clock off). It turns
+ * itself OFF when core 1 misreads or a start with it fails (cpu2.c c1_tell) */
+#define ui_prefs3 (favorites.factory[15][25])
+#define PREF_Y 0xFF000000u                     /* (menu_items.c MENU_FLAGS: a bit of ui_prefs3, << 24) */
+#define PREF_CPU2_ON (0x01u << 24)
 /* 1.3 (Discussions #112, #134): MENU > DISPLAY > HOME, what the HOME page shows under its four cards: 0 SCOPE (the
  * oscilloscope, as before), 1 TRACKS (the four tracks as rows: ui_graph.c draw_home_tracks), 2 LEVELS (1.5, #134: the
  * rows of TRACKS, and KNOB 1..4 the LEVEL of T1..T4 in place of the engine's four: home_param). A byte of its own no
@@ -122,6 +130,8 @@ static void rp_apply(void)                             /* the settings into clic
     po_sync = !(ui_prefs2 & (PREF_SYNC_OUT >> 16)) ? 0u : (ui_prefs2 & (PREF_SYNC_INV >> 16)) ? 2u : 1u;   /* (M-Vave-OP1:
                                                      * SYNC OUT OFF / PO / PO INV, click.c) */
     scn_bar = (ui_prefs2 & (PREF_SCENE_BAR >> 16)) != 0u;   /* (M-Vave-OP1: SCENE CHANGE NEXT BAR, scene.c scene_due) */
+    clk_out_off = (ui_prefs2 & (PREF_CLKOUT_OFF >> 16)) != 0u;   /* (M-Vave-OP1: MIDI > CLOCK OUT, CC OUT: midi_out.c) */
+    cc_out_on = (ui_rec_prefs & (PREF_CC_OUT >> 8)) != 0u;
 }
 static void rp_put(uint32_t f, uint32_t v)
 {
@@ -1804,25 +1814,32 @@ static void list_set(uint32_t m)
 static const char *list_name(uint32_t m) { return m == 0u ? "ALL" : m == 1u ? "FAV" : CAT_NAME[(m - 1u) % CAT_N]; }
 /* the category of list entry e, k (preset_all_at: NENGINES = user preset k) */
 static uint32_t sound_cat(uint32_t e, uint32_t k) { return e == NENGINES ? up_cat(k) : preset_cat(e, k); }
-static int list_keep(uint32_t e, uint32_t k)
-{
-    uint32_t m = list_mode();
-    return m == 1u ? favorite_has(e, k) : m ? sound_cat(e, k) == m - 1u : 1;
-}
-/* the category of the sound track t plays: its user preset's, else its factory preset's (the NAME screen's default) */
+/* the category of the sound track t plays: its user preset's, else its factory preset's (the NAME screen's default);
+ * never CAT_NONE (up_cat_of, preset_cat: a sound without one is its engine's, cat_of_engine) */
 static uint32_t track_cat(const track_t *t)
 {
     uint32_t u = user_of(t);
     return u < UP_SLOTS ? up_cat(u) : preset_cat(t->eng_req % NENGINES, t->preset);
 }
+/* M-Vave-OP1 (user report: LIST on BASS, then the PRESETS knob on HOME turned a drum kit into a bass, and back only
+ * into another bass): the list the PRESETS knob browses. On SAVE > PRESETS (the browser, its LIST shown on KNOB 4):
+ * LIST as set. Everywhere else (HOME, the other pages, preset_step) the selected sound's own category, so a kit steps
+ * through the kits, a bass through the basses, whatever LIST was left on; FAV, a list the player made, as set. The
+ * stored LIST is not changed: the browser opens on it again */
+static int browse_open(void) { return !ui.home && cur_page()->graph == GR_BROWSE; }
+static uint32_t list_view(void) { return favorites.filter || browse_open() ? list_mode() : 1u + track_cat(TSEL); }
+static int list_keep(uint32_t m, uint32_t e, uint32_t k)   /* list entry e, k is in list m (list_mode's numbers) */
+{
+    return m == 1u ? favorite_has(e, k) : m ? sound_cat(e, k) == m - 1u : 1;
+}
 
 static uint32_t preset_pos(uint32_t *total)
 {
-    uint32_t all, current = preset_all_pos(&all), n = 0, pos = 0xFFFFFFFFu;
-    if (!list_mode()) { *total = all; return current; }
+    uint32_t all, current = preset_all_pos(&all), n = 0, pos = 0xFFFFFFFFu, m = list_view();
+    if (!m) { *total = all; return current; }
     for (uint32_t i = 0; i < all; i++) {
         uint32_t k, e = preset_all_at(i, &k);
-        if (!list_keep(e, k)) continue;
+        if (!list_keep(m, e, k)) continue;
         if (i == current) pos = n;
         n++;
     }
@@ -1831,12 +1848,12 @@ static uint32_t preset_pos(uint32_t *total)
 }
 static uint32_t preset_at(uint32_t n, uint32_t *k)
 {
-    uint32_t all;
-    if (!list_mode()) return preset_all_at(n, k);
+    uint32_t all, m = list_view();
+    if (!m) return preset_all_at(n, k);
     preset_all_pos(&all);
     for (uint32_t i = 0; i < all; i++) {
         uint32_t e = preset_all_at(i, k);
-        if (list_keep(e, *k) && !n--) return e;
+        if (list_keep(m, e, *k) && !n--) return e;
     }
     *k = UP_SLOTS;
     return NENGINES;
@@ -1955,7 +1972,7 @@ static void eng_list_step(int32_t direction)         /* the next / previous soun
 static void preset_step(int32_t direction)
 {
     uint32_t total, cur = preset_pos(&total);
-    if (!total) { ui_message(list_mode() == 1u ? "NO FAVORITES" : "NO SOUNDS IN LIST"); return; }
+    if (!total) { ui_message(list_view() == 1u ? "NO FAVORITES" : "NO SOUNDS IN LIST"); return; }
     preset_go(cur >= total ? (direction > 0 ? 0 : total - 1) :
               (cur + (direction > 0 ? 1u : total - 1u)) % total);
 }
@@ -1966,7 +1983,7 @@ static uint32_t preset_visible(uint32_t cur, uint32_t total, uint32_t row)
 {
     uint32_t first, last;
     if (!total || row >= 7u) return total;
-    if (!list_mode())
+    if (!list_view())
         return (cur + total * 4u + row - 3u) % total;
     first = cur < total && cur > 3u ? cur - 3u : 0u;
     last = total > 7u ? total - 7u : 0u;

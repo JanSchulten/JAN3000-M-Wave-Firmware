@@ -459,16 +459,18 @@ typedef struct track {
     int32_t dist_hp, dist_lp1, dist_lp2;   /* DIST insert state (fx.c) */
     uint8_t tail;                /* blocks to mix after the last voice (the DIST / INSERT tail) */
     uint8_t ins_run;             /* the INSERT still sounds (fx.c track_insert: its wet share above 0) */
+    uint8_t out;                 /* M-Vave-OP1: trk_out[] of this track (T OUT), copied by the ISR every block
+                                  * (midi_out.c midi_out_block): voice.c trk_note_on reads it without an index */
 #if FELUCCA_CPU2
     /* the second core: a part's render state of its own, so two parts rendering at once share nothing (fx.c
-     * mix_block). 14 bytes where the pad had 9 left (the J-6's settings took 6 of its 15): the part is 16 bytes
-     * larger with the second core built in, 64 bytes of RAM for the four */
+     * mix_block), in the pad (the J-6's settings took 6 of its 15, T OUT 1): the part is 16 bytes larger with the
+     * second core built in, 64 bytes of RAM for the four */
     uint8_t lfo_wrap;            /* the LFO's phase wrapped this block: its S&H is drawn after the parts (voice.c) */
     uint8_t spread_on;           /* SPREAD this block (fx.c mix_part, voice.c track_render) */
     uint32_t esync_k[3];         /* ATK's step, DEC's and REL's coefficient (Q16) this block (voice.c esync_coef) */
-    uint8_t rsv_sz[11];          /* (sizeof(track_t) a multiple of 16: below) */
+    uint8_t rsv_sz[7];           /* (sizeof(track_t) a multiple of 16: below; the block ends where it did without T OUT) */
 #else
-    uint8_t rsv_sz[9];           /* (sizeof(track_t) a multiple of 16: below) */
+    uint8_t rsv_sz[8];           /* (sizeof(track_t) a multiple of 16: below) */
 #endif
     int16_t armp, aholdp;        /* P_AMODE / P_AHOLD as last seen by the ISR */
     /* engine switch (voice.c engine_block): the old engine's voices fade out, then it switches */
@@ -503,6 +505,12 @@ typedef struct {
 } song_t;
 
 static track_t trk[NTRK];        /* the instrument: four parts */
+/* M-Vave-OP1: MENU > MIDI > T1..T4 OUT, where each track's notes go: BOTH the FM-1's sound and MIDI OUT (USB), MIDI
+ * OUT only (LOCAL OFF: the FM-1 plays an outside instrument with this track, its own voices silent: voice.c
+ * trk_note_on), or the FM-1 only (nothing of the track's sent: notes, CCs; midi_out.c). Kept with the project (opstore.c
+ * extras, XTRA_V12); 0 (BOTH) is every project's of before. Stored values: append-only */
+enum { TOUT_BOTH, TOUT_MIDI, TOUT_FM1, TOUT_N };
+static volatile uint8_t trk_out[NTRK];
 static song_t song;
 #define TSEL (&trk[song.sel])    /* the selected track */
 

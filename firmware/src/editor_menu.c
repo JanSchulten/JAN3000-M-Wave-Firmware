@@ -32,9 +32,13 @@ static const uint8_t ED_MENU[][2] = {
     {MI_HELP, 24},                                     /* 1.5 (Discussion #156): HELP OFF / ON, SYSTEM */
     {MI_SYNC, 25},                                     /* M-Vave-OP1: SYNC OUT OFF / PO / PO INV, AUDIO */
     {MI_SCENE, 26},                                    /* M-Vave-OP1: SCENE CHANGE AT END / NEXT BAR, CONTROL */
+    {MI_CLKOUT, 27},                                   /* M-Vave-OP1: CLOCK OUT ON / OFF, MIDI */
+    {MI_CCOUT, 28},                                    /* M-Vave-OP1: CC OUT OFF / ON, MIDI */
+    {MI_TOUT1, 29}, {MI_TOUT2, 30}, {MI_TOUT3, 31}, {MI_TOUT4, 32},   /* M-Vave-OP1: T1..T4 OUT BOTH / MIDI / FM-1, MIDI:
+                                                       * the project's (MI_PROJECT), as MIDI IN */
 #if FELUCCA_CPU2
-    {MI_CPU2, 27},                                     /* M-Vave-OP1: 2ND CORE OFF / ON (BETA), SYSTEM, from the next
-                                                        * power-on (a FELUCCA_CPU2=0 build: 0..26) */
+    {MI_CPU2, 33},                                     /* M-Vave-OP1: 2ND CORE OFF / ON (BETA), SYSTEM, from the next
+                                                        * power-on (a FELUCCA_CPU2=0 build: 0..32) */
 #endif
 };
 #define ED_MENU_N NELEM(ED_MENU)

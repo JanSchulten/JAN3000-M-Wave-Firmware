@@ -30,15 +30,17 @@ AL-255/FM-1-RE (reverse engineering of the stock firmware), measurements from bu
 | --- | --- | --- | --- |
 | RAMTEXT | 0x01C00000 | 24 KB | code that runs while the flash is busy (flash driver) |
 | (debug) | 0x01C06000 | 8 KB | kept free for RAM-run debugging |
-| RAM | 0x01C08000 | 50 KB | `.data` + `.bss`: what the ISRs touch, small variables |
-| POOL | 0x01C14800 | 382 KB | `.pool`: big zero-initialised buffers (FX lines, canvases, engine memory, the song's sources) |
+| RAM | 0x01C08000 | 47 KB | `.data` + `.bss`: what the ISRs touch, small variables |
+| POOL | 0x01C13C00 | 385 KB | `.pool`: big zero-initialised buffers (FX lines, canvases, engine memory, the song's sources) |
 | stacks | 0x01C74000 .. 0x01C7C000 | 32 KB | user and system stacks with 256-byte guard bands |
 | NOINIT | 0x01C7C000 | ~15 KB | survives resets and boot-mode entry (panel calibration, boot guard) |
 | reserved | 0x01C7FD50 .. | | boot_info, boot-state mailbox, vector table |
 
 The RAM / POOL split is only a budget line in the linker script; both are the same SRAM. It moved twice: Felucca 1.5
 96 / 336 KB -> 72 / 360 KB; M-Vave-OP1's 128 steps 72 / 360 -> 56 / 376 KB (the song chain's four sources, 25 KB,
-went to the pool); back to 64 steps with the SHIMMER bus and the grouped undo: 50 / 382 KB.
+went to the pool); back to 64 steps with the SHIMMER bus and the grouped undo: 50 / 382 KB; the Alt 2 canvas, the
+second core and MIDI OUT together: 47 / 385 KB, and `tools/build.py` keeps 4 KB of the pool spare (8 KB before; RAM
+still 4 KB). Little is left on either side: a new big buffer needs a trade first.
 
 ### Budgets (the second core's structure, docs/DUALCORE_PLAN.md step 2; 2026-11-02)
 
